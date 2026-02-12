@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QComboBox,
     QSpinBox,
+    QCheckBox,
     QProgressBar,
     QFormLayout,
     QMessageBox,
@@ -708,6 +709,9 @@ class MainWindow(QMainWindow):
         self.align_stats_btn = QPushButton("Stats")
         self.align_stats_btn.clicked.connect(self._show_align_stats)
         row.addWidget(self.align_stats_btn)
+        self.align_accepted_only_cb = QCheckBox("Liens acceptés uniquement")
+        self.align_accepted_only_cb.setToolTip("Export concordancier, rapport HTML et stats : ne considérer que les liens acceptés")
+        row.addWidget(self.align_accepted_only_cb)
         layout.addLayout(row)
         self.align_table = QTableView()
         self.align_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -828,7 +832,8 @@ class MainWindow(QMainWindow):
             return
         path = Path(path)
         try:
-            rows = self._db.get_parallel_concordance(eid, run_id)
+            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
+            rows = self._db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
             if path.suffix.lower() == ".jsonl":
                 export_parallel_concordance_jsonl(rows, path)
             elif path.suffix.lower() == ".tsv":
@@ -854,8 +859,9 @@ class MainWindow(QMainWindow):
         if path.suffix.lower() != ".html":
             path = path.with_suffix(".html")
         try:
-            stats = self._db.get_align_stats_for_run(eid, run_id)
-            sample = self._db.get_parallel_concordance(eid, run_id)
+            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
+            stats = self._db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
+            sample = self._db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
             export_align_report_html(stats, sample, eid, run_id, path)
             QMessageBox.information(self, "Rapport", f"Rapport enregistré : {path.name}")
         except Exception as e:
@@ -870,7 +876,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Stats", "Sélectionnez un épisode et un run.")
             return
         try:
-            stats = self._db.get_align_stats_for_run(eid, run_id)
+            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
+            stats = self._db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
             by_status = stats.get("by_status") or {}
             msg = (
                 f"Épisode: {stats.get('episode_id', '')}\n"

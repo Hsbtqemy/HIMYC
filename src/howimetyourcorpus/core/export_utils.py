@@ -249,13 +249,19 @@ PARALLEL_CONCORDANCE_COLUMNS = [
 ]
 
 
+def _parallel_cell(row: dict, key: str):
+    """Valeur d'une cellule pour l'export CSV/TSV : None → chaîne vide (évite "None" dans les fichiers)."""
+    v = row.get(key)
+    return "" if v is None else v
+
+
 def export_parallel_concordance_csv(rows: list[dict], path: Path) -> None:
     """Exporte le concordancier parallèle en CSV (segment, EN, FR, IT + confiances)."""
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(PARALLEL_CONCORDANCE_COLUMNS)
         for r in rows:
-            w.writerow([r.get(k) for k in PARALLEL_CONCORDANCE_COLUMNS])
+            w.writerow([_parallel_cell(r, k) for k in PARALLEL_CONCORDANCE_COLUMNS])
     return None
 
 
@@ -265,7 +271,7 @@ def export_parallel_concordance_tsv(rows: list[dict], path: Path) -> None:
         w = csv.writer(f, delimiter="\t")
         w.writerow(PARALLEL_CONCORDANCE_COLUMNS)
         for r in rows:
-            w.writerow([r.get(k) for k in PARALLEL_CONCORDANCE_COLUMNS])
+            w.writerow([_parallel_cell(r, k) for k in PARALLEL_CONCORDANCE_COLUMNS])
     return None
 
 
@@ -332,8 +338,10 @@ def export_align_report_html(
     return None
 
 
-def _escape(s: str) -> str:
-    """Échappe HTML pour affichage sûr."""
+def _escape(s: str | None) -> str:
+    """Échappe HTML pour affichage sûr. Accepte None et renvoie ''."""
+    if s is None:
+        return ""
     return (
         s.replace("&", "&amp;")
         .replace("<", "&lt;")

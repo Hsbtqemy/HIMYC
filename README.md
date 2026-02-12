@@ -122,15 +122,16 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
 Pour générer **HowIMetYourCorpus.exe** en local (dossier **dist/** à la racine du projet) :
 
 1. Avoir installé le projet (Option B ci-dessus).
-2. Lancer le build :
+2. *(Optionnel)* Pour un .exe avec meilleure similarité textuelle (Phase 4, alignement) : `pip install -e ".[align]"` avant le build, afin d’embarquer **rapidfuzz** ; sinon le .exe utilise le fallback Jaccard.
+3. Lancer le build :
    ```bat
    scripts\windows\build_exe.bat
    ```
-3. L’exécutable est produit dans **dist\HowIMetYourCorpus.exe**.
+4. L’exécutable est produit dans **dist\HowIMetYourCorpus.exe**.
 
 Le build utilise **HowIMetYourCorpus.spec** (PyInstaller) qui inclut le schéma SQL et les migrations en données embarquées. Le menu **Aide → À propos** affiche la version ; **Aide → Vérifier les mises à jour** ouvre la page des releases GitHub.
 
-Pour publier une release avec le .exe sur GitHub : créer un tag (ex. `v0.2.0`) et le pousser. Le workflow [.github/workflows/release.yml](.github/workflows/release.yml) build le .exe et l’attache à la release en tant qu’asset unique.
+**Publier une release** : créer un tag (ex. `v0.3.0`) et le pousser. Le workflow [.github/workflows/release.yml](.github/workflows/release.yml) build le .exe et l’attache à la release. **Garder `__version__`** (dans `src/howimetyourcorpus/__init__.py`) **et le tag synchronisés** (ex. tag `v0.3.0` ↔ `__version__ = "0.3.0"`) avant de pousser le tag.
 
 ---
 

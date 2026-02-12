@@ -680,19 +680,27 @@ class CorpusDB:
 
     # ----- Phase 5: concordancier parallèle et stats -----
 
-    def get_align_stats_for_run(self, episode_id: str, run_id: str) -> dict:
+    def get_align_stats_for_run(
+        self, episode_id: str, run_id: str, status_filter: str | None = None
+    ) -> dict:
         """
         Statistiques d'alignement pour un run : nb_links, nb_pivot, nb_target,
         by_status (auto/accepted/rejected), avg_confidence.
+        Si status_filter est fourni (ex. "accepted"), seuls les liens avec ce statut sont comptés.
         """
         conn = self._conn()
         conn.row_factory = sqlite3.Row
         try:
+            where = "WHERE episode_id = ? AND align_run_id = ?"
+            params: list = [episode_id, run_id]
+            if status_filter:
+                where += " AND status = ?"
+                params.append(status_filter)
             rows = conn.execute(
-                """SELECT role, status, confidence, COUNT(*) AS cnt
-                   FROM align_links WHERE episode_id = ? AND align_run_id = ?
+                f"""SELECT role, status, confidence, COUNT(*) AS cnt
+                   FROM align_links {where}
                    GROUP BY role, status""",
-                (episode_id, run_id),
+                params,
             ).fetchall()
             nb_links = 0
             nb_pivot = 0
@@ -735,6 +743,7 @@ class CorpusDB:
         Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues FR/IT
         à partir des liens d'alignement. Chaque ligne : segment_id, text_segment, text_en, confidence_pivot,
         text_fr, confidence_fr, text_it, confidence_it.
+        Au plus une valeur FR et une valeur IT par ligne (pivot) sont retournées (dernier lien target par langue).
         """
         links = self.query_alignment_for_episode(episode_id, run_id=run_id, status_filter=status_filter)
         segments = self.get_segments_for_episode(episode_id, kind="sentence")

@@ -147,7 +147,7 @@ projects/<project_name>/
 - **Phase 3** : Import sous-titres SRT/VTT (fichiers locaux). ✅ *Fait.*
 - **Phase 4** : Alignement transcript ↔ sous-titres officiels, UI validation. ✅ *Fait : `core/align/` (similarity, aligner), tables `align_runs`/`align_links`, onglet Alignement, export CSV/JSONL, audit par run.*
 - **Phase 5** : Exports concordancier parallèle, stats, rapports (Quarto optionnel). ✅ *Fait : `get_align_stats_for_run`, `get_parallel_concordance`, export CSV/TSV/JSONL concordancier parallèle, rapport HTML (stats + échantillon), boutons Stats / Rapport HTML / Exporter concordancier parallèle dans l’onglet Alignement.*
-- **Phase 6** : Packaging Windows (PyInstaller, mise à jour optionnelle). ✅ *Fait : HowIMetYourCorpus.spec (datas schema.sql + migrations), build_exe.bat et release.yml utilisent le spec ; menu Aide → À propos (version), Aide → Vérifier les mises à jour (ouvre GitHub releases).*
+- **Phase 6** : Packaging Windows (PyInstaller, mise à jour optionnelle). ✅ *Fait : HowIMetYourCorpus.spec (datas schema.sql + migrations), build_exe.bat et release.yml utilisent le spec ; menu Aide → À propos (version), Aide → Vérifier les mises à jour (ouvre GitHub releases). Release CI installe `.[align]` pour embarquer rapidfuzz dans le .exe ; en local : `pip install -e ".[align]"` avant build pour même effet.*
 
 ---
 
