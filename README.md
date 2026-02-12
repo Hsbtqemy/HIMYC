@@ -1,0 +1,139 @@
+# HowIMetYourCorpus
+
+Application desktop Windows pour construire, normaliser, indexer et explorer des transcriptions (et sous-titres) depuis des sources web. Interface PySide6, architecture modulaire et extensible.
+
+## Prérequis
+
+- **Windows 10/11**
+- Connexion internet (pour le scraping des sources configurées)
+- Pour l’installation depuis les sources : **Python 3.11+**
+
+---
+
+## Installation
+
+### Option A — Exécutable .exe (sans Python)
+
+1. **Télécharger le .exe** depuis la dernière [release GitHub](https://github.com/Hsbtqemy/HIMYC/releases/latest) : l’asset **HowIMetYourCorpus.exe** est un fichier unique (pas de zip).
+2. Ou exécuter le script de téléchargement (place le .exe dans le dossier courant) :
+   ```bat
+   scripts\windows\download_exe.bat
+   ```
+   Ou en PowerShell :
+   ```powershell
+   .\scripts\windows\download_exe.ps1
+   ```
+3. Lancer l’application en double-cliquant sur **HowIMetYourCorpus.exe** ou depuis un terminal : `.\HowIMetYourCorpus.exe`.
+
+Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l’avez téléchargé) ; il n’est pas extrait d’une archive.
+
+### Option B — Depuis les sources (Python)
+
+1. Ouvrir un terminal dans le dossier du projet.
+2. Exécuter le script d’installation :
+   ```bat
+   scripts\windows\install.bat
+   ```
+3. Ce script crée un environnement virtuel `.venv`, installe les dépendances et le package en mode éditable.
+
+---
+
+## Lancement
+
+### Avec l’exécutable .exe
+
+- Double-clic sur **HowIMetYourCorpus.exe**, ou en ligne de commande : `.\HowIMetYourCorpus.exe`.
+
+### Avec Python (sources)
+
+- **Sans console** (recommandé pour l’usage) :
+  ```bat
+  scripts\windows\run.bat
+  ```
+- **Avec console** (débogage) :
+  ```bat
+  .venv\Scripts\activate
+  set PYTHONPATH=src
+  python -m corpusstudio.app.main
+  ```
+  (Si le package n’est pas installé en éditable, `PYTHONPATH=src` est nécessaire.)
+
+## Utilisation rapide
+
+1. **Créer ou ouvrir un projet** (onglet Projet)  
+   - Choisir un dossier pour le projet (ou en ouvrir un existant).  
+   - Renseigner la source (ex. `subslikescript`) et l’URL de la page série.  
+   - Valider et initialiser.
+
+2. **Construire le corpus** (onglet Corpus)  
+   - « Découvrir épisodes » : récupère la liste des épisodes depuis la source.  
+   - « Télécharger sélection » / « Télécharger tout » : récupère les pages HTML et extrait le texte brut.  
+   - « Normaliser sélection » / « Normaliser tout » : applique le profil de normalisation (RAW → CLEAN).  
+   - « Indexer DB » : indexe le texte normalisé dans SQLite/FTS pour la recherche.
+
+3. **Inspecter** (onglet Inspecteur)  
+   - Choisir un épisode et comparer RAW vs CLEAN, stats et exemples de fusions.
+
+4. **Concordance** (onglet Concordance)  
+   - Saisir un terme, filtrer par saison/épisode, afficher les résultats KWIC.  
+   - Double-clic : ouvre l’Inspecteur sur l’épisode concerné.
+
+5. **Logs** (onglet Logs)  
+   - Consulter les logs en direct ou ouvrir le fichier de log.
+
+## Configuration et profils
+
+- Chaque projet contient un `config.toml` à la racine du projet.
+- Un preset exemple est fourni : `preset_himym.toml` (How I Met Your Mother sur subslikescript).  
+  Le code reste **générique** : toute URL de série valide pour la source configurée fonctionne.
+
+## Notes légales et limites
+
+- **Usage local uniquement** : les données sont stockées sur votre machine ; aucune redistribution intégrée des contenus.
+- **Scraping** : respectez les conditions d’utilisation des sites sources et un rythme de requêtes raisonnable (rate limit configurable).  
+  L’outil est fourni à des fins de recherche et d’analyse personnelle ; vous êtes responsable du respect du droit applicable.
+
+## Ajouter un nouvel adapteur (phase future)
+
+1. Créer `src/corpusstudio/core/adapters/<nom_source>.py`.
+2. Implémenter l’interface `SourceAdapter` (discover_series, fetch_episode_html, parse_episode, normalize_episode_id).
+3. Enregistrer l’adapteur dans le registre : `AdapterRegistry.register(MonAdapter())`.
+4. Ajouter le `source_id` dans la config projet si besoin.
+
+## Construire le .exe (développeurs)
+
+Pour générer **HowIMetYourCorpus.exe** en local (dossier **dist/** à la racine du projet, pas dans un zip) :
+
+1. Avoir installé le projet (Option B ci-dessus).
+2. Lancer le build :
+   ```bat
+   scripts\windows\build_exe.bat
+   ```
+3. L’exécutable est produit dans **dist\HowIMetYourCorpus.exe**.
+
+Pour publier une release avec le .exe sur GitHub : créer un tag (ex. `v0.2.0`) et le pousser. Le workflow [.github/workflows/release.yml](.github/workflows/release.yml) build le .exe et l’attache à la release en tant qu’asset unique (fichier .exe téléchargeable directement, pas dans une archive).
+
+---
+
+## Tests
+
+```bat
+set PYTHONPATH=src
+python -m pytest tests\ -v
+```
+
+## Structure du projet
+
+```
+src/corpusstudio/
+  app/          # Bootstrap UI, MainWindow, widgets, workers
+  core/         # Modèles, pipeline, adapters, normalisation, stockage
+tests/          # Tests (adapters, normalisation, DB KWIC)
+scripts/windows/# install.bat, run.bat, build_exe.bat, download_exe.ps1
+.github/workflows/# release.yml (build .exe et release GitHub)
+dist/           # Généré par build_exe : HowIMetYourCorpus.exe (ignoré par git)
+```
+
+## Licence
+
+MIT.

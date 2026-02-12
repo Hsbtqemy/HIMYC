@@ -1,0 +1,10 @@
+# Preset exemple : How I Met Your Mother (subslikescript)
+# Copier dans config.toml d'un projet ou utiliser comme référence.
+# Le code accepte toute series_url valide subslikescript.
+
+project_name = "HIMYM"
+source_id = "subslikescript"
+series_url = "https://subslikescript.com/series/How_I_Met_Your_Mother-460649"
+rate_limit_s = 2.0
+user_agent = "HowIMetYourCorpus/0.1 (research; +https://github.com/...)"
+normalize_profile = "default_en_v1"

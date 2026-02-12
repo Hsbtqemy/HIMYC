@@ -1,0 +1,34 @@
+"""Utilitaires texte."""
+
+import re
+from typing import List
+
+
+def normalize_whitespace(text: str) -> str:
+    """Remplace les séquences d'espaces/blancs par un seul espace."""
+    return " ".join(text.split())
+
+
+# Pattern simple pour ligne type "SPEAKER:" (speaker-like)
+SPEAKER_LIKE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_ ]{1,25}:")
+
+
+def looks_like_speaker_line(line: str) -> bool:
+    """True si la ligne ressemble à un préfixe de locuteur (ex: TED:)."""
+    return bool(line.strip() and SPEAKER_LIKE_PATTERN.match(line.strip()))
+
+
+def ends_with_sentence_boundary(line: str) -> bool:
+    """True si la ligne se termine par . ? ! (séparation forte)."""
+    s = line.rstrip()
+    return bool(s and s[-1] in ".?!")
+
+
+def looks_like_didascalia(line: str) -> bool:
+    """True si la ligne ressemble à une didascalie () ou []."""
+    s = line.strip()
+    if not s:
+        return False
+    return (s.startswith("(") and s.endswith(")")) or (
+        s.startswith("[") and s.endswith("]")
+    )
