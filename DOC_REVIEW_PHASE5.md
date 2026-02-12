@@ -101,4 +101,12 @@ La Phase 5 ajoute le **concordancier parallèle** (segment transcript + cue EN +
 
 ---
 
-*Document généré à partir de la revue de code Phase 5 du projet HowIMetYourCorpus. Correctifs § 3.1 A–B, § 3.2 C–D appliqués.*
+## 7. 2ᵉ révision (vérification à nouveau)
+
+*Date : février 2025*
+
+**Vérifications :** `_parallel_cell(row, key)` utilisé pour CSV/TSV (None → ""). Case à cocher « Liens acceptés uniquement » dans l’onglet Alignement ; export concordancier, rapport HTML et Stats passent `status_filter="accepted"` si cochée ; `get_align_stats_for_run` et `get_parallel_concordance` acceptent `status_filter`. `_escape(s: str | None)` avec `if s is None: return ""`. Docstring `get_parallel_concordance` : « Au plus une valeur FR et une valeur IT par ligne (dernier lien target par langue). » **Conclusion :** Tous les points § 3.1 A–B et § 3.2 C–D sont appliqués ; aucune régression.
+
+---
+
+*Document généré à partir de la revue de code Phase 5 du projet HowIMetYourCorpus. Correctifs § 3.1 A–B, § 3.2 C–D appliqués. 2ᵉ révision : vérification effectuée.*

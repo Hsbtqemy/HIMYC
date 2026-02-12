@@ -228,11 +228,11 @@ class MainWindow(QMainWindow):
             self._db = CorpusDB(self._store.get_db_path())
             self._db.init()
             self._setup_logging_for_project()
-        self._refresh_episodes_from_store()
-        self._refresh_inspecteur_episodes()
-        self._refresh_subs_tracks()
-        self._refresh_align_runs()
-        QMessageBox.information(self, "Projet", "Projet initialisé.")
+            self._refresh_episodes_from_store()
+            self._refresh_inspecteur_episodes()
+            self._refresh_subs_tracks()
+            self._refresh_align_runs()
+            QMessageBox.information(self, "Projet", "Projet initialisé.")
         except Exception as e:
             logger.exception("Init project failed")
             QMessageBox.critical(self, "Erreur", str(e))
@@ -255,6 +255,8 @@ class MainWindow(QMainWindow):
         self._db = CorpusDB(self._store.get_db_path())
         if not self._db.db_path.exists():
             self._db.init()
+        else:
+            self._db.ensure_migrated()
         self._setup_logging_for_project()
         self.proj_root_edit.setText(str(root_path))
         self.series_url_edit.setText(config.series_url)

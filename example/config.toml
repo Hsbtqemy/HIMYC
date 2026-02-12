@@ -1,0 +1,9 @@
+# Projet exemple : démo HowIMetYourCorpus (EN + IT)
+# Ouvrir ce dossier comme projet dans l'application.
+
+project_name = "Demo"
+source_id = "subslikescript"
+series_url = "https://example.com/demo"
+rate_limit_s = 1.0
+user_agent = "HowIMetYourCorpus/demo"
+normalize_profile = "default_en_v1"

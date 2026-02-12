@@ -92,4 +92,12 @@ La Phase 6 ajoute le **packaging Windows** via PyInstaller (exécutable unique `
 
 ---
 
-*Document généré à partir de la revue de code Phase 6 du projet HowIMetYourCorpus. Correctifs § 3.1 A–B appliqués.*
+## 7. 2ᵉ révision (vérification à nouveau)
+
+*Date : février 2025*
+
+**Vérifications :** Spec inchangée (datas schema + migrations, onefile, console=False). UI Aide → À propos / Vérifier les mises à jour. Build batch et release.yml cohérents. **Conclusion :** Aucune régression Phase 6. Point optionnel § 3.1 C (test build frozen) non fait.
+
+---
+
+*Document généré à partir de la revue de code Phase 6 du projet HowIMetYourCorpus. Correctifs § 3.1 A–B appliqués. 2ᵉ révision : vérification effectuée.*

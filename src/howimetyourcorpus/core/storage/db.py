@@ -46,6 +46,12 @@ class CorpusDB:
 
     def _migrate(self, conn: sqlite3.Connection) -> None:
         """Exécute les migrations en attente (schema_version)."""
+        if not self._table_exists(conn, "schema_version"):
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)"
+            )
+            conn.execute("INSERT INTO schema_version (version) VALUES (1)")
+            conn.commit()
         cur = conn.execute(
             "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
         )
@@ -74,6 +80,32 @@ class CorpusDB:
             conn.executescript(SCHEMA_SQL)
             conn.commit()
             self._migrate(conn)
+        finally:
+            conn.close()
+
+    def _table_exists(self, conn: sqlite3.Connection, table_name: str) -> bool:
+        """Retourne True si la table existe."""
+        row = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        return row is not None
+
+    def ensure_migrated(self) -> None:
+        """Exécute les migrations en attente (à appeler à l'ouverture d'un projet existant).
+        Si des tables Phase 3+ sont manquantes (schema_version incohérent), exécute les scripts concernés.
+        """
+        if not self.db_path.exists():
+            return
+        conn = self._conn()
+        try:
+            self._migrate(conn)
+            if not self._table_exists(conn, "subtitle_tracks"):
+                for name in ("003_subtitles", "004_align"):
+                    path = MIGRATIONS_DIR / f"{name}.sql"
+                    if path.exists():
+                        conn.executescript(path.read_text(encoding="utf-8"))
+                        conn.commit()
         finally:
             conn.close()
 

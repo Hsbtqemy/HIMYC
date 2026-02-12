@@ -1,0 +1,19 @@
+1
+00:00:01,000 --> 00:00:03,000
+Ciao. Come stai?
+
+2
+00:00:04,000 --> 00:00:07,000
+Bene. Questa è una breve demo.
+
+3
+00:00:08,000 --> 00:00:11,000
+Allineeremo il transcript con i sottotitoli.
+
+4
+00:00:12,000 --> 00:00:15,000
+Una riga in inglese, una in italiano.
+
+5
+00:00:16,000 --> 00:00:17,500
+Leggendario.

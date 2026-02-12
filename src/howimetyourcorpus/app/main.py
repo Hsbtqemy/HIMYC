@@ -7,8 +7,6 @@ import logging
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 
 from howimetyourcorpus.core.utils.logging import setup_logging
 from howimetyourcorpus.app.ui_mainwindow import MainWindow
@@ -19,8 +17,6 @@ def main() -> int:
     logging.getLogger("howimetyourcorpus").info("Starting HowIMetYourCorpus")
     app = QApplication(sys.argv)
     app.setApplicationName("HowIMetYourCorpus")
-    if hasattr(Qt.ApplicationAttribute, "AA_UseHighDpiPixmaps"):
-        app.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps)
     win = MainWindow()
     win.show()
     return app.exec()

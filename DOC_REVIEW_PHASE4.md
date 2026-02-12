@@ -154,4 +154,12 @@ La Phase 4 ajoute l’alignement des segments (phrases du transcript) avec les c
 
 ---
 
-*Document généré à partir de la revue de code Phase 4 du projet HowIMetYourCorpus. Correctifs § 3.1 A–C, § 3.2 E–F appliqués. 2ᵉ révision : vérification effectuée.*
+## 8. 3ᵉ révision (vérification à nouveau)
+
+*Date : février 2025*
+
+**Vérifications :** Menu contextuel Accepter/Rejeter présent ; `_run_align_episode` sans appel redondant à `_refresh_align_runs` ; docstring `align_segments_to_cues` et `used_cue_indices` ; export alignement CSV avec colonne meta ; pyproject extra `align`. **Conclusion :** Aucune régression. Phase 4 conforme au bilan.
+
+---
+
+*Document généré à partir de la revue de code Phase 4 du projet HowIMetYourCorpus. Correctifs § 3.1 A–C, § 3.2 E–F appliqués. 2ᵉ et 3ᵉ révisions : vérification effectuée.*

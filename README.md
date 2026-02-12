@@ -60,6 +60,18 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
   ```
   (Si le package n’est pas installé en éditable, `PYTHONPATH=src` est nécessaire.)
 
+## Projet exemple (EN + IT)
+
+Un **projet démo** est fourni dans le dépôt pour comprendre la mécanique sans scraper :
+
+- **Dossier** : `example/` à la racine du projet.
+- **Contenu** : un épisode S01E01 (transcript court EN), sous-titres SRT EN et IT à importer.
+- **Étapes** : ouvrir le projet `example` → Indexer DB → Segmenter → importer `s01e01_en.srt` et `s01e01_it.srt` → Aligner → Inspecteur / Concordancier.
+
+Voir **example/README.md** pour les instructions détaillées.
+
+---
+
 ## Utilisation rapide
 
 1. **Créer ou ouvrir un projet** (onglet Projet)  

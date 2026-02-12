@@ -1,0 +1,13 @@
+{
+  "series_title": "Demo EN+IT",
+  "series_url": "https://example.com/demo",
+  "episodes": [
+    {
+      "episode_id": "S01E01",
+      "season": 1,
+      "episode": 1,
+      "title": "Demo",
+      "url": "https://example.com/demo/s01e01"
+    }
+  ]
+}
