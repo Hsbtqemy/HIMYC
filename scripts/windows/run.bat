@@ -6,5 +6,5 @@ if not exist ".venv\Scripts\pythonw.exe" (
     exit /b 1
 )
 set PYTHONPATH=src
-.venv\Scripts\pythonw.exe -m corpusstudio.app.main
+.venv\Scripts\pythonw.exe -m howimetyourcorpus.app.main
 exit /b 0

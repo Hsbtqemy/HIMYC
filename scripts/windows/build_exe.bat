@@ -12,7 +12,7 @@ if not exist ".venv\Scripts\python.exe" (
 .venv\Scripts\python.exe -m pip install pyinstaller -q
 .venv\Scripts\pyinstaller.exe --onefile --name HowIMetYourCorpus --windowed --noconfirm ^
     --paths=src ^
-    src/corpusstudio/app/main.py
+    src/howimetyourcorpus/app/main.py
 
 if errorlevel 1 (
     echo Build echoue.

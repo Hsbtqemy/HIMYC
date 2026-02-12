@@ -1,0 +1,206 @@
+"""
+Parsing SRT / VTT (Phase 3).
+Cue dataclass + parse_srt / parse_vtt avec normalisation minimaliste (text_clean).
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+# SRT: HH:MM:SS,MMM --> HH:MM:SS,MMM
+SRT_TIMECODE = re.compile(
+    r"(\d{2}):(\d{2}):(\d{2})[,](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,](\d{3})"
+)
+# VTT: HH:MM:SS.MMM --> HH:MM:SS.MMM (ou MM:SS.MMM)
+VTT_TIMECODE = re.compile(
+    r"(\d{2}):(\d{2}):(\d{2})[.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[.](\d{3})"
+)
+VTT_TIMECODE_SHORT = re.compile(
+    r"(\d{2}):(\d{2})[.](\d{3})\s*-->\s*(\d{2}):(\d{2})[.](\d{3})"
+)
+# Tags VTT à supprimer : <v Name>, </v>, <i>, </i>, <b>, </b>, <u>, </u>, <c>, </c>
+VTT_TAG = re.compile(r"</?[a-zA-Z][^>]*>")
+# Espaces multiples
+MULTI_SPACE = re.compile(r"\s+")
+
+
+def _timecode_to_ms(h: int, m: int, s: int, ms: int) -> int:
+    return ((h * 60 + m) * 60 + s) * 1000 + ms
+
+
+def _normalize_cue_text(raw: str) -> str:
+    """Normalisation minimaliste : suppression tags, espaces, sauts de ligne."""
+    if not raw:
+        return ""
+    t = VTT_TAG.sub(" ", raw)
+    t = t.replace("\n", " ").replace("\r", " ")
+    t = MULTI_SPACE.sub(" ", t).strip()
+    return t
+
+
+@dataclass
+class Cue:
+    """
+    Une cue sous-titre (timecodée).
+    cue_id = "{episode_id}:{lang}:{n}" (à définir côté appelant si episode_id/lang connu).
+    """
+
+    episode_id: str = ""
+    lang: str = "en"
+    n: int = 0
+    start_ms: int = 0
+    end_ms: int = 0
+    text_raw: str = ""
+    text_clean: str = ""
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def cue_id(self) -> str:
+        if self.episode_id and self.lang:
+            return f"{self.episode_id}:{self.lang}:{self.n}"
+        return f":{self.lang}:{self.n}"
+
+
+def parse_srt(content: str, source_path: str = "") -> list[Cue]:
+    """
+    Parse le contenu SRT. Retourne une liste de Cue (text_clean normalisé).
+    """
+    cues: list[Cue] = []
+    meta: dict[str, Any] = {}
+    if source_path:
+        meta["source_path"] = source_path
+    lines = content.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    i = 0
+    n = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line:
+            i += 1
+            continue
+        m = SRT_TIMECODE.match(line)
+        if m:
+            h1, m1, s1, ms1 = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+            h2, m2, s2, ms2 = int(m.group(5)), int(m.group(6)), int(m.group(7)), int(m.group(8))
+            start_ms = _timecode_to_ms(h1, m1, s1, ms1)
+            end_ms = _timecode_to_ms(h2, m2, s2, ms2)
+            i += 1
+            text_lines: list[str] = []
+            while i < len(lines):
+                stripped = lines[i].strip()
+                if not stripped:
+                    i += 1
+                    break
+                if SRT_TIMECODE.match(stripped) or stripped.isdigit():
+                    break
+                text_lines.append(stripped)
+                i += 1
+            text_raw = "\n".join(text_lines)
+            text_clean = _normalize_cue_text(text_raw)
+            cues.append(
+                Cue(
+                    n=n,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
+                    text_raw=text_raw,
+                    text_clean=text_clean,
+                    meta=dict(meta),
+                )
+            )
+            n += 1
+        else:
+            i += 1
+    return cues
+
+
+def parse_vtt(content: str, source_path: str = "") -> list[Cue]:
+    """
+    Parse le contenu VTT (WEBVTT). Ignore NOTE/STYLE/REGION. Retourne une liste de Cue.
+    """
+    cues: list[Cue] = []
+    meta: dict[str, Any] = {}
+    if source_path:
+        meta["source_path"] = source_path
+    text = content.replace("\r\n", "\n").replace("\r", "\n")
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines) and not lines[i].strip().upper().startswith("WEBVTT"):
+        i += 1
+    if i < len(lines):
+        i += 1
+    n = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line:
+            i += 1
+            continue
+        if line.upper().startswith("NOTE") or line.upper().startswith("STYLE") or line.upper().startswith("REGION"):
+            i += 1
+            while i < len(lines) and lines[i].strip():
+                i += 1
+            continue
+        m = VTT_TIMECODE.match(line)
+        if not m:
+            m = VTT_TIMECODE_SHORT.match(line)
+            if m:
+                m1, s1, ms1 = int(m.group(1)), int(m.group(2)), int(m.group(3))
+                m2, s2, ms2 = int(m.group(4)), int(m.group(5)), int(m.group(6))
+                start_ms = (m1 * 60 + s1) * 1000 + ms1
+                end_ms = (m2 * 60 + s2) * 1000 + ms2
+            else:
+                i += 1
+                continue
+        else:
+            h1, m1, s1, ms1 = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+            h2, m2, s2, ms2 = int(m.group(5)), int(m.group(6)), int(m.group(7)), int(m.group(8))
+            start_ms = _timecode_to_ms(h1, m1, s1, ms1)
+            end_ms = _timecode_to_ms(h2, m2, s2, ms2)
+        i += 1
+        text_lines = []
+        while i < len(lines) and lines[i].strip():
+            text_lines.append(lines[i].strip())
+            i += 1
+        text_raw = "\n".join(text_lines)
+        text_clean = _normalize_cue_text(text_raw)
+        cues.append(
+            Cue(
+                n=n,
+                start_ms=start_ms,
+                end_ms=end_ms,
+                text_raw=text_raw,
+                text_clean=text_clean,
+                meta=dict(meta),
+            )
+        )
+        n += 1
+    return cues
+
+
+def parse_subtitle_content(content: str, source_path: str = "") -> tuple[list[Cue], str]:
+    """
+    Parse le contenu déjà lu (SRT ou VTT). Détecte le format par extension ou en-tête WEBVTT.
+    Retourne (cues, "srt"|"vtt"). À privilégier pour éviter de lire le fichier deux fois.
+    """
+    if "WEBVTT" in content[:20]:
+        return parse_vtt(content, source_path), "vtt"
+    return parse_srt(content, source_path), "srt"
+
+
+def parse_subtitle_file(path: Path, lang_hint: str = "en") -> tuple[list[Cue], str]:
+    """
+    Détecte le format (SRT/VTT) et parse. Retourne (cues, format "srt"|"vtt").
+    lang_hint réservé pour usage futur (ex. métadonnées).
+    """
+    content = path.read_text(encoding="utf-8", errors="replace")
+    suffix = path.suffix.lower()
+    if suffix == ".vtt":
+        cues = parse_vtt(content, str(path))
+        return cues, "vtt"
+    if suffix == ".srt":
+        cues = parse_srt(content, str(path))
+        return cues, "srt"
+    return parse_subtitle_content(content, str(path))

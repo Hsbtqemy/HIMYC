@@ -1,0 +1,436 @@
+"""Tâches concrètes du pipeline : FetchIndex, FetchEpisode, Normalize, BuildIndex, Segment (Phase 2)."""
+
+from __future__ import annotations
+
+import datetime
+import json
+import logging
+import time
+from pathlib import Path
+from typing import Any, Callable
+
+from howimetyourcorpus.core.adapters.base import AdapterRegistry
+from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, ProjectConfig, RunMeta, SeriesIndex, TransformStats
+from howimetyourcorpus.core.normalize.profiles import get_profile
+from howimetyourcorpus.core.pipeline.steps import Step, StepResult
+from howimetyourcorpus.core.segment import Segment, segmenter_sentences, segmenter_utterances
+from howimetyourcorpus.core.storage.db import CorpusDB
+from howimetyourcorpus.core.storage.project_store import ProjectStore
+from howimetyourcorpus.core.subtitles import Cue, parse_subtitle_content
+
+logger = logging.getLogger(__name__)
+
+
+class FetchSeriesIndexStep(Step):
+    """Récupère la page série, parse, sauvegarde series_index.json."""
+
+    name = "fetch_series_index"
+
+    def __init__(self, series_url: str, user_agent: str | None = None):
+        self.series_url = series_url
+        self.user_agent = user_agent
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        config: ProjectConfig = context["config"]
+        adapter = AdapterRegistry.get(config.source_id)
+        if not adapter:
+            return StepResult(False, f"Adapter not found: {config.source_id}")
+
+        def log(level: str, msg: str):
+            if on_log:
+                on_log(level, msg)
+            getattr(logger, level.lower(), logger.info)(msg)
+
+        if on_progress:
+            on_progress(self.name, 0.0, "Discovering episodes...")
+        try:
+            index = adapter.discover_series(
+                self.series_url or config.series_url,
+                user_agent=self.user_agent or config.user_agent,
+            )
+        except Exception as e:
+            log("error", str(e))
+            return StepResult(False, str(e))
+        store.save_series_index(index)
+        for ref in index.episodes:
+            context.get("db") and context["db"].upsert_episode(ref, EpisodeStatus.NEW.value)
+        if on_progress:
+            on_progress(self.name, 1.0, f"Found {len(index.episodes)} episodes")
+        return StepResult(True, f"Index saved: {len(index.episodes)} episodes", {"series_index": index})
+
+
+class FetchEpisodeStep(Step):
+    """Télécharge une page épisode, extrait raw, sauvegarde (skip si déjà présent sauf force)."""
+
+    name = "fetch_episode"
+
+    def __init__(self, episode_id: str, episode_url: str):
+        self.episode_id = episode_id
+        self.episode_url = episode_url
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        config: ProjectConfig = context["config"]
+        db: CorpusDB | None = context.get("db")
+        adapter = AdapterRegistry.get(config.source_id)
+        if not adapter:
+            return StepResult(False, f"Adapter not found: {config.source_id}")
+        if not force and store.has_episode_raw(self.episode_id):
+            if on_progress:
+                on_progress(self.name, 1.0, f"Skip (already fetched): {self.episode_id}")
+            if db:
+                db.set_episode_status(self.episode_id, EpisodeStatus.FETCHED.value)
+            return StepResult(True, f"Already fetched: {self.episode_id}")
+
+        def log(level: str, msg: str):
+            if on_log:
+                on_log(level, msg)
+
+        if on_progress:
+            on_progress(self.name, 0.0, f"Fetching {self.episode_id}...")
+        try:
+            rate_limit = getattr(context.get("config"), "rate_limit_s", 2.0)
+            time.sleep(rate_limit)
+            html = adapter.fetch_episode_html(self.episode_url)
+            store.save_episode_html(self.episode_id, html)
+            raw_text, meta = adapter.parse_episode(html, self.episode_url)
+            store.save_episode_raw(self.episode_id, raw_text, meta)
+            if db:
+                db.set_episode_status(self.episode_id, EpisodeStatus.FETCHED.value)
+            if on_progress:
+                on_progress(self.name, 1.0, f"Fetched: {self.episode_id}")
+            return StepResult(True, f"Fetched: {self.episode_id}", {"meta": meta})
+        except Exception as e:
+            if db:
+                db.set_episode_status(self.episode_id, EpisodeStatus.ERROR.value)
+            logger.exception("Fetch episode failed")
+            return StepResult(False, str(e))
+
+
+class NormalizeEpisodeStep(Step):
+    """Normalise un épisode (raw -> clean), sauvegarde (skip si clean existe sauf force)."""
+
+    name = "normalize_episode"
+
+    def __init__(self, episode_id: str, profile_id: str):
+        self.episode_id = episode_id
+        self.profile_id = profile_id
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        db: CorpusDB | None = context.get("db")
+        profile = get_profile(self.profile_id)
+        if not profile:
+            return StepResult(False, f"Profile not found: {self.profile_id}")
+        if not force and store.has_episode_clean(self.episode_id):
+            if on_progress:
+                on_progress(self.name, 1.0, f"Skip (already normalized): {self.episode_id}")
+            if db:
+                db.set_episode_status(self.episode_id, EpisodeStatus.NORMALIZED.value)
+            return StepResult(True, f"Already normalized: {self.episode_id}")
+        raw = store.load_episode_text(self.episode_id, kind="raw")
+        if not raw.strip():
+            return StepResult(False, f"No raw text: {self.episode_id}")
+        if on_progress:
+            on_progress(self.name, 0.5, f"Normalizing {self.episode_id}...")
+        clean_text, stats, debug = profile.apply(raw)
+        store.save_episode_clean(self.episode_id, clean_text, stats, debug)
+        if db:
+            db.set_episode_status(self.episode_id, EpisodeStatus.NORMALIZED.value)
+        if on_progress:
+            on_progress(self.name, 1.0, f"Normalized: {self.episode_id}")
+        return StepResult(True, f"Normalized: {self.episode_id}", {"stats": stats, "debug": debug})
+
+
+class BuildDbIndexStep(Step):
+    """Indexe les épisodes normalisés dans la DB (FTS). Skip si déjà indexé sauf force."""
+
+    name = "build_db_index"
+
+    def __init__(self, episode_ids: list[str] | None = None):
+        """Si episode_ids is None, indexe tous les épisodes ayant clean.txt."""
+        self.episode_ids = episode_ids
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        db: CorpusDB = context["db"]
+        if not db:
+            return StepResult(False, "No DB in context")
+        to_index: list[str] = []
+        if self.episode_ids is not None:
+            to_index = [eid for eid in self.episode_ids if store.has_episode_clean(eid)]
+        else:
+            index = store.load_series_index()
+            if index:
+                to_index = [e.episode_id for e in index.episodes if store.has_episode_clean(e.episode_id)]
+            else:
+                # Parcourir episodes/
+                for d in (store.root_dir / "episodes").iterdir():
+                    if d.is_dir() and (d / "clean.txt").exists():
+                        to_index.append(d.name)
+        n = len(to_index)
+        for i, eid in enumerate(to_index):
+            if not force and eid in db.get_episode_ids_indexed():
+                continue
+            clean = store.load_episode_text(eid, kind="clean")
+            if clean:
+                db.index_episode_text(eid, clean)
+            if on_progress and n:
+                on_progress(self.name, (i + 1) / n, f"Indexed {eid}")
+        if on_progress:
+            on_progress(self.name, 1.0, f"Indexed {len(to_index)} episodes")
+        return StepResult(True, f"Indexed {len(to_index)} episodes")
+
+
+class SegmentEpisodeStep(Step):
+    """Phase 2 : segmente un épisode (phrases + tours), écrit segments.jsonl, upsert DB."""
+
+    name = "segment_episode"
+
+    def __init__(self, episode_id: str, lang_hint: str = "en"):
+        self.episode_id = episode_id
+        self.lang_hint = lang_hint
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        db: CorpusDB | None = context.get("db")
+        ep_dir = store.root_dir / "episodes" / self.episode_id
+        segments_path = ep_dir / "segments.jsonl"
+        if not force and segments_path.exists():
+            if on_progress:
+                on_progress(self.name, 1.0, f"Skip (already segmented): {self.episode_id}")
+            return StepResult(True, f"Already segmented: {self.episode_id}")
+        clean = store.load_episode_text(self.episode_id, kind="clean")
+        if not clean.strip():
+            return StepResult(False, f"No clean text: {self.episode_id}")
+        if on_progress:
+            on_progress(self.name, 0.0, f"Segmenting {self.episode_id}...")
+        sentences = segmenter_sentences(clean, self.lang_hint)
+        utterances = segmenter_utterances(clean)
+        for s in sentences:
+            s.episode_id = self.episode_id
+        for u in utterances:
+            u.episode_id = self.episode_id
+        ep_dir.mkdir(parents=True, exist_ok=True)
+        with segments_path.open("w", encoding="utf-8") as f:
+            for seg in sentences + utterances:
+                obj = {
+                    "segment_id": seg.segment_id,
+                    "episode_id": seg.episode_id,
+                    "kind": seg.kind,
+                    "n": seg.n,
+                    "start_char": seg.start_char,
+                    "end_char": seg.end_char,
+                    "text": seg.text,
+                    "speaker_explicit": seg.speaker_explicit,
+                    "meta": seg.meta,
+                }
+                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        if db:
+            db.upsert_segments(self.episode_id, "sentence", sentences)
+            db.upsert_segments(self.episode_id, "utterance", utterances)
+        if on_progress:
+            on_progress(self.name, 1.0, f"Segmented: {self.episode_id} ({len(sentences)} sentences, {len(utterances)} utterances)")
+        return StepResult(
+            True,
+            f"Segmented: {self.episode_id}",
+            {"sentences": len(sentences), "utterances": len(utterances)},
+        )
+
+
+class RebuildSegmentsIndexStep(Step):
+    """Phase 2 : reconstruit l'index segments pour tous les épisodes ayant clean.txt."""
+
+    name = "rebuild_segments_index"
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        db: CorpusDB | None = context.get("db")
+        if not db:
+            return StepResult(False, "No DB in context")
+        to_segment: list[str] = []
+        index = store.load_series_index()
+        if index:
+            to_segment = [e.episode_id for e in index.episodes if store.has_episode_clean(e.episode_id)]
+        else:
+            for d in (store.root_dir / "episodes").iterdir():
+                if d.is_dir() and (d / "clean.txt").exists():
+                    to_segment.append(d.name)
+        n = len(to_segment)
+        lang_hint = getattr(context.get("config"), "normalize_profile", "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        for i, eid in enumerate(to_segment):
+            step = SegmentEpisodeStep(eid, lang_hint=lang_hint)
+            step.run(context, force=force, on_progress=on_progress, on_log=on_log)
+            if on_progress and n:
+                on_progress(self.name, (i + 1) / n, f"Segmented {eid}")
+        if on_progress:
+            on_progress(self.name, 1.0, f"Rebuilt segments for {n} episodes")
+        return StepResult(True, f"Rebuilt segments for {n} episodes")
+
+
+class ImportSubtitlesStep(Step):
+    """Phase 3 : importe un fichier SRT/VTT pour un épisode et une langue."""
+
+    name = "import_subtitles"
+
+    def __init__(self, episode_id: str, lang: str, file_path: Path | str):
+        self.episode_id = episode_id
+        self.lang = lang
+        self.file_path = Path(file_path)
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        db: CorpusDB | None = context.get("db")
+        if not self.file_path.exists():
+            return StepResult(False, f"Fichier introuvable: {self.file_path}")
+        if on_progress:
+            on_progress(self.name, 0.0, f"Parsing {self.file_path.name}...")
+        try:
+            content = self.file_path.read_text(encoding="utf-8", errors="replace")
+            cues, fmt = parse_subtitle_content(content, str(self.file_path))
+        except Exception as e:
+            logger.exception("Parse subtitles")
+            return StepResult(False, str(e))
+        for c in cues:
+            c.episode_id = self.episode_id
+            c.lang = self.lang
+        track_id = f"{self.episode_id}:{self.lang}"
+        cues_audit = [
+            {
+                "cue_id": c.cue_id,
+                "n": c.n,
+                "start_ms": c.start_ms,
+                "end_ms": c.end_ms,
+                "text_raw": c.text_raw,
+                "text_clean": c.text_clean,
+            }
+            for c in cues
+        ]
+        store.save_episode_subtitles(self.episode_id, self.lang, content, fmt, cues_audit)
+        if db:
+            imported_at = datetime.datetime.utcnow().isoformat() + "Z"
+            db.add_track(
+                track_id=track_id,
+                episode_id=self.episode_id,
+                lang=self.lang,
+                fmt=fmt,
+                source_path=str(self.file_path),
+                imported_at=imported_at,
+                meta_json=json.dumps({"source": self.file_path.name}),
+            )
+            db.upsert_cues(track_id, self.episode_id, self.lang, cues)
+        if on_progress:
+            on_progress(self.name, 1.0, f"Imported {len(cues)} cues for {self.episode_id} ({self.lang})")
+        return StepResult(True, f"Imported {len(cues)} cues", {"cues_count": len(cues), "format": fmt})
+
+
+class AlignEpisodeStep(Step):
+    """Phase 4 : aligne segments (phrases) ↔ cues EN puis cues EN ↔ cues target (FR/IT) par temps."""
+
+    name = "align_episode"
+
+    def __init__(
+        self,
+        episode_id: str,
+        pivot_lang: str = "en",
+        target_langs: list[str] | None = None,
+        min_confidence: float = 0.3,
+    ):
+        self.episode_id = episode_id
+        self.pivot_lang = pivot_lang
+        self.target_langs = target_langs or ["fr", "it"]
+        self.min_confidence = min_confidence
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        from howimetyourcorpus.core.align import AlignLink, align_segments_to_cues, align_cues_by_time
+
+        store: ProjectStore = context["store"]
+        db: CorpusDB | None = context.get("db")
+        if not db:
+            return StepResult(False, "No DB in context")
+        if on_progress:
+            on_progress(self.name, 0.0, f"Loading segments and cues for {self.episode_id}...")
+        segments = db.get_segments_for_episode(self.episode_id, kind="sentence")
+        cues_en = db.get_cues_for_episode_lang(self.episode_id, self.pivot_lang)
+        if not segments:
+            return StepResult(False, f"No segments (sentence) for {self.episode_id}. Run segmentation first.")
+        if not cues_en:
+            return StepResult(False, f"No cues ({self.pivot_lang}) for {self.episode_id}. Import subtitles first.")
+        pivot_links = align_segments_to_cues(segments, cues_en, min_confidence=self.min_confidence)
+        all_links: list[AlignLink] = list(pivot_links)
+        if on_progress:
+            on_progress(self.name, 0.4, f"Aligned {len(pivot_links)} segment↔cue links; aligning target langs...")
+        for tl in self.target_langs:
+            cues_target = db.get_cues_for_episode_lang(self.episode_id, tl)
+            if cues_target:
+                target_links = align_cues_by_time(cues_en, cues_target)
+                all_links.extend(target_links)
+        run_id = f"{self.episode_id}:align:{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
+        created_at = datetime.datetime.utcnow().isoformat() + "Z"
+        params = {"pivot_lang": self.pivot_lang, "target_langs": self.target_langs, "min_confidence": self.min_confidence}
+        summary = {"pivot_links": len(pivot_links), "total_links": len(all_links), "segments_count": len(segments), "cues_en_count": len(cues_en)}
+        db.create_align_run(run_id, self.episode_id, self.pivot_lang, json.dumps(params), created_at, json.dumps(summary))
+        links_dicts = [link.to_dict(link_id=f"{run_id}:{i}") for i, link in enumerate(all_links)]
+        db.upsert_align_links(run_id, self.episode_id, links_dicts)
+        links_audit = [{"link_id": d.get("link_id"), "segment_id": d.get("segment_id"), "cue_id": d.get("cue_id"), "cue_id_target": d.get("cue_id_target"), "lang": d.get("lang"), "role": d.get("role"), "confidence": d.get("confidence"), "status": d.get("status")} for d in links_dicts]
+        store.save_align_audit(self.episode_id, run_id, links_audit, {"run_id": run_id, "summary": summary, "params": params})
+        if on_progress:
+            on_progress(self.name, 1.0, f"Align run {run_id}: {len(all_links)} links")
+        return StepResult(True, f"Align run {run_id}", {"run_id": run_id, "links_count": len(all_links)})

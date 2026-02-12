@@ -36,6 +36,8 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
    ```
 3. Ce script crée un environnement virtuel `.venv`, installe les dépendances et le package en mode éditable.
 
+**Alignement (Phase 4) :** pour une meilleure similarité textuelle segment↔cues, l’installation optionnelle de `rapidfuzz` est recommandée : `pip install rapidfuzz` (ou `pip install -e ".[align]"`). Sans rapidfuzz, le code utilise un fallback Jaccard sur tokens.
+
 ---
 
 ## Lancement
@@ -54,7 +56,7 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
   ```bat
   .venv\Scripts\activate
   set PYTHONPATH=src
-  python -m corpusstudio.app.main
+  python -m howimetyourcorpus.app.main
   ```
   (Si le package n’est pas installé en éditable, `PYTHONPATH=src` est nécessaire.)
 
@@ -69,16 +71,30 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
    - « Découvrir épisodes » : récupère la liste des épisodes depuis la source.  
    - « Télécharger sélection » / « Télécharger tout » : récupère les pages HTML et extrait le texte brut.  
    - « Normaliser sélection » / « Normaliser tout » : applique le profil de normalisation (RAW → CLEAN).  
-   - « Indexer DB » : indexe le texte normalisé dans SQLite/FTS pour la recherche.
+   - « Indexer DB » : indexe le texte normalisé dans SQLite/FTS pour la recherche.  
+   - **« Exporter corpus »** : exporte les épisodes normalisés en **TXT**, **CSV**, **JSON**, **Word (.docx)**, ou en **segmenté** : **JSONL** / **CSV** par **utterances** (tours de parole) ou par **phrases**.
 
 3. **Inspecter** (onglet Inspecteur)  
-   - Choisir un épisode et comparer RAW vs CLEAN, stats et exemples de fusions.
+   - Choisir un épisode et comparer RAW vs CLEAN, stats et exemples de fusions.  
+   - **Vue Segments** (Phase 2) : basculer sur « Segments » pour afficher la liste des phrases/tours de parole ; cliquer sur un segment pour le surligner dans le texte CLEAN.  
+   - **« Segmente l'épisode »** : produit les segments (phrases + tours) et les indexe en DB (écrit `episodes/<id>/segments.jsonl`).
 
-4. **Concordance** (onglet Concordance)  
+4. **Sous-titres** (onglet Sous-titres, Phase 3)  
+   - Choisir un épisode et une langue (en/fr/it), puis **« Importer SRT/VTT... »** pour importer un fichier .srt ou .vtt.  
+   - La liste des pistes pour l’épisode affiche langues, format et nombre de cues.
+
+5. **Alignement** (onglet Alignement, Phase 4)  
+   - Choisir un épisode et un run d’alignement (ou **« Lancer alignement »** pour en créer un).  
+   - L’alignement associe les segments (phrases) au transcript aux cues EN, puis les cues EN aux cues FR/IT par recouvrement temporel.  
+   - Table des liens (segment, cue, cue target, confiance, statut) ; **« Exporter aligné »** en CSV ou JSONL.
+
+6. **Concordance** (onglet Concordance)  
    - Saisir un terme, filtrer par saison/épisode, afficher les résultats KWIC.  
+   - **Scope** : « Épisodes (texte) », « Segments » ou **« Cues (sous-titres) »** ; **Kind** : phrases/tours (si scope Segments) ; **Langue** : en/fr/it (si scope Cues).  
+   - **« Exporter résultats »** : exporte en **CSV**, **TSV**, **JSON** ou **JSONL** (segments : `segment_id`, `kind` ; cues : `cue_id`, `lang`).  
    - Double-clic : ouvre l’Inspecteur sur l’épisode concerné.
 
-5. **Logs** (onglet Logs)  
+7. **Logs** (onglet Logs)  
    - Consulter les logs en direct ou ouvrir le fichier de log.
 
 ## Configuration et profils
@@ -95,7 +111,7 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
 
 ## Ajouter un nouvel adapteur (phase future)
 
-1. Créer `src/corpusstudio/core/adapters/<nom_source>.py`.
+1. Créer `src/howimetyourcorpus/core/adapters/<nom_source>.py`.
 2. Implémenter l’interface `SourceAdapter` (discover_series, fetch_episode_html, parse_episode, normalize_episode_id).
 3. Enregistrer l’adapteur dans le registre : `AdapterRegistry.register(MonAdapter())`.
 4. Ajouter le `source_id` dans la config projet si besoin.
@@ -125,7 +141,7 @@ python -m pytest tests\ -v
 ## Structure du projet
 
 ```
-src/corpusstudio/
+src/howimetyourcorpus/
   app/          # Bootstrap UI, MainWindow, widgets, workers
   core/         # Modèles, pipeline, adapters, normalisation, stockage
 tests/          # Tests (adapters, normalisation, DB KWIC)

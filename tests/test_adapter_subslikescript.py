@@ -3,11 +3,11 @@
 import pytest
 from pathlib import Path
 
-from corpusstudio.core.adapters.subslikescript import (
+from howimetyourcorpus.core.adapters.subslikescript import (
     SubslikescriptAdapter,
     SubslikescriptParseError,
 )
-from corpusstudio.core.adapters.base import AdapterRegistry
+from howimetyourcorpus.core.adapters.base import AdapterRegistry
 
 
 @pytest.fixture

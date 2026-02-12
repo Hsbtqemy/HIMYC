@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 import tempfile
 
-from corpusstudio.core.storage.db import CorpusDB, KwicHit
-from corpusstudio.core.models import EpisodeRef, EpisodeStatus
+from howimetyourcorpus.core.storage.db import CorpusDB, KwicHit
+from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus
 
 
 @pytest.fixture
@@ -67,3 +67,103 @@ def test_db_kwic(db):
         assert h.match.lower() == "legendary"
         assert "legendary" in (h.left + h.match + h.right).lower()
         assert h.title == "Purple Giraffe"
+
+
+def test_upsert_segments_and_query_kwic_segments(db):
+    """Phase 2 : upsert segments, query_kwic_segments, segment_id/kind présents."""
+    ref = EpisodeRef(
+        episode_id="S01E03",
+        season=1,
+        episode=3,
+        title="Sweet Taste of Liberty",
+        url="https://example.com/s01e03",
+    )
+    db.upsert_episode(ref)
+    from howimetyourcorpus.core.segment import segmenter_sentences
+
+    text = "Barney says legendary. Marshall says okay."
+    segments = segmenter_sentences(text, "en")
+    for s in segments:
+        s.episode_id = "S01E03"
+    db.upsert_segments("S01E03", "sentence", segments)
+    hits = db.query_kwic_segments("legendary", kind="sentence", limit=10)
+    assert len(hits) >= 1
+    for h in hits:
+        assert h.episode_id == "S01E03"
+        assert h.segment_id is not None
+        assert h.kind == "sentence"
+        assert h.match.lower() == "legendary"
+
+
+def test_upsert_cues_and_query_kwic_cues(db):
+    """Phase 3 : add_track, upsert_cues, query_kwic_cues (cue_id, lang)."""
+    ref = EpisodeRef(
+        episode_id="S01E05",
+        season=1,
+        episode=5,
+        title="Okay Awesome",
+        url="https://example.com/s01e05",
+    )
+    db.upsert_episode(ref)
+    from howimetyourcorpus.core.subtitles import Cue, parse_srt
+
+    content = """1
+00:00:01,000 --> 00:00:03,000
+Legendary word.
+"""
+    cues = parse_srt(content)
+    for c in cues:
+        c.episode_id = "S01E05"
+        c.lang = "en"
+    db.add_track("S01E05:en", "S01E05", "en", "srt", None, None, None)
+    db.upsert_cues("S01E05:en", "S01E05", "en", cues)
+    hits = db.query_kwic_cues("Legendary", lang="en", limit=10)
+    assert len(hits) >= 1
+    assert hits[0].episode_id == "S01E05"
+    assert hits[0].cue_id is not None
+    assert hits[0].lang == "en"
+
+
+def test_align_run_and_links(db):
+    """Phase 4 : create_align_run, upsert_align_links, query_alignment_for_episode."""
+    ref = EpisodeRef(
+        episode_id="S01E06",
+        season=1,
+        episode=6,
+        title="Slutty Pumpkin",
+        url="https://example.com/s01e06",
+    )
+    db.upsert_episode(ref)
+    run_id = "S01E06:align:20250212T120000Z"
+    db.create_align_run(run_id, "S01E06", "en", None, "2025-02-12T12:00:00Z", "{}")
+    links = [
+        {"segment_id": "S01E06:sentence:0", "cue_id": "S01E06:en:0", "lang": "en", "role": "pivot", "confidence": 0.85, "status": "auto", "meta": {}},
+    ]
+    db.upsert_align_links(run_id, "S01E06", links)
+    runs = db.get_align_runs_for_episode("S01E06")
+    assert len(runs) == 1
+    assert runs[0]["align_run_id"] == run_id
+    result = db.query_alignment_for_episode("S01E06", run_id=run_id)
+    assert len(result) == 1
+    assert result[0]["segment_id"] == "S01E06:sentence:0"
+    assert result[0]["confidence"] == 0.85
+    db.set_align_status(result[0]["link_id"], "accepted")
+    result2 = db.query_alignment_for_episode("S01E06", run_id=run_id, status_filter="accepted")
+    assert len(result2) == 1
+
+
+def test_kwic_episode_non_regression(db):
+    """Non-régression : query_kwic (épisodes) continue de marcher après migration segments."""
+    ref = EpisodeRef(
+        episode_id="S01E04",
+        season=1,
+        episode=4,
+        title="Return of the Shirt",
+        url="https://example.com/s01e04",
+    )
+    db.upsert_episode(ref)
+    db.index_episode_text("S01E04", "The return of the shirt. Legendary shirt.")
+    hits_ep = db.query_kwic("shirt", limit=10)
+    assert len(hits_ep) >= 2
+    assert all(h.episode_id == "S01E04" for h in hits_ep)
+    assert all(getattr(h, "segment_id", None) is None for h in hits_ep)

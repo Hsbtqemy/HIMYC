@@ -7,6 +7,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write   # requis pour créer la release et uploader l’asset .exe
+
 jobs:
   build-exe:
     runs-on: windows-latest
@@ -26,13 +29,13 @@ jobs:
 
       - name: Build .exe
         run: |
-          pyinstaller --onefile --name HowIMetYourCorpus --windowed --noconfirm --paths=src src/corpusstudio/app/main.py
+          pyinstaller --onefile --name HowIMetYourCorpus --windowed --noconfirm --paths=src src/howimetyourcorpus/app/main.py
 
       - name: Upload .exe to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/HowIMetYourCorpus.exe
-          generate_release_notes: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

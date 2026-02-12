@@ -1,7 +1,7 @@
 """Tests des profils de normalisation."""
 
 import pytest
-from corpusstudio.core.normalize.profiles import (
+from howimetyourcorpus.core.normalize.profiles import (
     NormalizationProfile,
     get_profile,
     PROFILES,
