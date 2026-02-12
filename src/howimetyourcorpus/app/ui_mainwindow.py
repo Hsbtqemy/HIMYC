@@ -31,8 +31,10 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMenu,
 )
-from PySide6.QtCore import Qt, QModelIndex, QPoint
-from PySide6.QtGui import QTextCursor
+from PySide6.QtCore import Qt, QModelIndex, QPoint, QUrl
+from PySide6.QtGui import QTextCursor, QAction
+from PySide6.QtWidgets import QMenuBar
+from PySide6.QtGui import QDesktopServices
 
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import ProjectConfig, EpisodeRef, SeriesIndex
@@ -62,9 +64,14 @@ from howimetyourcorpus.core.export_utils import (
     export_kwic_json,
     export_kwic_tsv,
     export_kwic_jsonl,
+    export_parallel_concordance_csv,
+    export_parallel_concordance_tsv,
+    export_parallel_concordance_jsonl,
+    export_align_report_html,
 )
 from howimetyourcorpus.app.workers import JobRunner
 from howimetyourcorpus.app.models_qt import EpisodesTableModel, KwicTableModel, AlignLinksTableModel
+from howimetyourcorpus import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +117,7 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
 
+        self._build_menu_bar()
         self._build_tab_projet()
         self._build_tab_corpus()
         self._build_tab_inspecteur()
@@ -118,6 +126,32 @@ class MainWindow(QMainWindow):
         self._build_tab_concordance()
         self._build_tab_logs()
         self.tabs.setCurrentIndex(TAB_PROJET)
+
+    def _build_menu_bar(self):
+        """Barre de menu : Aide > À propos, Vérifier les mises à jour (Phase 6)."""
+        menu_bar = QMenuBar(self)
+        self.setMenuBar(menu_bar)
+        aide = menu_bar.addMenu("&Aide")
+        about_act = QAction("À propos", self)
+        about_act.triggered.connect(self._show_about)
+        aide.addAction(about_act)
+        update_act = QAction("Vérifier les mises à jour", self)
+        update_act.triggered.connect(self._open_releases_page)
+        aide.addAction(update_act)
+
+    def _show_about(self):
+        """Affiche la boîte À propos (version, lien mises à jour)."""
+        QMessageBox.about(
+            self,
+            "À propos",
+            f"<b>HowIMetYourCorpus</b><br>Version {__version__}<br><br>"
+            "Pipeline de corpus + exploration + QA — transcriptions et sous-titres.<br><br>"
+            "Mises à jour : Aide → Vérifier les mises à jour.",
+        )
+
+    def _open_releases_page(self):
+        """Ouvre la page des releases GitHub (mise à jour optionnelle Phase 6)."""
+        QDesktopServices.openUrl(QUrl("https://github.com/Hsbtqemy/HIMYC/releases"))
 
     def _build_tab_projet(self):
         w = QWidget()
@@ -665,6 +699,15 @@ class MainWindow(QMainWindow):
         self.export_align_btn = QPushButton("Exporter aligné")
         self.export_align_btn.clicked.connect(self._export_alignment)
         row.addWidget(self.export_align_btn)
+        self.export_parallel_btn = QPushButton("Exporter concordancier parallèle")
+        self.export_parallel_btn.clicked.connect(self._export_parallel_concordance)
+        row.addWidget(self.export_parallel_btn)
+        self.align_report_btn = QPushButton("Rapport HTML")
+        self.align_report_btn.clicked.connect(self._export_align_report)
+        row.addWidget(self.align_report_btn)
+        self.align_stats_btn = QPushButton("Stats")
+        self.align_stats_btn.clicked.connect(self._show_align_stats)
+        row.addWidget(self.align_stats_btn)
         layout.addLayout(row)
         self.align_table = QTableView()
         self.align_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -768,6 +811,79 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
         except Exception as e:
             logger.exception("Export alignement")
+            QMessageBox.critical(self, "Erreur", str(e))
+
+    def _export_parallel_concordance(self):
+        """Exporte le concordancier parallèle (segment + EN + FR + IT) en CSV, TSV ou JSONL."""
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        if not eid or not run_id or not self._db:
+            QMessageBox.warning(self, "Concordancier parallèle", "Sélectionnez un épisode et un run.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Exporter concordancier parallèle", "",
+            "CSV (*.csv);;TSV (*.tsv);;JSONL (*.jsonl)"
+        )
+        if not path:
+            return
+        path = Path(path)
+        try:
+            rows = self._db.get_parallel_concordance(eid, run_id)
+            if path.suffix.lower() == ".jsonl":
+                export_parallel_concordance_jsonl(rows, path)
+            elif path.suffix.lower() == ".tsv":
+                export_parallel_concordance_tsv(rows, path)
+            else:
+                export_parallel_concordance_csv(rows, path)
+            QMessageBox.information(self, "Export", f"Concordancier parallèle exporté : {len(rows)} ligne(s).")
+        except Exception as e:
+            logger.exception("Export concordancier parallèle")
+            QMessageBox.critical(self, "Erreur", str(e))
+
+    def _export_align_report(self):
+        """Génère un rapport HTML (stats + échantillon concordancier parallèle)."""
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        if not eid or not run_id or not self._db:
+            QMessageBox.warning(self, "Rapport", "Sélectionnez un épisode et un run.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Rapport alignement", "", "HTML (*.html)")
+        if not path:
+            return
+        path = Path(path)
+        if path.suffix.lower() != ".html":
+            path = path.with_suffix(".html")
+        try:
+            stats = self._db.get_align_stats_for_run(eid, run_id)
+            sample = self._db.get_parallel_concordance(eid, run_id)
+            export_align_report_html(stats, sample, eid, run_id, path)
+            QMessageBox.information(self, "Rapport", f"Rapport enregistré : {path.name}")
+        except Exception as e:
+            logger.exception("Rapport alignement")
+            QMessageBox.critical(self, "Erreur", str(e))
+
+    def _show_align_stats(self):
+        """Affiche les statistiques d'alignement du run sélectionné."""
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        if not eid or not run_id or not self._db:
+            QMessageBox.warning(self, "Stats", "Sélectionnez un épisode et un run.")
+            return
+        try:
+            stats = self._db.get_align_stats_for_run(eid, run_id)
+            by_status = stats.get("by_status") or {}
+            msg = (
+                f"Épisode: {stats.get('episode_id', '')}\n"
+                f"Run: {stats.get('run_id', '')}\n\n"
+                f"Liens totaux: {stats.get('nb_links', 0)}\n"
+                f"Liens pivot (segment↔EN): {stats.get('nb_pivot', 0)}\n"
+                f"Liens target (EN↔FR/IT): {stats.get('nb_target', 0)}\n"
+                f"Confiance moyenne: {stats.get('avg_confidence', '—')}\n"
+                f"Par statut: {', '.join(f'{k}={v}' for k, v in sorted(by_status.items()))}"
+            )
+            QMessageBox.information(self, "Statistiques alignement", msg)
+        except Exception as e:
+            logger.exception("Stats alignement")
             QMessageBox.critical(self, "Erreur", str(e))
 
     def _build_tab_concordance(self):

@@ -10,9 +10,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 .venv\Scripts\python.exe -m pip install pyinstaller -q
-.venv\Scripts\pyinstaller.exe --onefile --name HowIMetYourCorpus --windowed --noconfirm ^
-    --paths=src ^
-    src/howimetyourcorpus/app/main.py
+.venv\Scripts\pyinstaller.exe --noconfirm HowIMetYourCorpus.spec
 
 if errorlevel 1 (
     echo Build echoue.

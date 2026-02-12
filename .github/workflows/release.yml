@@ -29,7 +29,7 @@ jobs:
 
       - name: Build .exe
         run: |
-          pyinstaller --onefile --name HowIMetYourCorpus --windowed --noconfirm --paths=src src/howimetyourcorpus/app/main.py
+          pyinstaller --noconfirm HowIMetYourCorpus.spec
 
       - name: Upload .exe to Release
         uses: softprops/action-gh-release@v2

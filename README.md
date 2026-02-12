@@ -83,10 +83,11 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
    - Choisir un épisode et une langue (en/fr/it), puis **« Importer SRT/VTT... »** pour importer un fichier .srt ou .vtt.  
    - La liste des pistes pour l’épisode affiche langues, format et nombre de cues.
 
-5. **Alignement** (onglet Alignement, Phase 4)  
+5. **Alignement** (onglet Alignement, Phase 4–5)  
    - Choisir un épisode et un run d’alignement (ou **« Lancer alignement »** pour en créer un).  
    - L’alignement associe les segments (phrases) au transcript aux cues EN, puis les cues EN aux cues FR/IT par recouvrement temporel.  
-   - Table des liens (segment, cue, cue target, confiance, statut) ; **« Exporter aligné »** en CSV ou JSONL.
+   - Table des liens (segment, cue, cue target, confiance, statut) ; menu contextuel **Accepter / Rejeter** ; **« Exporter aligné »** en CSV ou JSONL.  
+   - **Phase 5** : **« Exporter concordancier parallèle »** (CSV / TSV / JSONL : segment + EN + FR + IT) ; **« Rapport HTML »** (stats + échantillon) ; **« Stats »** (nb liens, pivot/target, confiance moyenne, par statut).
 
 6. **Concordance** (onglet Concordance)  
    - Saisir un terme, filtrer par saison/épisode, afficher les résultats KWIC.  
@@ -116,9 +117,9 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
 3. Enregistrer l’adapteur dans le registre : `AdapterRegistry.register(MonAdapter())`.
 4. Ajouter le `source_id` dans la config projet si besoin.
 
-## Construire le .exe (développeurs)
+## Construire le .exe (développeurs, Phase 6)
 
-Pour générer **HowIMetYourCorpus.exe** en local (dossier **dist/** à la racine du projet, pas dans un zip) :
+Pour générer **HowIMetYourCorpus.exe** en local (dossier **dist/** à la racine du projet) :
 
 1. Avoir installé le projet (Option B ci-dessus).
 2. Lancer le build :
@@ -127,7 +128,9 @@ Pour générer **HowIMetYourCorpus.exe** en local (dossier **dist/** à la racin
    ```
 3. L’exécutable est produit dans **dist\HowIMetYourCorpus.exe**.
 
-Pour publier une release avec le .exe sur GitHub : créer un tag (ex. `v0.2.0`) et le pousser. Le workflow [.github/workflows/release.yml](.github/workflows/release.yml) build le .exe et l’attache à la release en tant qu’asset unique (fichier .exe téléchargeable directement, pas dans une archive).
+Le build utilise **HowIMetYourCorpus.spec** (PyInstaller) qui inclut le schéma SQL et les migrations en données embarquées. Le menu **Aide → À propos** affiche la version ; **Aide → Vérifier les mises à jour** ouvre la page des releases GitHub.
+
+Pour publier une release avec le .exe sur GitHub : créer un tag (ex. `v0.2.0`) et le pousser. Le workflow [.github/workflows/release.yml](.github/workflows/release.yml) build le .exe et l’attache à la release en tant qu’asset unique.
 
 ---
 
@@ -147,6 +150,7 @@ src/howimetyourcorpus/
 tests/          # Tests (adapters, normalisation, DB KWIC)
 scripts/windows/# install.bat, run.bat, build_exe.bat, download_exe.ps1
 .github/workflows/# release.yml (build .exe et release GitHub)
+HowIMetYourCorpus.spec  # Spec PyInstaller (Phase 6, datas schema + migrations)
 dist/           # Généré par build_exe : HowIMetYourCorpus.exe (ignoré par git)
 ```
 

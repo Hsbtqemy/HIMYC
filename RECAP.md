@@ -1,6 +1,6 @@
-# HowIMetYourCorpus — Récapitulatif MVP + Phases 2–4
+# HowIMetYourCorpus — Récapitulatif MVP + Phases 2–5
 
-Document de synthèse du projet (Phase 1 MVP, Phase 2 segments, Phase 3 sous-titres, Phase 4 alignement). À garder à côté du dossier pour retrouver rapidement structure, commandes et critères.
+Document de synthèse du projet (Phase 1 MVP, Phase 2 segments, Phase 3 sous-titres, Phase 4 alignement, Phase 5 concordancier parallèle et rapports). À garder à côté du dossier pour retrouver rapidement structure, commandes et critères.
 
 ---
 
@@ -61,7 +61,7 @@ HowIMetYourCorpus/
 │       │   └── aligner.py      # AlignLink, align_segments_to_cues, align_cues_by_time
 │       ├── storage/
 │       │   ├── project_store.py # Layout projet, RAW/CLEAN, subs, align
-│       │   ├── db.py           # SQLite + FTS5 + KWIC + segments + cues + align
+│       │   ├── db.py           # SQLite + FTS5 + KWIC + segments + cues + align + Phase 5 stats/parallel
 │       │   ├── schema.sql      # + schema_version
 │       │   └── migrations/     # 002_segments.sql, 003_subtitles.sql, 004_align.sql
 │       └── utils/              # logging, text, http
@@ -72,7 +72,9 @@ HowIMetYourCorpus/
 │   ├── test_db_kwic.py
 │   ├── test_segment.py        # Phase 2
 │   ├── test_subtitles.py      # Phase 3
-│   └── test_align.py          # Phase 4
+│   ├── test_align.py          # Phase 4
+│   └── test_export_phase5.py  # Phase 5
+├── HowIMetYourCorpus.spec    # Phase 6 PyInstaller (datas schema + migrations)
 └── scripts/windows/
     ├── install.bat
     └── run.bat
@@ -86,7 +88,7 @@ HowIMetYourCorpus/
 2. **Corpus** — Découvrir épisodes → Télécharger (sélection / tout) → Normaliser → Indexer DB. Progression + Annuler.
 3. **Inspecteur** — Choisir épisode → voir RAW vs CLEAN, stats, exemples de fusions. Vue « Segments » : liste phrases/tours + surlignage ; bouton « Segmente l’épisode ».
 4. **Sous-titres** — Choisir épisode + langue, « Importer SRT/VTT... » ; liste des pistes (lang, format, nb cues).
-5. **Alignement** — Choisir épisode + run (ou « Lancer alignement ») ; table des liens segment↔cue ; export aligné CSV/JSONL.
+5. **Alignement** — Choisir épisode + run (ou « Lancer alignement ») ; table des liens ; Accepter/Rejeter ; export aligné CSV/JSONL ; **Phase 5** : export concordancier parallèle (CSV/TSV/JSONL), rapport HTML, stats.
 6. **Concordance** — Saisir terme, scope (Épisodes / Segments / Cues), kind, langue (si Cues), filtres → KWIC ; export CSV/TSV/JSON/JSONL ; double-clic → Inspecteur.
 7. **Logs** — Logs en direct + « Ouvrir fichier log ».
 
@@ -129,12 +131,13 @@ projects/<project_name>/
 
 ---
 
-## Tests (14 au total)
+## Tests (46 au total)
 
 - **Adapter subslikescript** : discover (fixture), parse_episode, erreur si transcript trop court.
 - **Normalisation** : fusion césure, double saut conservé, didascalie, ligne type « TED: », profils.
-- **DB / KWIC** : init, index, `query_kwic` → left / match / right ; segments, cues ; **Phase 4** : `align_runs`, `align_links`, `query_alignment_for_episode`, `set_align_status`.
+- **DB / KWIC** : init, index, `query_kwic` → left / match / right ; segments, cues ; **Phase 4** : `align_runs`, `align_links`, `query_alignment_for_episode`, `set_align_status` ; **Phase 5** : `get_align_stats_for_run`, `get_parallel_concordance`.
 - **Alignement (Phase 4)** : similarité texte, `align_segments_to_cues`, `align_cues_by_time`, `AlignLink.to_dict`.
+- **Export Phase 5** : `export_parallel_concordance_csv/tsv/jsonl`, `export_align_report_html`.
 
 ---
 
@@ -143,8 +146,8 @@ projects/<project_name>/
 - **Phase 2** : Segmentation phrases / utterances, exports JSONL/CSV. ✅ *Fait : `core/segment.py` (utterances, phrases), export corpus segmenté JSONL + CSV (utterances / phrases) dans l’UI.*
 - **Phase 3** : Import sous-titres SRT/VTT (fichiers locaux). ✅ *Fait.*
 - **Phase 4** : Alignement transcript ↔ sous-titres officiels, UI validation. ✅ *Fait : `core/align/` (similarity, aligner), tables `align_runs`/`align_links`, onglet Alignement, export CSV/JSONL, audit par run.*
-- **Phase 5** : Exports concordancier parallèle, stats, rapports (Quarto optionnel).
-- **Phase 6** : Packaging Windows (PyInstaller, mise à jour optionnelle).
+- **Phase 5** : Exports concordancier parallèle, stats, rapports (Quarto optionnel). ✅ *Fait : `get_align_stats_for_run`, `get_parallel_concordance`, export CSV/TSV/JSONL concordancier parallèle, rapport HTML (stats + échantillon), boutons Stats / Rapport HTML / Exporter concordancier parallèle dans l’onglet Alignement.*
+- **Phase 6** : Packaging Windows (PyInstaller, mise à jour optionnelle). ✅ *Fait : HowIMetYourCorpus.spec (datas schema.sql + migrations), build_exe.bat et release.yml utilisent le spec ; menu Aide → À propos (version), Aide → Vérifier les mises à jour (ouvre GitHub releases).*
 
 ---
 

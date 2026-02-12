@@ -6,7 +6,7 @@ env/
 # Build PyInstaller
 dist/
 build/
-*.spec
+# HowIMetYourCorpus.spec est versionné (Phase 6)
 
 # Python
 __pycache__/

@@ -1,7 +1,7 @@
 # Revue de code — Phase 4 (HowIMetYourCorpus)  
 **Alignement transcript (segments) ↔ cues EN ↔ cues FR/IT**
 
-*Date : février 2025 — 1ʳᵉ révision (correctifs appliqués)*
+*Date : février 2025 — 1ʳᵉ révision (correctifs appliqués) ; 2ᵉ révision (vérification)*
 
 ---
 
@@ -136,4 +136,22 @@ La Phase 4 ajoute l’alignement des segments (phrases du transcript) avec les c
 
 ---
 
-*Document généré à partir de la revue de code Phase 4 du projet HowIMetYourCorpus. Correctifs § 3.1 A–C, § 3.2 E–F appliqués.*
+---
+
+## 7. 2ᵉ révision (vérification)
+
+*Date : février 2025*
+
+**Vérifications effectuées :**
+
+- **§ 3.1 A** : Menu contextuel sur la table des liens confirmé — `setContextMenuPolicy(CustomContextMenu)`, `customContextMenuRequested` → `_align_table_context_menu` ; appels à `set_align_status(link_id, "accepted"|"rejected")` puis `_align_fill_links()`.
+- **§ 3.1 B** : `_run_align_episode` ne contient que `_run_job([AlignEpisodeStep(...)])` ; pas d’appel à `_refresh_align_runs()`. Le rafraîchissement des runs se fait bien dans `_on_job_finished`.
+- **§ 3.1 C** : Docstring de `align_segments_to_cues` documente le choix métier et `used_cue_indices` (évolution future).
+- **§ 3.2 E** : `pyproject.toml` contient bien `[project.optional-dependencies]` avec `align = ["rapidfuzz>=3.0"]`.
+- **§ 3.2 F** : Export CSV inclut la colonne `meta` (en-tête + `json.dumps(meta)` par ligne).
+
+**Conclusion 2ᵉ révision :** Aucune régression constatée. Le code Phase 4 est cohérent avec le bilan de la 1ʳᵉ révision ; seul le point optionnel § 3.2 D (plage de cue_ids dans meta) reste en attente si besoin métier.
+
+---
+
+*Document généré à partir de la revue de code Phase 4 du projet HowIMetYourCorpus. Correctifs § 3.1 A–C, § 3.2 E–F appliqués. 2ᵉ révision : vérification effectuée.*

@@ -677,3 +677,114 @@ class CorpusDB:
             return result
         finally:
             conn.close()
+
+    # ----- Phase 5: concordancier parallèle et stats -----
+
+    def get_align_stats_for_run(self, episode_id: str, run_id: str) -> dict:
+        """
+        Statistiques d'alignement pour un run : nb_links, nb_pivot, nb_target,
+        by_status (auto/accepted/rejected), avg_confidence.
+        """
+        conn = self._conn()
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(
+                """SELECT role, status, confidence, COUNT(*) AS cnt
+                   FROM align_links WHERE episode_id = ? AND align_run_id = ?
+                   GROUP BY role, status""",
+                (episode_id, run_id),
+            ).fetchall()
+            nb_links = 0
+            nb_pivot = 0
+            nb_target = 0
+            by_status: dict[str, int] = {}
+            conf_sum = 0.0
+            conf_count = 0
+            for r in rows:
+                cnt = r["cnt"]
+                nb_links += cnt
+                if r["role"] == "pivot":
+                    nb_pivot += cnt
+                else:
+                    nb_target += cnt
+                st = r["status"] or "auto"
+                by_status[st] = by_status.get(st, 0) + cnt
+                if r["confidence"] is not None:
+                    conf_sum += r["confidence"] * cnt
+                    conf_count += cnt
+            avg_confidence = conf_sum / conf_count if conf_count else None
+            return {
+                "episode_id": episode_id,
+                "run_id": run_id,
+                "nb_links": nb_links,
+                "nb_pivot": nb_pivot,
+                "nb_target": nb_target,
+                "by_status": by_status,
+                "avg_confidence": round(avg_confidence, 4) if avg_confidence is not None else None,
+            }
+        finally:
+            conn.close()
+
+    def get_parallel_concordance(
+        self,
+        episode_id: str,
+        run_id: str,
+        status_filter: str | None = None,
+    ) -> list[dict]:
+        """
+        Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues FR/IT
+        à partir des liens d'alignement. Chaque ligne : segment_id, text_segment, text_en, confidence_pivot,
+        text_fr, confidence_fr, text_it, confidence_it.
+        """
+        links = self.query_alignment_for_episode(episode_id, run_id=run_id, status_filter=status_filter)
+        segments = self.get_segments_for_episode(episode_id, kind="sentence")
+        cues_en = self.get_cues_for_episode_lang(episode_id, "en")
+        cues_fr = self.get_cues_for_episode_lang(episode_id, "fr")
+        cues_it = self.get_cues_for_episode_lang(episode_id, "it")
+
+        seg_by_id = {s["segment_id"]: (s.get("text") or "").strip() for s in segments}
+        def cue_text(c: dict) -> str:
+            return (c.get("text_clean") or c.get("text_raw") or "").strip()
+        cue_en_by_id = {c["cue_id"]: cue_text(c) for c in cues_en}
+        cue_fr_by_id = {c["cue_id"]: cue_text(c) for c in cues_fr}
+        cue_it_by_id = {c["cue_id"]: cue_text(c) for c in cues_it}
+
+        pivot_links = [lnk for lnk in links if lnk.get("role") == "pivot"]
+        target_by_cue_en: dict[str, list[dict]] = {}
+        for lnk in links:
+            if lnk.get("role") != "target" or not lnk.get("cue_id"):
+                continue
+            cue_en = lnk["cue_id"]
+            target_by_cue_en.setdefault(cue_en, []).append(lnk)
+
+        result: list[dict] = []
+        for pl in pivot_links:
+            seg_id = pl.get("segment_id")
+            cue_id_en = pl.get("cue_id")
+            text_seg = seg_by_id.get(seg_id, "")
+            text_en = cue_en_by_id.get(cue_id_en or "", "")
+            conf_pivot = pl.get("confidence")
+            text_fr = ""
+            conf_fr = None
+            text_it = ""
+            conf_it = None
+            for tl in target_by_cue_en.get(cue_id_en or "", []):
+                lang = (tl.get("lang") or "").lower()
+                cid_t = tl.get("cue_id_target")
+                if lang == "fr" and cid_t:
+                    text_fr = cue_fr_by_id.get(cid_t, "")
+                    conf_fr = tl.get("confidence")
+                elif lang == "it" and cid_t:
+                    text_it = cue_it_by_id.get(cid_t, "")
+                    conf_it = tl.get("confidence")
+            result.append({
+                "segment_id": seg_id,
+                "text_segment": text_seg,
+                "text_en": text_en,
+                "confidence_pivot": conf_pivot,
+                "text_fr": text_fr,
+                "confidence_fr": conf_fr,
+                "text_it": text_it,
+                "confidence_it": conf_it,
+            })
+        return result

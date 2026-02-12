@@ -239,3 +239,104 @@ def export_corpus_phrases_csv(
                     ph.index,
                 ])
     return None
+
+
+# --- Phase 5 : concordancier parallèle et rapports ---
+
+PARALLEL_CONCORDANCE_COLUMNS = [
+    "segment_id", "text_segment", "text_en", "confidence_pivot",
+    "text_fr", "confidence_fr", "text_it", "confidence_it",
+]
+
+
+def export_parallel_concordance_csv(rows: list[dict], path: Path) -> None:
+    """Exporte le concordancier parallèle en CSV (segment, EN, FR, IT + confiances)."""
+    with path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(PARALLEL_CONCORDANCE_COLUMNS)
+        for r in rows:
+            w.writerow([r.get(k) for k in PARALLEL_CONCORDANCE_COLUMNS])
+    return None
+
+
+def export_parallel_concordance_tsv(rows: list[dict], path: Path) -> None:
+    """Exporte le concordancier parallèle en TSV."""
+    with path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(PARALLEL_CONCORDANCE_COLUMNS)
+        for r in rows:
+            w.writerow([r.get(k) for k in PARALLEL_CONCORDANCE_COLUMNS])
+    return None
+
+
+def export_parallel_concordance_jsonl(rows: list[dict], path: Path) -> None:
+    """Exporte le concordancier parallèle en JSONL (une ligne JSON par alignement)."""
+    with path.open("w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    return None
+
+
+def export_align_report_html(
+    stats: dict,
+    sample_rows: list[dict],
+    episode_id: str,
+    run_id: str,
+    path: Path,
+    title: str | None = None,
+) -> None:
+    """
+    Génère un rapport HTML (Phase 5) : stats d'alignement + tableau échantillon du concordancier parallèle.
+    Quarto reste optionnel pour des rapports avancés.
+    """
+    t = title or f"Rapport alignement — {episode_id}"
+    by_status = stats.get("by_status") or {}
+    lines = [
+        "<!DOCTYPE html>",
+        "<html><head><meta charset='utf-8'><title>" + _escape(t) + "</title></head><body>",
+        "<h1>" + _escape(t) + "</h1>",
+        "<p><strong>Épisode:</strong> " + _escape(stats.get("episode_id", "")) + "</p>",
+        "<p><strong>Run:</strong> " + _escape(stats.get("run_id", "")) + "</p>",
+        "<h2>Statistiques</h2>",
+        "<ul>",
+        "<li>Liens totaux: " + str(stats.get("nb_links", 0)) + "</li>",
+        "<li>Liens pivot (segment↔EN): " + str(stats.get("nb_pivot", 0)) + "</li>",
+        "<li>Liens target (EN↔FR/IT): " + str(stats.get("nb_target", 0)) + "</li>",
+        "<li>Confiance moyenne: " + (str(stats.get("avg_confidence")) if stats.get("avg_confidence") is not None else "—") + "</li>",
+        "<li>Par statut: " + ", ".join(f"{k}={v}" for k, v in sorted(by_status.items())) + "</li>",
+        "</ul>",
+        "<h2>Échantillon concordancier parallèle</h2>",
+        "<table border='1' cellpadding='4' style='border-collapse: collapse;'>",
+        "<thead><tr><th>segment_id</th><th>Segment (transcript)</th><th>EN</th><th>conf.</th><th>FR</th><th>conf.</th><th>IT</th><th>conf.</th></tr></thead>",
+        "<tbody>",
+    ]
+    for r in sample_rows[:100]:
+        t_seg = str(r.get("text_segment", ""))
+        t_en = str(r.get("text_en", ""))
+        t_fr = str(r.get("text_fr", ""))
+        t_it = str(r.get("text_it", ""))
+        lines.append(
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
+                _escape(str(r.get("segment_id", ""))),
+                _escape((t_seg[:80] + "…") if len(t_seg) > 80 else t_seg),
+                _escape((t_en[:60] + "…") if len(t_en) > 60 else t_en),
+                _escape(str(r.get("confidence_pivot") if r.get("confidence_pivot") is not None else "")),
+                _escape((t_fr[:60] + "…") if len(t_fr) > 60 else t_fr),
+                _escape(str(r.get("confidence_fr") if r.get("confidence_fr") is not None else "")),
+                _escape((t_it[:60] + "…") if len(t_it) > 60 else t_it),
+                _escape(str(r.get("confidence_it") if r.get("confidence_it") is not None else "")),
+            )
+        )
+    lines.extend(["</tbody></table>", "</body></html>"])
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return None
+
+
+def _escape(s: str) -> str:
+    """Échappe HTML pour affichage sûr."""
+    return (
+        s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )

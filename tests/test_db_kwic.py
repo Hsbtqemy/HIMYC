@@ -152,6 +152,54 @@ def test_align_run_and_links(db):
     assert len(result2) == 1
 
 
+def test_align_stats_and_parallel_concordance(db):
+    """Phase 5 : get_align_stats_for_run, get_parallel_concordance."""
+    from howimetyourcorpus.core.segment import Segment
+    from howimetyourcorpus.core.subtitles import Cue
+
+    ref = EpisodeRef(
+        episode_id="S01E07",
+        season=1,
+        episode=7,
+        title="Matchmaker",
+        url="https://example.com/s01e07",
+    )
+    db.upsert_episode(ref)
+    run_id = "S01E07:align:20250212T130000Z"
+    db.create_align_run(run_id, "S01E07", "en", None, "2025-02-12T13:00:00Z", "{}")
+
+    seg = Segment(episode_id="S01E07", kind="sentence", n=0, start_char=0, end_char=11, text="Hello world")
+    db.upsert_segments("S01E07", "sentence", [seg])
+
+    db.add_track("S01E07:en", "S01E07", "en", "srt")
+    db.add_track("S01E07:fr", "S01E07", "fr", "srt")
+    cue_en = Cue(episode_id="S01E07", lang="en", n=0, start_ms=0, end_ms=2000, text_raw="Hello world", text_clean="Hello world")
+    cue_fr = Cue(episode_id="S01E07", lang="fr", n=0, start_ms=0, end_ms=2000, text_raw="Bonjour le monde", text_clean="Bonjour le monde")
+    db.upsert_cues("S01E07:en", "S01E07", "en", [cue_en])
+    db.upsert_cues("S01E07:fr", "S01E07", "fr", [cue_fr])
+
+    links = [
+        {"segment_id": "S01E07:sentence:0", "cue_id": "S01E07:en:0", "lang": "en", "role": "pivot", "confidence": 0.9, "status": "auto", "meta": {}},
+        {"cue_id": "S01E07:en:0", "cue_id_target": "S01E07:fr:0", "lang": "fr", "role": "target", "confidence": 1.0, "status": "auto", "meta": {}},
+    ]
+    db.upsert_align_links(run_id, "S01E07", links)
+
+    stats = db.get_align_stats_for_run("S01E07", run_id)
+    assert stats["nb_links"] == 2
+    assert stats["nb_pivot"] == 1
+    assert stats["nb_target"] == 1
+    assert stats["avg_confidence"] is not None
+
+    rows = db.get_parallel_concordance("S01E07", run_id)
+    assert len(rows) == 1
+    assert rows[0]["segment_id"] == "S01E07:sentence:0"
+    assert rows[0]["text_segment"] == "Hello world"
+    assert rows[0]["text_en"] == "Hello world"
+    assert rows[0]["text_fr"] == "Bonjour le monde"
+    assert rows[0]["confidence_pivot"] == 0.9
+    assert rows[0]["confidence_fr"] == 1.0
+
+
 def test_kwic_episode_non_regression(db):
     """Non-régression : query_kwic (épisodes) continue de marcher après migration segments."""
     ref = EpisodeRef(
