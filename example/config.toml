@@ -1,6 +1,3 @@
-# Projet exemple : démo HowIMetYourCorpus (EN + FR)
-# Ouvrir ce dossier comme projet dans l'application.
-
 project_name = "Demo"
 source_id = "subslikescript"
 series_url = "https://example.com/demo"

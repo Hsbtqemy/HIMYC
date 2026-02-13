@@ -319,6 +319,8 @@ Nouveau `core/adapters/opensubtitles.py` (ou équivalent), `core/utils/http.py` 
 
 Dans ce modèle, pas de visualiseuse dans le Corpus (évite l’encombrement) ; la visualiseuse / le réglage de normalisation et l’indexation « pour cet épisode » seraient dans l’Inspecteur. Le Corpus reste léger et focalisé sur « quoi est à jour, quoi sélectionner, quoi lancer en batch ». À discuter : déplacer le bouton « Indexer DB » vers l’Inspecteur (indexer l’épisode affiché) ou garder les deux (batch dans Corpus + option dans Inspecteur).
 
+**Décision (retenue) :** Pas de visualiseuse raw/clean dans l'onglet Corpus. Alternative = double-clic sur un épisode → ouverture de l'Inspecteur sur cet épisode. Raison : Corpus = gestionnaire (liste, batch, statuts), Inspecteur = atelier (raw, clean, segments) ; éviter doublon d'affichage et garder le Corpus léger.
+
 ### 10.1 Corpus = gestionnaire des docs (comptabilisation SRT, etc.)
 
 **Contexte :** Aujourd’hui l’onglet Corpus affiche une colonne **Statut** par épisode (NEW, FETCHED, NORMALIZED, INDEXED, ERROR) qui reflète surtout le **transcript** (raw → clean → indexé). Les **SRT** (pistes par langue) et l’**alignement** ne sont pas visibles dans cette table : il faut aller dans Sous-titres ou Alignement pour voir quels épisodes ont des SRT ou un run d’alignement.

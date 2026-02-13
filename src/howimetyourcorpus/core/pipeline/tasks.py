@@ -52,18 +52,33 @@ class FetchSeriesIndexStep(Step):
                 on_log(level, msg)
             getattr(logger, level.lower(), logger.info)(msg)
 
-        if on_progress:
-            on_progress(self.name, 0.0, "Discovering episodes...")
-        try:
-            rate_limit = getattr(config, "rate_limit_s", 2.0)
-            index = adapter.discover_series(
-                self.series_url or config.series_url,
-                user_agent=self.user_agent or config.user_agent,
-                rate_limit_s=rate_limit,
-            )
-        except Exception as e:
-            log("error", str(e))
-            return StepResult(False, str(e))
+        series_url = (self.series_url or config.series_url or "").strip()
+        # Projet exemple : pas d'appel réseau, on reprend l'index déjà présent
+        if "example.com" in series_url:
+            if on_progress:
+                on_progress(self.name, 0.0, "Projet exemple : utilisation de l'index local...")
+            index = store.load_series_index()
+            if not index or not index.episodes:
+                return StepResult(
+                    False,
+                    "Projet exemple : l'URL example.com n'est pas accessible. L'index est dans series_index.json ; "
+                    "si le projet est vide, lancez « reset_example.py » ou « create_demo_db.py ».",
+                )
+            if on_progress:
+                on_progress(self.name, 1.0, f"Index local : {len(index.episodes)} épisode(s)")
+        else:
+            if on_progress:
+                on_progress(self.name, 0.0, "Discovering episodes...")
+            try:
+                rate_limit = getattr(config, "rate_limit_s", 2.0)
+                index = adapter.discover_series(
+                    series_url,
+                    user_agent=self.user_agent or config.user_agent,
+                    rate_limit_s=rate_limit,
+                )
+            except Exception as e:
+                log("error", str(e))
+                return StepResult(False, str(e))
         # Marquer chaque épisode avec la source du projet (multi-sources §7.2)
         for ref in index.episodes:
             if ref.source_id is None:

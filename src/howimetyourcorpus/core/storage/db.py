@@ -10,6 +10,9 @@ import json
 
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus
 
+from howimetyourcorpus.core.storage import db_align
+from howimetyourcorpus.core.storage import db_segments
+from howimetyourcorpus.core.storage import db_subtitles
 from howimetyourcorpus.core.storage.db_kwic import (
     KwicHit,
     query_kwic as _query_kwic,
@@ -201,7 +204,7 @@ class CorpusDB:
         finally:
             conn.close()
 
-    # ----- Phase 2: segments -----
+    # ----- Phase 2: segments (délègue à db_segments) -----
 
     def upsert_segments(
         self,
@@ -210,36 +213,9 @@ class CorpusDB:
         segments: list,
     ) -> None:
         """Insère ou met à jour les segments d'un épisode (sentence ou utterance)."""
-        from howimetyourcorpus.core.segment import Segment
-
         conn = self._conn()
         try:
-            conn.execute(
-                "DELETE FROM segments WHERE episode_id = ? AND kind = ?",
-                (episode_id, kind),
-            )
-            for seg in segments:
-                if not isinstance(seg, Segment):
-                    continue
-                sid = f"{episode_id}:{seg.kind}:{seg.n}"
-                meta_json = json.dumps(seg.meta) if seg.meta else None
-                conn.execute(
-                    """
-                    INSERT INTO segments (segment_id, episode_id, kind, n, start_char, end_char, text, speaker_explicit, meta_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        sid,
-                        episode_id,
-                        kind,
-                        seg.n,
-                        seg.start_char,
-                        seg.end_char,
-                        seg.text,
-                        seg.speaker_explicit,
-                        meta_json,
-                    ),
-                )
+            db_segments.upsert_segments(conn, episode_id, kind, segments)
             conn.commit()
         finally:
             conn.close()
@@ -269,19 +245,8 @@ class CorpusDB:
     ) -> list[dict]:
         """Retourne les segments d'un épisode (pour l'Inspecteur). kind = 'sentence' | 'utterance' | None (tous)."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            if kind:
-                rows = conn.execute(
-                    "SELECT segment_id, episode_id, kind, n, start_char, end_char, text, speaker_explicit, meta_json FROM segments WHERE episode_id = ? AND kind = ? ORDER BY kind, n",
-                    (episode_id, kind),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT segment_id, episode_id, kind, n, start_char, end_char, text, speaker_explicit, meta_json FROM segments WHERE episode_id = ? ORDER BY kind, n",
-                    (episode_id,),
-                ).fetchall()
-            return [dict(r) for r in rows]
+            return db_segments.get_segments_for_episode(conn, episode_id, kind)
         finally:
             conn.close()
 
@@ -289,38 +254,20 @@ class CorpusDB:
         """Met à jour le champ speaker_explicit d'un segment (propagation §8)."""
         conn = self._conn()
         try:
-            conn.execute(
-                "UPDATE segments SET speaker_explicit = ? WHERE segment_id = ?",
-                (speaker_explicit, segment_id),
-            )
+            db_segments.update_segment_speaker(conn, segment_id, speaker_explicit)
             conn.commit()
         finally:
             conn.close()
 
     def get_distinct_speaker_explicit(self, episode_ids: list[str]) -> list[str]:
         """Retourne la liste des noms de locuteurs (speaker_explicit) présents dans les segments des épisodes donnés, triés."""
-        if not episode_ids:
-            return []
         conn = self._conn()
         try:
-            placeholders = ",".join("?" * len(episode_ids))
-            rows = conn.execute(
-                f"""SELECT DISTINCT speaker_explicit FROM segments
-                    WHERE episode_id IN ({placeholders}) AND speaker_explicit IS NOT NULL AND trim(speaker_explicit) != ''""",
-                episode_ids,
-            ).fetchall()
-            return sorted({r[0].strip() for r in rows if r[0]})
+            return db_segments.get_distinct_speaker_explicit(conn, episode_ids)
         finally:
             conn.close()
 
-    # ----- Phase 3: sous-titres (tracks + cues) -----
-
-    def _normalize_cue_text_for_db(self, raw: str) -> str:
-        """Normalisation minimaliste pour text_clean (fallback si Cue.text_clean vide)."""
-        if not raw:
-            return ""
-        t = raw.replace("\n", " ").replace("\r", " ")
-        return " ".join(t.split()).strip()
+    # ----- Phase 3: sous-titres (délègue à db_subtitles) -----
 
     def add_track(
         self,
@@ -335,50 +282,16 @@ class CorpusDB:
         """Enregistre une piste sous-titres (ou met à jour si track_id existe). fmt = "srt"|"vtt"."""
         conn = self._conn()
         try:
-            conn.execute(
-                """
-                INSERT INTO subtitle_tracks (track_id, episode_id, lang, format, source_path, imported_at, meta_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(track_id) DO UPDATE SET
-                  episode_id=excluded.episode_id, lang=excluded.lang, format=excluded.format,
-                  source_path=excluded.source_path, imported_at=excluded.imported_at, meta_json=excluded.meta_json
-                """,
-                (track_id, episode_id, lang, fmt, source_path, imported_at, meta_json),
-            )
+            db_subtitles.add_track(conn, track_id, episode_id, lang, fmt, source_path, imported_at, meta_json)
             conn.commit()
         finally:
             conn.close()
 
     def upsert_cues(self, track_id: str, episode_id: str, lang: str, cues: list) -> None:
         """Remplace les cues d'une piste (supprime anciennes, insère les nouvelles)."""
-        from howimetyourcorpus.core.subtitles import Cue
-
         conn = self._conn()
         try:
-            conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
-            for c in cues:
-                if not isinstance(c, Cue):
-                    continue
-                cid = f"{episode_id}:{lang}:{c.n}" if episode_id and lang else f":{c.lang}:{c.n}"
-                meta_json_str = json.dumps(c.meta) if c.meta else None
-                conn.execute(
-                    """
-                    INSERT INTO subtitle_cues (cue_id, track_id, episode_id, lang, n, start_ms, end_ms, text_raw, text_clean, meta_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        cid,
-                        track_id,
-                        episode_id,
-                        lang,
-                        c.n,
-                        c.start_ms,
-                        c.end_ms,
-                        c.text_raw,
-                        c.text_clean or self._normalize_cue_text_for_db(c.text_raw),
-                        meta_json_str,
-                    ),
-                )
+            db_subtitles.upsert_cues(conn, track_id, episode_id, lang, cues)
             conn.commit()
         finally:
             conn.close()
@@ -387,10 +300,7 @@ class CorpusDB:
         """Met à jour le champ text_clean d'une cue (propagation §8)."""
         conn = self._conn()
         try:
-            conn.execute(
-                "UPDATE subtitle_cues SET text_clean = ? WHERE cue_id = ?",
-                (text_clean, cue_id),
-            )
+            db_subtitles.update_cue_text_clean(conn, cue_id, text_clean)
             conn.commit()
         finally:
             conn.close()
@@ -416,29 +326,16 @@ class CorpusDB:
     def get_tracks_for_episode(self, episode_id: str) -> list[dict]:
         """Retourne les pistes sous-titres d'un épisode avec nb_cues (pour l'UI)."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            rows = conn.execute(
-                """SELECT t.track_id, t.episode_id, t.lang, t.format, t.source_path, t.imported_at,
-                          COUNT(c.cue_id) AS nb_cues
-                   FROM subtitle_tracks t
-                   LEFT JOIN subtitle_cues c ON c.track_id = t.track_id
-                   WHERE t.episode_id = ?
-                   GROUP BY t.track_id
-                   ORDER BY t.lang""",
-                (episode_id,),
-            ).fetchall()
-            return [dict(r) for r in rows]
+            return db_subtitles.get_tracks_for_episode(conn, episode_id)
         finally:
             conn.close()
 
     def delete_subtitle_track(self, episode_id: str, lang: str) -> None:
         """Supprime une piste sous-titres (cues puis track). track_id = episode_id:lang."""
-        track_id = f"{episode_id}:{lang}"
         conn = self._conn()
         try:
-            conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
-            conn.execute("DELETE FROM subtitle_tracks WHERE track_id = ?", (track_id,))
+            db_subtitles.delete_subtitle_track(conn, episode_id, lang)
             conn.commit()
         finally:
             conn.close()
@@ -446,24 +343,12 @@ class CorpusDB:
     def get_cues_for_episode_lang(self, episode_id: str, lang: str) -> list[dict]:
         """Retourne les cues d'un épisode pour une langue (pour l'Inspecteur). meta = dict si meta_json présent."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            rows = conn.execute(
-                """SELECT cue_id, track_id, episode_id, lang, n, start_ms, end_ms, text_raw, text_clean, meta_json
-                   FROM subtitle_cues WHERE episode_id = ? AND lang = ? ORDER BY n""",
-                (episode_id, lang),
-            ).fetchall()
-            result = []
-            for r in rows:
-                d = dict(r)
-                meta_raw = d.pop("meta_json", None)
-                d["meta"] = json.loads(meta_raw) if meta_raw and meta_raw.strip() else {}
-                result.append(d)
-            return result
+            return db_subtitles.get_cues_for_episode_lang(conn, episode_id, lang)
         finally:
             conn.close()
 
-    # ----- Phase 4: alignement -----
+    # ----- Phase 4: alignement (délègue à db_align) -----
 
     def create_align_run(
         self,
@@ -475,17 +360,9 @@ class CorpusDB:
         summary_json: str | None = None,
     ) -> None:
         """Crée une entrée de run d'alignement."""
-        if not created_at:
-            created_at = datetime.datetime.utcnow().isoformat() + "Z"
         conn = self._conn()
         try:
-            conn.execute(
-                """
-                INSERT INTO align_runs (align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json),
-            )
+            db_align.create_align_run(conn, align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json)
             conn.commit()
         finally:
             conn.close()
@@ -494,24 +371,7 @@ class CorpusDB:
         """Remplace les liens d'un run (DELETE puis INSERT). Chaque link: segment_id?, cue_id?, cue_id_target?, lang?, role, confidence, status, meta_json?."""
         conn = self._conn()
         try:
-            conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
-            for i, link in enumerate(links):
-                link_id = link.get("link_id") or f"{align_run_id}:{i}"
-                segment_id = link.get("segment_id")
-                cue_id = link.get("cue_id")
-                cue_id_target = link.get("cue_id_target")
-                lang = link.get("lang") or ""
-                role = link.get("role", "pivot")
-                confidence = link.get("confidence")
-                status = link.get("status", "auto")
-                meta_json = json.dumps(link["meta"]) if link.get("meta") else None
-                conn.execute(
-                    """
-                    INSERT INTO align_links (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json),
-                )
+            db_align.upsert_align_links(conn, align_run_id, episode_id, links)
             conn.commit()
         finally:
             conn.close()
@@ -520,7 +380,7 @@ class CorpusDB:
         """Met à jour le statut d'un lien (accepted / rejected)."""
         conn = self._conn()
         try:
-            conn.execute("UPDATE align_links SET status = ? WHERE link_id = ?", (status, link_id))
+            db_align.set_align_status(conn, link_id, status)
             conn.commit()
         finally:
             conn.close()
@@ -532,19 +392,9 @@ class CorpusDB:
         cue_id_target: str | None = None,
     ) -> None:
         """Modifie la cible d'un lien (réplique EN et/ou réplique cible). Met le statut à 'accepted' (correction manuelle)."""
-        if cue_id is None and cue_id_target is None:
-            return
         conn = self._conn()
         try:
-            if cue_id is not None and cue_id_target is not None:
-                conn.execute(
-                    "UPDATE align_links SET cue_id = ?, cue_id_target = ?, status = ? WHERE link_id = ?",
-                    (cue_id, cue_id_target, "accepted", link_id),
-                )
-            elif cue_id is not None:
-                conn.execute("UPDATE align_links SET cue_id = ?, status = ? WHERE link_id = ?", (cue_id, "accepted", link_id))
-            else:
-                conn.execute("UPDATE align_links SET cue_id_target = ?, status = ? WHERE link_id = ?", (cue_id_target, "accepted", link_id))
+            db_align.update_align_link_cues(conn, link_id, cue_id, cue_id_target)
             conn.commit()
         finally:
             conn.close()
@@ -552,13 +402,8 @@ class CorpusDB:
     def get_align_runs_for_episode(self, episode_id: str) -> list[dict]:
         """Retourne les runs d'alignement d'un épisode (pour l'UI)."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            rows = conn.execute(
-                "SELECT align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json FROM align_runs WHERE episode_id = ? ORDER BY created_at DESC",
-                (episode_id,),
-            ).fetchall()
-            return [dict(r) for r in rows]
+            return db_align.get_align_runs_for_episode(conn, episode_id)
         finally:
             conn.close()
 
@@ -566,8 +411,7 @@ class CorpusDB:
         """Supprime un run d'alignement et tous ses liens."""
         conn = self._conn()
         try:
-            conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
-            conn.execute("DELETE FROM align_runs WHERE align_run_id = ?", (align_run_id,))
+            db_align.delete_align_run(conn, align_run_id)
             conn.commit()
         finally:
             conn.close()
@@ -581,35 +425,12 @@ class CorpusDB:
     ) -> list[dict]:
         """Retourne les liens d'alignement pour un épisode (optionnel: run_id, filtre status, min confidence)."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            where = "WHERE episode_id = ?"
-            params: list = [episode_id]
-            if run_id:
-                where += " AND align_run_id = ?"
-                params.append(run_id)
-            if status_filter:
-                where += " AND status = ?"
-                params.append(status_filter)
-            if min_confidence is not None:
-                where += " AND confidence >= ?"
-                params.append(min_confidence)
-            rows = conn.execute(
-                f"""SELECT link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json
-                    FROM align_links {where} ORDER BY segment_id, cue_id, lang""",
-                params,
-            ).fetchall()
-            result = []
-            for r in rows:
-                d = dict(r)
-                meta_raw = d.pop("meta_json", None)
-                d["meta"] = json.loads(meta_raw) if meta_raw and meta_raw.strip() else {}
-                result.append(d)
-            return result
+            return db_align.query_alignment_for_episode(conn, episode_id, run_id, status_filter, min_confidence)
         finally:
             conn.close()
 
-    # ----- Phase 5: concordancier parallèle et stats -----
+    # ----- Phase 5: concordancier parallèle et stats (délègue à db_align) -----
 
     def get_align_stats_for_run(
         self, episode_id: str, run_id: str, status_filter: str | None = None
@@ -617,50 +438,10 @@ class CorpusDB:
         """
         Statistiques d'alignement pour un run : nb_links, nb_pivot, nb_target,
         by_status (auto/accepted/rejected), avg_confidence.
-        Si status_filter est fourni (ex. "accepted"), seuls les liens avec ce statut sont comptés.
         """
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            where = "WHERE episode_id = ? AND align_run_id = ?"
-            params: list = [episode_id, run_id]
-            if status_filter:
-                where += " AND status = ?"
-                params.append(status_filter)
-            rows = conn.execute(
-                f"""SELECT role, status, confidence, COUNT(*) AS cnt
-                   FROM align_links {where}
-                   GROUP BY role, status""",
-                params,
-            ).fetchall()
-            nb_links = 0
-            nb_pivot = 0
-            nb_target = 0
-            by_status: dict[str, int] = {}
-            conf_sum = 0.0
-            conf_count = 0
-            for r in rows:
-                cnt = r["cnt"]
-                nb_links += cnt
-                if r["role"] == "pivot":
-                    nb_pivot += cnt
-                else:
-                    nb_target += cnt
-                st = r["status"] or "auto"
-                by_status[st] = by_status.get(st, 0) + cnt
-                if r["confidence"] is not None:
-                    conf_sum += r["confidence"] * cnt
-                    conf_count += cnt
-            avg_confidence = conf_sum / conf_count if conf_count else None
-            return {
-                "episode_id": episode_id,
-                "run_id": run_id,
-                "nb_links": nb_links,
-                "nb_pivot": nb_pivot,
-                "nb_target": nb_target,
-                "by_status": by_status,
-                "avg_confidence": round(avg_confidence, 4) if avg_confidence is not None else None,
-            }
+            return db_align.get_align_stats_for_run(conn, episode_id, run_id, status_filter)
         finally:
             conn.close()
 
@@ -672,59 +453,10 @@ class CorpusDB:
     ) -> list[dict]:
         """
         Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues FR/IT
-        à partir des liens d'alignement. Chaque ligne : segment_id, text_segment, text_en, confidence_pivot,
-        text_fr, confidence_fr, text_it, confidence_it.
-        Au plus une valeur FR et une valeur IT par ligne (pivot) sont retournées (dernier lien target par langue).
+        à partir des liens d'alignement.
         """
-        links = self.query_alignment_for_episode(episode_id, run_id=run_id, status_filter=status_filter)
-        segments = self.get_segments_for_episode(episode_id, kind="sentence")
-        cues_en = self.get_cues_for_episode_lang(episode_id, "en")
-        cues_fr = self.get_cues_for_episode_lang(episode_id, "fr")
-        cues_it = self.get_cues_for_episode_lang(episode_id, "it")
-
-        seg_by_id = {s["segment_id"]: (s.get("text") or "").strip() for s in segments}
-        def cue_text(c: dict) -> str:
-            return (c.get("text_clean") or c.get("text_raw") or "").strip()
-        cue_en_by_id = {c["cue_id"]: cue_text(c) for c in cues_en}
-        cue_fr_by_id = {c["cue_id"]: cue_text(c) for c in cues_fr}
-        cue_it_by_id = {c["cue_id"]: cue_text(c) for c in cues_it}
-
-        pivot_links = [lnk for lnk in links if lnk.get("role") == "pivot"]
-        target_by_cue_en: dict[str, list[dict]] = {}
-        for lnk in links:
-            if lnk.get("role") != "target" or not lnk.get("cue_id"):
-                continue
-            cue_en = lnk["cue_id"]
-            target_by_cue_en.setdefault(cue_en, []).append(lnk)
-
-        result: list[dict] = []
-        for pl in pivot_links:
-            seg_id = pl.get("segment_id")
-            cue_id_en = pl.get("cue_id")
-            text_seg = seg_by_id.get(seg_id, "")
-            text_en = cue_en_by_id.get(cue_id_en or "", "")
-            conf_pivot = pl.get("confidence")
-            text_fr = ""
-            conf_fr = None
-            text_it = ""
-            conf_it = None
-            for tl in target_by_cue_en.get(cue_id_en or "", []):
-                lang = (tl.get("lang") or "").lower()
-                cid_t = tl.get("cue_id_target")
-                if lang == "fr" and cid_t:
-                    text_fr = cue_fr_by_id.get(cid_t, "")
-                    conf_fr = tl.get("confidence")
-                elif lang == "it" and cid_t:
-                    text_it = cue_it_by_id.get(cid_t, "")
-                    conf_it = tl.get("confidence")
-            result.append({
-                "segment_id": seg_id,
-                "text_segment": text_seg,
-                "text_en": text_en,
-                "confidence_pivot": conf_pivot,
-                "text_fr": text_fr,
-                "confidence_fr": conf_fr,
-                "text_it": text_it,
-                "confidence_it": conf_it,
-            })
-        return result
+        conn = self._conn()
+        try:
+            return db_align.get_parallel_concordance(conn, episode_id, run_id, status_filter)
+        finally:
+            conn.close()

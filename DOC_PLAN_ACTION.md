@@ -8,7 +8,7 @@ Document consolidé : état des lieux (backlog + analyse de code), ce qui est d�
 
 **Prochaines actions :** Évolutions mineures selon besoin.
 
-**État :** Phase A–D et M1–M7 réalisés. P2 §6.2, §7.1, §8 réalisés. **§10** : pas de visualiseuse dans Corpus (choix backlog « Corpus = gestionnaire ») ; double-clic sur un épisode (Corpus) ouvre l’Inspecteur sur cet épisode (raw/clean, segments). 54 tests verts.
+**État :** Phase A–D et M1–M7 réalisés. P2 §6.2, §7.1, §8 réalisés. **§10** : pas de visualiseuse dans Corpus (choix backlog « Corpus = gestionnaire ») ; double-clic sur un épisode (Corpus) ouvre l’Inspecteur sur cet épisode (raw/clean, segments). **Suite confort** : refactor db terminé (db_segments, db_subtitles, db_align ; CorpusDB délègue). Tests scraping (fixtures structure changée). 56 tests verts.
 
 **Détail :** voir §3 (Plan par phases et P0/P1/P2) et §4 (checklist).
 
@@ -45,6 +45,8 @@ Les entrées suivantes du backlog sont **implémentées** ; la section « Réali
 | §7.2 | Multi-sources | source_id sur refs à la découverte, fetch par épisode avec adapteur de l’épisode, Découvrir (fusionner) sans écraser |
 | §3 (complément) | Option alignement par similarité | Case « Forcer alignement par similarité » (onglet Alignement), use_similarity_for_cues dans AlignEpisodeStep |
 | M4 | Sous-module KWIC de db.py | db_kwic.py : KwicHit, query_kwic, query_kwic_segments, query_kwic_cues ; CorpusDB délègue |
+| Suite confort | Refactor db (segments, sous-titres, align) | db_segments.py, db_subtitles.py, db_align.py ; CorpusDB délègue (Phase 2–5) |
+| P2 item 16 | Tests non-régression scraping | Fixtures subslikescript_series_links_changed.html, subslikescript_episode_structure_changed.html ; 2 tests discover/parse structure changée. 56 tests. |
 | **M1** | Découpage ui_mainwindow | Tous les onglets extraits dans `app/tabs/` (Projet, Corpus, Inspecteur, Sous-titres, Alignement, Concordance, Personnages, Logs) ; dialogues dans `app/dialogs/` ; MainWindow allégée, signaux/slots préservés. |
 | **M2** | PipelineContext typé + documenté | `context.py` : TypedDict, clés requises/optionnelles documentées ; utilisé par runner + steps. |
 | **M3** | Test migrations DB | `test_db_migrations.py` : fixture DB v1, `ensure_migrated()` → tables segments, subtitle_tracks, align_runs, schema_version=4. |
@@ -54,7 +56,7 @@ Les entrées suivantes du backlog sont **implémentées** ; la section « Réali
 | **§6.2** | Télécharger SRT depuis OpenSubtitles | Client `core/opensubtitles/`, step `DownloadOpenSubtitlesStep`, dialogue + bouton (onglet Sous-titres), clé API + series_imdb_id en config. |
 | **§7.1** | Profils par source | Priorité : préféré épisode > défaut source > profil batch ; tooltips Corpus/Inspecteur ; libellé dialogue Profils (source→profil). |
 | **§8** | Personnages (assignation + propagation) | Onglet Personnages (liste, assignation segment/cue→personnage) ; propagation via liens d'alignement (segments.speaker_explicit, cues text_clean, réécriture SRT). |
-| **§10** | Corpus → aperçu épisode | Alternative retenue : double-clic sur un épisode (Corpus) ouvre l'Inspecteur (raw/clean, segments) ; pas de visualiseuse intégrée dans Corpus. |
+| **§10** | Corpus → aperçu épisode | Alternative retenue : double-clic (Corpus) → Inspecteur (raw/clean, segments). Pas de visualiseuse dans Corpus : rôles Corpus = gestionnaire / Inspecteur = atelier ; évite doublon et encombrement. |
 
 **À ne pas refaire** : ces sujets sont à considérer comme clos sauf évolution explicite (ex. amélioration UX ou extension).
 
@@ -152,7 +154,7 @@ flowchart LR
 | 13 | Profils : lien source ↔ profil par défaut et « profil préféré par épisode » bien exposés dans l’UI (déjà partiellement en place en données). | §7.1 | Cohérence avec multi-sources. |
 | 14 | Personnages : onglet dédié, liste personnages (noms canoniques + par langue), assignation segments/cues, propagation via alignement. Ou documenter script externe. | §8 | Gros chantier ; à cadrer (MVP assignation seule vs propagation). |
 | 15 | Visualiseuse raw/clean dans Corpus : décider si on la fait (aperçu rapide) ou si on reste sur « Corpus = gestionnaire, Inspecteur = atelier ». | §10 | Éviter doublon avec Inspecteur. |
-| 16 | Tests de non-régression scraping : 1–2 fixtures HTML « cassées » ou nouvelle structure pour détecter les changements de site. | Analyse | Détection précoce des casses. |
+| 16 | Tests de non-régression scraping : 1–2 fixtures HTML « cassées » ou nouvelle structure pour détecter les changements de site. *(réalisé)* | Analyse | Détection précoce des casses. |
 
 ---
 
@@ -168,6 +170,8 @@ flowchart LR
 6. [x] Documenter (ou implémenter) rate limit optionnel dans `utils/http.py` pour `get_html`. (→ M5, §3 P1)
 7. [x] Mettre à jour RECAP.md si besoin (nombre de tests, découpage UI, db_kwic). — Fait.
 8. [x] Lors du prochain nettoyage doc : utiliser DOC_NETTOYAGE.md et aligner les libellés backlog avec ce plan.
+9. [x] Tests scraping (P2 item 16) : fixtures structure changée + 2 tests discover/parse. — Fait.
+10. [x] Documenter pourquoi §10 visualiseuse non retenue (Corpus = gestionnaire, Inspecteur = atelier ; double-clic → Inspecteur). — Fait.
 
 ---
 

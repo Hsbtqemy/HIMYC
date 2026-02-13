@@ -156,11 +156,38 @@ class MainWindow(QMainWindow):
         self.project_tab = ProjectTabWidget(
             get_store=lambda: self._store,
             on_validate_clicked=self._validate_and_init_project_from_tab,
+            on_save_config=self._save_project_config,
             on_open_profiles_dialog=self._open_profiles_dialog,
             on_refresh_language_combos=self._refresh_language_combos,
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
         )
         self.tabs.addTab(self.project_tab, "Projet")
+
+    def _save_project_config(self) -> None:
+        """Enregistre la configuration de l'onglet Projet dans config.toml (source, URL, etc.)."""
+        if not self._config or not self._store or not (hasattr(self, "project_tab") and self.project_tab):
+            return
+        data = self.project_tab.get_form_data()
+        root = data.get("root")
+        if not root or Path(root).resolve() != self._config.root_dir.resolve():
+            self.statusBar().showMessage("Ouvrez un projet puis modifiez le formulaire du projet ouvert.", 4000)
+            return
+        self._store.save_config_main(
+            series_url=data.get("series_url", ""),
+            source_id=data.get("source_id"),
+            rate_limit_s=float(data.get("rate_limit", 2)),
+            normalize_profile=data.get("normalize_profile"),
+        )
+        self._config = ProjectConfig(
+            project_name=self._config.project_name,
+            root_dir=self._config.root_dir,
+            source_id=data.get("source_id", self._config.source_id),
+            series_url=data.get("series_url", self._config.series_url),
+            rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
+            user_agent=self._config.user_agent,
+            normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
+        )
+        self.statusBar().showMessage("Configuration enregistrée (source, URL série, profil).", 3000)
 
     def _open_profiles_dialog(self):
         if not self._store:
@@ -300,6 +327,25 @@ class MainWindow(QMainWindow):
         }
 
     def _run_job(self, steps: list):
+        # Synchroniser la config depuis l'onglet Projet (URL série, etc.) avant tout job
+        if self._config and self._store and hasattr(self, "project_tab") and self.project_tab:
+            data = self.project_tab.get_form_data()
+            if data.get("root") and Path(data["root"]).resolve() == self._config.root_dir.resolve():
+                self._store.save_config_main(
+                    series_url=data.get("series_url", ""),
+                    source_id=data.get("source_id"),
+                    rate_limit_s=float(data.get("rate_limit", 2)),
+                    normalize_profile=data.get("normalize_profile"),
+                )
+                self._config = ProjectConfig(
+                    project_name=self._config.project_name,
+                    root_dir=self._config.root_dir,
+                    source_id=data.get("source_id", self._config.source_id),
+                    series_url=data.get("series_url", self._config.series_url),
+                    rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
+                    user_agent=self._config.user_agent,
+                    normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
+                )
         context = self._get_context()
         if not context.get("config"):
             return

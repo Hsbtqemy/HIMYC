@@ -33,6 +33,7 @@ class ProjectTabWidget(QWidget):
         self,
         get_store: Callable[[], Any],
         on_validate_clicked: Callable[[], None],
+        on_save_config: Callable[[], None] | None,
         on_open_profiles_dialog: Callable[[], None],
         on_refresh_language_combos: Callable[[], None],
         show_status: Callable[[str, int], None],
@@ -41,6 +42,7 @@ class ProjectTabWidget(QWidget):
         super().__init__(parent)
         self._get_store = get_store
         self._validate_callback = on_validate_clicked
+        self._save_config_callback = on_save_config
         self._open_profiles_callback = on_open_profiles_dialog
         self._refresh_language_combos_callback = on_refresh_language_combos
         self._show_status = show_status
@@ -81,7 +83,13 @@ class ProjectTabWidget(QWidget):
 
         validate_btn = QPushButton("Valider & initialiser")
         validate_btn.clicked.connect(self._emit_validate)
+        save_config_btn = QPushButton("Enregistrer la configuration")
+        save_config_btn.setToolTip(
+            "Sauvegarde la source, l'URL série, le profil, etc. dans config.toml (projet déjà ouvert)."
+        )
+        save_config_btn.clicked.connect(self._save_config)
         layout.addRow("", validate_btn)
+        layout.addRow("", save_config_btn)
         profiles_btn = QPushButton("Gérer les profils de normalisation...")
         profiles_btn.setToolTip(
             "Créer, modifier ou supprimer les profils personnalisés (fichier profiles.json du projet)."
@@ -128,6 +136,11 @@ class ProjectTabWidget(QWidget):
             "rate_limit": rate_limit,
             "normalize_profile": normalize_profile,
         }
+
+    def _save_config(self) -> None:
+        """Enregistre la configuration du formulaire (source, URL, etc.) si un projet est ouvert."""
+        if self._save_config_callback:
+            self._save_config_callback()
 
     def set_project_state(self, root_path: Path, config: Any) -> None:
         """Remplit le formulaire après chargement d'un projet existant."""

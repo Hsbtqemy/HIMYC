@@ -137,7 +137,7 @@ projects/<project_name>/
 
 ---
 
-## Tests (54 au total)
+## Tests (56 au total)
 
 - **Adapter subslikescript** : discover (fixture), parse_episode, erreur si transcript trop court, HTML cassé, div script trop court.
 - **Normalisation** : fusion césure, double saut conservé, didascalie, ligne type « TED: », profils.

@@ -94,3 +94,31 @@ def test_adapter_discover_broken_html_returns_empty_episodes(adapter: Subslikesc
     assert index.episodes == []
     assert index.series_title  # dérivé du title ou URL
     assert "Unknown" in index.series_title or "999" in index.series_title or "Error" in index.series_title
+
+
+def test_adapter_discover_series_links_changed_returns_empty_episodes(
+    adapter: SubslikescriptAdapter, fixtures_dir: Path
+):
+    """Non-régression scraping : si le site change la structure des liens (ex. data-* au lieu de href),
+    discover retourne 0 épisodes sans crasher."""
+    path = fixtures_dir / "subslikescript_series_links_changed.html"
+    html = path.read_text(encoding="utf-8")
+    index = adapter.discover_series_from_html(
+        html, "https://subslikescript.com/series/How_I_Met_Your_Mother-460649"
+    )
+    assert index.episodes == []
+    assert "How I Met Your Mother" in index.series_title or "Mother" in index.series_title
+
+
+def test_adapter_parse_episode_structure_changed_raises(
+    adapter: SubslikescriptAdapter, fixtures_dir: Path
+):
+    """Non-régression scraping : si le transcript est dans un bloc non reconnu (ex. header retiré au fallback),
+    parse_episode lève SubslikescriptParseError."""
+    path = fixtures_dir / "subslikescript_episode_structure_changed.html"
+    html = path.read_text(encoding="utf-8")
+    with pytest.raises(SubslikescriptParseError) as exc_info:
+        adapter.parse_episode(
+            html, "https://subslikescript.com/series/Show-1/season-1/episode-1"
+        )
+    assert "short" in str(exc_info.value).lower() or "not found" in str(exc_info.value).lower()

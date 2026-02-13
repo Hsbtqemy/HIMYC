@@ -94,6 +94,31 @@ class ProjectStore:
         if data:
             _write_toml(path, data)
 
+    def save_config_main(
+        self,
+        series_url: str = "",
+        source_id: str | None = None,
+        rate_limit_s: float | None = None,
+        normalize_profile: str | None = None,
+        project_name: str | None = None,
+    ) -> None:
+        """Met à jour les champs principaux de config.toml (URL série, source, etc.) sans écraser les clés extra."""
+        path = self.root_dir / "config.toml"
+        if not path.exists():
+            return
+        data = dict(_read_toml(path))
+        if series_url is not None:
+            data["series_url"] = series_url
+        if source_id is not None:
+            data["source_id"] = source_id
+        if rate_limit_s is not None:
+            data["rate_limit_s"] = rate_limit_s
+        if normalize_profile is not None:
+            data["normalize_profile"] = normalize_profile
+        if project_name is not None:
+            data["project_name"] = project_name
+        _write_toml(path, data)
+
     def save_series_index(self, series_index: SeriesIndex) -> None:
         """Sauvegarde l'index série en JSON."""
         path = self.root_dir / "series_index.json"
