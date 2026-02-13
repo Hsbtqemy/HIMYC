@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex, TransformStats
+from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -89,11 +90,150 @@ class ProjectStore:
                     "episode": e.episode,
                     "title": e.title,
                     "url": e.url,
+                    **({"source_id": e.source_id} if e.source_id else {}),
                 }
                 for e in series_index.episodes
             ],
         }
         path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    PROFILES_JSON = "profiles.json"
+
+    def load_custom_profiles(self) -> dict[str, NormalizationProfile]:
+        """
+        Charge les profils personnalisés du projet (fichier profiles.json à la racine).
+        Format attendu : {"profiles": [{"id": "...", "merge_subtitle_breaks": true, "max_merge_examples_in_debug": 10}]}
+        """
+        path = self.root_dir / self.PROFILES_JSON
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        out: dict[str, NormalizationProfile] = {}
+        for p in data.get("profiles", []):
+            pid = p.get("id") or ""
+            if not pid or not isinstance(p.get("merge_subtitle_breaks"), bool):
+                continue
+            out[pid] = NormalizationProfile(
+                id=pid,
+                merge_subtitle_breaks=bool(p.get("merge_subtitle_breaks", True)),
+                max_merge_examples_in_debug=int(p.get("max_merge_examples_in_debug", 20)),
+            )
+        return out
+
+    def save_custom_profiles(self, profiles: list[dict[str, Any]]) -> None:
+        """Sauvegarde les profils personnalisés du projet (profiles.json)."""
+        path = self.root_dir / self.PROFILES_JSON
+        path.write_text(
+            json.dumps({"profiles": profiles}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    CHARACTER_NAMES_JSON = "character_names.json"
+
+    def load_character_names(self) -> list[dict[str, Any]]:
+        """
+        Charge la liste des personnages du projet (noms canoniques + par langue).
+        Format : {"characters": [{"id": "...", "canonical": "...", "names_by_lang": {"en": "...", "fr": "..."}}]}
+        """
+        path = self.root_dir / self.CHARACTER_NAMES_JSON
+        if not path.exists():
+            return []
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+        return data.get("characters", [])
+
+    def save_character_names(self, characters: list[dict[str, Any]]) -> None:
+        """Sauvegarde la liste des personnages du projet."""
+        path = self.root_dir / self.CHARACTER_NAMES_JSON
+        path.write_text(
+            json.dumps({"characters": characters}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    CHARACTER_ASSIGNMENTS_JSON = "character_assignments.json"
+
+    def load_character_assignments(self) -> list[dict[str, Any]]:
+        """Charge les assignations personnage (segment_id ou cue_id -> character_id)."""
+        path = self.root_dir / self.CHARACTER_ASSIGNMENTS_JSON
+        if not path.exists():
+            return []
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+        return data.get("assignments", [])
+
+    def save_character_assignments(self, assignments: list[dict[str, Any]]) -> None:
+        """Sauvegarde les assignations personnage."""
+        path = self.root_dir / self.CHARACTER_ASSIGNMENTS_JSON
+        path.write_text(
+            json.dumps({"assignments": assignments}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    SOURCE_PROFILE_DEFAULTS_JSON = "source_profile_defaults.json"
+
+    def load_source_profile_defaults(self) -> dict[str, str]:
+        """Charge le mapping source_id -> profile_id (profil par défaut par source)."""
+        path = self.root_dir / self.SOURCE_PROFILE_DEFAULTS_JSON
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return dict(data) if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def save_source_profile_defaults(self, defaults: dict[str, str]) -> None:
+        """Sauvegarde le mapping source_id -> profile_id."""
+        path = self.root_dir / self.SOURCE_PROFILE_DEFAULTS_JSON
+        path.write_text(json.dumps(defaults, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    EPISODE_PREFERRED_PROFILES_JSON = "episode_preferred_profiles.json"
+
+    def load_episode_preferred_profiles(self) -> dict[str, str]:
+        """Charge le mapping episode_id -> profile_id (profil préféré par épisode)."""
+        path = self.root_dir / self.EPISODE_PREFERRED_PROFILES_JSON
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return dict(data) if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def save_episode_preferred_profiles(self, preferred: dict[str, str]) -> None:
+        """Sauvegarde le mapping episode_id -> profile_id."""
+        path = self.root_dir / self.EPISODE_PREFERRED_PROFILES_JSON
+        path.write_text(json.dumps(preferred, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    LANGUAGES_JSON = "languages.json"
+    DEFAULT_LANGUAGES = ["en", "fr", "it"]
+
+    def load_project_languages(self) -> list[str]:
+        """Charge la liste des langues du projet (sous-titres, personnages, etc.)."""
+        path = self.root_dir / self.LANGUAGES_JSON
+        if not path.exists():
+            return list(self.DEFAULT_LANGUAGES)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            langs = data.get("languages", data if isinstance(data, list) else [])
+            return [str(x).strip().lower() for x in langs if str(x).strip()]
+        except Exception:
+            return list(self.DEFAULT_LANGUAGES)
+
+    def save_project_languages(self, languages: list[str]) -> None:
+        """Sauvegarde la liste des langues du projet."""
+        path = self.root_dir / self.LANGUAGES_JSON
+        path.write_text(
+            json.dumps({"languages": [str(x).strip().lower() for x in languages if str(x).strip()]}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     def load_series_index(self) -> SeriesIndex | None:
         """Charge l'index série depuis JSON. Retourne None si absent."""
@@ -102,16 +242,20 @@ class ProjectStore:
             return None
         from howimetyourcorpus.core.models import EpisodeRef
         obj = json.loads(path.read_text(encoding="utf-8"))
-        episodes = [
-            EpisodeRef(
-                episode_id=e["episode_id"],
-                season=e["season"],
-                episode=e["episode"],
-                title=e["title"],
-                url=e["url"],
+        episodes = []
+        for e in obj.get("episodes", []):
+            if not isinstance(e, dict):
+                continue
+            episodes.append(
+                EpisodeRef(
+                    episode_id=e.get("episode_id", ""),
+                    season=int(e.get("season", 0)),
+                    episode=int(e.get("episode", 0)),
+                    title=e.get("title", "") or "",
+                    url=e.get("url", "") or "",
+                    source_id=e.get("source_id"),
+                )
             )
-            for e in obj.get("episodes", [])
-        ]
         return SeriesIndex(
             series_title=obj.get("series_title", ""),
             series_url=obj.get("series_url", ""),
@@ -119,7 +263,13 @@ class ProjectStore:
         )
 
     def _episode_dir(self, episode_id: str) -> Path:
-        return self.root_dir / "episodes" / episode_id
+        """Répertoire d'un épisode. Sanitize episode_id pour éviter path traversal (.., /, \)."""
+        safe_id = (
+            episode_id.replace("\\", "_").replace("/", "_").replace("..", "_").strip("._ ")
+        )
+        if not safe_id:
+            safe_id = "_"
+        return self.root_dir / "episodes" / safe_id
 
     def save_episode_html(self, episode_id: str, html: str) -> None:
         """Sauvegarde le HTML brut de la page épisode."""
@@ -195,6 +345,19 @@ class ProjectStore:
             return None
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def load_episode_notes(self, episode_id: str) -> str:
+        """Charge les notes « à vérifier / à affiner » pour un épisode (Inspecteur)."""
+        path = self._episode_dir(episode_id) / "notes.txt"
+        if not path.exists():
+            return ""
+        return path.read_text(encoding="utf-8")
+
+    def save_episode_notes(self, episode_id: str, text: str) -> None:
+        """Sauvegarde les notes « à vérifier / à affiner » pour un épisode."""
+        d = self._episode_dir(episode_id)
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "notes.txt").write_text(text, encoding="utf-8")
+
     # ----- Phase 3: sous-titres (audit) -----
 
     def _subs_dir(self, episode_id: str) -> Path:
@@ -223,6 +386,32 @@ class ProjectStore:
         """True si un fichier subs existe pour cet épisode et cette langue."""
         d = self._subs_dir(episode_id)
         return (d / f"{lang}.srt").exists() or (d / f"{lang}.vtt").exists()
+
+    def get_episode_subtitle_path(self, episode_id: str, lang: str) -> tuple[Path, str] | None:
+        """Retourne (chemin du fichier, "srt"|"vtt") si une piste existe pour cet épisode et langue."""
+        d = self._subs_dir(episode_id)
+        if (d / f"{lang}.srt").exists():
+            return (d / f"{lang}.srt", "srt")
+        if (d / f"{lang}.vtt").exists():
+            return (d / f"{lang}.vtt", "vtt")
+        return None
+
+    def load_episode_subtitle_content(self, episode_id: str, lang: str) -> tuple[str, str] | None:
+        """Charge le contenu brut du fichier SRT/VTT. Retourne (contenu, "srt"|"vtt") ou None."""
+        res = self.get_episode_subtitle_path(episode_id, lang)
+        if not res:
+            return None
+        path, fmt = res
+        return (path.read_text(encoding="utf-8"), fmt)
+
+    def save_episode_subtitle_content(self, episode_id: str, lang: str, content: str, fmt: str) -> Path:
+        """Sauvegarde le contenu brut SRT/VTT (écrase le fichier). Retourne le chemin du fichier."""
+        d = self._subs_dir(episode_id)
+        d.mkdir(parents=True, exist_ok=True)
+        ext = "srt" if fmt == "srt" else "vtt"
+        path = d / f"{lang}.{ext}"
+        path.write_text(content, encoding="utf-8")
+        return path
 
     # ----- Phase 4: alignement (audit) -----
 

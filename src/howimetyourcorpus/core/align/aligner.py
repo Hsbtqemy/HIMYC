@@ -97,13 +97,107 @@ def align_segments_to_cues(
     return links
 
 
+def cues_have_timecodes(cues: list[dict]) -> bool:
+    """
+    True si au moins une cue a des timecodes utilisables (start_ms < end_ms).
+    Utilisé pour choisir align_cues_by_time vs align_cues_by_order.
+    """
+    if not cues:
+        return False
+    for c in cues:
+        start = int(c.get("start_ms") or 0)
+        end = int(c.get("end_ms") or 0)
+        if end > start:
+            return True
+    return False
+
+
+def align_cues_by_similarity(
+    cues_pivot: list[dict],
+    cues_target: list[dict],
+    min_confidence: float = 0.3,
+) -> list[AlignLink]:
+    """
+    Aligne les cues pivot (EN) aux cues target (FR) par similarité textuelle.
+    Utilisé quand les timecodes sont absents ou peu fiables.
+    Chaque cue pivot est appariée à la cue target la plus similaire (greedy, une cible au plus une fois).
+    """
+    links: list[AlignLink] = []
+    lang = cues_target[0].get("lang", "") if cues_target else ""
+    used_target_indices: set[int] = set()
+    for cp in cues_pivot:
+        p_text = (cp.get("text_clean") or cp.get("text_raw") or "").strip()
+        if not p_text:
+            continue
+        best_score = min_confidence
+        best_idx = -1
+        for j, ct in enumerate(cues_target):
+            if j in used_target_indices:
+                continue
+            t_text = (ct.get("text_clean") or ct.get("text_raw") or "").strip()
+            score = text_similarity(p_text, t_text)
+            if score > best_score:
+                best_score = score
+                best_idx = j
+        if best_idx >= 0:
+            used_target_indices.add(best_idx)
+            ct = cues_target[best_idx]
+            pid = cp.get("cue_id")
+            tid = ct.get("cue_id")
+            if pid and tid:
+                links.append(
+                    AlignLink(
+                        cue_id=pid,
+                        cue_id_target=tid,
+                        lang=lang,
+                        role="target",
+                        confidence=round(best_score, 4),
+                        status="auto",
+                        meta={"align": "by_similarity"},
+                    )
+                )
+    return links
+
+
+def align_cues_by_order(
+    cues_pivot: list[dict],
+    cues_target: list[dict],
+) -> list[AlignLink]:
+    """
+    Aligne les cues pivot aux cues target par indice : cue i ↔ cue i.
+    Utilisé quand les timecodes sont absents ou tous à zéro (fichiers parallèles).
+    Retourne une liste de AlignLink (cue_id=pivot, cue_id_target=target, role=target, confidence=1.0).
+    """
+    links: list[AlignLink] = []
+    lang = cues_target[0].get("lang", "") if cues_target else ""
+    for i, cp in enumerate(cues_pivot):
+        if i >= len(cues_target):
+            break
+        ct = cues_target[i]
+        pid = cp.get("cue_id")
+        tid = ct.get("cue_id")
+        if pid and tid:
+            links.append(
+                AlignLink(
+                    cue_id=pid,
+                    cue_id_target=tid,
+                    lang=lang,
+                    role="target",
+                    confidence=1.0,
+                    status="auto",
+                    meta={"align": "by_order", "index": i},
+                )
+            )
+    return links
+
+
 def align_cues_by_time(
     cues_pivot: list[dict],
     cues_target: list[dict],
     overlap_ms_threshold: int = 100,
 ) -> list[AlignLink]:
     """
-    Aligne les cues pivot (EN) aux cues target (FR/IT) par recouvrement temporel.
+    Aligne les cues pivot (EN) aux cues target (FR) par recouvrement temporel.
     Deux cues s'alignent si [start_ms, end_ms] se recouvrent d'au moins overlap_ms_threshold ms.
     Retourne une liste de AlignLink (cue_id=pivot, cue_id_target=target, role=target, confidence).
     """

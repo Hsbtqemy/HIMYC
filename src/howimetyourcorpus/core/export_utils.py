@@ -63,6 +63,57 @@ def export_corpus_docx(episodes: list[tuple[EpisodeRef, str]], path: Path) -> No
     return None
 
 
+# ----- Export segments (depuis l'Inspecteur) -----
+
+SEGMENT_EXPORT_COLUMNS = ["segment_id", "episode_id", "kind", "n", "start_char", "end_char", "text"]
+
+
+def export_segments_txt(segments: list[dict], path: Path) -> None:
+    """Exporte les segments en TXT : un segment par ligne (texte uniquement)."""
+    with path.open("w", encoding="utf-8") as f:
+        for s in segments:
+            text = (s.get("text") or "").strip().replace("\n", " ")
+            f.write(text)
+            f.write("\n")
+    return None
+
+
+def export_segments_csv(segments: list[dict], path: Path) -> None:
+    """Exporte les segments en CSV : segment_id, episode_id, kind, n, start_char, end_char, text."""
+    with path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(SEGMENT_EXPORT_COLUMNS)
+        for s in segments:
+            w.writerow([
+                s.get("segment_id", ""),
+                s.get("episode_id", ""),
+                s.get("kind", ""),
+                s.get("n", ""),
+                s.get("start_char", ""),
+                s.get("end_char", ""),
+                (s.get("text") or "").replace("\n", " "),
+            ])
+    return None
+
+
+def export_segments_tsv(segments: list[dict], path: Path) -> None:
+    """Exporte les segments en TSV : même colonnes que CSV."""
+    with path.open("w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(SEGMENT_EXPORT_COLUMNS)
+        for s in segments:
+            w.writerow([
+                s.get("segment_id", ""),
+                s.get("episode_id", ""),
+                s.get("kind", ""),
+                s.get("n", ""),
+                s.get("start_char", ""),
+                s.get("end_char", ""),
+                (s.get("text") or "").replace("\n", " "),
+            ])
+    return None
+
+
 def export_kwic_csv(hits: list[KwicHit], path: Path) -> None:
     """Exporte les résultats KWIC en CSV (inclut segment_id/kind/cue_id/lang si présents)."""
     with path.open("w", encoding="utf-8", newline="") as f:
@@ -256,7 +307,7 @@ def _parallel_cell(row: dict, key: str):
 
 
 def export_parallel_concordance_csv(rows: list[dict], path: Path) -> None:
-    """Exporte le concordancier parallèle en CSV (segment, EN, FR, IT + confiances)."""
+    """Exporte le concordancier parallèle en CSV (segment, EN, FR + confiances)."""
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(PARALLEL_CONCORDANCE_COLUMNS)
@@ -307,7 +358,7 @@ def export_align_report_html(
         "<ul>",
         "<li>Liens totaux: " + str(stats.get("nb_links", 0)) + "</li>",
         "<li>Liens pivot (segment↔EN): " + str(stats.get("nb_pivot", 0)) + "</li>",
-        "<li>Liens target (EN↔FR/IT): " + str(stats.get("nb_target", 0)) + "</li>",
+        "<li>Liens target (EN↔FR): " + str(stats.get("nb_target", 0)) + "</li>",
         "<li>Confiance moyenne: " + (str(stats.get("avg_confidence")) if stats.get("avg_confidence") is not None else "—") + "</li>",
         "<li>Par statut: " + ", ".join(f"{k}={v}" for k, v in sorted(by_status.items())) + "</li>",
         "</ul>",

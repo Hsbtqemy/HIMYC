@@ -5,6 +5,9 @@ from howimetyourcorpus.core.align.aligner import (
     AlignLink,
     align_segments_to_cues,
     align_cues_by_time,
+    align_cues_by_order,
+    align_cues_by_similarity,
+    cues_have_timecodes,
 )
 
 __all__ = [
@@ -12,4 +15,7 @@ __all__ = [
     "AlignLink",
     "align_segments_to_cues",
     "align_cues_by_time",
+    "align_cues_by_order",
+    "align_cues_by_similarity",
+    "cues_have_timecodes",
 ]

@@ -67,6 +67,83 @@ class FetchSeriesIndexStep(Step):
         return StepResult(True, f"Index saved: {len(index.episodes)} episodes", {"series_index": index})
 
 
+class FetchAndMergeSeriesIndexStep(Step):
+    """Découvre une série depuis une autre source/URL et fusionne avec l'index existant (sans écraser)."""
+
+    name = "fetch_and_merge_series_index"
+
+    def __init__(self, series_url: str, source_id: str, user_agent: str | None = None):
+        self.series_url = series_url
+        self.source_id = source_id
+        self.user_agent = user_agent
+
+    def run(
+        self,
+        context: dict[str, Any],
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        config: ProjectConfig = context["config"]
+        adapter = AdapterRegistry.get(self.source_id)
+        if not adapter:
+            return StepResult(False, f"Adapter not found: {self.source_id}")
+
+        def log(level: str, msg: str):
+            if on_log:
+                on_log(level, msg)
+            getattr(logger, level.lower(), logger.info)(msg)
+
+        if on_progress:
+            on_progress(self.name, 0.0, "Discovering episodes from source...")
+        try:
+            new_index = adapter.discover_series(
+                self.series_url,
+                user_agent=self.user_agent or config.user_agent,
+            )
+        except Exception as e:
+            log("error", str(e))
+            return StepResult(False, str(e))
+
+        # Marquer chaque épisode découvert avec cette source
+        refs_from_source = [
+            EpisodeRef(
+                episode_id=e.episode_id,
+                season=e.season,
+                episode=e.episode,
+                title=e.title,
+                url=e.url,
+                source_id=self.source_id,
+            )
+            for e in new_index.episodes
+        ]
+        existing = store.load_series_index()
+        existing_ids = {e.episode_id for e in (existing.episodes or [])} if existing else set()
+        merged_episodes = list(existing.episodes or []) if existing else []
+        added = 0
+        for ref in refs_from_source:
+            if ref.episode_id not in existing_ids:
+                merged_episodes.append(ref)
+                existing_ids.add(ref.episode_id)
+                added += 1
+
+        merged = SeriesIndex(
+            series_title=existing.series_title if existing else new_index.series_title,
+            series_url=existing.series_url if existing else new_index.series_url,
+            episodes=merged_episodes,
+        )
+        store.save_series_index(merged)
+        db = context.get("db")
+        if db:
+            for ref in refs_from_source:
+                db.upsert_episode(ref, EpisodeStatus.NEW.value)
+        if on_progress:
+            on_progress(self.name, 1.0, f"Merged: {added} new, {len(merged_episodes)} total")
+        return StepResult(True, f"Merged: {added} new episode(s), {len(merged_episodes)} total", {"series_index": merged})
+
+
 class FetchEpisodeStep(Step):
     """Télécharge une page épisode, extrait raw, sauvegarde (skip si déjà présent sauf force)."""
 
@@ -87,9 +164,15 @@ class FetchEpisodeStep(Step):
         store: ProjectStore = context["store"]
         config: ProjectConfig = context["config"]
         db: CorpusDB | None = context.get("db")
-        adapter = AdapterRegistry.get(config.source_id)
+        source_id = config.source_id
+        index = store.load_series_index()
+        if index and index.episodes:
+            ref = next((e for e in index.episodes if e.episode_id == self.episode_id), None)
+            if ref and ref.source_id:
+                source_id = ref.source_id
+        adapter = AdapterRegistry.get(source_id)
         if not adapter:
-            return StepResult(False, f"Adapter not found: {config.source_id}")
+            return StepResult(False, f"Adapter not found: {source_id}")
         if not force and store.has_episode_raw(self.episode_id):
             if on_progress:
                 on_progress(self.name, 1.0, f"Skip (already fetched): {self.episode_id}")
@@ -141,7 +224,8 @@ class NormalizeEpisodeStep(Step):
     ) -> StepResult:
         store: ProjectStore = context["store"]
         db: CorpusDB | None = context.get("db")
-        profile = get_profile(self.profile_id)
+        custom = context.get("custom_profiles") or {}
+        profile = get_profile(self.profile_id, custom)
         if not profile:
             return StepResult(False, f"Profile not found: {self.profile_id}")
         if not force and store.has_episode_clean(self.episode_id):
@@ -375,7 +459,7 @@ class ImportSubtitlesStep(Step):
 
 
 class AlignEpisodeStep(Step):
-    """Phase 4 : aligne segments (phrases) ↔ cues EN puis cues EN ↔ cues target (FR/IT) par temps."""
+    """Phase 4 : aligne segments (phrases) ↔ cues EN puis cues EN ↔ cues target (FR) par temps."""
 
     name = "align_episode"
 
@@ -388,7 +472,7 @@ class AlignEpisodeStep(Step):
     ):
         self.episode_id = episode_id
         self.pivot_lang = pivot_lang
-        self.target_langs = target_langs or ["fr", "it"]
+        self.target_langs = target_langs or ["fr"]
         self.min_confidence = min_confidence
 
     def run(
@@ -399,7 +483,14 @@ class AlignEpisodeStep(Step):
         on_progress: Callable[[str, float, str], None] | None = None,
         on_log: Callable[[str, str], None] | None = None,
     ) -> StepResult:
-        from howimetyourcorpus.core.align import AlignLink, align_segments_to_cues, align_cues_by_time
+        from howimetyourcorpus.core.align import (
+            AlignLink,
+            align_segments_to_cues,
+            align_cues_by_time,
+            align_cues_by_order,
+            align_cues_by_similarity,
+            cues_have_timecodes,
+        )
 
         store: ProjectStore = context["store"]
         db: CorpusDB | None = context.get("db")
@@ -420,7 +511,14 @@ class AlignEpisodeStep(Step):
         for tl in self.target_langs:
             cues_target = db.get_cues_for_episode_lang(self.episode_id, tl)
             if cues_target:
-                target_links = align_cues_by_time(cues_en, cues_target)
+                if cues_have_timecodes(cues_en) and cues_have_timecodes(cues_target):
+                    target_links = align_cues_by_time(cues_en, cues_target)
+                else:
+                    target_links = align_cues_by_similarity(
+                        cues_en, cues_target, min_confidence=self.min_confidence
+                    )
+                    if not target_links and cues_target:
+                        target_links = align_cues_by_order(cues_en, cues_target)
                 all_links.extend(target_links)
         run_id = f"{self.episode_id}:align:{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
         created_at = datetime.datetime.utcnow().isoformat() + "Z"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "HowIMetYourCorpus"
-version = "0.4.0"
+version = "0.5.0"
 description = "Pipeline de corpus + exploration + QA — transcriptions et sous-titres"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -47,3 +47,4 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v --tb=short"
+filterwarnings = ["ignore::DeprecationWarning:bs4.builder._lxml"]

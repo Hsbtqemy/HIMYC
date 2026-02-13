@@ -53,20 +53,27 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
   scripts\windows\run.bat
   ```
 - **Avec console** (débogage) :
-  ```bat
-  .venv\Scripts\activate
-  set PYTHONPATH=src
-  python -m howimetyourcorpus.app.main
-  ```
-  (Si le package n’est pas installé en éditable, `PYTHONPATH=src` est nécessaire.)
+  - **Windows (cmd)** :
+    ```bat
+    .venv\Scripts\activate
+    set PYTHONPATH=src
+    python -m howimetyourcorpus.app.main
+    ```
+  - **macOS / Linux (bash, zsh)** :
+    ```bash
+    source .venv/bin/activate
+    export PYTHONPATH=src
+    python -m howimetyourcorpus.app.main
+    ```
+  (Si le package n'est pas installé en éditable, `PYTHONPATH=src` est nécessaire.)
 
-## Projet exemple (EN + IT)
+## Projet exemple (EN + FR)
 
 Un **projet démo** est fourni dans le dépôt pour comprendre la mécanique sans scraper :
 
 - **Dossier** : `example/` à la racine du projet.
-- **Contenu** : un épisode S01E01 (transcript court EN), sous-titres SRT EN et IT à importer.
-- **Étapes** : ouvrir le projet `example` → Indexer DB → Segmenter → importer `s01e01_en.srt` et `s01e01_it.srt` → Aligner → Inspecteur / Concordancier.
+- **Contenu** : un épisode S01E01 (transcript court EN), sous-titres SRT EN et FR à importer.
+- **Étapes** : ouvrir le projet `example` → Normaliser sélection (raw → clean) → Indexer DB → Segmenter → importer `s01e01_en.srt` et `s01e01_fr.srt` → Aligner → Inspecteur / Concordancier.
 
 Voir **example/README.md** pour les instructions détaillées.
 
@@ -81,10 +88,15 @@ Voir **example/README.md** pour les instructions détaillées.
 
 2. **Construire le corpus** (onglet Corpus)  
    - « Découvrir épisodes » : récupère la liste des épisodes depuis la source.  
+   - **Filtre Saison** : choisir « Toutes les saisons » ou « Saison 1 », « Saison 2 », etc. pour afficher uniquement les épisodes d’une saison ; **« Cocher la saison »** coche tous les épisodes de la saison affichée (ou tout si « Toutes les saisons »).  
    - « Télécharger sélection » / « Télécharger tout » : récupère les pages HTML et extrait le texte brut.  
    - « Normaliser sélection » / « Normaliser tout » : applique le profil de normalisation (RAW → CLEAN).  
    - « Indexer DB » : indexe le texte normalisé dans SQLite/FTS pour la recherche.  
    - **« Exporter corpus »** : exporte les épisodes normalisés en **TXT**, **CSV**, **JSON**, **Word (.docx)**, ou en **segmenté** : **JSONL** / **CSV** par **utterances** (tours de parole) ou par **phrases**.
+
+   **Workflow recommandé (batch par saison)**  
+   - **Option A — Saison par saison** : pour chaque saison, sélectionner « Saison N » dans le filtre → « Cocher la saison » → « Télécharger sélection » → « Normaliser sélection » → « Indexer DB » (ou segmenter / importer SRT / aligner selon vos besoins), puis passer à la saison suivante.  
+   - **Option B — Tout normaliser puis traiter par saison** : « Télécharger tout » puis « Normaliser tout » pour tout le corpus ; ensuite utiliser le filtre saison + « Cocher la saison » pour segmenter, importer les sous-titres et aligner saison par saison.
 
 3. **Inspecter** (onglet Inspecteur)  
    - Choisir un épisode et comparer RAW vs CLEAN, stats et exemples de fusions.  
@@ -97,9 +109,9 @@ Voir **example/README.md** pour les instructions détaillées.
 
 5. **Alignement** (onglet Alignement, Phase 4–5)  
    - Choisir un épisode et un run d’alignement (ou **« Lancer alignement »** pour en créer un).  
-   - L’alignement associe les segments (phrases) au transcript aux cues EN, puis les cues EN aux cues FR/IT par recouvrement temporel.  
+   - L’alignement associe les segments (phrases) au transcript aux cues EN, puis les cues EN aux cues FR par recouvrement temporel.  
    - Table des liens (segment, cue, cue target, confiance, statut) ; menu contextuel **Accepter / Rejeter** ; **« Exporter aligné »** en CSV ou JSONL.  
-   - **Phase 5** : **« Exporter concordancier parallèle »** (CSV / TSV / JSONL : segment + EN + FR + IT) ; **« Rapport HTML »** (stats + échantillon) ; **« Stats »** (nb liens, pivot/target, confiance moyenne, par statut).
+   - **Phase 5** : **« Exporter concordancier parallèle »** (CSV / TSV / JSONL : segment + EN + FR) ; **« Rapport HTML »** (stats + échantillon) ; **« Stats »** (nb liens, pivot/target, confiance moyenne, par statut).
 
 6. **Concordance** (onglet Concordance)  
    - Saisir un terme, filtrer par saison/épisode, afficher les résultats KWIC.  

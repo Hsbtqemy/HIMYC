@@ -38,6 +38,8 @@ class EpisodeRef:
     episode: int
     title: str
     url: str
+    source_id: str | None = None
+    """Source adapteur pour cet épisode (optionnel ; sinon config.source_id)."""
 
 
 @dataclass

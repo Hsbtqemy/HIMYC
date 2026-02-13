@@ -92,5 +92,23 @@ PROFILES: dict[str, NormalizationProfile] = {
 }
 
 
-def get_profile(profile_id: str) -> NormalizationProfile | None:
+def get_profile(
+    profile_id: str,
+    custom_profiles: dict[str, NormalizationProfile] | None = None,
+) -> NormalizationProfile | None:
+    """Retourne le profil par id ; custom_profiles (projet) prime sur les profils prédéfinis."""
+    if custom_profiles and profile_id in custom_profiles:
+        return custom_profiles[profile_id]
     return PROFILES.get(profile_id)
+
+
+def get_all_profile_ids(
+    custom_profiles: dict[str, NormalizationProfile] | None = None,
+) -> list[str]:
+    """Liste des ids de profils disponibles (prédéfinis + personnalisés, sans doublon)."""
+    ids = list(PROFILES.keys())
+    if custom_profiles:
+        for pid in custom_profiles:
+            if pid not in ids:
+                ids.append(pid)
+    return ids
