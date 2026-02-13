@@ -21,6 +21,9 @@ a = Analysis(
     datas=datas,
     hiddenimports=[
         'howimetyourcorpus',
+        'howimetyourcorpus.app.ui_mainwindow',
+        'howimetyourcorpus.app.models_qt',
+        'howimetyourcorpus.app.workers',
         'howimetyourcorpus.core.storage.db',
         'howimetyourcorpus.core.storage.project_store',
     ],

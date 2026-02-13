@@ -42,7 +42,6 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    needs: build-windows
     steps:
       - uses: actions/checkout@v4
 
