@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtWidgets import (
+    QApplication,
     QMainWindow,
     QTabWidget,
     QWidget,
@@ -432,7 +433,14 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("HowIMetYourCorpus")
-        self.resize(1000, 700)
+        self.setMinimumSize(800, 500)
+        screen = QApplication.primaryScreen().availableGeometry() if QApplication.primaryScreen() else None
+        if screen:
+            w = min(1000, screen.width())
+            h = min(700, screen.height())
+            self.resize(w, h)
+        else:
+            self.resize(1000, 700)
         # Icône fenêtre (depuis la source ou cwd)
         for icon_path in (
             Path.cwd() / "resources" / "icons" / "icon_512.png",
@@ -693,14 +701,14 @@ class MainWindow(QMainWindow):
             self._refresh_profile_combos()
             self.norm_batch_profile_combo.setCurrentText(config.normalize_profile)
             self.inspect_profile_combo.setCurrentText(config.normalize_profile)
-        self._refresh_project_languages_list()
-        self._refresh_language_combos()
-        self._refresh_episodes_from_store()
-        self._refresh_inspecteur_episodes()
-        self._refresh_subs_tracks()
-        self._refresh_align_runs()
-        self._refresh_personnages()
-        QMessageBox.information(self, "Projet", "Projet initialisé.")
+            self._refresh_project_languages_list()
+            self._refresh_language_combos()
+            self._refresh_episodes_from_store()
+            self._refresh_inspecteur_episodes()
+            self._refresh_subs_tracks()
+            self._refresh_align_runs()
+            self._refresh_personnages()
+            QMessageBox.information(self, "Projet", "Projet initialisé.")
         except Exception as e:
             logger.exception("Init project failed")
             QMessageBox.critical(self, "Erreur", str(e))

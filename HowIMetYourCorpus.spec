@@ -15,7 +15,7 @@ datas = [
 ]
 
 a = Analysis(
-    [os.path.join('src', 'howimetyourcorpus', 'app', 'main.py')],
+    ['launch_himyc.py'],
     pathex=['src'],
     binaries=[],
     datas=datas,
