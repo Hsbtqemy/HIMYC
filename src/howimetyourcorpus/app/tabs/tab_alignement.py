@@ -32,6 +32,9 @@ from howimetyourcorpus.core.export_utils import (
     export_parallel_concordance_csv,
     export_parallel_concordance_tsv,
     export_parallel_concordance_jsonl,
+    export_parallel_concordance_docx,
+    export_parallel_concordance_txt,
+    export_parallel_concordance_html,
     export_align_report_html,
 )
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
@@ -347,13 +350,17 @@ class AlignmentTabWidget(QWidget):
         if not eid or not run_id or not db:
             QMessageBox.warning(self, "Concordancier parallèle", "Sélectionnez un épisode et un run.")
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Exporter concordancier parallèle", "",
-            "CSV (*.csv);;TSV (*.tsv);;JSONL (*.jsonl)"
+        path, selected_filter = QFileDialog.getSaveFileName(
+            self, "Exporter concordancier parallèle (comparaison de traductions)", "",
+            "CSV (*.csv);;TSV (*.tsv);;TXT (*.txt);;HTML (*.html);;JSONL (*.jsonl);;Word (*.docx)"
         )
         if not path:
             return
         path = Path(path)
+        if path.suffix.lower() != ".docx" and (selected_filter or "").strip().startswith("Word"):
+            path = path.with_suffix(".docx")
+        if path.suffix.lower() not in (".csv", ".tsv", ".txt", ".html", ".jsonl", ".docx"):
+            path = path.with_suffix(".csv")
         try:
             status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
             rows = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
@@ -361,6 +368,12 @@ class AlignmentTabWidget(QWidget):
                 export_parallel_concordance_jsonl(rows, path)
             elif path.suffix.lower() == ".tsv":
                 export_parallel_concordance_tsv(rows, path)
+            elif path.suffix.lower() == ".txt":
+                export_parallel_concordance_txt(rows, path)
+            elif path.suffix.lower() == ".html":
+                export_parallel_concordance_html(rows, path, title=f"Comparaison {eid} — {run_id}")
+            elif path.suffix.lower() == ".docx":
+                export_parallel_concordance_docx(rows, path)
             else:
                 export_parallel_concordance_csv(rows, path)
             QMessageBox.information(

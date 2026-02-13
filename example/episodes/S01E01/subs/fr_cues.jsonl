@@ -1,0 +1,5 @@
+{"cue_id": "S01E01:fr:0", "n": 0, "start_ms": 1000, "end_ms": 3000, "text_raw": "Salut. Comment ça va ?", "text_clean": "Salut. Comment ça va ?"}
+{"cue_id": "S01E01:fr:1", "n": 1, "start_ms": 4000, "end_ms": 7000, "text_raw": "Bien. C'est une courte démo.", "text_clean": "Bien. C'est une courte démo."}
+{"cue_id": "S01E01:fr:2", "n": 2, "start_ms": 8000, "end_ms": 11000, "text_raw": "On alignera la transcription avec les sous-titres.", "text_clean": "On alignera la transcription avec les sous-titres."}
+{"cue_id": "S01E01:fr:3", "n": 3, "start_ms": 12000, "end_ms": 15000, "text_raw": "Une ligne en anglais, une en français.", "text_clean": "Une ligne en anglais, une en français."}
+{"cue_id": "S01E01:fr:4", "n": 4, "start_ms": 16000, "end_ms": 17500, "text_raw": "Légendaire.", "text_clean": "Légendaire."}

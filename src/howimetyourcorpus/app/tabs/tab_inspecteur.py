@@ -29,6 +29,7 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_txt,
     export_segments_csv,
     export_segments_tsv,
+    export_segments_docx,
 )
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 
@@ -57,7 +58,8 @@ class InspectorTabWidget(QWidget):
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
-        row.addWidget(QLabel("Épisode:"))
+        self._inspect_episode_label = QLabel("Épisode:")
+        row.addWidget(self._inspect_episode_label)
         self.inspect_episode_combo = QComboBox()
         self.inspect_episode_combo.currentIndexChanged.connect(self._load_episode)
         row.addWidget(self.inspect_episode_combo)
@@ -183,6 +185,11 @@ class InspectorTabWidget(QWidget):
             self.inspect_profile_combo.setCurrentText(current_inspect)
         elif current and current in profile_ids:
             self.inspect_profile_combo.setCurrentText(current)
+
+    def set_episode_selector_visible(self, visible: bool) -> None:
+        """§15.4 — Masque ou affiche le sélecteur d'épisode (quand intégré dans l'onglet fusionné)."""
+        self._inspect_episode_label.setVisible(visible)
+        self.inspect_episode_combo.setVisible(visible)
 
     def set_episode_and_load(self, episode_id: str) -> None:
         """Sélectionne l'épisode donné et charge son contenu (ex. depuis Concordance « Ouvrir dans Inspecteur »)."""
@@ -347,16 +354,20 @@ class InspectorTabWidget(QWidget):
             self,
             "Exporter les segments",
             "",
-            "TXT — un segment par ligne (*.txt);;CSV (*.csv);;TSV (*.tsv)",
+            "TXT — un segment par ligne (*.txt);;CSV (*.csv);;TSV (*.tsv);;Word (*.docx)",
         )
         if not path:
             return
         path = Path(path)
+        if path.suffix.lower() != ".docx" and "Word" in (selected_filter or ""):
+            path = path.with_suffix(".docx")
         try:
             if path.suffix.lower() == ".txt" or "TXT" in (selected_filter or ""):
                 export_segments_txt(segments, path)
             elif path.suffix.lower() == ".tsv" or "TSV" in (selected_filter or ""):
                 export_segments_tsv(segments, path)
+            elif path.suffix.lower() == ".docx" or "Word" in (selected_filter or ""):
+                export_segments_docx(segments, path)
             else:
                 export_segments_csv(segments, path)
             QMessageBox.information(

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -48,6 +49,7 @@ from howimetyourcorpus.core.pipeline.tasks import (
     FetchAndMergeSeriesIndexStep,
     FetchEpisodeStep,
     NormalizeEpisodeStep,
+    SegmentEpisodeStep,
     BuildDbIndexStep,
 )
 from howimetyourcorpus.app.models_qt import (
@@ -130,7 +132,12 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree.doubleClicked.connect(self._on_episode_double_clicked)
         layout.addWidget(self.episodes_tree)
 
-        # Ligne 1 : sélection + découverte + téléchargement
+        # Bloc 1 — Import (constitution du corpus) §14
+        group_import = QGroupBox("1. Import — Constitution du corpus")
+        group_import.setToolTip(
+            "Workflow §14 : Découvrir les épisodes, télécharger les transcripts (RAW), importer les SRT (onglet Sous-titres). "
+            "Pas de normalisation ni d'alignement ici."
+        )
         btn_row1 = QHBoxLayout()
         self.check_all_btn = QPushButton("Tout cocher")
         self.check_all_btn.clicked.connect(lambda: self.episodes_tree_model.set_all_checked(True))
@@ -138,14 +145,6 @@ class CorpusTabWidget(QWidget):
         self.uncheck_all_btn.clicked.connect(lambda: self.episodes_tree_model.set_all_checked(False))
         btn_row1.addWidget(self.check_all_btn)
         btn_row1.addWidget(self.uncheck_all_btn)
-        btn_row1.addWidget(QLabel("Profil (batch):"))
-        self.norm_batch_profile_combo = QComboBox()
-        self.norm_batch_profile_combo.addItems(list(PROFILES.keys()))
-        self.norm_batch_profile_combo.setToolTip(
-            "Profil par défaut pour « Normaliser sélection » et « Normaliser tout ». "
-            "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce profil."
-        )
-        btn_row1.addWidget(self.norm_batch_profile_combo)
         self.discover_btn = QPushButton("Découvrir épisodes")
         self.discover_btn.setToolTip("Récupère la liste des épisodes depuis la source (tout le projet).")
         self.discover_btn.clicked.connect(self._discover_episodes)
@@ -168,33 +167,65 @@ class CorpusTabWidget(QWidget):
         for b in (self.discover_btn, self.add_episodes_btn, self.discover_merge_btn, self.fetch_sel_btn, self.fetch_all_btn):
             btn_row1.addWidget(b)
         btn_row1.addStretch()
-        layout.addLayout(btn_row1)
+        group_import.setLayout(btn_row1)
+        layout.addWidget(group_import)
 
-        # Ligne 2 : normaliser + indexer + exporter + annuler
+        # Bloc 2 — Normalisation / segmentation (après import) §14
+        group_norm = QGroupBox("2. Normalisation / segmentation — Après import")
+        group_norm.setToolTip(
+            "Workflow §14 : Mise au propre des transcripts (RAW → CLEAN) et segmentation. "
+            "Prérequis : au moins un épisode téléchargé (Bloc 1). L'alignement (Bloc 3) est dans les onglets Alignement, Concordance, Personnages."
+        )
         btn_row2 = QHBoxLayout()
+        btn_row2.addWidget(QLabel("Profil (batch):"))
+        self.norm_batch_profile_combo = QComboBox()
+        self.norm_batch_profile_combo.addItems(list(PROFILES.keys()))
+        self.norm_batch_profile_combo.setToolTip(
+            "Profil par défaut pour « Normaliser sélection » et « Normaliser tout ». "
+            "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce profil."
+        )
+        btn_row2.addWidget(self.norm_batch_profile_combo)
         self.norm_sel_btn = QPushButton("Normaliser\nsélection")
         self.norm_sel_btn.setToolTip(
-            "Normalise les épisodes cochés (ou les lignes sélectionnées). Prérequis : épisodes déjà téléchargés (RAW)."
+            "Bloc 2 — Normalise les épisodes cochés (ou les lignes sélectionnées). Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
         )
         self.norm_sel_btn.clicked.connect(lambda: self._normalize_episodes(selection_only=True))
         self.norm_all_btn = QPushButton("Normaliser tout")
         self.norm_all_btn.setToolTip(
-            "Normalise tout le corpus. Prérequis : épisodes déjà téléchargés (RAW)."
+            "Bloc 2 — Normalise tout le corpus. Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
         )
         self.norm_all_btn.clicked.connect(lambda: self._normalize_episodes(selection_only=False))
+        self.segment_sel_btn = QPushButton("Segmenter\nsélection")
+        self.segment_sel_btn.setToolTip(
+            "Bloc 2 — Segmente les épisodes cochés (ou sélectionnés) ayant un fichier CLEAN."
+        )
+        self.segment_sel_btn.clicked.connect(lambda: self._segment_episodes(selection_only=True))
+        self.segment_all_btn = QPushButton("Segmenter tout")
+        self.segment_all_btn.setToolTip(
+            "Bloc 2 — Segmente tout le corpus (épisodes ayant CLEAN)."
+        )
+        self.segment_all_btn.clicked.connect(lambda: self._segment_episodes(selection_only=False))
+        self.all_in_one_btn = QPushButton("Tout faire\n(sélection)")
+        self.all_in_one_btn.setToolTip(
+            "§5 — Enchaînement pour les épisodes cochés : Télécharger → Normaliser → Segmenter → Indexer DB."
+        )
+        self.all_in_one_btn.clicked.connect(self._run_all_for_selection)
         self.index_btn = QPushButton("Indexer DB")
-        self.index_btn.setToolTip("Indexe en base tous les épisodes ayant un fichier CLEAN (tout le projet).")
+        self.index_btn.setToolTip(
+            "Bloc 2 — Indexe en base tous les épisodes ayant un fichier CLEAN (segmentation). Tout le projet."
+        )
         self.index_btn.clicked.connect(self._index_db)
         self.export_corpus_btn = QPushButton("Exporter corpus")
         self.export_corpus_btn.clicked.connect(self._export_corpus)
         self.cancel_job_btn = QPushButton("Annuler")
         self.cancel_job_btn.clicked.connect(self._emit_cancel_job)
         self.cancel_job_btn.setEnabled(False)
-        for b in (self.norm_sel_btn, self.norm_all_btn, self.index_btn, self.export_corpus_btn):
+        for b in (self.norm_sel_btn, self.norm_all_btn, self.segment_sel_btn, self.segment_all_btn, self.all_in_one_btn, self.index_btn, self.export_corpus_btn):
             btn_row2.addWidget(b)
         btn_row2.addWidget(self.cancel_job_btn)
         btn_row2.addStretch()
-        layout.addLayout(btn_row2)
+        group_norm.setLayout(btn_row2)
+        layout.addWidget(group_norm)
 
         self.corpus_progress = QProgressBar()
         self.corpus_progress.setMaximum(100)
@@ -202,12 +233,14 @@ class CorpusTabWidget(QWidget):
         layout.addWidget(self.corpus_progress)
         self.corpus_status_label = QLabel("")
         self.corpus_status_label.setToolTip(
-            "Checklist workflow : Découverts (index) → Téléchargés (RAW) → Normalisés (CLEAN) → Segmentés (DB) → SRT (pistes) → Alignés (liens)."
+            "Workflow §14 (3 blocs) : Bloc 1 = Découverts → Téléchargés → SRT (import). "
+            "Bloc 2 = Normalisés (CLEAN) → Segmentés (DB). Bloc 3 = Alignés (onglets Alignement, Concordance, Personnages)."
         )
         layout.addWidget(self.corpus_status_label)
         scope_label = QLabel(
-            "Périmètre : « sélection » = épisodes cochés ou lignes sélectionnées ; « tout » = tout le corpus. "
-            "Profil (batch) : default_en_v1 = défaut ; conservative_v1 = peu de fusions de césures ; aggressive_v1 = plus de fusions."
+            "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (onglet Sous-titres). "
+            "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
+            "Périmètre : « sélection » = épisodes cochés ou lignes sélectionnées ; « tout » = tout le corpus."
         )
         scope_label.setStyleSheet("color: gray; font-size: 0.9em;")
         scope_label.setWordWrap(True)
@@ -232,6 +265,9 @@ class CorpusTabWidget(QWidget):
             self.corpus_status_label.setText("")
             self.norm_sel_btn.setEnabled(False)
             self.norm_all_btn.setEnabled(False)
+            self.segment_sel_btn.setEnabled(False)
+            self.segment_all_btn.setEnabled(False)
+            self.all_in_one_btn.setEnabled(False)
             return
         index = store.load_series_index()
         if not index or not index.episodes:
@@ -240,6 +276,9 @@ class CorpusTabWidget(QWidget):
             self.corpus_status_label.setText("")
             self.norm_sel_btn.setEnabled(False)
             self.norm_all_btn.setEnabled(False)
+            self.segment_sel_btn.setEnabled(False)
+            self.segment_all_btn.setEnabled(False)
+            self.all_in_one_btn.setEnabled(False)
             return
         n_total = len(index.episodes)
         n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
@@ -247,17 +286,20 @@ class CorpusTabWidget(QWidget):
         n_indexed = len(db.get_episode_ids_indexed()) if db else 0
         n_with_srt = 0
         n_aligned = 0
-        if db:
-            for e in index.episodes:
-                if db.get_tracks_for_episode(e.episode_id):
-                    n_with_srt += 1
-                if db.get_align_runs_for_episode(e.episode_id):
-                    n_aligned += 1
+        if db and index.episodes:
+            episode_ids = [e.episode_id for e in index.episodes]
+            tracks_by_ep = db.get_tracks_for_episodes(episode_ids)
+            runs_by_ep = db.get_align_runs_for_episodes(episode_ids)
+            n_with_srt = sum(1 for e in index.episodes if tracks_by_ep.get(e.episode_id))
+            n_aligned = sum(1 for e in index.episodes if runs_by_ep.get(e.episode_id))
         self.corpus_status_label.setText(
             f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | SRT {n_with_srt} | Alignés {n_aligned}"
         )
         self.norm_sel_btn.setEnabled(n_fetched > 0)
         self.norm_all_btn.setEnabled(n_fetched > 0)
+        self.segment_sel_btn.setEnabled(n_norm > 0)
+        self.segment_all_btn.setEnabled(n_norm > 0)
+        self.all_in_one_btn.setEnabled(n_total > 0)
         # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
         # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
         self.episodes_tree_model.set_store(store)
@@ -487,6 +529,95 @@ class CorpusTabWidget(QWidget):
                 or batch_profile
             )
             steps.append(NormalizeEpisodeStep(eid, profile))
+        self._run_job(steps)
+
+    def _segment_episodes(self, selection_only: bool) -> None:
+        """Bloc 2 — Segmente les épisodes (sélection ou tout) ayant clean.txt."""
+        store = self._get_store()
+        context = self._get_context()
+        if not context.get("config") or not store:
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return
+        if selection_only:
+            ids = self.episodes_tree_model.get_checked_episode_ids()
+            if not ids:
+                proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
+                source_indices = [
+                    self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
+                ]
+                ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+            if not ids:
+                QMessageBox.warning(
+                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
+                )
+                return
+        else:
+            ids = [e.episode_id for e in index.episodes]
+        eids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
+        if not eids_with_clean:
+            QMessageBox.warning(
+                self, "Corpus",
+                "Aucun épisode sélectionné n'a de fichier CLEAN. Normalisez d'abord la sélection."
+            )
+            return
+        config = context.get("config")
+        lang_hint = "en"
+        if config and getattr(config, "normalize_profile", None):
+            lang_hint = (config.normalize_profile or "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in eids_with_clean]
+        self._run_job(steps)
+
+    def _run_all_for_selection(self) -> None:
+        """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB pour les épisodes cochés."""
+        store = self._get_store()
+        db = self._get_db()
+        context = self._get_context()
+        if not context.get("config") or not store or not db:
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return
+        ids = self.episodes_tree_model.get_checked_episode_ids()
+        if not ids:
+            proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
+            source_indices = [
+                self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
+            ]
+            ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+        if not ids:
+            QMessageBox.warning(
+                self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
+            )
+            return
+        ref_by_id = {e.episode_id: e for e in index.episodes}
+        episode_preferred = store.load_episode_preferred_profiles()
+        source_defaults = store.load_source_profile_defaults()
+        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
+        config = context.get("config")
+        lang_hint = "en"
+        if config and getattr(config, "normalize_profile", None):
+            lang_hint = (config.normalize_profile or "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        fetch_steps = [
+            FetchEpisodeStep(ref_by_id[eid].episode_id, ref_by_id[eid].url)
+            for eid in ids if eid in ref_by_id
+        ]
+        norm_steps = []
+        for eid in ids:
+            ref = ref_by_id.get(eid)
+            profile = (
+                episode_preferred.get(eid)
+                or (source_defaults.get(ref.source_id or "") if ref else None)
+                or batch_profile
+            )
+            norm_steps.append(NormalizeEpisodeStep(eid, profile))
+        segment_steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in ids]
+        steps = fetch_steps + norm_steps + segment_steps + [BuildDbIndexStep()]
         self._run_job(steps)
 
     def _index_db(self) -> None:

@@ -215,3 +215,33 @@ def test_kwic_episode_non_regression(db):
     assert len(hits_ep) >= 2
     assert all(h.episode_id == "S01E04" for h in hits_ep)
     assert all(getattr(h, "segment_id", None) is None for h in hits_ep)
+
+
+def test_normalize_subtitle_track_s11(db):
+    """§11 — normalize_subtitle_track applique le profil aux cues (text_clean mis à jour)."""
+    from howimetyourcorpus.core.storage.project_store import ProjectStore
+    from howimetyourcorpus.core.models import ProjectConfig
+    from howimetyourcorpus.core.subtitles import Cue
+
+    ref = EpisodeRef(episode_id="S01E08", season=1, episode=8, title="Norms", url="https://ex.com/s01e08")
+    db.upsert_episode(ref)
+    db.add_track("S01E08:en", "S01E08", "en", "srt")
+    cue_raw = Cue(
+        episode_id="S01E08", lang="en", n=0,
+        start_ms=0, end_ms=2000,
+        text_raw="Line one\nbreaks here.",
+        text_clean="Line one\nbreaks here.",
+    )
+    db.upsert_cues("S01E08:en", "S01E08", "en", [cue_raw])
+
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        ProjectStore.init_project(ProjectConfig(project_name="t", root_dir=root, source_id="x", series_url=""))
+        store = ProjectStore(root)
+        nb = store.normalize_subtitle_track(db, "S01E08", "en", "default_en_v1", rewrite_srt=False)
+    assert nb == 1
+    cues = db.get_cues_for_episode_lang("S01E08", "en")
+    assert len(cues) == 1
+    clean = (cues[0].get("text_clean") or "").strip()
+    assert "Line one" in clean and "breaks here" in clean
+    assert "\n" not in clean or clean.count("\n") < 2

@@ -59,11 +59,10 @@ from howimetyourcorpus.app.tabs import (
     AlignmentTabWidget,
     ConcordanceTabWidget,
     CorpusTabWidget,
-    InspectorTabWidget,
+    InspecteurEtSousTitresTabWidget,
     LogsTabWidget,
     PersonnagesTabWidget,
     ProjectTabWidget,
-    SubtitleTabWidget,
 )
 from howimetyourcorpus.app.workers import JobRunner
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
@@ -71,15 +70,14 @@ from howimetyourcorpus import __version__
 
 logger = logging.getLogger(__name__)
 
-# Index des onglets (éviter les entiers magiques)
+# Index des onglets (§15.4 : Inspecteur + Sous-titres fusionnés → 7 onglets)
 TAB_PROJET = 0
 TAB_CORPUS = 1
 TAB_INSPECTEUR = 2
-TAB_SOUS_TITRES = 3
-TAB_ALIGNEMENT = 4
-TAB_CONCORDANCE = 5
-TAB_PERSONNAGES = 6
-TAB_LOGS = 7
+TAB_ALIGNEMENT = 3
+TAB_CONCORDANCE = 4
+TAB_PERSONNAGES = 5
+TAB_LOGS = 6
 
 
 class MainWindow(QMainWindow):
@@ -118,7 +116,6 @@ class MainWindow(QMainWindow):
         self._build_tab_projet()
         self._build_tab_corpus()
         self._build_tab_inspecteur()
-        self._build_tab_sous_titres()
         self._build_tab_alignement()
         self._build_tab_concordance()
         self._build_tab_personnages()
@@ -203,8 +200,8 @@ class MainWindow(QMainWindow):
     def _refresh_language_combos(self):
         """Met à jour les listes de langues (Sous-titres, Concordance, Personnages) à partir du projet."""
         langs = self._store.load_project_languages() if self._store else ["en", "fr", "it"]
-        if hasattr(self, "subtitles_tab") and self.subtitles_tab:
-            self.subtitles_tab.set_languages(langs)
+        if hasattr(self, "inspector_tab") and self.inspector_tab and hasattr(self.inspector_tab, "subtitles_tab"):
+            self.inspector_tab.subtitles_tab.set_languages(langs)
         if hasattr(self, "concordance_tab") and hasattr(self.concordance_tab, "set_languages"):
             self.concordance_tab.set_languages(langs)
         if hasattr(self, "personnages_tab") and self.personnages_tab:
@@ -316,6 +313,12 @@ class MainWindow(QMainWindow):
             on_open_inspector=self._kwic_open_inspector_impl,
         )
         self.tabs.addTab(self.corpus_tab, "Corpus")
+        self.tabs.setTabToolTip(TAB_CORPUS, "Workflow §14 — Bloc 1 (Import) + Bloc 2 (Normalisation / segmentation) : découverte, téléchargement, normaliser, indexer.")
+        # §15.3 — Projet = lieu du téléchargement : connecter les boutons Projet à la logique Corpus
+        self.project_tab.set_acquisition_callbacks(
+            on_discover_episodes=lambda: self.corpus_tab._discover_episodes(),
+            on_fetch_all=lambda: self.corpus_tab._fetch_episodes(False),
+        )
 
     def _get_context(self) -> PipelineContext:
         custom_profiles = self._store.load_custom_profiles() if self._store else {}
@@ -457,14 +460,17 @@ class MainWindow(QMainWindow):
             self.inspector_tab.refresh_profile_combo(profile_ids, current_inspect)
 
     def _build_tab_inspecteur(self):
-        self.inspector_tab = InspectorTabWidget(
+        """§15.4 — Onglet Inspecteur fusionné avec Sous-titres (un épisode, deux panneaux)."""
+        self.inspector_tab = InspecteurEtSousTitresTabWidget(
             get_store=lambda: self._store,
             get_db=lambda: self._db,
             get_config=lambda: self._config,
             run_job=self._run_job,
+            refresh_episodes=self._refresh_episodes_from_store,
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
         )
         self.tabs.addTab(self.inspector_tab, "Inspecteur")
+        self.tabs.setTabToolTip(TAB_INSPECTEUR, "§15.4 — Transcript (RAW/CLEAN, segments) + Sous-titres (pistes, import, normaliser) pour l'épisode courant.")
 
     def closeEvent(self, event):
         """Sauvegarde les tailles des splitters et les notes Inspecteur à la fermeture."""
@@ -476,19 +482,10 @@ class MainWindow(QMainWindow):
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.refresh()
 
-    def _build_tab_sous_titres(self):
-        self.subtitles_tab = SubtitleTabWidget(
-            get_store=lambda: self._store,
-            get_db=lambda: self._db,
-            run_job=self._run_job,
-            refresh_episodes=self._refresh_episodes_from_store,
-            show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
-        )
-        self.tabs.addTab(self.subtitles_tab, "Sous-titres")
-
     def _refresh_subs_tracks(self):
-        if hasattr(self, "subtitles_tab") and self.subtitles_tab:
-            self.subtitles_tab.refresh()
+        """Rafraîchit les pistes Sous-titres (§15.4 : même onglet que Inspecteur)."""
+        if hasattr(self, "inspector_tab") and self.inspector_tab:
+            self.inspector_tab.refresh()
 
     def _build_tab_alignement(self):
         self.alignment_tab = AlignmentTabWidget(
@@ -497,6 +494,7 @@ class MainWindow(QMainWindow):
             run_job=self._run_job,
         )
         self.tabs.addTab(self.alignment_tab, "Alignement")
+        self.tabs.setTabToolTip(TAB_ALIGNEMENT, "Workflow §14 — Bloc 3 : Alignement transcript↔cues, liens, export concordancier.")
 
     def _refresh_align_runs(self):
         if hasattr(self, "alignment_tab") and self.alignment_tab:
@@ -508,6 +506,7 @@ class MainWindow(QMainWindow):
             on_open_inspector=self._kwic_open_inspector_impl,
         )
         self.tabs.addTab(self.concordance_tab, "Concordance")
+        self.tabs.setTabToolTip(TAB_CONCORDANCE, "Workflow §14 — Bloc 3 : Concordancier parallèle (segment | EN | FR…), export KWIC.")
 
     def _build_tab_personnages(self):
         self.personnages_tab = PersonnagesTabWidget(
@@ -516,6 +515,7 @@ class MainWindow(QMainWindow):
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
         )
         self.tabs.addTab(self.personnages_tab, "Personnages")
+        self.tabs.setTabToolTip(TAB_PERSONNAGES, "Workflow §14 — Bloc 3 : Assignation segment/cue→personnage, propagation (après alignement).")
 
     def _refresh_personnages(self):
         if hasattr(self, "personnages_tab") and self.personnages_tab:

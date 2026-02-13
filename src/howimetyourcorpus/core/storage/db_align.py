@@ -93,10 +93,36 @@ def get_align_runs_for_episode(conn: sqlite3.Connection, episode_id: str) -> lis
     return [dict(r) for r in rows]
 
 
+def get_align_runs_for_episodes(conn: sqlite3.Connection, episode_ids: list[str]) -> dict[str, list[dict]]:
+    """Retourne les runs d'alignement par épisode (episode_id -> liste de runs). Évite N requêtes au refresh Corpus / arbre."""
+    if not episode_ids:
+        return {}
+    conn.row_factory = sqlite3.Row
+    placeholders = ",".join("?" * len(episode_ids))
+    rows = conn.execute(
+        f"""SELECT align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json
+           FROM align_runs WHERE episode_id IN ({placeholders}) ORDER BY episode_id, created_at DESC""",
+        episode_ids,
+    ).fetchall()
+    result: dict[str, list[dict]] = {eid: [] for eid in episode_ids}
+    for r in rows:
+        d = dict(r)
+        eid = d.get("episode_id", "")
+        if eid in result:
+            result[eid].append(d)
+    return result
+
+
 def delete_align_run(conn: sqlite3.Connection, align_run_id: str) -> None:
     """Supprime un run d'alignement et tous ses liens."""
     conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
     conn.execute("DELETE FROM align_runs WHERE align_run_id = ?", (align_run_id,))
+
+
+def delete_align_runs_for_episode(conn: sqlite3.Connection, episode_id: str) -> None:
+    """Supprime tous les runs d'alignement d'un épisode (et leurs liens). À appeler après suppression d'une piste SRT ou re-segmentation pour éviter les liens orphelins."""
+    conn.execute("DELETE FROM align_links WHERE episode_id = ?", (episode_id,))
+    conn.execute("DELETE FROM align_runs WHERE episode_id = ?", (episode_id,))
 
 
 def query_alignment_for_episode(

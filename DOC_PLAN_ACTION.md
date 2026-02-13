@@ -8,7 +8,7 @@ Document consolidé : état des lieux (backlog + analyse de code), ce qui est d�
 
 **Prochaines actions :** Évolutions mineures selon besoin.
 
-**État :** Phase A–D et M1–M7 réalisés. P2 §6.2, §7.1, §8 réalisés. **§10** : pas de visualiseuse dans Corpus (choix backlog « Corpus = gestionnaire ») ; double-clic sur un épisode (Corpus) ouvre l’Inspecteur sur cet épisode (raw/clean, segments). **Suite confort** : refactor db terminé (db_segments, db_subtitles, db_align ; CorpusDB délègue). Tests scraping (fixtures structure changée). 56 tests verts.
+**État :** Phase A–D et M1–M7 réalisés. P2 §6.2, §7.1, §8 réalisés. **§10** : double-clic Corpus → Inspecteur. **§11** : Normalisation des sous-titres (profil, « Normaliser la piste », option réécriture SRT). **§14** : UI workflow 3 blocs (GroupBox Corpus Bloc 1/2, tooltips onglets). **§5 (complément)** : Segmenter sélection/tout, « Tout faire (sélection) » (fetch→norm→segment→index). Refactor db terminé. Plan §14 (audit, intégrité orphelins, API batch). 61 tests verts.
 
 **Détail :** voir §3 (Plan par phases et P0/P1/P2) et §4 (checklist).
 
@@ -57,6 +57,10 @@ Les entrées suivantes du backlog sont **implémentées** ; la section « Réali
 | **§7.1** | Profils par source | Priorité : préféré épisode > défaut source > profil batch ; tooltips Corpus/Inspecteur ; libellé dialogue Profils (source→profil). |
 | **§8** | Personnages (assignation + propagation) | Onglet Personnages (liste, assignation segment/cue→personnage) ; propagation via liens d'alignement (segments.speaker_explicit, cues text_clean, réécriture SRT). |
 | **§10** | Corpus → aperçu épisode | Alternative retenue : double-clic (Corpus) → Inspecteur (raw/clean, segments). Pas de visualiseuse dans Corpus : rôles Corpus = gestionnaire / Inspecteur = atelier ; évite doublon et encombrement. |
+| **§13** | Export Word (.docx) étendu | Segments (Inspecteur), concordancier parallèle (Alignement), KWIC (Concordance) : option Word dans les dialogues d’export. export_utils : export_segments_docx, export_parallel_concordance_docx, export_kwic_docx. |
+| **§14** | Restructuration workflow 3 blocs (UI) | Onglet Corpus : GroupBox « 1. Import » et « 2. Normalisation / segmentation » ; tooltips onglets (Corpus, Sous-titres, Alignement, Concordance, Personnages) ; texte d’aide §14. |
+| **§11** | Normalisation des sous-titres (profil) | Onglet Sous-titres : « Normaliser la piste » (profil), option « Réécrire le fichier SRT » ; `ProjectStore.normalize_subtitle_track`. |
+| **§5 (complément)** | Segmenter + Tout faire (sélection) | Corpus Bloc 2 : « Segmenter sélection », « Segmenter tout » ; « Tout faire (sélection) » (Télécharger → Normaliser → Segmenter → Indexer DB en un job). |
 
 **À ne pas refaire** : ces sujets sont à considérer comme clos sauf évolution explicite (ex. amélioration UX ou extension).
 

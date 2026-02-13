@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -12,13 +13,17 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -46,77 +51,147 @@ class ProjectTabWidget(QWidget):
         self._open_profiles_callback = on_open_profiles_dialog
         self._refresh_language_combos_callback = on_refresh_language_combos
         self._show_status = show_status
+        self._on_discover_episodes: Callable[[], None] | None = None
+        self._on_fetch_all: Callable[[], None] | None = None
 
-        layout = QFormLayout(self)
+        main = QVBoxLayout(self)
+        main.setSpacing(12)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setSpacing(10)
+
+        # —— 1. Projet (ouvrir / créer) ——
+        group_projet = QGroupBox("Projet")
+        group_projet.setToolTip("Choisir un dossier pour créer un nouveau projet ou ouvrir un projet existant.")
+        form_projet = QFormLayout(group_projet)
         self.proj_root_edit = QLineEdit()
-        self.proj_root_edit.setPlaceholderText("C:\\...\\projects\\MonProjet")
-        browse_btn = QPushButton("Parcourir...")
+        self.proj_root_edit.setPlaceholderText("C:\\...\\MonProjet ou /path/to/project")
+        browse_btn = QPushButton("Parcourir…")
         browse_btn.clicked.connect(self._browse)
-        row = QHBoxLayout()
-        row.addWidget(self.proj_root_edit)
-        row.addWidget(browse_btn)
-        layout.addRow("Dossier projet:", row)
+        row_root = QHBoxLayout()
+        row_root.addWidget(self.proj_root_edit)
+        row_root.addWidget(browse_btn)
+        form_projet.addRow("Dossier:", row_root)
+        btn_row = QHBoxLayout()
+        validate_btn = QPushButton("Ouvrir / créer le projet")
+        validate_btn.clicked.connect(self._emit_validate)
+        validate_btn.setDefault(True)
+        save_config_btn = QPushButton("Enregistrer la config.")
+        save_config_btn.setToolTip(
+            "Sauvegarde source, URL série, profil, etc. dans config.toml (projet déjà ouvert)."
+        )
+        save_config_btn.clicked.connect(self._save_config)
+        btn_row.addWidget(validate_btn)
+        btn_row.addWidget(save_config_btn)
+        btn_row.addStretch()
+        form_projet.addRow("", btn_row)
+        layout.addWidget(group_projet)
 
+        # —— 2. Source et série ——
+        group_source = QGroupBox("Source et série")
+        group_source.setToolTip("D’où viennent les épisodes et les transcripts (ignoré si projet SRT uniquement).")
+        form_source = QFormLayout(group_source)
         self.source_id_combo = QComboBox()
         self.source_id_combo.addItems(AdapterRegistry.list_ids() or ["subslikescript"])
-        layout.addRow("Source:", self.source_id_combo)
-
+        form_source.addRow("Source:", self.source_id_combo)
         self.series_url_edit = QLineEdit()
         self.series_url_edit.setPlaceholderText("https://subslikescript.com/series/...")
-        layout.addRow("URL série:", self.series_url_edit)
+        form_source.addRow("URL série:", self.series_url_edit)
         self.srt_only_cb = QCheckBox("Projet SRT uniquement (sans transcriptions)")
         self.srt_only_cb.setToolTip(
             "Cochez si vous partez des SRT sans transcriptions. "
-            "Si vous laissez l'URL série vide, le projet est considéré SRT only automatiquement."
+            "URL série vide = SRT only automatiquement."
         )
-        layout.addRow("", self.srt_only_cb)
-
+        form_source.addRow("", self.srt_only_cb)
         self.rate_limit_spin = QSpinBox()
         self.rate_limit_spin.setRange(1, 60)
         self.rate_limit_spin.setValue(2)
         self.rate_limit_spin.setSuffix(" s")
-        layout.addRow("Rate limit:", self.rate_limit_spin)
+        self.rate_limit_spin.setToolTip("Délai minimal entre requêtes vers la source.")
+        form_source.addRow("Rate limit:", self.rate_limit_spin)
+        layout.addWidget(group_source)
 
+        # —— 3. Acquisition (§15.3) ——
+        group_acquisition = QGroupBox("Acquisition — Remplir le corpus")
+        group_acquisition.setToolTip(
+            "Découvrir les épisodes puis télécharger les transcripts. Le Corpus affiche la liste après téléchargement."
+        )
+        acq_row = QHBoxLayout(group_acquisition)
+        self.discover_btn = QPushButton("Découvrir épisodes")
+        self.discover_btn.setToolTip("Récupère la liste des épisodes depuis la source.")
+        self.discover_btn.clicked.connect(self._on_discover_clicked)
+        self.fetch_all_btn = QPushButton("Télécharger tout")
+        self.fetch_all_btn.setToolTip("Télécharge tous les épisodes découverts. Rafraîchit le Corpus à la fin.")
+        self.fetch_all_btn.clicked.connect(self._on_fetch_all_clicked)
+        acq_row.addWidget(self.discover_btn)
+        acq_row.addWidget(self.fetch_all_btn)
+        acq_row.addStretch()
+        layout.addWidget(group_acquisition)
+        self.discover_btn.setEnabled(False)
+        self.fetch_all_btn.setEnabled(False)
+
+        # —— 4. Normalisation ——
+        group_norm = QGroupBox("Normalisation")
+        group_norm.setToolTip("Profil utilisé pour RAW → CLEAN (transcripts et sous-titres).")
+        form_norm = QFormLayout(group_norm)
         self.normalize_profile_combo = QComboBox()
         self.normalize_profile_combo.addItems(list(PROFILES.keys()))
-        layout.addRow("Profil normalisation:", self.normalize_profile_combo)
-
-        validate_btn = QPushButton("Valider & initialiser")
-        validate_btn.clicked.connect(self._emit_validate)
-        save_config_btn = QPushButton("Enregistrer la configuration")
-        save_config_btn.setToolTip(
-            "Sauvegarde la source, l'URL série, le profil, etc. dans config.toml (projet déjà ouvert)."
-        )
-        save_config_btn.clicked.connect(self._save_config)
-        layout.addRow("", validate_btn)
-        layout.addRow("", save_config_btn)
-        profiles_btn = QPushButton("Gérer les profils de normalisation...")
-        profiles_btn.setToolTip(
-            "Créer, modifier ou supprimer les profils personnalisés (fichier profiles.json du projet)."
-        )
+        form_norm.addRow("Profil:", self.normalize_profile_combo)
+        profiles_btn = QPushButton("Gérer les profils…")
+        profiles_btn.setToolTip("Créer, modifier ou supprimer les profils personnalisés (profiles.json).")
         profiles_btn.clicked.connect(self._emit_open_profiles)
-        layout.addRow("", profiles_btn)
+        form_norm.addRow("", profiles_btn)
+        layout.addWidget(group_norm)
 
-        layout.addRow("", QLabel("Langues du projet (sous-titres, personnages, KWIC) :"))
+        # —— 5. Langues ——
+        group_lang = QGroupBox("Langues du projet")
+        group_lang.setToolTip("Langues pour sous-titres, personnages et concordancier (ex. en, fr, it).")
+        form_lang = QFormLayout(group_lang)
         self.languages_list = QListWidget()
-        self.languages_list.setMaximumHeight(80)
+        self.languages_list.setMaximumHeight(100)
         self.languages_list.currentRowChanged.connect(self._on_languages_selection_changed)
-        layout.addRow("", self.languages_list)
+        form_lang.addRow("Codes langue:", self.languages_list)
         lang_btn_row = QHBoxLayout()
-        self.add_lang_btn = QPushButton("Ajouter une langue...")
-        self.add_lang_btn.setToolTip(
-            "Ajoute un code langue (ex. de, es) utilisé dans les sous-titres et personnages."
-        )
+        self.add_lang_btn = QPushButton("Ajouter…")
+        self.add_lang_btn.setToolTip("Ajouter un code langue (ex. de, es).")
         self.add_lang_btn.clicked.connect(self._add_language)
-        self.remove_lang_btn = QPushButton("Supprimer la langue")
-        self.remove_lang_btn.setToolTip(
-            "Retire la langue sélectionnée de la liste (n'affecte pas les fichiers déjà importés)."
-        )
+        self.remove_lang_btn = QPushButton("Supprimer")
+        self.remove_lang_btn.setToolTip("Retirer la langue sélectionnée (n’affecte pas les fichiers déjà importés).")
         self.remove_lang_btn.clicked.connect(self._remove_language)
         lang_btn_row.addWidget(self.add_lang_btn)
         lang_btn_row.addWidget(self.remove_lang_btn)
         lang_btn_row.addStretch()
-        layout.addRow("", lang_btn_row)
+        form_lang.addRow("", lang_btn_row)
+        layout.addWidget(group_lang)
+
+        layout.addStretch()
+        scroll.setWidget(content)
+        main.addWidget(scroll)
+
+    def set_acquisition_callbacks(
+        self,
+        on_discover_episodes: Callable[[], None] | None,
+        on_fetch_all: Callable[[], None] | None,
+    ) -> None:
+        """§15.3 — Connecte Découvrir / Télécharger tout à la logique Corpus (appelé par MainWindow après création du Corpus)."""
+        self._on_discover_episodes = on_discover_episodes
+        self._on_fetch_all = on_fetch_all
+
+    def _on_discover_clicked(self) -> None:
+        if self._on_discover_episodes:
+            self._on_discover_episodes()
+        else:
+            self._show_status("Ouvrez un projet puis utilisez l'onglet Corpus pour découvrir les épisodes.", 4000)
+
+    def _on_fetch_all_clicked(self) -> None:
+        if self._on_fetch_all:
+            self._on_fetch_all()
+        else:
+            self._show_status("Ouvrez un projet puis utilisez l'onglet Corpus pour télécharger.", 4000)
 
     def get_form_data(self) -> dict[str, Any]:
         """Retourne les données du formulaire pour init/charger le projet."""
@@ -159,6 +234,9 @@ class ProjectTabWidget(QWidget):
             for lang in store.load_project_languages():
                 self.languages_list.addItem(lang)
         self.add_lang_btn.setEnabled(bool(store))
+        # §15.3 — Découvrir / Télécharger tout actifs seulement si projet ouvert
+        self.discover_btn.setEnabled(bool(store))
+        self.fetch_all_btn.setEnabled(bool(store))
         self._on_languages_selection_changed()
 
     def _browse(self) -> None:

@@ -344,6 +344,194 @@ Dans ce modèle, pas de visualiseuse dans le Corpus (évite l’encombrement) ; 
 
 ---
 
+## 11. Normalisation des sous-titres (profil optionnel)
+
+**Contexte :** Aujourd’hui les cues SRT/VTT subissent uniquement une **normalisation minimaliste** à l’import (tags supprimés, sauts de ligne → espace, espaces collapsés). Les **transcripts** passent eux par un **profil** (fusion césures, didascalies, locuteurs). Les sous-titres peuvent avoir les mêmes besoins (césures incohérentes, ponctuation, marqueurs type `MARSHALL:`).
+
+**Demande :** Pouvoir **normaliser les sous-titres** avec un profil (ou des filtres / regex dédiés), pour obtenir un `text_clean` homogène (alignement, recherche, export).
+
+**Pistes :**
+
+- **À l’import** — Option « Appliquer le profil X aux sous-titres » (par piste ou par langue) : pour chaque cue, `text_clean = profile.apply(cue.text_raw)` (ou variante « sous-titres » du profil). Conserver `text_raw` = original.
+- **Étape dédiée** — « Normaliser les sous-titres » (sélection ou piste) : mise à jour de `text_clean` en base via le profil, puis optionnellement réécriture du fichier SRT à partir de `text_clean`. Ne pas écraser le SRT d’origine sans option explicite.
+- **Profil** — Réutiliser le même profil que le transcript (ex. `default_en_v1`) ou définir un profil « sous-titres » (règles spécifiques : tags + espaces, fusion césure, locuteur, etc.).
+- **UI** — Onglet Sous-titres : action « Normaliser la piste (profil X) » ou « Normaliser les sous-titres de la sélection ».
+
+**Référence :** §7 (profils modifiables), parsers SRT/VTT (`_normalize_cue_text` minimal actuel), Personnages (§8) qui modifient déjà `text_clean` et réécrivent le SRT.
+
+---
+
+## 12. Formats d'export (synthèse)
+
+**Contexte :** L’application propose des exports selon l’onglet et l’objet (corpus, segments, alignement, concordancier, KWIC). Synthèse pour référence.
+
+**Formats par contexte :**
+
+| Contexte | Où | Formats disponibles |
+|----------|-----|---------------------|
+| **Corpus** | Onglet Corpus, « Exporter corpus » | TXT, CSV, JSON, Word (.docx), JSONL (Utterances), JSONL (Phrases), CSV (Utterances), CSV (Phrases) |
+| **Segments** | Onglet Inspecteur, « Exporter les segments » | TXT, CSV, TSV, Word (.docx) |
+| **Alignement** | Onglet Alignement | Liens bruts : CSV, JSONL. Concordancier parallèle : CSV, TSV, JSONL, Word (.docx). Rapport : HTML |
+| **Concordance (KWIC)** | Onglet Concordance, « Exporter résultats » | CSV, TSV, JSON, JSONL, Word (.docx) |
+| **SRT** | Pas de dialogue « Exporter » | Réécriture des fichiers SRT (ex. propagation Personnages) à partir des cues |
+
+**Récapitulatif par format :**
+
+| Format | Corpus | Segments | Alignement / Concordancier | KWIC |
+|--------|--------|----------|----------------------------|------|
+| TXT | ✓ | ✓ | — | — |
+| CSV | ✓ | ✓ | ✓ | ✓ |
+| TSV | — | ✓ | ✓ | ✓ |
+| JSON | ✓ | — | — | ✓ |
+| JSONL | ✓ | — | ✓ | ✓ |
+| Word (.docx) | ✓ | ✓ | ✓ | ✓ |
+| HTML | — | — | ✓ (rapport) | — |
+
+**Fichiers concernés :** `core/export_utils.py` (fonctions export_*), onglets Corpus, Inspecteur, Alignement, Concordance (boutons + filtres de fichier).
+
+---
+
+## 13. Export Word (.docx) étendu
+
+**Demande :** Proposer l’export **Word (.docx)** dans les autres contextes d’export, pas seulement le corpus.
+
+**Pistes :**
+
+- **Segments (Inspecteur)** — « Exporter les segments » : ajouter une option Word (.docx) ; un paragraphe ou une ligne par segment (avec optionnellement segment_id, kind en en-tête ou colonne). Utile pour rapports éditable / impression.
+- **Concordancier parallèle (Alignement)** — « Exporter concordancier parallèle » : ajouter Word (.docx) ; tableau ou paragraphes (segment | EN | FR | …). Cohérent avec le rapport HTML déjà présent.
+- **Résultats KWIC (Concordance)** — « Exporter résultats » : ajouter Word (.docx) ; liste des hits avec contexte gauche / hit / contexte droit, éventuellement en tableau.
+
+**Justification :** Cohérence avec l’export Corpus (déjà Word) ; besoin « rapport éditable » pour partage, relecture, impression sans passer par Excel/CSV.
+
+**Fichiers concernés :** `core/export_utils.py` (réutiliser ou étendre l’usage de `docx`), onglets Inspecteur, Alignement, Concordance (filtre de fichier + appel à la nouvelle fonction).
+
+**Référence :** §12 (formats d’export), `export_corpus_docx` existant.
+
+---
+
+## 14. Discussion — Restructuration workflow en 3 blocs (vision)
+
+**Idée (à discuter, sans engagement de mise en œuvre immédiate) :** Repenser le process / workflow en trois grandes parties :
+
+1. **Import** — Scraper et récupérer beaucoup de textes, constituer un corpus, une base de données qui « garde le fil ». Garder **Corpus** pour le système d’association de base entre transcripts et sous-titres multilingues (qui va avec quoi, par épisode, par langue).
+2. **Normalisation / segmentation** — Filtres, regex, profils pour mettre au propre les **transcripts** et les **SRT** (voire d’autres formats). Une couche unique ou partagée de « mise au propre » (normalisation + segmentation) appliquée de façon cohérente aux deux types de contenus.
+3. **Alignement + concordancier** — Alignement transcript↔cues, cues↔cues, puis concordancier parallèle et exploitation.
+
+**Objectif :** Clarifier les rôles (Import = constitution du corpus + association ; Normalisation = nettoyage homogène transcripts + SRT ; Alignement = appariement + exploration), tout en gardant la DB comme fil conducteur.
+
+**Sorties par bloc (boussole pour les évolutions) :**
+
+| Bloc | Entrées | Sorties (livrables) |
+|------|--------|---------------------|
+| **1. Import** | URLs/sources, dossiers SRT, API (ex. OpenSubtitles) | **Corpus** : index épisodes (series_index), raw par épisode (page.html, raw.txt), pistes SRT par épisode/langue (subs/, subtitle_tracks + subtitle_cues en DB). **Fil** : episode_id, lang, track_id, statuts (téléchargé, SRT présent). Pas de clean ni de segments à ce stade. |
+| **2. Normalisation / segmentation** | Raw transcript, cues SRT (text_raw) | **Transcript** : clean.txt par épisode (profil), segments (segments.jsonl, table segments en DB avec kind, text, speaker_explicit). **SRT** : text_clean à jour par cue (profil optionnel, §11), optionnellement réécriture SRT. Règles partagées (regex, profils) applicables aux deux. |
+| **3. Alignement + concordancier** | Segments (transcript), cues EN, cues cible (lang) | **Liens** : align_links (segment_id, cue_id, cue_id_target, role, confidence, status). **Runs** : align_runs par épisode. **Exploitation** : concordancier parallèle (segment + cue EN + cues FR/IT…), KWIC, export CSV/TSV/HTML. **Personnages** (assignation + propagation) : segments.speaker_explicit, cues text_clean (préfixe « Nom : »), réécriture des fichiers SRT ; dépend des liens d’alignement. |
+
+---
+
+**UI/UX par bloc (détail pour l’interface et l’expérience utilisateur) :**
+
+**Bloc 1 — Import (constitution du corpus + association)**
+
+- **Onglets concernés :** Projet (config, URL, source), **Corpus** (arbre épisodes, sélection, statuts), **Sous-titres** (pistes par épisode, import).
+- **Actions visibles :**
+  - **Projet** : URL série, « Enregistrer la configuration », source (subslikescript / SRT only / …), optionnel identifiant externe (IMDb, etc.).
+  - **Corpus** : « Découvrir épisodes », « Découvrir (fusionner) », « Télécharger sélection / tout », « Ajouter épisodes (SRT only) » si SRT-first ; filtre saison, « Cocher la saison », cases à cocher par épisode.
+  - **Sous-titres** : « Importer SRT/VTT… » (fichier), « Importer SRT en masse… » (dossier + mapping), « Télécharger depuis OpenSubtitles… » ; liste des pistes par épisode (langue, nb cues), « Supprimer la piste sélectionnée ».
+- **Feedback / visibilité :**
+  - Corpus : colonnes Statut, SRT (langues), Aligné ; checklist globale « Découverts | Téléchargés | Normalisés | Segmentés | SRT | Alignés » ; comptage « X avec SRT, Y aligné(s) ».
+  - Double-clic sur un épisode → ouvre l’Inspecteur sur cet épisode (aperçu sans modifier).
+  - Logs : résumé fin de job « X réussie(s), Y échec(s) » avec episode_id en échec.
+- **Objectif UX :** L’utilisateur voit clairement « quoi est là » (épisodes, raw, SRT par langue) et lance uniquement des actions d’**acquisition** (découvrir, télécharger, importer). Pas de boutons Normaliser/Segmenter/Alignement mis en avant ici si on veut renforcer le découpage ; aujourd’hui ils restent dans Corpus pour le batch.
+
+**Bloc 2 — Normalisation / segmentation (mise au propre transcripts + SRT)**
+
+- **Onglets concernés :** **Corpus** (batch : Normaliser, Segmenter, Indexer DB), **Inspecteur** (épisode courant : raw/clean, segments, profils), **Sous-titres** (pistes, option future « Normaliser la piste » §11).
+- **Actions visibles :**
+  - **Corpus** : « Normaliser sélection / tout », « Segmenter sélection / tout », « Indexer DB (sélection / tout) » ; choix du profil (liste déroulante ou défaut) avant Normaliser. Prérequis : au moins un épisode téléchargé pour Normaliser.
+  - **Inspecteur** : sélection de l’épisode (liste) ; affichage raw / clean côte à côte ; liste des segments (kind, text, speaker_explicit) ; « Normaliser cet épisode » (profil choisi), « Segmenter », « Indexer DB (cet épisode) » ; « Exporter les segments » (TXT, CSV, TSV) ; « Gérer les profils » (ouvre ProfilesDialog).
+  - **Sous-titres** (évolution §11) : par piste ou par sélection, « Normaliser la piste (profil X) » ou « Normaliser les sous-titres de la sélection » ; option « Réécrire le fichier SRT à partir de text_clean » (explicite, ne pas écraser par défaut).
+- **Feedback / visibilité :**
+  - Inspecteur : QSplitter redimensionnable (RAW | CLEAN, liste segments | zone texte) ; tooltips sur profil (source → profil, préféré épisode).
+  - Checklist Corpus mise à jour après chaque étape (Normalisés, Segmentés).
+  - Optionnel : indicateur « texte normalisé / segments à jour » par épisode dans l’arbre (icône ou colonne).
+- **Objectif UX :** Une seule « couche » mentale : **mise au propre** (transcript + SRT). Les profils et la segmentation sont visibles au même endroit (Inspecteur + batch Corpus) ; l’utilisateur choisit le profil puis lance Normaliser (transcript) et, si on ajoute §11, Normaliser (SRT) de façon cohérente.
+
+**Bloc 3 — Alignement + concordancier (appariement + exploration)**
+
+- **Onglets concernés :** **Alignement** (runs, liens, pivot/cible, options), **Concordance** (tableau parallèle, export), **Personnages** (assignation, propagation).
+- **Actions visibles :**
+  - **Alignement** : choix épisode, langue pivot (ex. EN), « Lancer l’alignement » (option « Forcer alignement par similarité ») ; liste des runs (date, pivot_lang) ; « Supprimer ce run » ; tableau des liens (segment, cue EN, cue cible, confidence, status) ; « Modifier la cible » (édition manuelle d’un lien) ; aide texte (flux transcript → segments, cues EN/FR, alignement).
+  - **Concordance** : choix épisode + run ; tableau segment | text_en | text_fr | … ; « Exporter » (CSV, TSV, JSONL, rapport HTML).
+  - **Personnages** : liste personnages, « Importer depuis les segments » ; assignation segment/cue → personnage ; « Propager » (met à jour speaker_explicit, text_clean des cues, réécrit SRT).
+- **Feedback / visibilité :**
+  - Colonne « Aligné » dans Corpus (oui/non ou run_id) ; comptage « Y aligné(s) ».
+  - Alignement : statuts des liens (auto, accepted, rejected) ; stats du run (nb liens, by_status, avg_confidence).
+  - Tooltips : « Cette action porte sur la sélection cochée » / « épisode courant » selon le contexte.
+- **Objectif UX :** Après Import et Normalisation, l’utilisateur travaille **alignement** et **exploitation** (concordancier, personnages, export) sans revenir aux étapes d’acquisition ou de mise au propre, sauf pour corriger (ex. re-normaliser puis re-segmenter).
+
+**Placement Personnages (assignation + propagation) :** On les met dans **Bloc 3 — Alignement + concordancier**. Raison : la **propagation** s’appuie sur les **liens d’alignement** (segment ↔ cue EN ↔ cue cible) pour écrire le nom du personnage aux positions alignées (segments.speaker_explicit, cues text_clean, réécriture SRT). Sans alignement, pas de propagation cohérente. L’**assignation** (construire la liste des personnages, associer segment/cue → personnage) peut commencer dès qu’on a des segments et des cues (donc après Bloc 2), mais l’action « Propager » est **après** l’alignement (Bloc 3). En pratique : onglet **Personnages** reste dans le même bloc que Alignement et Concordance ; l’utilisateur fait Alignement → puis Assignation (ou enrichit la liste) → Propager. On ne met pas Personnages dans Bloc 2 (normalisation) : la propagation n’est pas une « mise au propre » du texte brut, c’est une **exploitation des liens** déjà calculés.
+
+---
+
+**Résumé UI/UX :**
+
+| Bloc | Où (onglets) | Actions principales | Ce que l’utilisateur voit en premier |
+|------|--------------|---------------------|--------------------------------------|
+| 1. Import | Projet, Corpus, Sous-titres | Découvrir, Télécharger, Importer SRT (fichier / masse / OpenSubtitles) | Arbre épisodes + statuts (Découverts, Téléchargés, SRT) |
+| 2. Normalisation / segmentation | Corpus (batch), Inspecteur (épisode), Sous-titres (option §11) | Normaliser (transcript + SRT), Segmenter, Indexer DB, Exporter segments | Raw/Clean + segments + choix du profil |
+| 3. Alignement + concordancier | Alignement, Concordance, Personnages | Lancer alignement, modifier liens, Exporter concordancier, Propager personnages | Runs + tableau liens + tableau parallèle segment | EN | FR |
+
+Ces sorties et ce détail UI/UX servent de référence. **Implémentation UI §14** : voir « Réalisé » ci‑dessous.
+
+---
+
+## 15. Brainstorming — idées à garder
+
+### 15.1 Comparaison de traductions
+
+**Idée :** Afficher les traductions côte à côte (cue EN | FR | IT, etc.) pour un épisode ou une sélection de liens. Compléter ou dériver du concordancier parallèle (segment | EN | FR | …) : vue dédiée « comparaison de traductions » (par timecode ou par lien d’alignement), éventuellement avec surlignage des différences ou export côte à côte.
+
+**Pistes :** Réutiliser `get_parallel_concordance` ; nouvelle vue ou onglet « Comparaison » ; export TXT/CSV/HTML (EN | FR | IT par ligne).
+
+---
+
+### 15.2 Export sous-titres finaux
+
+**Idée :** Exporter les sous-titres « finaux » : timecodes + `text_clean` (+ optionnellement préfixe personnage, ex. « Marshall: »). Fichier SRT (ou autre format) prêt pour diffusion ou post-traitement, à partir des cues alignées et de la propagation personnages.
+
+**Pistes :** Bouton « Exporter SRT final » (Inspecteur, Sous-titres ou Alignement) ; choix langue(s), option « inclure noms personnages » ; réutiliser `cues_to_srt` avec les cues à jour (text_clean, meta). Ne pas écraser les originaux ; export vers un fichier choisi par l’utilisateur.
+
+---
+
+### 15.3 Projet = lieu du téléchargement tout (remplit Corpus)
+
+**Idée :** Faire de l’onglet **Projet** le lieu où on « télécharge tout » : on a les liens (URL série, config), on lance la découverte et le téléchargement des transcripts depuis cet onglet, on vérifie que les bons fichiers et infos sont récupérés, et **ça remplit la partie Corpus** (liste épisodes, statuts, raw). Corpus devient surtout la **vue résultat** + actions de batch (normaliser, segmenter, indexer) ; l’acquisition (découvrir, télécharger) serait pilotée depuis Projet.
+
+**Pistes :** Déplacer ou dupliquer « Découvrir épisodes » et « Télécharger tout » (ou « Télécharger sélection ») dans l’onglet Projet ; après téléchargement, rafraîchir Corpus pour afficher les épisodes et statuts. Option : garder aussi les boutons en Corpus pour cohérence §14 Bloc 1, ou les retirer de Corpus si tout passe par Projet. Vérification « ça récupère bien les bonnes infos et fichiers » : feedback dans Projet (résumé X épisodes téléchargés, erreurs éventuelles) + possibilité d’ouvrir Corpus pour voir la liste.
+
+---
+
+### 15.4 Inspecteur + Sous-titres fusionnés ?
+
+**Question :** Est-ce que la partie **Inspecteur** et la partie **Sous-titres** pourraient être **ensemble** (un seul onglet ou un onglet avec deux zones) ?
+
+**Contexte :** Aujourd’hui Inspecteur = épisode courant, raw/clean, segments, export segments. Sous-titres = épisode courant, pistes SRT par langue, import/édition/normalisation des cues. Les deux sont centrés « un épisode à la fois » et complémentaires (transcript vs pistes SRT). Les fusionner réduirait le nombre d’onglets et regrouperait tout le travail « par épisode » (transcript + sous-titres) au même endroit.
+
+**Pistes :** (1) Un onglet « Épisode » ou « Inspecteur » avec deux panneaux (ou onglets internes) : « Transcript » (raw, clean, segments) et « Sous-titres » (pistes, import, normaliser la piste, édition). (2) Garder deux onglets mais partager le sélecteur d’épisode (même épisode courant). (3) Fusion complète : une seule page avec sections repliables « Transcript », « Segments », « Sous-titres ».
+
+**À discuter :** Encombrement de l’onglet fusionné ; cohérence avec le workflow §14 (Bloc 1 = Sous-titres séparé pour « Importer SRT ») ; préférence utilisateur (tout au même endroit vs séparation claire).
+
+---
+
+### 15.5 Inspecteur avec les outils de normalisation ?
+
+**Idée :** Regrouper ou renforcer dans l'onglet **Inspecteur** les outils liés à la **normalisation** (transcript RAW → CLEAN, profils, éventuellement aperçu des règles, test sur un extrait, etc.), pour que tout le travail « par épisode » (voir le texte, normaliser, segmenter, puis pistes SRT) soit au même endroit.
+
+**Pistes :** Exposer plus clairement dans l'Inspecteur le choix de profil + « Normaliser cet épisode » + « Définir comme préféré » ; optionnel : lien rapide vers « Gérer les profils », aperçu des règles du profil, ou zone « avant / après » sur un extrait. À discuter avec la fusion §15.4 (Transcript | SRT) pour éviter la surcharge.
+
+---
+
 ## Réalisé
 
 - **Exemple utilisable (EN + FR, court)** — projet démo dans `example/` avec transcript, SRT EN/FR, README et corpus.db pré-initialisé. Voir `example/README.md` et section « Projet exemple » du `README.md` principal.
@@ -359,6 +547,7 @@ Dans ce modèle, pas de visualiseuse dans le Corpus (évite l’encombrement) ; 
 - **§9 — Arborescence (Option A)** — Onglet Corpus : QTreeView avec EpisodesTreeModel (Saison → Épisodes), filtre par saison, « Cocher la saison », cases à cocher par épisode. Fichiers : `ui_mainwindow.py`, `models_qt.py` (EpisodesTreeModel, EpisodesTreeFilterProxyModel).
 - **§10.1 — Corpus = gestionnaire des docs** — Colonnes SRT et Aligné dans l'arbre épisodes, alimentées par `get_tracks_for_episode` et `get_align_runs_for_episode` ; comptage global « X avec SRT, Y aligné(s) » sous la table. Fichiers : `models_qt.py`, `ui_mainwindow.py`, `project_store.py` / `db.py`.
 - **§5 — Workflow visibilité et prérequis** — Checklist « Découverts | Téléchargés | Normalisés | Segmentés | SRT | Alignés » (corpus_status_label) ; résumé fin de job « X réussie(s), Y échec(s) » (barre de statut + onglet Logs) avec episode_id en échec ; boutons « Normaliser sélection/tout » désactivés si aucun épisode téléchargé.
+- **§5 (complément) — Segmenter sélection / tout + Tout faire pour la sélection** — Onglet Corpus (Bloc 2) : boutons « Segmenter sélection » et « Segmenter tout » (SegmentEpisodeStep pour les épisodes ayant CLEAN) ; bouton « Tout faire (sélection) » enchaîne Télécharger → Normaliser → Segmenter → Indexer DB pour les épisodes cochés en un seul job. Fichier : `tab_corpus.py`.
 - **§7.2 — Multi-sources** — Découverte initiale tague chaque ref avec `config.source_id` ; `FetchEpisodeStep` utilise `ref.source_id` pour choisir l'adapteur ; « Découvrir (fusionner) » sans écraser l'index (FetchAndMergeSeriesIndexStep).
 - **§3 (complément) — Option alignement par similarité** — Case « Forcer alignement par similarité » (onglet Alignement) ; `AlignEpisodeStep(use_similarity_for_cues=True)` force l'appariement EN↔cible par similarité textuelle au lieu des timecodes.
 - **M4 — Sous-module KWIC** — `storage/db_kwic.py` : KwicHit, `query_kwic`, `query_kwic_segments`, `query_kwic_cues` ; CorpusDB délègue à ces fonctions pour alléger db.py et permettre des tests unitaires ciblés.
@@ -367,3 +556,10 @@ Dans ce modèle, pas de visualiseuse dans le Corpus (évite l’encombrement) ; 
 - **§7.1 — Profils par source** — Priorité profil (préféré épisode > défaut source > batch) déjà en place (episode_preferred_profiles, source_profile_defaults) ; complété par tooltips Corpus/Inspecteur et libellé dialogue Profils (lien source→profil).
 - **§8 — Personnages (assignation + propagation)** — Onglet Personnages (liste personnages, assignation segment/cue→personnage) ; propagation via `store.propagate_character_names(db, episode_id, run_id)` : mise à jour segments.speaker_explicit, cues text_clean (préfixe « Nom: »), réécriture des fichiers SRT ; `db.update_segment_speaker`, `db.update_cue_text_clean` ; `cues_to_srt` dans parsers.
 - **§10 — Aperçu épisode depuis Corpus** — Alternative retenue (pas de visualiseuse dans Corpus) : double-clic sur un épisode dans l’arbre Corpus ouvre l’onglet Inspecteur sur cet épisode (raw/clean, segments). Tooltip sur l’arbre ; callback `on_open_inspector` (même impl que Concordance).
+- **§13 — Export Word (.docx) étendu** — Export Word ajouté dans Inspecteur (segments : tableau segment_id, episode_id, kind, text), Alignement (concordancier parallèle : tableau colonnes PARALLEL_CONCORDANCE_COLUMNS), Concordance (KWIC : tableau left, match, right + métadonnées). Fichiers : `core/export_utils.py` (export_segments_docx, export_parallel_concordance_docx, export_kwic_docx), onglets Inspecteur, Alignement, Concordance (filtre Word (*.docx)).
+- **§14 — Restructuration workflow en 3 blocs (UI)** — Onglet Corpus : deux GroupBox « 1. Import — Constitution du corpus » (Découvrir, Télécharger, etc.) et « 2. Normalisation / segmentation — Après import » (Profil batch, Normaliser, Indexer DB, Exporter). Tooltips §14 sur les GroupBox, boutons Bloc 2 et statut ; tooltips onglets (Corpus, Sous-titres, Alignement, Concordance, Personnages) rappelant le bloc concerné. Texte d’aide en bas de Corpus (Bloc 1 / Bloc 2). Fichiers : `tab_corpus.py`, `ui_mainwindow.py`.
+- **§11 — Normalisation des sous-titres (profil optionnel)** — Onglet Sous-titres : « Normaliser la piste » avec choix du profil (prédéfinis + personnalisés), applique le profil aux cues de la piste sélectionnée (text_raw → text_clean en base). Option « Réécrire le fichier SRT après normalisation » (écrase le fichier sur disque à partir de text_clean). `ProjectStore.normalize_subtitle_track(db, episode_id, lang, profile_id, rewrite_srt=False)`. Fichiers : `project_store.py`, `tab_sous_titres.py`. Test : `test_normalize_subtitle_track_s11` dans `test_db_kwic.py`.
+- **§15.1 — Comparaison de traductions** — Export concordancier parallèle (EN/FR/IT + confiances) en TXT et HTML depuis l’onglet Alignement : `export_parallel_concordance_txt`, `export_parallel_concordance_html` dans `core/export_utils.py` ; dialogue d’export avec filtre TXT/HTML, titre « Comparaison {eid} — {run_id} » pour le HTML. Fichiers : `export_utils.py`, `tab_alignement.py`.
+- **§15.2 — Export sous-titres finaux** — Bouton « Exporter SRT final… » dans l’onglet Sous-titres (piste sélectionnée) : récupère les cues via `get_cues_for_episode_lang`, sérialise avec `cues_to_srt`, enregistre en .srt via dialogue. Fichiers : `tab_sous_titres.py` (`_export_srt_final`), `core/subtitles/parsers.py` (`cues_to_srt`).
+- **§15.3 — Projet = lieu du téléchargement tout (remplit Corpus)** — Onglet Projet : groupe « Acquisition — Remplir le corpus » avec boutons « Découvrir épisodes » et « Télécharger tout » ; callbacks reliés à la logique de l’onglet Corpus (`_discover_episodes`, `_fetch_episodes(False)`). Après téléchargement, le Corpus est rafraîchi automatiquement (fin de job). Boutons activés uniquement si un projet est ouvert. Fichiers : `tab_projet.py` (groupe, `set_acquisition_callbacks`, handlers), `ui_mainwindow.py` (connexion après création du Corpus).
+- **§15.4 — Inspecteur + Sous-titres fusionnés** — Un seul onglet « Inspecteur » avec deux panneaux (Transcript + Sous-titres) et un sélecteur d'épisode partagé en haut. Widget fusionné `InspecteurEtSousTitresTabWidget` (splitter vertical, labels « Transcript » / « Sous-titres ») ; sélecteurs d'épisode des deux panneaux masqués via `set_episode_selector_visible(False)`. Onglet « Sous-titres » supprimé ; 7 onglets au total. Fichiers : `tab_inspecteur_sous_titres.py`, `tab_inspecteur.py` (set_episode_selector_visible), `tab_sous_titres.py` (set_episode_and_load, set_episode_selector_visible), `ui_mainwindow.py` (build fusionné, TAB_* mis à jour).

@@ -1,0 +1,6 @@
+{"link_id": "S01E01:align:20260213T152039Z:0", "segment_id": "S01E01:sentence:1", "cue_id": "S01E01:en:0", "cue_id_target": null, "lang": "en", "role": "pivot", "confidence": 0.75, "status": "auto"}
+{"link_id": "S01E01:align:20260213T152039Z:1", "segment_id": "S01E01:sentence:2", "cue_id": "S01E01:en:1", "cue_id_target": null, "lang": "en", "role": "pivot", "confidence": 0.3333, "status": "auto"}
+{"link_id": "S01E01:align:20260213T152039Z:2", "segment_id": "S01E01:sentence:3", "cue_id": "S01E01:en:1", "cue_id_target": null, "lang": "en", "role": "pivot", "confidence": 0.625, "status": "auto"}
+{"link_id": "S01E01:align:20260213T152039Z:3", "segment_id": "S01E01:sentence:4", "cue_id": "S01E01:en:2", "cue_id_target": null, "lang": "en", "role": "pivot", "confidence": 0.875, "status": "auto"}
+{"link_id": "S01E01:align:20260213T152039Z:4", "segment_id": "S01E01:sentence:5", "cue_id": "S01E01:en:3", "cue_id_target": null, "lang": "en", "role": "pivot", "confidence": 0.8333, "status": "auto"}
+{"link_id": "S01E01:align:20260213T152039Z:5", "segment_id": "S01E01:sentence:6", "cue_id": "S01E01:en:4", "cue_id_target": null, "lang": "en", "role": "pivot", "confidence": 0.5, "status": "auto"}

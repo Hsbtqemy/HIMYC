@@ -137,7 +137,7 @@ projects/<project_name>/
 
 ---
 
-## Tests (56 au total)
+## Tests (61 au total)
 
 - **Adapter subslikescript** : discover (fixture), parse_episode, erreur si transcript trop court, HTML cassé, div script trop court.
 - **Normalisation** : fusion césure, double saut conservé, didascalie, ligne type « TED: », profils.
@@ -146,6 +146,35 @@ projects/<project_name>/
 - **Intégration** : pipeline (fetch + normalize + segment + import SRT + align) sur projet de test.
 - **Alignement (Phase 4)** : similarité texte, `align_segments_to_cues`, `align_cues_by_time`, `AlignLink.to_dict`.
 - **Export Phase 5** : `export_parallel_concordance_csv/tsv/jsonl`, `export_align_report_html`.
+
+---
+
+## Audit workflow 3 blocs (§14)
+
+Référence : DOC_BACKLOG.md §14 (vision Import / Normalisation-segmentation / Alignement-concordance). Ce tableau atteste la conformité du flux actuel.
+
+### Steps du pipeline → Bloc
+
+| Step | Bloc | Sortie |
+|------|------|--------|
+| FetchSeriesIndexStep, FetchAndMergeSeriesIndexStep | 1. Import | series_index.json, upsert episodes (status NEW) |
+| FetchEpisodeStep | 1. Import | raw.txt, page.html |
+| ImportSubtitlesStep, DownloadOpenSubtitlesStep | 1. Import | subs/, subtitle_tracks + subtitle_cues |
+| NormalizeEpisodeStep | 2. Normalisation / segmentation | clean.txt, transform_meta, status NORMALIZED |
+| SegmentEpisodeStep | 2. Normalisation / segmentation | segments.jsonl, table segments |
+| BuildDbIndexStep | 2. Normalisation / segmentation | documents + documents_fts |
+| AlignEpisodeStep | 3. Alignement + concordancier | align_runs, align_links |
+| Personnages (propagation) | 3. Alignement + concordancier | speaker_explicit, text_clean cues, SRT réécrits |
+
+### Onglets / actions → Bloc
+
+| Bloc | Onglets | Actions principales |
+|------|---------|---------------------|
+| 1. Import | Projet, Corpus, Sous-titres | Config, URL, source ; Découvrir, Télécharger ; Importer SRT (fichier / masse / OpenSubtitles) |
+| 2. Normalisation / segmentation | Corpus, Inspecteur, Sous-titres | Normaliser (sélection / tout), Segmenter (sélection / tout), Tout faire (sélection), Indexer DB ; Normaliser / Segmenter (épisode) ; Normaliser la piste (§11) ; Exporter segments |
+| 3. Alignement + concordancier | Alignement, Concordance, Personnages | Lancer alignement, modifier liens, Exporter concordancier, Propager personnages |
+
+**Prérequis vérifiés :** Bloc 2 exige raw (NormalizeEpisodeStep) ou clean (SegmentEpisodeStep, BuildDbIndexStep) ; Bloc 3 exige segments + cues (AlignEpisodeStep). L’UI désactive « Normaliser » si aucun épisode téléchargé (tab_corpus). Aucun step du Bloc 3 ne s’exécute sans données Bloc 2.
 
 ---
 

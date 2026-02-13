@@ -1,0 +1,13 @@
+{
+  "characters": [
+    {
+      "id": "Marshall",
+      "canonical": "Marshall",
+      "names_by_lang": {
+        "en": "Marshall",
+        "fr": "Denis",
+        "it": "Filippe"
+      }
+    }
+  ]
+}

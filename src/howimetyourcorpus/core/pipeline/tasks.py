@@ -382,6 +382,7 @@ class SegmentEpisodeStep(Step):
         if db:
             db.upsert_segments(self.episode_id, "sentence", sentences)
             db.upsert_segments(self.episode_id, "utterance", utterances)
+            db.delete_align_runs_for_episode(self.episode_id)
         if on_progress:
             on_progress(self.name, 1.0, f"Segmented: {self.episode_id} ({len(sentences)} sentences, {len(utterances)} utterances)")
         return StepResult(

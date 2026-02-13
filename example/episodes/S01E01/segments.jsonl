@@ -1,0 +1,12 @@
+{"segment_id": "S01E01:sentence:0", "episode_id": "S01E01", "kind": "sentence", "n": 0, "start_char": 0, "end_char": 11, "text": "TED: Hello.", "speaker_explicit": null, "meta": {"lang_hint": "en"}}
+{"segment_id": "S01E01:sentence:1", "episode_id": "S01E01", "kind": "sentence", "n": 1, "start_char": 12, "end_char": 24, "text": "How are you?", "speaker_explicit": null, "meta": {"lang_hint": "en"}}
+{"segment_id": "S01E01:sentence:2", "episode_id": "S01E01", "kind": "sentence", "n": 2, "start_char": 25, "end_char": 44, "text": "MARSHALL: I'm fine.", "speaker_explicit": null, "meta": {"lang_hint": "en"}}
+{"segment_id": "S01E01:sentence:3", "episode_id": "S01E01", "kind": "sentence", "n": 3, "start_char": 45, "end_char": 66, "text": "This is a short demo.", "speaker_explicit": null, "meta": {"lang_hint": "en"}}
+{"segment_id": "S01E01:sentence:4", "episode_id": "S01E01", "kind": "sentence", "n": 4, "start_char": 67, "end_char": 116, "text": "TED: We will align the transcript with subtitles.", "speaker_explicit": null, "meta": {"lang_hint": "en"}}
+{"segment_id": "S01E01:sentence:5", "episode_id": "S01E01", "kind": "sentence", "n": 5, "start_char": 117, "end_char": 163, "text": "MARSHALL: One line in English, one in Italian.", "speaker_explicit": null, "meta": {"lang_hint": "en"}}
+{"segment_id": "S01E01:sentence:6", "episode_id": "S01E01", "kind": "sentence", "n": 6, "start_char": 164, "end_char": 179, "text": "TED: Legendary.", "speaker_explicit": null, "meta": {"lang_hint": "en"}}
+{"segment_id": "S01E01:utterance:0", "episode_id": "S01E01", "kind": "utterance", "n": 0, "start_char": 5, "end_char": 24, "text": "Hello. How are you?", "speaker_explicit": "TED", "meta": {}}
+{"segment_id": "S01E01:utterance:1", "episode_id": "S01E01", "kind": "utterance", "n": 1, "start_char": 35, "end_char": 66, "text": "I'm fine. This is a short demo.", "speaker_explicit": "MARSHALL", "meta": {}}
+{"segment_id": "S01E01:utterance:2", "episode_id": "S01E01", "kind": "utterance", "n": 2, "start_char": 72, "end_char": 116, "text": "We will align the transcript with subtitles.", "speaker_explicit": "TED", "meta": {}}
+{"segment_id": "S01E01:utterance:3", "episode_id": "S01E01", "kind": "utterance", "n": 3, "start_char": 127, "end_char": 163, "text": "One line in English, one in Italian.", "speaker_explicit": "MARSHALL", "meta": {}}
+{"segment_id": "S01E01:utterance:4", "episode_id": "S01E01", "kind": "utterance", "n": 4, "start_char": 169, "end_char": 179, "text": "Legendary.", "speaker_explicit": "TED", "meta": {}}

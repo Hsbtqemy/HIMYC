@@ -26,6 +26,7 @@ from howimetyourcorpus.core.export_utils import (
     export_kwic_json,
     export_kwic_jsonl,
     export_kwic_tsv,
+    export_kwic_docx,
 )
 from howimetyourcorpus.app.models_qt import KwicTableModel
 
@@ -131,11 +132,13 @@ class ConcordanceTabWidget(QWidget):
             self,
             "Exporter les résultats KWIC",
             "",
-            "CSV (*.csv);;TSV (*.tsv);;JSON (*.json);;JSONL (*.jsonl)",
+            "CSV (*.csv);;TSV (*.tsv);;JSON (*.json);;JSONL (*.jsonl);;Word (*.docx)",
         )
         if not path:
             return
         path = Path(path)
+        if path.suffix.lower() != ".docx" and "Word" in (selected_filter or ""):
+            path = path.with_suffix(".docx")
         try:
             if path.suffix.lower() == ".csv" or "CSV" in (selected_filter or ""):
                 export_kwic_csv(hits, path)
@@ -145,8 +148,10 @@ class ConcordanceTabWidget(QWidget):
                 export_kwic_json(hits, path)
             elif path.suffix.lower() == ".jsonl" or "JSONL" in (selected_filter or ""):
                 export_kwic_jsonl(hits, path)
+            elif path.suffix.lower() == ".docx" or "Word" in (selected_filter or ""):
+                export_kwic_docx(hits, path)
             else:
-                QMessageBox.warning(self, "Export", "Format non reconnu. Utilisez .csv, .tsv, .json ou .jsonl")
+                QMessageBox.warning(self, "Export", "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx")
                 return
             QMessageBox.information(self, "Export", f"Résultats exportés : {len(hits)} occurrence(s).")
         except Exception as e:

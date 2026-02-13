@@ -1,0 +1,17 @@
+{
+  "run_id": "S01E01:align:20260213T160643Z",
+  "summary": {
+    "pivot_links": 6,
+    "total_links": 11,
+    "segments_count": 7,
+    "cues_en_count": 5
+  },
+  "params": {
+    "pivot_lang": "en",
+    "target_langs": [
+      "fr"
+    ],
+    "min_confidence": 0.3,
+    "use_similarity_for_cues": false
+  }
+}

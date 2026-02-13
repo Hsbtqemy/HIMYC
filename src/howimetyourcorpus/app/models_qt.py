@@ -71,6 +71,9 @@ class EpisodesTreeModel(QAbstractItemModel):
         if not self._episodes:
             return
         indexed = set(self._db.get_episode_ids_indexed()) if self._db else set()
+        episode_ids = [ref.episode_id for ref in self._episodes]
+        tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
+        runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
         for ref in self._episodes:
             s = EpisodeStatus.NEW.value
             if self._store:
@@ -82,10 +85,10 @@ class EpisodesTreeModel(QAbstractItemModel):
                 s = EpisodeStatus.INDEXED.value
             self._status_map[ref.episode_id] = s
             if self._db:
-                tracks = self._db.get_tracks_for_episode(ref.episode_id)
+                tracks = tracks_by_ep.get(ref.episode_id, [])
                 langs = sorted({t.get("lang", "") for t in tracks if t.get("lang")})
                 self._srt_map[ref.episode_id] = ", ".join(langs) if langs else "—"
-                runs = self._db.get_align_runs_for_episode(ref.episode_id)
+                runs = runs_by_ep.get(ref.episode_id, [])
                 self._align_map[ref.episode_id] = "oui" if runs else "—"
             else:
                 self._srt_map[ref.episode_id] = "—"
@@ -355,6 +358,9 @@ class EpisodesTableModel(QAbstractTableModel):
             indexed = set(self._db.get_episode_ids_indexed())
         else:
             indexed = set()
+        episode_ids = [ref.episode_id for ref in self._episodes]
+        tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
+        runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
         for ref in self._episodes:
             s = EpisodeStatus.NEW.value
             if self._store:
@@ -366,10 +372,10 @@ class EpisodesTableModel(QAbstractTableModel):
                 s = EpisodeStatus.INDEXED.value
             self._status_map[ref.episode_id] = s
             if self._db:
-                tracks = self._db.get_tracks_for_episode(ref.episode_id)
+                tracks = tracks_by_ep.get(ref.episode_id, [])
                 langs = sorted({t.get("lang", "") for t in tracks if t.get("lang")})
                 self._srt_map[ref.episode_id] = ", ".join(langs) if langs else "—"
-                runs = self._db.get_align_runs_for_episode(ref.episode_id)
+                runs = runs_by_ep.get(ref.episode_id, [])
                 self._align_map[ref.episode_id] = "oui" if runs else "—"
             else:
                 self._srt_map[ref.episode_id] = "—"

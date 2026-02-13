@@ -1,0 +1,48 @@
+2026-02-13 06:05:50,865 [INFO] Running step: fetch_series_index
+2026-02-13 06:13:55,965 [INFO] Running step: fetch_series_index
+2026-02-13 06:14:02,567 [ERROR] Client error '404 Not Found' for url 'https://example.com/demo'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-02-13 06:14:02,568 [ERROR] Client error '404 Not Found' for url 'https://example.com/demo'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-02-13 16:19:49,899 [INFO] Running step: normalize_episode
+2026-02-13 16:19:57,948 [INFO] Running step: segment_episode
+2026-02-13 16:20:01,201 [INFO] Running step: segment_episode
+2026-02-13 16:20:01,363 [INFO] Running step: segment_episode
+2026-02-13 16:20:17,183 [INFO] Running step: import_subtitles
+2026-02-13 16:20:22,370 [INFO] Running step: import_subtitles
+2026-02-13 16:20:39,865 [INFO] Running step: align_episode
+2026-02-13 16:21:44,327 [INFO] Running step: import_subtitles
+2026-02-13 16:22:00,754 [INFO] Running step: import_subtitles
+2026-02-13 16:22:35,486 [INFO] Running step: import_subtitles
+2026-02-13 16:23:00,652 [INFO] Running step: import_subtitles
+2026-02-13 16:23:03,435 [INFO] Running step: import_subtitles
+2026-02-13 16:23:11,600 [INFO] Running step: align_episode
+2026-02-13 16:23:14,915 [INFO] Running step: align_episode
+2026-02-13 16:29:13,715 [INFO] Running step: normalize_episode
+2026-02-13 16:29:32,594 [INFO] Running step: align_episode
+2026-02-13 16:42:01,964 [INFO] Running step: import_subtitles
+2026-02-13 16:42:13,174 [INFO] Running step: align_episode
+2026-02-13 16:42:54,841 [INFO] Running step: segment_episode
+2026-02-13 16:54:46,449 [INFO] Running step: normalize_episode
+2026-02-13 16:54:52,399 [INFO] Running step: segment_episode
+2026-02-13 16:55:03,221 [INFO] Running step: import_subtitles
+2026-02-13 17:00:22,306 [INFO] Running step: import_subtitles
+2026-02-13 17:00:27,979 [INFO] Running step: import_subtitles
+2026-02-13 17:00:40,215 [INFO] Running step: import_subtitles
+2026-02-13 17:05:49,579 [INFO] Running step: normalize_episode
+2026-02-13 17:05:52,028 [INFO] Running step: segment_episode
+2026-02-13 17:06:37,400 [INFO] Running step: import_subtitles
+2026-02-13 17:06:43,830 [INFO] Running step: align_episode
+2026-02-13 19:00:51,783 [INFO] Running step: fetch_series_index
+2026-02-13 19:00:58,706 [ERROR] Client error '404 Not Found' for url 'https://example.com/demo'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-02-13 19:00:58,707 [ERROR] Client error '404 Not Found' for url 'https://example.com/demo'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-02-13 19:15:09,676 [INFO] Running step: fetch_series_index
+2026-02-13 19:15:15,980 [ERROR] Client error '404 Not Found' for url 'https://example.com/demo'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-02-13 19:15:15,980 [ERROR] Client error '404 Not Found' for url 'https://example.com/demo'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-02-13 19:15:42,244 [INFO] Running step: fetch_series_index
+2026-02-13 19:16:10,830 [INFO] Running step: fetch_series_index
+2026-02-13 19:16:37,353 [INFO] Running step: fetch_series_index

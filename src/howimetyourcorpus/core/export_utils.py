@@ -114,6 +114,31 @@ def export_segments_tsv(segments: list[dict], path: Path) -> None:
     return None
 
 
+def export_segments_docx(segments: list[dict], path: Path) -> None:
+    """Exporte les segments en Word (.docx) : tableau segment_id, episode_id, kind, n, text."""
+    doc = Document()
+    doc.add_heading("Segments exportés", 0)
+    if not segments:
+        doc.add_paragraph("Aucun segment.")
+        doc.save(str(path))
+        return None
+    table = doc.add_table(rows=1 + len(segments), cols=4)
+    table.style = "Table Grid"
+    h = table.rows[0].cells
+    h[0].text = "segment_id"
+    h[1].text = "episode_id"
+    h[2].text = "kind"
+    h[3].text = "text"
+    for i, s in enumerate(segments):
+        row = table.rows[i + 1].cells
+        row[0].text = str(s.get("segment_id", ""))
+        row[1].text = str(s.get("episode_id", ""))
+        row[2].text = str(s.get("kind", ""))
+        row[3].text = (s.get("text") or "").replace("\n", " ").strip()
+    doc.save(str(path))
+    return None
+
+
 def export_kwic_csv(hits: list[KwicHit], path: Path) -> None:
     """Exporte les résultats KWIC en CSV (inclut segment_id/kind/cue_id/lang si présents)."""
     with path.open("w", encoding="utf-8", newline="") as f:
@@ -204,6 +229,62 @@ def export_kwic_jsonl(hits: list[KwicHit], path: Path) -> None:
             if getattr(h, "lang", None):
                 row["lang"] = h.lang
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return None
+
+
+def _kwic_row_values(h: KwicHit, cols: list[str]) -> list[str]:
+    """Retourne les valeurs d'un hit KWIC dans l'ordre des colonnes."""
+    values = []
+    for c in cols:
+        if c == "episode_id":
+            values.append(h.episode_id or "")
+        elif c == "title":
+            values.append(h.title or "")
+        elif c == "left":
+            values.append((h.left or "").replace("\n", " "))
+        elif c == "match":
+            values.append((h.match or "").replace("\n", " "))
+        elif c == "right":
+            values.append((h.right or "").replace("\n", " "))
+        elif c == "position":
+            values.append(str(h.position))
+        elif c == "score":
+            values.append(str(h.score))
+        elif c == "segment_id":
+            values.append(getattr(h, "segment_id", "") or "")
+        elif c == "kind":
+            values.append(getattr(h, "kind", "") or "")
+        elif c == "cue_id":
+            values.append(getattr(h, "cue_id", "") or "")
+        elif c == "lang":
+            values.append(getattr(h, "lang", "") or "")
+        else:
+            values.append("")
+    return values
+
+
+def export_kwic_docx(hits: list[KwicHit], path: Path) -> None:
+    """Exporte les résultats KWIC en Word (.docx) : tableau left, match, right + métadonnées."""
+    doc = Document()
+    doc.add_heading("Résultats KWIC", 0)
+    if not hits:
+        doc.add_paragraph("Aucun résultat.")
+        doc.save(str(path))
+        return None
+    h0 = hits[0]
+    cols = ["episode_id", "title", "left", "match", "right", "position", "score"]
+    if getattr(h0, "segment_id", None) or getattr(h0, "kind", None):
+        cols.extend(["segment_id", "kind"])
+    if getattr(h0, "cue_id", None) or getattr(h0, "lang", None):
+        cols.extend(["cue_id", "lang"])
+    table = doc.add_table(rows=1 + len(hits), cols=len(cols))
+    table.style = "Table Grid"
+    for j, c in enumerate(cols):
+        table.rows[0].cells[j].text = c
+    for i, h in enumerate(hits):
+        for j, val in enumerate(_kwic_row_values(h, cols)):
+            table.rows[i + 1].cells[j].text = val
+    doc.save(str(path))
     return None
 
 
@@ -331,6 +412,62 @@ def export_parallel_concordance_jsonl(rows: list[dict], path: Path) -> None:
     with path.open("w", encoding="utf-8") as f:
         for r in rows:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    return None
+
+
+def export_parallel_concordance_docx(rows: list[dict], path: Path) -> None:
+    """Exporte le concordancier parallèle en Word (.docx) : tableau segment, EN, FR, IT + confiances."""
+    doc = Document()
+    doc.add_heading("Concordancier parallèle", 0)
+    if not rows:
+        doc.add_paragraph("Aucune ligne.")
+        doc.save(str(path))
+        return None
+    table = doc.add_table(rows=1 + len(rows), cols=len(PARALLEL_CONCORDANCE_COLUMNS))
+    table.style = "Table Grid"
+    for j, col in enumerate(PARALLEL_CONCORDANCE_COLUMNS):
+        table.rows[0].cells[j].text = col
+    for i, r in enumerate(rows):
+        for j, col in enumerate(PARALLEL_CONCORDANCE_COLUMNS):
+            val = r.get(col)
+            table.rows[i + 1].cells[j].text = "" if val is None else str(val)
+    doc.save(str(path))
+    return None
+
+
+def export_parallel_concordance_txt(rows: list[dict], path: Path) -> None:
+    """§15.1 — Exporte la comparaison de traductions en TXT : une ligne par alignement, colonnes séparées par tab (segment | EN | FR | IT)."""
+    with path.open("w", encoding="utf-8") as f:
+        for r in rows:
+            cells = [_parallel_cell(r, k) for k in PARALLEL_CONCORDANCE_COLUMNS]
+            f.write("\t".join(cells).replace("\n", " ").replace("\r", ""))
+            f.write("\n")
+    return None
+
+
+def export_parallel_concordance_html(rows: list[dict], path: Path, title: str | None = None) -> None:
+    """§15.1 — Exporte la comparaison de traductions en HTML : tableau segment | EN | FR | IT (sans stats)."""
+    t = title or "Comparaison de traductions"
+    lines = [
+        "<!DOCTYPE html>",
+        "<html><head><meta charset='utf-8'><title>" + _escape(t) + "</title>",
+        "<style>table { border-collapse: collapse; } th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }</style>",
+        "</head><body>",
+        "<h1>" + _escape(t) + "</h1>",
+        "<table><thead><tr>",
+    ]
+    for col in PARALLEL_CONCORDANCE_COLUMNS:
+        lines.append("<th>" + _escape(col) + "</th>")
+    lines.append("</tr></thead><tbody>")
+    for r in rows:
+        lines.append("<tr>")
+        for col in PARALLEL_CONCORDANCE_COLUMNS:
+            val = r.get(col)
+            cell = "" if val is None else str(val)
+            lines.append("<td>" + _escape(cell) + "</td>")
+        lines.append("</tr>")
+    lines.append("</tbody></table></body></html>")
+    path.write_text("\n".join(lines), encoding="utf-8")
     return None
 
 

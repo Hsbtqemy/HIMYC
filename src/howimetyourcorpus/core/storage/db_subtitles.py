@@ -100,6 +100,31 @@ def get_tracks_for_episode(conn: sqlite3.Connection, episode_id: str) -> list[di
     return [dict(r) for r in rows]
 
 
+def get_tracks_for_episodes(conn: sqlite3.Connection, episode_ids: list[str]) -> dict[str, list[dict]]:
+    """Retourne les pistes par épisode (episode_id -> liste de pistes avec nb_cues). Évite N requêtes au refresh Corpus / arbre."""
+    if not episode_ids:
+        return {}
+    conn.row_factory = sqlite3.Row
+    placeholders = ",".join("?" * len(episode_ids))
+    rows = conn.execute(
+        f"""SELECT t.track_id, t.episode_id, t.lang, t.format, t.source_path, t.imported_at,
+                  COUNT(c.cue_id) AS nb_cues
+           FROM subtitle_tracks t
+           LEFT JOIN subtitle_cues c ON c.track_id = t.track_id
+           WHERE t.episode_id IN ({placeholders})
+           GROUP BY t.track_id
+           ORDER BY t.episode_id, t.lang""",
+        episode_ids,
+    ).fetchall()
+    result: dict[str, list[dict]] = {eid: [] for eid in episode_ids}
+    for r in rows:
+        d = dict(r)
+        eid = d.get("episode_id", "")
+        if eid in result:
+            result[eid].append(d)
+    return result
+
+
 def delete_subtitle_track(conn: sqlite3.Connection, episode_id: str, lang: str) -> None:
     """Supprime une piste sous-titres (cues puis track). track_id = episode_id:lang."""
     track_id = f"{episode_id}:{lang}"

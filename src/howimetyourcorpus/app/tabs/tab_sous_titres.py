@@ -9,6 +9,7 @@ from typing import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -24,6 +25,8 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.core.pipeline.tasks import DownloadOpenSubtitlesStep, ImportSubtitlesStep
+from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
+from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
 from howimetyourcorpus.app.dialogs import OpenSubtitlesDownloadDialog, SubtitleBatchImportDialog
 
 logger = logging.getLogger(__name__)
@@ -61,7 +64,8 @@ class SubtitleTabWidget(QWidget):
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
-        row.addWidget(QLabel("Épisode:"))
+        self._subs_episode_label = QLabel("Épisode:")
+        row.addWidget(self._subs_episode_label)
         self.subs_episode_combo = QComboBox()
         self.subs_episode_combo.currentIndexChanged.connect(self._on_episode_changed)
         row.addWidget(self.subs_episode_combo)
@@ -98,6 +102,13 @@ class SubtitleTabWidget(QWidget):
         layout.addWidget(help_subs)
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("Pistes pour l'épisode:"))
+        self.subs_export_final_btn = QPushButton("Exporter SRT final…")
+        self.subs_export_final_btn.setToolTip(
+            "§15.2 — Exporte la piste sélectionnée en SRT (timecodes + text_clean, avec noms personnages si propagation faite)."
+        )
+        self.subs_export_final_btn.clicked.connect(self._export_srt_final)
+        self.subs_export_final_btn.setEnabled(False)
+        row2.addWidget(self.subs_export_final_btn)
         self.subs_delete_track_btn = QPushButton("Supprimer la piste sélectionnée")
         self.subs_delete_track_btn.setToolTip("Supprime la piste (ex. mauvaise langue) en base et le fichier sur disque.")
         self.subs_delete_track_btn.clicked.connect(self._delete_selected_track)
@@ -105,6 +116,28 @@ class SubtitleTabWidget(QWidget):
         row2.addStretch()
         row2.addWidget(self.subs_delete_track_btn)
         layout.addLayout(row2)
+        row_norm = QHBoxLayout()
+        row_norm.addWidget(QLabel("§11 Profil (piste):"))
+        self.subs_norm_profile_combo = QComboBox()
+        self.subs_norm_profile_combo.setToolTip(
+            "Profil de normalisation pour « Normaliser la piste » (fusion césures, espaces). Même moteur que les transcripts."
+        )
+        row_norm.addWidget(self.subs_norm_profile_combo)
+        self.subs_norm_btn = QPushButton("Normaliser la piste")
+        self.subs_norm_btn.setToolTip(
+            "Applique le profil aux sous-titres de la piste sélectionnée : text_clean mis à jour en base (text_raw inchangé)."
+        )
+        self.subs_norm_btn.clicked.connect(self._normalize_track)
+        self.subs_norm_btn.setEnabled(False)
+        row_norm.addWidget(self.subs_norm_btn)
+        self.subs_rewrite_srt_check = QCheckBox("Réécrire le fichier SRT après normalisation")
+        self.subs_rewrite_srt_check.setToolTip(
+            "Si coché, le fichier SRT sur disque est réécrit à partir de text_clean (écrase l'original)."
+        )
+        self.subs_rewrite_srt_check.setChecked(False)
+        row_norm.addWidget(self.subs_rewrite_srt_check)
+        row_norm.addStretch()
+        layout.addLayout(row_norm)
         self.subs_tracks_list = QListWidget()
         self.subs_tracks_list.currentItemChanged.connect(self._on_track_selected)
         layout.addWidget(self.subs_tracks_list)
@@ -127,6 +160,23 @@ class SubtitleTabWidget(QWidget):
         self.subs_lang_combo.clear()
         self.subs_lang_combo.addItems(langs)
 
+    def set_episode_selector_visible(self, visible: bool) -> None:
+        """§15.4 — Masque ou affiche le sélecteur d'épisode (quand intégré dans l'onglet fusionné)."""
+        self._subs_episode_label.setVisible(visible)
+        self.subs_episode_combo.setVisible(visible)
+
+    def set_episode_selector_visible(self, visible: bool) -> None:
+        """§15.4 — Masque ou affiche le sélecteur d'épisode (quand intégré dans l'onglet fusionné)."""
+        self._subs_episode_label.setVisible(visible)
+        self.subs_episode_combo.setVisible(visible)
+
+    def set_episode_and_load(self, episode_id: str) -> None:
+        """§15.4 — Sélectionne l'épisode donné et charge ses pistes (synchro avec Inspecteur)."""
+        for i in range(self.subs_episode_combo.count()):
+            if self.subs_episode_combo.itemData(i) == episode_id:
+                self.subs_episode_combo.setCurrentIndex(i)
+                break
+
     def refresh(self) -> None:
         """Recharge la liste des épisodes et les pistes (appelé après ouverture projet / import)."""
         self.subs_episode_combo.clear()
@@ -144,8 +194,18 @@ class SubtitleTabWidget(QWidget):
         self.subs_content_edit.clear()
         self.subs_save_btn.setEnabled(False)
         self.subs_delete_track_btn.setEnabled(False)
+        self.subs_export_final_btn.setEnabled(False)
+        self.subs_norm_btn.setEnabled(False)
         self._editing_lang = None
         self._editing_fmt = None
+        store = self._get_store()
+        custom = store.load_custom_profiles() if store else {}
+        profile_ids = get_all_profile_ids(custom)
+        current = self.subs_norm_profile_combo.currentText()
+        self.subs_norm_profile_combo.clear()
+        self.subs_norm_profile_combo.addItems(profile_ids)
+        if current in profile_ids:
+            self.subs_norm_profile_combo.setCurrentText(current)
         eid = self.subs_episode_combo.currentData()
         db = self._get_db()
         if not eid or not db:
@@ -163,6 +223,8 @@ class SubtitleTabWidget(QWidget):
         self.subs_content_edit.clear()
         self.subs_save_btn.setEnabled(False)
         self.subs_delete_track_btn.setEnabled(bool(current))
+        self.subs_export_final_btn.setEnabled(bool(current))
+        self.subs_norm_btn.setEnabled(bool(current))
         self._editing_lang = None
         self._editing_fmt = None
         if not current:
@@ -210,10 +272,71 @@ class SubtitleTabWidget(QWidget):
         if reply != QMessageBox.StandardButton.Yes:
             return
         db.delete_subtitle_track(eid, lang)
+        db.delete_align_runs_for_episode(eid)
         store.remove_episode_subtitle(eid, lang)
         self._on_episode_changed()
         self._refresh_episodes()
         self._show_status(f"Piste {lang} supprimée.", 3000)
+
+    def _normalize_track(self) -> None:
+        """§11 — Applique le profil de normalisation aux cues de la piste sélectionnée."""
+        current = self.subs_tracks_list.currentItem()
+        store = self._get_store()
+        db = self._get_db()
+        if not current or not store or not db:
+            return
+        eid = self.subs_episode_combo.currentData()
+        data = current.data(Qt.ItemDataRole.UserRole)
+        if not eid or not data or not isinstance(data, dict):
+            return
+        lang = data.get("lang", "")
+        if not lang:
+            return
+        profile_id = self.subs_norm_profile_combo.currentText() or "default_en_v1"
+        rewrite_srt = self.subs_rewrite_srt_check.isChecked()
+        nb = store.normalize_subtitle_track(db, eid, lang, profile_id, rewrite_srt=rewrite_srt)
+        self._on_episode_changed()
+        self._refresh_episodes()
+        if nb > 0:
+            msg = f"Piste {lang} : {nb} cue(s) normalisée(s)."
+            if rewrite_srt:
+                msg += " Fichier SRT réécrit."
+            self._show_status(msg, 4000)
+        else:
+            self._show_status("Aucune cue à normaliser ou profil introuvable.", 3000)
+
+    def _export_srt_final(self) -> None:
+        """§15.2 — Exporte la piste sélectionnée en SRT final (timecodes + text_clean)."""
+        current = self.subs_tracks_list.currentItem()
+        db = self._get_db()
+        if not current or not db:
+            return
+        eid = self.subs_episode_combo.currentData()
+        data = current.data(Qt.ItemDataRole.UserRole)
+        if not eid or not data or not isinstance(data, dict):
+            return
+        lang = data.get("lang", "")
+        if not lang:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Exporter SRT final", "", "SRT (*.srt);;Tous (*.*)"
+        )
+        if not path:
+            return
+        path = Path(path)
+        if path.suffix.lower() != ".srt":
+            path = path.with_suffix(".srt")
+        try:
+            cues = db.get_cues_for_episode_lang(eid, lang)
+            if not cues:
+                QMessageBox.warning(self, "Export SRT", "Aucune cue pour cette piste.")
+                return
+            srt_content = cues_to_srt(cues)
+            path.write_text(srt_content, encoding="utf-8")
+            self._show_status(f"SRT final exporté : {path.name}", 4000)
+        except Exception as e:
+            logger.exception("Export SRT final")
+            QMessageBox.critical(self, "Erreur", str(e))
 
     def _import_file(self) -> None:
         eid = self.subs_episode_combo.currentData()

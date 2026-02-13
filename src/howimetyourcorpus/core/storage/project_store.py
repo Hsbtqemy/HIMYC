@@ -463,6 +463,45 @@ class ProjectStore:
         path.write_text(content, encoding="utf-8")
         return path
 
+    def normalize_subtitle_track(
+        self,
+        db: Any,
+        episode_id: str,
+        lang: str,
+        profile_id: str,
+        *,
+        rewrite_srt: bool = False,
+    ) -> int:
+        """
+        §11 — Applique un profil de normalisation aux cues d'une piste (text_raw → text_clean).
+        Retourne le nombre de cues mises à jour.
+        Si rewrite_srt=True, réécrit le fichier SRT sur disque à partir de text_clean (écrase l'original).
+        """
+        from howimetyourcorpus.core.normalize.profiles import get_profile
+        from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
+
+        custom = self.load_custom_profiles()
+        profile = get_profile(profile_id, custom)
+        if not profile:
+            return 0
+        cues = db.get_cues_for_episode_lang(episode_id, lang)
+        if not cues:
+            return 0
+        nb = 0
+        for cue in cues:
+            raw = (cue.get("text_raw") or "").strip()
+            clean_text, _, _ = profile.apply(raw)
+            cue_id = cue.get("cue_id")
+            if cue_id:
+                db.update_cue_text_clean(cue_id, clean_text)
+                nb += 1
+        if rewrite_srt and nb > 0:
+            cues = db.get_cues_for_episode_lang(episode_id, lang)
+            if cues:
+                srt_content = cues_to_srt(cues)
+                self.save_episode_subtitle_content(episode_id, lang, srt_content, "srt")
+        return nb
+
     # ----- Phase 4: alignement (audit) -----
 
     def align_dir(self, episode_id: str) -> Path:

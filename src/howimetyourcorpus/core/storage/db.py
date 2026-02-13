@@ -331,6 +331,14 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def get_tracks_for_episodes(self, episode_ids: list[str]) -> dict[str, list[dict]]:
+        """Retourne les pistes par épisode (episode_id -> liste). Batch pour refresh Corpus / arbre."""
+        conn = self._conn()
+        try:
+            return db_subtitles.get_tracks_for_episodes(conn, episode_ids)
+        finally:
+            conn.close()
+
     def delete_subtitle_track(self, episode_id: str, lang: str) -> None:
         """Supprime une piste sous-titres (cues puis track). track_id = episode_id:lang."""
         conn = self._conn()
@@ -407,11 +415,28 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def get_align_runs_for_episodes(self, episode_ids: list[str]) -> dict[str, list[dict]]:
+        """Retourne les runs d'alignement par épisode (episode_id -> liste). Batch pour refresh Corpus / arbre."""
+        conn = self._conn()
+        try:
+            return db_align.get_align_runs_for_episodes(conn, episode_ids)
+        finally:
+            conn.close()
+
     def delete_align_run(self, align_run_id: str) -> None:
         """Supprime un run d'alignement et tous ses liens."""
         conn = self._conn()
         try:
             db_align.delete_align_run(conn, align_run_id)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def delete_align_runs_for_episode(self, episode_id: str) -> None:
+        """Supprime tous les runs d'alignement d'un épisode (évite liens orphelins après suppression piste ou re-segmentation)."""
+        conn = self._conn()
+        try:
+            db_align.delete_align_runs_for_episode(conn, episode_id)
             conn.commit()
         finally:
             conn.close()
