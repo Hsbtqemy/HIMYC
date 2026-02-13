@@ -36,7 +36,9 @@ HowIMetYourCorpus/
 ├── src/howimetyourcorpus/
 │   ├── app/
 │   │   ├── main.py             # Point d’entrée
-│   │   ├── ui_mainwindow.py    # 5 onglets (Projet, Corpus, Inspecteur, Concordance, Logs)
+│   │   ├── ui_mainwindow.py    # Fenêtre principale (8 onglets)
+│   │   ├── dialogs/            # Dialogues : SubtitleBatchImportDialog, ProfilesDialog
+│   │   ├── tabs/               # Onglets : Project, Corpus, Inspector, Subtitle, Alignment, Concordance, Personnages, Logs
 │   │   ├── workers.py          # JobRunner (pipeline en arrière-plan)
 │   │   └── models_qt.py        # Modèles table épisodes / KWIC
 │   └── core/
@@ -61,19 +63,22 @@ HowIMetYourCorpus/
 │       │   └── aligner.py      # AlignLink, align_segments_to_cues, align_cues_by_time
 │       ├── storage/
 │       │   ├── project_store.py # Layout projet, RAW/CLEAN, subs, align
-│       │   ├── db.py           # SQLite + FTS5 + KWIC + segments + cues + align + Phase 5 stats/parallel
+│       │   ├── db.py           # CorpusDB (délègue KWIC à db_kwic) + segments + cues + align + Phase 5
+│       │   ├── db_kwic.py      # KwicHit, query_kwic, query_kwic_segments, query_kwic_cues
 │       │   ├── schema.sql      # + schema_version
 │       │   └── migrations/     # 002_segments.sql, 003_subtitles.sql, 004_align.sql
 │       └── utils/              # logging, text, http
 ├── tests/
 │   ├── fixtures/               # subslikescript_*.html, sample.srt, sample.vtt
 │   ├── test_adapter_subslikescript.py
-│   ├── test_normalize_profiles.py
-│   ├── test_db_kwic.py
-│   ├── test_segment.py        # Phase 2
-│   ├── test_subtitles.py      # Phase 3
 │   ├── test_align.py          # Phase 4
-│   └── test_export_phase5.py  # Phase 5
+│   ├── test_db_kwic.py
+│   ├── test_db_migrations.py
+│   ├── test_export_phase5.py  # Phase 5
+│   ├── test_integration_pipeline.py
+│   ├── test_normalize_profiles.py
+│   ├── test_segment.py        # Phase 2
+│   └── test_subtitles.py      # Phase 3
 ├── HowIMetYourCorpus.spec    # Phase 6 PyInstaller (datas schema + migrations)
 └── scripts/windows/
     ├── install.bat
@@ -85,12 +90,13 @@ HowIMetYourCorpus/
 ## Workflow utilisateur (UI)
 
 1. **Projet** — Choisir dossier (nouveau ou existant) → source, URL série, rate limit, profil → « Valider & initialiser ».
-2. **Corpus** — Découvrir épisodes → Télécharger (sélection / tout) → Normaliser → Indexer DB. Progression + Annuler.
+2. **Corpus** — Découvrir épisodes → Télécharger (sélection / tout) → Normaliser → Indexer DB. Progression + Annuler. Double-clic sur un épisode → ouvre l’Inspecteur (raw/clean, segments).
 3. **Inspecteur** — Choisir épisode → voir RAW vs CLEAN, stats, exemples de fusions. Vue « Segments » : liste phrases/tours + surlignage ; bouton « Segmente l’épisode ».
-4. **Sous-titres** — Choisir épisode + langue, « Importer SRT/VTT... » ; liste des pistes (lang, format, nb cues).
+4. **Sous-titres** — Choisir épisode + langue, « Importer SRT/VTT... » ou import en masse ; téléchargement OpenSubtitles (config clé API) ; liste des pistes (lang, format, nb cues).
 5. **Alignement** — Choisir épisode + run (ou « Lancer alignement ») ; table des liens ; Accepter/Rejeter ; export aligné CSV/JSONL ; **Phase 5** : export concordancier parallèle (CSV/TSV/JSONL), rapport HTML, stats.
 6. **Concordance** — Saisir terme, scope (Épisodes / Segments / Cues), kind, langue (si Cues), filtres → KWIC ; export CSV/TSV/JSON/JSONL ; double-clic → Inspecteur.
-7. **Logs** — Logs en direct + « Ouvrir fichier log ».
+7. **Personnages** — Liste personnages (noms canoniques + par langue), assignation segment/cue→personnage, bouton « Propager » (liens alignement, réécriture SRT).
+8. **Logs** — Logs en direct + « Ouvrir fichier log ».
 
 ---
 
@@ -131,11 +137,13 @@ projects/<project_name>/
 
 ---
 
-## Tests (46 au total)
+## Tests (54 au total)
 
-- **Adapter subslikescript** : discover (fixture), parse_episode, erreur si transcript trop court.
+- **Adapter subslikescript** : discover (fixture), parse_episode, erreur si transcript trop court, HTML cassé, div script trop court.
 - **Normalisation** : fusion césure, double saut conservé, didascalie, ligne type « TED: », profils.
 - **DB / KWIC** : init, index, `query_kwic` → left / match / right ; segments, cues ; **Phase 4** : `align_runs`, `align_links`, `query_alignment_for_episode`, `set_align_status` ; **Phase 5** : `get_align_stats_for_run`, `get_parallel_concordance`.
+- **DB migrations** : fixture DB v1 → `ensure_migrated()` → tables segments, subtitle_tracks, align_runs, schema_version 4.
+- **Intégration** : pipeline (fetch + normalize + segment + import SRT + align) sur projet de test.
 - **Alignement (Phase 4)** : similarité texte, `align_segments_to_cues`, `align_cues_by_time`, `AlignLink.to_dict`.
 - **Export Phase 5** : `export_parallel_concordance_csv/tsv/jsonl`, `export_align_report_html`.
 

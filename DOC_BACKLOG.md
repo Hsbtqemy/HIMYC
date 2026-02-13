@@ -126,6 +126,9 @@ Ce fichier recense les idées / demandes discutées (brainstorming) pour les imp
 **Points à clarifier :**  
 Faut-il un « type de projet » (transcript-first vs SRT-first) ou suffit-il de permettre une liste d’épisodes sans raw/clean et de désactiver / masquer les boutons Télécharger / Normaliser / Segmenter quand il n’y a pas de transcript ? Gestion des statuts (episode sans raw : statut « SRT only » ou équivalent).
 
+**Ajouter les transcriptions après (SRT first → transcript later) :**  
+Oui : si on commence uniquement avec les SRT, on doit pouvoir **rajouter les transcriptions ensuite** (par épisode ou en lot). Un même épisode peut avoir d’abord des pistes SRT (alignement cue↔cue, concordancier sur cues), puis plus tard raw/clean (téléchargement, import manuel ou collage) ; on peut alors lancer Normaliser → Segmenter → alignement segment↔cue EN. Le projet n’est pas figé « SRT only » : les boutons Télécharger / Normaliser / Segmenter restent utilisables dès qu’un épisode a du raw (ou on prévoit un moyen d’ajouter du raw sans « Découvrir », ex. importer un fichier texte par épisode). À documenter dans le backlog : workflow « SRT first, transcriptions ajoutées plus tard » comme scénario supporté.
+
 #### Import SRT en masse
 
 **Contexte :** Aujourd’hui l’import SRT est **un fichier à la fois** : on choisit l’épisode dans l’onglet Sous-titres, on clique « Importer SRT/VTT… », on sélectionne un fichier et la langue. Pour des dizaines d’épisodes ou plusieurs langues, c’est fastidieux.
@@ -147,6 +150,31 @@ Faut-il un « type de projet » (transcript-first vs SRT-first) ou suffit-il de 
 
 **Fichiers concernés (à vérifier) — §6.1 global :**  
 `ui_mainwindow.py` (onglet Projet, Corpus, Sous-titres, Alignement), `project_store.py` (création projet, liste épisodes sans raw), `core/storage/db.py` (statuts, indexation cues), `core/pipeline/tasks.py` (alignement sans segment).
+
+---
+
+### 6.2 Télécharger des sous-titres depuis OpenSubtitles (ou similaire)
+
+**Contexte :** Aujourd’hui les SRT sont **importés** depuis des fichiers locaux (ouverture d’un fichier, ou import en masse depuis un dossier). L’utilisateur doit avoir déjà téléchargé les sous-titres (ex. depuis opensubtitles.com à la main). On pourrait proposer de **télécharger directement** des sous-titres depuis une source en ligne (ex. [OpenSubtitles](https://www.opensubtitles.com/)).
+
+**Demande :** Pouvoir **télécharger des sous-titres** depuis OpenSubtitles (ou un service similaire) : par épisode ou en batch, choix de la langue, sauvegarde dans le layout projet (episodes/<id>/subs/<lang>.srt) puis import en DB comme aujourd’hui.
+
+**Pistes techniques :**
+
+- **API OpenSubtitles** — REST API (`api.opensubtitles.com`), authentification par **Api-Key** (inscription gratuite, clé dans le dashboard). Recherche par titre de série/épisode, IMDb/TMDB ID, langue ; endpoint de **download** pour récupérer le fichier SRT. Rate limits à respecter (ex. 1 req/s sur login). Headers : `Api-Key`, `User-Agent`.
+- **Adapteur « opensubtitles »** — Même pattern que l’adapteur subslikescript : module dans `core/adapters/` (ex. `opensubtitles.py`) avec recherche par série + saison/épisode (ou par identifiant externe), téléchargement du fichier, retour du contenu SRT. Pas de parsing HTML : appels API REST (httpx). Stockage de l’Api-Key : config projet (fichier local) ou préférences utilisateur, jamais en dur.
+- **UI** — Dans l’onglet Sous-titres (ou Corpus) : bouton « Télécharger sous-titres depuis OpenSubtitles… » (ou « Source : OpenSubtitles »). Dialogue : choix de la langue, épisode(s) (sélection ou tout), optionnellement identifiant série (IMDb/TMDB) si le projet n’a pas d’URL. Puis appel API (recherche + download) et enregistrement comme un import (même chemin subs, même étape d’indexation cues).
+- **Mapping série → OpenSubtitles** — Pour une série, OpenSubtitles identifie par titre ou par ID (IMDb, TMDB). Il faudrait soit que le projet connaisse un identifiant externe (ex. IMDb ID de la série), soit recherche par nom (ambiguïtés possibles). Documenter dans le backlog : champ optionnel `series_imdb_id` / `series_tmdb_id` dans la config ou dans l’index.
+
+**Points à clarifier :**  
+Conditions d’utilisation de l’API OpenSubtitles (quota gratuit, usage « research »). Alternative : sous-titres.org ou autre source avec API ou scraping (légalité, ToS). Gestion des comptes utilisateur (chacun sa clé API) vs clé partagée dans l’app.
+
+**Pros :** Workflow « je crée un projet SRT only → j’ajoute les épisodes → je télécharge les SRT depuis OpenSubtitles » sans quitter l’app. Complète l’import en masse (fichiers locaux) par un téléchargement en ligne.
+
+**Cons :** Dépendance à une API tierce, clé API à configurer, rate limits, évolution possible de l’API.
+
+**Fichiers concernés (à vérifier) :**  
+Nouveau `core/adapters/opensubtitles.py` (ou équivalent), `core/utils/http.py` (ou requêtes dédiées avec Api-Key), `ui_mainwindow.py` (onglet Sous-titres / Corpus : bouton + dialogue), config projet (clé API, optionnellement IMDb/TMDB ID), `core/pipeline/tasks.py` (étape « DownloadSubtitlesStep » ou réutilisation import après téléchargement en mémoire).
 
 ---
 
@@ -317,10 +345,23 @@ Dans ce modèle, pas de visualiseuse dans le Corpus (évite l’encombrement) ; 
 ## Réalisé
 
 - **Exemple utilisable (EN + FR, court)** — projet démo dans `example/` avec transcript, SRT EN/FR, README et corpus.db pré-initialisé. Voir `example/README.md` et section « Projet exemple » du `README.md` principal.
-- **Onglet Corpus — cases à cocher** — colonne de cases + « Tout cocher » / « Tout décocher » ; « Télécharger sélection » et « Normaliser sélection » utilisent les cases (avec repli sur la sélection par clic).
-- **Onglet Inspecteur — redimensionnement** — QSplitter horizontal (liste segments | zone RAW/CLEAN) et vertical (RAW | CLEAN) ; sauvegarde/restauration des proportions (QSettings).
-- **Onglet Inspecteur — export segments** — bouton « Exporter les segments » (TXT, CSV, TSV) depuis l’épisode affiché.
-- **Alignement sans timecodes (par ordre)** — si les cues EN ou target n’ont pas de timecodes utilisables (`start_ms`/`end_ms` tous à 0), l’alignement EN↔target utilise `align_cues_by_order` (cue i ↔ cue i). Voir `aligner.py` : `cues_have_timecodes`, `align_cues_by_order` ; fallback automatique dans `AlignEpisodeStep`.
-- **Version Mac — .app avec icône** — spec PyInstaller produit un bundle `.app` sur macOS (COLLECT + APP) avec icône ; `resources/icons/icon_512.png` + `make_icns.sh` → `icon.icns` ; `scripts/macos/build_app.sh` pour build local ; CI Release (tag v*) build .exe et .app et attache les deux à la release. Voir `scripts/macos/README.md`.
+- **§1 — Onglet Corpus — cases à cocher** — colonne de cases + « Tout cocher » / « Tout décocher » ; « Télécharger sélection » et « Normaliser sélection » utilisent les cases (avec repli sur la sélection par clic). Intégré à l’arbre (§9).
+- **§2.1 — Onglet Inspecteur — redimensionnement** — QSplitter horizontal (liste segments | zone RAW/CLEAN) et vertical (RAW | CLEAN) ; sauvegarde/restauration des proportions (QSettings).
+- **§2.2 — Onglet Inspecteur — export segments** — bouton « Exporter les segments » (TXT, CSV, TSV) depuis l’épisode affiché.
+- **§3 — Alignement sans timecodes (par ordre)** — si les cues EN ou target n’ont pas de timecodes utilisables (`start_ms`/`end_ms` tous à 0), l’alignement EN↔target utilise `align_cues_by_order` (cue i ↔ cue i). Voir `aligner.py` : `cues_have_timecodes`, `align_cues_by_order` ; fallback automatique dans `AlignEpisodeStep`.
+- **§4 — Version Mac — .app avec icône** — spec PyInstaller produit un bundle `.app` sur macOS (COLLECT + APP) avec icône ; `resources/icons/icon_512.png` + `make_icns.sh` → `icon.icns` ; `scripts/macos/build_app.sh` pour build local ; CI Release (tag v*) build .exe et .app et attache les deux à la release. Voir `scripts/macos/README.md`.
+- **§6 — Filtre saison + batch par saison** — filtre « Saison » (combo) + bouton « Cocher la saison » ; workflow batch par saison documenté dans README (option A/B).
+- **§6.1 — Workflow SRT only** — case « Projet SRT uniquement » à la création ; URL série vide = SRT only ; bouton « Ajouter épisodes (SRT only) » (liste d’episode_id) ; actions Télécharger/Normaliser/Segmenter adaptées quand pas de transcript.
+- **§6.1 — Import SRT en masse** — bouton « Importer SRT en masse… » (onglet Sous-titres) ; dialogue avec scan dossier, détection (episode_id, langue) par nom de fichier, table de mapping (Fichier, Épisode, Langue) ; exécution via `ImportSubtitlesStep` en batch (progress, annulation). Voir `SubtitleBatchImportDialog`, `_parse_subtitle_filename`.
+- **§7 — Profil de normalisation modifiable** — profils personnalisés dans le projet (`profiles.json`) ; dialogue « Gérer les profils de normalisation » (ProfilesDialog) : créer, modifier, supprimer ; chargement avec profils prédéfinis ; choix du profil au batch (Corpus) et par épisode (Inspecteur). Optionnel : `episode_preferred_profiles.json`, `source_profile_defaults.json` (project_store).
 - **§9 — Arborescence (Option A)** — Onglet Corpus : QTreeView avec EpisodesTreeModel (Saison → Épisodes), filtre par saison, « Cocher la saison », cases à cocher par épisode. Fichiers : `ui_mainwindow.py`, `models_qt.py` (EpisodesTreeModel, EpisodesTreeFilterProxyModel).
-- **§10.1 — Corpus = gestionnaire des docs** — Colonnes SRT et Aligné dans l’arbre épisodes, alimentées par `get_tracks_for_episode` et `get_align_runs_for_episode` ; comptage global « X avec SRT, Y aligné(s) » sous la table. Fichiers : `models_qt.py`, `ui_mainwindow.py`, `project_store.py` / `db.py`.
+- **§10.1 — Corpus = gestionnaire des docs** — Colonnes SRT et Aligné dans l'arbre épisodes, alimentées par `get_tracks_for_episode` et `get_align_runs_for_episode` ; comptage global « X avec SRT, Y aligné(s) » sous la table. Fichiers : `models_qt.py`, `ui_mainwindow.py`, `project_store.py` / `db.py`.
+- **§5 — Workflow visibilité et prérequis** — Checklist « Découverts | Téléchargés | Normalisés | Segmentés | SRT | Alignés » (corpus_status_label) ; résumé fin de job « X réussie(s), Y échec(s) » (barre de statut + onglet Logs) avec episode_id en échec ; boutons « Normaliser sélection/tout » désactivés si aucun épisode téléchargé.
+- **§7.2 — Multi-sources** — Découverte initiale tague chaque ref avec `config.source_id` ; `FetchEpisodeStep` utilise `ref.source_id` pour choisir l'adapteur ; « Découvrir (fusionner) » sans écraser l'index (FetchAndMergeSeriesIndexStep).
+- **§3 (complément) — Option alignement par similarité** — Case « Forcer alignement par similarité » (onglet Alignement) ; `AlignEpisodeStep(use_similarity_for_cues=True)` force l'appariement EN↔cible par similarité textuelle au lieu des timecodes.
+- **M4 — Sous-module KWIC** — `storage/db_kwic.py` : KwicHit, `query_kwic`, `query_kwic_segments`, `query_kwic_cues` ; CorpusDB délègue à ces fonctions pour alléger db.py et permettre des tests unitaires ciblés.
+- **M1 — Découpage ui_mainwindow** — Tous les onglets extraits dans `app/tabs/` (Projet, Corpus, Inspecteur, Sous-titres, Alignement, Concordance, Personnages, Logs) ; dialogues dans `app/dialogs/` ; MainWindow allégée, signaux/slots préservés.
+- **§6.2 — Télécharger SRT depuis OpenSubtitles** — Client `core/opensubtitles/` (search par imdb_id + season/episode, download) ; step `DownloadOpenSubtitlesStep` ; dialogue « Télécharger depuis OpenSubtitles… » (onglet Sous-titres) ; clé API et series_imdb_id stockés dans config.toml (load_config_extra / save_config_extra).
+- **§7.1 — Profils par source** — Priorité profil (préféré épisode > défaut source > batch) déjà en place (episode_preferred_profiles, source_profile_defaults) ; complété par tooltips Corpus/Inspecteur et libellé dialogue Profils (lien source→profil).
+- **§8 — Personnages (assignation + propagation)** — Onglet Personnages (liste personnages, assignation segment/cue→personnage) ; propagation via `store.propagate_character_names(db, episode_id, run_id)` : mise à jour segments.speaker_explicit, cues text_clean (préfixe « Nom: »), réécriture des fichiers SRT ; `db.update_segment_speaker`, `db.update_cue_text_clean` ; `cues_to_srt` dans parsers.
+- **§10 — Aperçu épisode depuis Corpus** — Alternative retenue (pas de visualiseuse dans Corpus) : double-clic sur un épisode dans l’arbre Corpus ouvre l’onglet Inspecteur sur cet épisode (raw/clean, segments). Tooltip sur l’arbre ; callback `on_open_inspector` (même impl que Concordance).

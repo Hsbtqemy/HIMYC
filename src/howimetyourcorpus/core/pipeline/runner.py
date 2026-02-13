@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Callable
 
+from howimetyourcorpus.core.pipeline.context import PipelineContext
 from howimetyourcorpus.core.pipeline.steps import (
     ErrorCallback,
     LogCallback,
@@ -31,7 +32,7 @@ class PipelineRunner:
     def run(
         self,
         steps: list[Step],
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: ProgressCallback | None = None,
@@ -58,18 +59,25 @@ class PipelineRunner:
                 log("warning", "Pipeline cancelled")
                 break
             log("info", f"Running step: {step.name}")
+            ctx = dict(context)
+            ctx["is_cancelled"] = lambda: self._cancelled
             try:
                 result = step.run(
-                    context,
+                    ctx,
                     force=force,
                     on_progress=on_progress,
                     on_log=on_log,
                 )
                 results.append(result)
                 if not result.success:
-                    if on_error:
-                        on_error(step.name, RuntimeError(result.message))
-                    log("error", result.message)
+                    if result.message == "Cancelled":
+                        if on_cancelled:
+                            on_cancelled()
+                        log("warning", "Pipeline cancelled")
+                    else:
+                        if on_error:
+                            on_error(step.name, RuntimeError(result.message))
+                        log("error", result.message)
                     break
             except Exception as e:
                 logger.exception("Step %s failed", step.name)

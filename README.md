@@ -105,6 +105,8 @@ Voir **example/README.md** pour les instructions détaillées.
 
 4. **Sous-titres** (onglet Sous-titres, Phase 3)  
    - Choisir un épisode et une langue (en/fr/it), puis **« Importer SRT/VTT... »** pour importer un fichier .srt ou .vtt.  
+   - **« Importer SRT en masse... »** : scan d’un dossier, mapping fichier → épisode/langue, import en lot.  
+   - **« Télécharger depuis OpenSubtitles… »** : téléchargement de sous-titres depuis l’API OpenSubtitles (clé API gratuite sur opensubtitles.com ; IMDb ID de la série requis).  
    - La liste des pistes pour l’épisode affiche langues, format et nombre de cues.
 
 5. **Alignement** (onglet Alignement, Phase 4–5)  
@@ -178,6 +180,13 @@ scripts/windows/# install.bat, run.bat, build_exe.bat, download_exe.ps1
 HowIMetYourCorpus.spec  # Spec PyInstaller (Phase 6, datas schema + migrations)
 dist/           # Généré par build_exe : HowIMetYourCorpus.exe (ignoré par git)
 ```
+
+## Documentation projet
+
+- **RECAP.md** — Structure, commandes, layout, phases.
+- **DOC_BACKLOG.md** — Demandes et idées (réalisé / à faire).
+- **DOC_PLAN_ACTION.md** — Plan priorisé et checklist (P0/P1/P2).
+- **DOC_NETTOYAGE.md** — Rituel de nettoyage des doc. Les revues de phase historiques sont dans `doc/archive/`.
 
 ## Licence
 

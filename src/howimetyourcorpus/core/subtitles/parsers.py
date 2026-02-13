@@ -190,12 +190,34 @@ def parse_subtitle_content(content: str, source_path: str = "") -> tuple[list[Cu
     return parse_srt(content, source_path), "srt"
 
 
+# Encodages à essayer à l'import (fichiers Windows / utilisateur)
+_SUBTITLE_ENCODINGS = ("utf-8", "cp1252", "latin-1")
+
+
+def read_subtitle_file_content(path: Path) -> str:
+    """
+    Lit le contenu d'un fichier SRT/VTT en essayant utf-8, puis cp1252, puis latin-1.
+    Retourne la chaîne en Unicode (à écrire en UTF-8 côté projet si besoin).
+    """
+    last_error: Exception | None = None
+    for enc in _SUBTITLE_ENCODINGS:
+        try:
+            return path.read_text(encoding=enc)
+        except (UnicodeDecodeError, LookupError) as e:
+            last_error = e
+            continue
+    if last_error:
+        return path.read_text(encoding="utf-8", errors="replace")
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
 def parse_subtitle_file(path: Path, lang_hint: str = "en") -> tuple[list[Cue], str]:
     """
     Détecte le format (SRT/VTT) et parse. Retourne (cues, format "srt"|"vtt").
     lang_hint réservé pour usage futur (ex. métadonnées).
+    Utilise un fallback d'encodage (utf-8 → cp1252 → latin-1) pour les fichiers Windows.
     """
-    content = path.read_text(encoding="utf-8", errors="replace")
+    content = read_subtitle_file_content(path)
     suffix = path.suffix.lower()
     if suffix == ".vtt":
         cues = parse_vtt(content, str(path))
@@ -204,3 +226,26 @@ def parse_subtitle_file(path: Path, lang_hint: str = "en") -> tuple[list[Cue], s
         cues = parse_srt(content, str(path))
         return cues, "srt"
     return parse_subtitle_content(content, str(path))
+
+
+def _ms_to_srt_time(ms: int) -> str:
+    """Convertit des millisecondes en timecode SRT HH:MM:SS,mmm."""
+    s, ms_rem = divmod(ms, 1000)
+    m, s_rem = divmod(s, 60)
+    h, m_rem = divmod(m, 60)
+    return f"{h:02d}:{m_rem:02d}:{s_rem:02d},{ms_rem:03d}"
+
+
+def cues_to_srt(cues: list[dict]) -> str:
+    """
+    Sérialise une liste de cues (dict avec start_ms, end_ms, text_clean, n) en contenu SRT.
+    Utilisé pour réécrire les fichiers SRT après propagation des noms de personnages (§8).
+    """
+    blocks: list[str] = []
+    for c in sorted(cues, key=lambda x: (x.get("n", 0), x.get("start_ms", 0))):
+        n = c.get("n", 0)
+        start_ms = int(c.get("start_ms", 0))
+        end_ms = int(c.get("end_ms", 0))
+        text = (c.get("text_clean") or c.get("text_raw") or "").strip()
+        blocks.append(f"{n}\n{_ms_to_srt_time(start_ms)} --> {_ms_to_srt_time(end_ms)}\n{text}")
+    return "\n\n".join(blocks) + "\n" if blocks else ""

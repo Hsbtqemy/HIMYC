@@ -53,4 +53,15 @@ Sous Windows (PowerShell) :
 $env:PYTHONPATH = "src"; python example/create_demo_db.py
 ```
 
-Puis rouvrir le projet **example** dans l’application.
+Puis rouvrir le projet **example** dans l'application.
+
+## Remettre l'exemple à zéro
+
+Pour repartir sans pistes SRT ni runs d'alignement (base recréée avec uniquement l'épisode S01E01, fichiers subs/ et align/ vidés) :
+
+```bash
+PYTHONPATH=src python example/reset_example.py
+```
+
+Utile après des imports en mauvaise langue ou pour refaire le flux Normaliser → Segmenter → Importer SRT → Aligner.
+

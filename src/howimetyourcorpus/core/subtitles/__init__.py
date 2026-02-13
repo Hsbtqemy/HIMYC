@@ -6,6 +6,7 @@ from howimetyourcorpus.core.subtitles.parsers import (
     parse_vtt,
     parse_subtitle_content,
     parse_subtitle_file,
+    cues_to_srt,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "parse_vtt",
     "parse_subtitle_content",
     "parse_subtitle_file",
+    "cues_to_srt",
 ]

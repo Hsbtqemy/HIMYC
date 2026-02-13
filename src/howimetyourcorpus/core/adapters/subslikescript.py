@@ -62,10 +62,20 @@ class SubslikescriptAdapter:
     def normalize_episode_id(self, season: int, episode: int) -> str:
         return f"S{season:02d}E{episode:02d}"
 
-    def discover_series(self, series_url: str, *, user_agent: str | None = None) -> SeriesIndex:
+    def discover_series(
+        self,
+        series_url: str,
+        *,
+        user_agent: str | None = None,
+        rate_limit_s: float | None = None,
+    ) -> SeriesIndex:
         """Récupère la page série puis parse pour produire SeriesIndex."""
         from howimetyourcorpus.core.utils.http import get_html
-        html = get_html(series_url, user_agent=user_agent)
+        html = get_html(
+            series_url,
+            user_agent=user_agent,
+            min_interval_s=rate_limit_s,
+        )
         return self.discover_series_from_html(html, series_url)
 
     def discover_series_from_html(self, html: str, series_url: str) -> SeriesIndex:
@@ -133,10 +143,20 @@ class SubslikescriptAdapter:
             return m.group(1).replace("-", " ").title()
         return "Unknown Series"
 
-    def fetch_episode_html(self, episode_url: str) -> str:
-        """Récupère le HTML ; en pratique le pipeline fait le fetch avec httpx."""
+    def fetch_episode_html(
+        self,
+        episode_url: str,
+        *,
+        user_agent: str | None = None,
+        rate_limit_s: float | None = None,
+    ) -> str:
+        """Récupère le HTML ; rate_limit_s passé à get_html pour politesse en boucle."""
         from howimetyourcorpus.core.utils.http import get_html
-        return get_html(episode_url)
+        return get_html(
+            episode_url,
+            user_agent=user_agent,
+            min_interval_s=rate_limit_s,
+        )
 
     def parse_episode(self, html: str, episode_url: str) -> tuple[str, dict]:
         """

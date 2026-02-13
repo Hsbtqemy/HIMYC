@@ -259,6 +259,38 @@ class EpisodesTreeModel(QAbstractItemModel):
             return self._season_numbers[row]
         return None
 
+    def _key_episode(self, ref: EpisodeRef, column: int) -> Any:
+        """Valeur de tri pour un épisode (colonne donnée)."""
+        if column == 1:
+            return (ref.episode_id or "").lower()
+        if column == 2:
+            return ref.season
+        if column == 3:
+            return ref.episode
+        if column == 4:
+            return (ref.title or "").lower()
+        if column == 5:
+            return (self._status_map.get(ref.episode_id, "") or "").lower()
+        if column == 6:
+            return (self._srt_map.get(ref.episode_id, "—") or "—").lower()
+        if column == 7:
+            return (self._align_map.get(ref.episode_id, "—") or "—").lower()
+        return (ref.episode_id or "").lower()
+
+    def sort(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
+        """Tri par colonne : saisons au niveau racine (par numéro), épisodes au niveau enfant (par colonne cliquée)."""
+        self.layoutAboutToBeChanged.emit([], QAbstractItemModel.VerticalSortHint)
+        reverse = order == Qt.SortOrder.DescendingOrder
+        self._season_numbers = sorted(self._season_numbers, reverse=reverse)
+        for sn in self._season_episodes:
+            eps = self._season_episodes[sn]
+            self._season_episodes[sn] = sorted(
+                eps,
+                key=lambda r: self._key_episode(r, column),
+                reverse=reverse,
+            )
+        self.layoutChanged.emit([], QAbstractItemModel.VerticalSortHint)
+
 
 class EpisodesTreeFilterProxyModel(QSortFilterProxyModel):
     """Proxy qui filtre l'arbre par saison (n'affiche que la saison choisie et ses épisodes)."""
@@ -413,6 +445,11 @@ class EpisodesTableModel(QAbstractTableModel):
             return self._episodes[row]
         return None
 
+    def get_episode_id_for_index(self, index: QModelIndex) -> str | None:
+        """Retourne l'episode_id pour un index (ligne de la table)."""
+        ref = self.get_episode_at(index.row()) if index.isValid() else None
+        return ref.episode_id if ref else None
+
     def get_episode_ids_selection(self, indices: list[QModelIndex]) -> list[str]:
         rows = sorted(set(i.row() for i in indices if i.isValid()))
         return [self._episodes[r].episode_id for r in rows if 0 <= r < len(self._episodes)]
@@ -525,21 +562,50 @@ class KwicTableModel(QAbstractTableModel):
         return list(self._hits)
 
 
+def _truncate(s: str, max_len: int = 55) -> str:
+    if not s:
+        return ""
+    s = (s or "").replace("\n", " ")
+    return (s[:max_len] + "…") if len(s) > max_len else s
+
+
 class AlignLinksTableModel(QAbstractTableModel):
-    """Modèle pour la table des liens d'alignement (Phase 4)."""
+    """Modèle pour la table des liens d'alignement (Phase 4). Affiche des extraits de texte si episode_id fourni."""
 
     COLUMNS = ["link_id", "segment_id", "cue_id", "cue_id_target", "lang", "role", "confidence", "status"]
-    HEADERS = ["Link ID", "Segment", "Cue", "Cue target", "Lang", "Rôle", "Confiance", "Statut"]
+    HEADERS = ["Link ID", "Segment (extrait)", "Cue pivot (extrait)", "Cue cible (extrait)", "Lang", "Rôle", "Confiance", "Statut"]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._links: list[dict] = []
         self._db: CorpusDB | None = None
 
-    def set_links(self, links: list[dict], db: CorpusDB | None = None) -> None:
+    def set_links(
+        self,
+        links: list[dict],
+        db: CorpusDB | None = None,
+        episode_id: str | None = None,
+    ) -> None:
         self.beginResetModel()
         self._links = list(links)
         self._db = db
+        if db and episode_id and links:
+            segments_by_id = {s["segment_id"]: (s.get("text") or "") for s in db.get_segments_for_episode(episode_id)}
+            cues_en = {c["cue_id"]: (c.get("text_clean") or c.get("text_raw") or "") for c in db.get_cues_for_episode_lang(episode_id, "en")}
+            langs_seen = {((lnk.get("lang") or "fr") or "fr").lower() for lnk in links}
+            cues_by_lang: dict[str, dict[str, str]] = {"en": cues_en}
+            for lang in langs_seen:
+                if lang != "en":
+                    cues_by_lang[lang] = {c["cue_id"]: (c.get("text_clean") or c.get("text_raw") or "") for c in db.get_cues_for_episode_lang(episode_id, lang)}
+            for lnk in self._links:
+                seg_id = lnk.get("segment_id")
+                cue_id = lnk.get("cue_id")
+                cue_tid = lnk.get("cue_id_target")
+                lang = ((lnk.get("lang") or "fr") or "fr").lower()
+                lnk["_segment_text"] = _truncate(segments_by_id.get(seg_id, "")) if seg_id else ""
+                lnk["_cue_text"] = _truncate(cues_en.get(cue_id, "")) if cue_id else ""
+                cues_t = cues_by_lang.get(lang, {})
+                lnk["_cue_target_text"] = _truncate(cues_t.get(cue_tid, "")) if cue_tid else ""
         self.endResetModel()
 
     def rowCount(self, parent=QModelIndex()):
@@ -558,6 +624,12 @@ class AlignLinksTableModel(QAbstractTableModel):
         row = self._links[index.row()]
         col = index.column()
         if role == Qt.ItemDataRole.DisplayRole:
+            if col == 1:
+                return row.get("_segment_text") or str(row.get("segment_id", ""))
+            if col == 2:
+                return row.get("_cue_text") or str(row.get("cue_id", ""))
+            if col == 3:
+                return row.get("_cue_target_text") or str(row.get("cue_id_target", ""))
             key = self.COLUMNS[col] if 0 <= col < len(self.COLUMNS) else None
             if key:
                 v = row.get(key)

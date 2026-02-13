@@ -3,36 +3,27 @@
 from __future__ import annotations
 
 import datetime
-import re
 import sqlite3
-from dataclasses import dataclass
 from pathlib import Path
 
 import json
 
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus
 
+from howimetyourcorpus.core.storage.db_kwic import (
+    KwicHit,
+    query_kwic as _query_kwic,
+    query_kwic_cues as _query_kwic_cues,
+    query_kwic_segments as _query_kwic_segments,
+)
+
 # Schéma DDL
 STORAGE_DIR = Path(__file__).parent
 SCHEMA_SQL = (STORAGE_DIR / "schema.sql").read_text(encoding="utf-8")
 MIGRATIONS_DIR = STORAGE_DIR / "migrations"
 
-
-@dataclass
-class KwicHit:
-    """Un résultat KWIC (contexte gauche, match, contexte droit)."""
-
-    episode_id: str
-    title: str
-    left: str
-    match: str
-    right: str
-    position: int  # position approximative dans le document (caractère)
-    score: float = 1.0
-    segment_id: str | None = None  # Phase 2: hit au niveau segment
-    kind: str | None = None  # "sentence" | "utterance"
-    cue_id: str | None = None  # Phase 3: hit au niveau cue sous-titre
-    lang: str | None = None  # Phase 3: langue de la cue
+# Réexport pour compatibilité (KwicHit défini dans db_kwic)
+__all__ = ["CorpusDB", "KwicHit"]
 
 
 class CorpusDB:
@@ -48,7 +39,7 @@ class CorpusDB:
         """Exécute les migrations en attente (schema_version)."""
         if not self._table_exists(conn, "schema_version"):
             conn.execute(
-                "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY)"
             )
             conn.execute("INSERT INTO schema_version (version) VALUES (1)")
             conn.commit()
@@ -90,6 +81,21 @@ class CorpusDB:
             (table_name,),
         ).fetchone()
         return row is not None
+
+    def get_schema_version(self) -> int:
+        """Retourne la version du schéma (table schema_version). 0 si la table n'existe pas ou est vide."""
+        if not self.db_path.exists():
+            return 0
+        conn = self._conn()
+        try:
+            if not self._table_exists(conn, "schema_version"):
+                return 0
+            row = conn.execute(
+                "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+            ).fetchone()
+            return int(row[0]) if row else 0
+        finally:
+            conn.close()
 
     def ensure_migrated(self) -> None:
         """Exécute les migrations en attente (à appeler à l'ouverture d'un projet existant).
@@ -169,11 +175,6 @@ class CorpusDB:
         finally:
             conn.close()
 
-    def _fts5_match_query(self, term: str) -> str:
-        """Échappe le terme pour FTS5 MATCH (phrase entre guillemets)."""
-        escaped = term.replace('"', '""')
-        return f'"{escaped}"'
-
     def query_kwic(
         self,
         term: str,
@@ -182,79 +183,10 @@ class CorpusDB:
         window: int = 45,
         limit: int = 200,
     ) -> list[KwicHit]:
-        """
-        Recherche KWIC : utilise FTS5 pour filtrer les documents, puis construit
-        (left, match, right) en Python avec window caractères de contexte.
-        """
-        if not term or not term.strip():
-            return []
+        """Recherche KWIC sur documents (FTS5). Délègue à db_kwic."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            fts_query = self._fts5_match_query(term)
-            if season is not None and episode is not None:
-                rows = conn.execute(
-                    """
-                    SELECT d.episode_id, d.clean_text, e.title
-                    FROM documents_fts
-                    JOIN documents d ON d.rowid = documents_fts.rowid
-                    JOIN episodes e ON e.episode_id = d.episode_id
-                    WHERE documents_fts MATCH ? AND e.season = ? AND e.episode = ?
-                    """,
-                    (fts_query, season, episode),
-                ).fetchall()
-            elif season is not None:
-                rows = conn.execute(
-                    """
-                    SELECT d.episode_id, d.clean_text, e.title
-                    FROM documents_fts
-                    JOIN documents d ON d.rowid = documents_fts.rowid
-                    JOIN episodes e ON e.episode_id = d.episode_id
-                    WHERE documents_fts MATCH ? AND e.season = ?
-                    """,
-                    (fts_query, season),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT d.episode_id, d.clean_text, e.title
-                    FROM documents_fts
-                    JOIN documents d ON d.rowid = documents_fts.rowid
-                    JOIN episodes e ON e.episode_id = d.episode_id
-                    WHERE documents_fts MATCH ?
-                    """,
-                    (fts_query,),
-                ).fetchall()
-
-            hits: list[KwicHit] = []
-            pattern = re.compile(re.escape(term), re.IGNORECASE)
-            for row in rows:
-                episode_id = row["episode_id"]
-                title = row["title"] or ""
-                text = row["clean_text"] or ""
-                for m in pattern.finditer(text):
-                    start, end = m.start(), m.end()
-                    left = text[max(0, start - window) : start]
-                    match = text[start:end]
-                    right = text[end : end + window]
-                    if len(left) < start - max(0, start - window):
-                        left = "..." + left
-                    if len(right) < min(window, len(text) - end):
-                        right = right + "..."
-                    hits.append(
-                        KwicHit(
-                            episode_id=episode_id,
-                            title=title,
-                            left=left,
-                            match=match,
-                            right=right,
-                            position=start,
-                            score=1.0,
-                        )
-                    )
-                    if len(hits) >= limit:
-                        return hits
-            return hits
+            return _query_kwic(conn, term, season=season, episode=episode, window=window, limit=limit)
         finally:
             conn.close()
 
@@ -321,71 +253,12 @@ class CorpusDB:
         window: int = 45,
         limit: int = 200,
     ) -> list[KwicHit]:
-        """
-        Recherche KWIC au niveau segments (FTS segments_fts).
-        Retourne des KwicHit avec segment_id et kind renseignés.
-        """
-        if not term or not term.strip():
-            return []
+        """Recherche KWIC au niveau segments (FTS segments_fts). Délègue à db_kwic."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            fts_query = self._fts5_match_query(term)
-            params: list = [fts_query]
-            where_extra = ""
-            if kind is not None:
-                where_extra += " AND s.kind = ?"
-                params.append(kind)
-            if season is not None:
-                where_extra += " AND e.season = ?"
-                params.append(season)
-            if episode is not None:
-                where_extra += " AND e.episode = ?"
-                params.append(episode)
-            rows = conn.execute(
-                f"""
-                SELECT s.segment_id, s.episode_id, s.kind, s.text, e.title
-                FROM segments_fts
-                JOIN segments s ON s.rowid = segments_fts.rowid
-                JOIN episodes e ON e.episode_id = s.episode_id
-                WHERE segments_fts MATCH ?{where_extra}
-                """,
-                params,
-            ).fetchall()
-
-            hits: list[KwicHit] = []
-            pattern = re.compile(re.escape(term), re.IGNORECASE)
-            for row in rows:
-                segment_id = row["segment_id"]
-                episode_id = row["episode_id"]
-                k = row["kind"]
-                title = row["title"] or ""
-                text = row["text"] or ""
-                for m in pattern.finditer(text):
-                    start, end = m.start(), m.end()
-                    left = text[max(0, start - window) : start]
-                    match = text[start:end]
-                    right = text[end : end + window]
-                    if len(left) < start - max(0, start - window):
-                        left = "..." + left
-                    if len(right) < min(window, len(text) - end):
-                        right = right + "..."
-                    hits.append(
-                        KwicHit(
-                            episode_id=episode_id,
-                            title=title,
-                            left=left,
-                            match=match,
-                            right=right,
-                            position=start,
-                            score=1.0,
-                            segment_id=segment_id,
-                            kind=k,
-                        )
-                    )
-                    if len(hits) >= limit:
-                        return hits
-            return hits
+            return _query_kwic_segments(
+                conn, term, kind=kind, season=season, episode=episode, window=window, limit=limit
+            )
         finally:
             conn.close()
 
@@ -409,6 +282,34 @@ class CorpusDB:
                     (episode_id,),
                 ).fetchall()
             return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    def update_segment_speaker(self, segment_id: str, speaker_explicit: str | None) -> None:
+        """Met à jour le champ speaker_explicit d'un segment (propagation §8)."""
+        conn = self._conn()
+        try:
+            conn.execute(
+                "UPDATE segments SET speaker_explicit = ? WHERE segment_id = ?",
+                (speaker_explicit, segment_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def get_distinct_speaker_explicit(self, episode_ids: list[str]) -> list[str]:
+        """Retourne la liste des noms de locuteurs (speaker_explicit) présents dans les segments des épisodes donnés, triés."""
+        if not episode_ids:
+            return []
+        conn = self._conn()
+        try:
+            placeholders = ",".join("?" * len(episode_ids))
+            rows = conn.execute(
+                f"""SELECT DISTINCT speaker_explicit FROM segments
+                    WHERE episode_id IN ({placeholders}) AND speaker_explicit IS NOT NULL AND trim(speaker_explicit) != ''""",
+                episode_ids,
+            ).fetchall()
+            return sorted({r[0].strip() for r in rows if r[0]})
         finally:
             conn.close()
 
@@ -482,6 +383,18 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def update_cue_text_clean(self, cue_id: str, text_clean: str) -> None:
+        """Met à jour le champ text_clean d'une cue (propagation §8)."""
+        conn = self._conn()
+        try:
+            conn.execute(
+                "UPDATE subtitle_cues SET text_clean = ? WHERE cue_id = ?",
+                (text_clean, cue_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     def query_kwic_cues(
         self,
         term: str,
@@ -491,71 +404,12 @@ class CorpusDB:
         window: int = 45,
         limit: int = 200,
     ) -> list[KwicHit]:
-        """
-        Recherche KWIC sur les cues sous-titres (FTS cues_fts).
-        Retourne des KwicHit avec cue_id et lang renseignés.
-        """
-        if not term or not term.strip():
-            return []
+        """Recherche KWIC sur les cues sous-titres (FTS cues_fts). Délègue à db_kwic."""
         conn = self._conn()
-        conn.row_factory = sqlite3.Row
         try:
-            fts_query = self._fts5_match_query(term)
-            params: list = [fts_query]
-            where_extra = ""
-            if lang:
-                where_extra += " AND c.lang = ?"
-                params.append(lang)
-            if season is not None:
-                where_extra += " AND e.season = ?"
-                params.append(season)
-            if episode is not None:
-                where_extra += " AND e.episode = ?"
-                params.append(episode)
-            rows = conn.execute(
-                f"""
-                SELECT c.cue_id, c.episode_id, c.lang, c.text_clean, e.title
-                FROM cues_fts
-                JOIN subtitle_cues c ON c.rowid = cues_fts.rowid
-                JOIN episodes e ON e.episode_id = c.episode_id
-                WHERE cues_fts MATCH ?{where_extra}
-                """,
-                params,
-            ).fetchall()
-
-            hits: list[KwicHit] = []
-            pattern = re.compile(re.escape(term), re.IGNORECASE)
-            for row in rows:
-                cue_id = row["cue_id"]
-                episode_id = row["episode_id"]
-                lang_val = row["lang"]
-                title = row["title"] or ""
-                text = row["text_clean"] or ""
-                for m in pattern.finditer(text):
-                    start, end = m.start(), m.end()
-                    left = text[max(0, start - window) : start]
-                    match = text[start:end]
-                    right = text[end : end + window]
-                    if len(left) < start - max(0, start - window):
-                        left = "..." + left
-                    if len(right) < min(window, len(text) - end):
-                        right = right + "..."
-                    hits.append(
-                        KwicHit(
-                            episode_id=episode_id,
-                            title=title,
-                            left=left,
-                            match=match,
-                            right=right,
-                            position=start,
-                            score=1.0,
-                            cue_id=cue_id,
-                            lang=lang_val,
-                        )
-                    )
-                    if len(hits) >= limit:
-                        return hits
-            return hits
+            return _query_kwic_cues(
+                conn, term, lang=lang, season=season, episode=episode, window=window, limit=limit
+            )
         finally:
             conn.close()
 
@@ -575,6 +429,17 @@ class CorpusDB:
                 (episode_id,),
             ).fetchall()
             return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    def delete_subtitle_track(self, episode_id: str, lang: str) -> None:
+        """Supprime une piste sous-titres (cues puis track). track_id = episode_id:lang."""
+        track_id = f"{episode_id}:{lang}"
+        conn = self._conn()
+        try:
+            conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
+            conn.execute("DELETE FROM subtitle_tracks WHERE track_id = ?", (track_id,))
+            conn.commit()
         finally:
             conn.close()
 
@@ -660,6 +525,30 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def update_align_link_cues(
+        self,
+        link_id: str,
+        cue_id: str | None = None,
+        cue_id_target: str | None = None,
+    ) -> None:
+        """Modifie la cible d'un lien (réplique EN et/ou réplique cible). Met le statut à 'accepted' (correction manuelle)."""
+        if cue_id is None and cue_id_target is None:
+            return
+        conn = self._conn()
+        try:
+            if cue_id is not None and cue_id_target is not None:
+                conn.execute(
+                    "UPDATE align_links SET cue_id = ?, cue_id_target = ?, status = ? WHERE link_id = ?",
+                    (cue_id, cue_id_target, "accepted", link_id),
+                )
+            elif cue_id is not None:
+                conn.execute("UPDATE align_links SET cue_id = ?, status = ? WHERE link_id = ?", (cue_id, "accepted", link_id))
+            else:
+                conn.execute("UPDATE align_links SET cue_id_target = ?, status = ? WHERE link_id = ?", (cue_id_target, "accepted", link_id))
+            conn.commit()
+        finally:
+            conn.close()
+
     def get_align_runs_for_episode(self, episode_id: str) -> list[dict]:
         """Retourne les runs d'alignement d'un épisode (pour l'UI)."""
         conn = self._conn()
@@ -670,6 +559,16 @@ class CorpusDB:
                 (episode_id,),
             ).fetchall()
             return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    def delete_align_run(self, align_run_id: str) -> None:
+        """Supprime un run d'alignement et tous ses liens."""
+        conn = self._conn()
+        try:
+            conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
+            conn.execute("DELETE FROM align_runs WHERE align_run_id = ?", (align_run_id,))
+            conn.commit()
         finally:
             conn.close()
 

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from PySide6.QtCore import QObject, Signal, QThread
 
+from howimetyourcorpus.core.pipeline.context import PipelineContext
 from howimetyourcorpus.core.pipeline.runner import PipelineRunner
 from howimetyourcorpus.core.pipeline.steps import Step
 
@@ -25,7 +25,7 @@ class JobRunner(QObject):
     finished = Signal(list)               # results
     cancelled = Signal()
 
-    def __init__(self, steps: list[Step], context: dict[str, Any], force: bool = False):
+    def __init__(self, steps: list[Step], context: PipelineContext, force: bool = False):
         super().__init__()
         self.steps = steps
         self.context = context
@@ -76,7 +76,7 @@ class _PipelineWorker(QObject):
         self,
         runner: PipelineRunner,
         steps: list[Step],
-        context: dict[str, Any],
+        context: PipelineContext,
         force: bool,
     ):
         super().__init__()

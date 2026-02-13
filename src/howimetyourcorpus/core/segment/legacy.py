@@ -10,7 +10,7 @@ from howimetyourcorpus.core.utils.text import (
     looks_like_speaker_line,
 )
 
-SPEAKER_PREFIX = re.compile(r"^([A-Z][A-Z0-9_ ]{1,25}):\s*(.*)$", re.DOTALL)
+SPEAKER_PREFIX = re.compile(r"^([A-Z][A-Za-z0-9_ '\-]{0,24}):\s*(.*)$", re.DOTALL)
 SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+(?=[A-Z]|\Z)")
 
 

@@ -1,7 +1,7 @@
 """
 Segmentation phrases / utterances (Phase 2 post-MVP).
 Segment dataclass + segmenter_sentences / segmenter_utterances avec start_char, end_char.
-Ne jamais inventer de speaker ; speaker_explicit uniquement si détecté (ex. "TED:").
+Ne jamais inventer de speaker ; speaker_explicit uniquement si détecté (ex. "Marshall:", "TED:").
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from howimetyourcorpus.core.utils.text import (
     looks_like_speaker_line,
 )
 
-# Pattern pour extraire "SPEAKER:" du début d'une ligne
-SPEAKER_PREFIX = re.compile(r"^([A-Z][A-Z0-9_ ]{1,25}):\s*(.*)$", re.DOTALL)
+# Pattern pour extraire "Name:" du début d'une ligne (majuscule + lettres/nom, ex. Marshall:, Ted:)
+SPEAKER_PREFIX = re.compile(r"^([A-Z][A-Za-z0-9_ '\-]{0,24}):\s*(.*)$", re.DOTALL)
 
 # Découpage en phrases : . ? ! suivis d'un espace ou fin
 SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+(?=[A-Z]|\Z)")
@@ -35,7 +35,7 @@ class Segment:
     start_char: int = 0
     end_char: int = 0
     text: str = ""
-    speaker_explicit: str | None = None  # uniquement si détecté (ex. "TED:"), sinon None
+    speaker_explicit: str | None = None  # uniquement si détecté (ex. "Marshall:", "Ted:"), sinon None
     speaker_confidence: float | None = None  # réservé phase 4+
     meta: dict[str, Any] = field(default_factory=dict)
 
@@ -85,7 +85,7 @@ def segmenter_utterances(text: str) -> list[Segment]:
     """
     Segmente le texte en utterances (tours de parole).
     Découpage structurel : lignes, séparateurs, speaker markers si présents.
-    Ne PAS inventer de speaker ; si pattern "TED:" détecté => speaker_explicit="TED".
+    Ne PAS inventer de speaker ; si pattern "Name:" détecté => speaker_explicit=nom (ex. "Marshall", "Ted").
     """
     segments: list[Segment] = []
     lines = text.splitlines()

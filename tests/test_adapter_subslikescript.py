@@ -77,3 +77,20 @@ def test_adapter_parse_episode_too_short_raises(adapter: SubslikescriptAdapter):
     with pytest.raises(SubslikescriptParseError) as exc_info:
         adapter.parse_episode(html, "http://example.com/ep")
     assert "short" in str(exc_info.value).lower() or "not found" in str(exc_info.value).lower()
+
+
+def test_adapter_parse_episode_script_div_too_short_raises(adapter: SubslikescriptAdapter):
+    """HTML avec bloc script mais texte trop court (< 50 car) lève SubslikescriptParseError."""
+    html = "<html><body><div class=\"full-script\">Hi.</div></body></html>"
+    with pytest.raises(SubslikescriptParseError) as exc_info:
+        adapter.parse_episode(html, "http://example.com/ep")
+    assert "short" in str(exc_info.value).lower() or "not found" in str(exc_info.value).lower()
+
+
+def test_adapter_discover_broken_html_returns_empty_episodes(adapter: SubslikescriptAdapter):
+    """HTML sans structure série (pas de liens épisodes) → liste épisodes vide, pas de crash."""
+    html = "<html><head><title>Error 404</title></head><body><p>Page not found.</p></body></html>"
+    index = adapter.discover_series_from_html(html, "https://subslikescript.com/series/Unknown-999")
+    assert index.episodes == []
+    assert index.series_title  # dérivé du title ou URL
+    assert "Unknown" in index.series_title or "999" in index.series_title or "Error" in index.series_title

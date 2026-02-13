@@ -9,12 +9,12 @@ def normalize_whitespace(text: str) -> str:
     return " ".join(text.split())
 
 
-# Pattern simple pour ligne type "SPEAKER:" (speaker-like)
-SPEAKER_LIKE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_ ]{1,25}:")
+# Pattern pour ligne type "Name:" (speaker-like) : première lettre majuscule, puis lettres/car. nom (ex. Marshall:, Ted:, MARSHALL:)
+SPEAKER_LIKE_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9_ '\-]{0,24}:")
 
 
 def looks_like_speaker_line(line: str) -> bool:
-    """True si la ligne ressemble à un préfixe de locuteur (ex: TED:)."""
+    """True si la ligne ressemble à un préfixe de locuteur (ex: Marshall:, TED:)."""
     return bool(line.strip() and SPEAKER_LIKE_PATTERN.match(line.strip()))
 
 

@@ -12,11 +12,14 @@ from typing import Any, Callable
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, ProjectConfig, RunMeta, SeriesIndex, TransformStats
 from howimetyourcorpus.core.normalize.profiles import get_profile
+from howimetyourcorpus.core.pipeline.context import PipelineContext
 from howimetyourcorpus.core.pipeline.steps import Step, StepResult
 from howimetyourcorpus.core.segment import Segment, segmenter_sentences, segmenter_utterances
 from howimetyourcorpus.core.storage.db import CorpusDB
 from howimetyourcorpus.core.storage.project_store import ProjectStore
+from howimetyourcorpus.core.opensubtitles import OpenSubtitlesClient, OpenSubtitlesError
 from howimetyourcorpus.core.subtitles import Cue, parse_subtitle_content
+from howimetyourcorpus.core.subtitles.parsers import read_subtitle_file_content
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,7 @@ class FetchSeriesIndexStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -52,13 +55,19 @@ class FetchSeriesIndexStep(Step):
         if on_progress:
             on_progress(self.name, 0.0, "Discovering episodes...")
         try:
+            rate_limit = getattr(config, "rate_limit_s", 2.0)
             index = adapter.discover_series(
                 self.series_url or config.series_url,
                 user_agent=self.user_agent or config.user_agent,
+                rate_limit_s=rate_limit,
             )
         except Exception as e:
             log("error", str(e))
             return StepResult(False, str(e))
+        # Marquer chaque épisode avec la source du projet (multi-sources §7.2)
+        for ref in index.episodes:
+            if ref.source_id is None:
+                ref.source_id = config.source_id
         store.save_series_index(index)
         for ref in index.episodes:
             context.get("db") and context["db"].upsert_episode(ref, EpisodeStatus.NEW.value)
@@ -79,7 +88,7 @@ class FetchAndMergeSeriesIndexStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -99,9 +108,11 @@ class FetchAndMergeSeriesIndexStep(Step):
         if on_progress:
             on_progress(self.name, 0.0, "Discovering episodes from source...")
         try:
+            rate_limit = getattr(config, "rate_limit_s", 2.0)
             new_index = adapter.discover_series(
                 self.series_url,
                 user_agent=self.user_agent or config.user_agent,
+                rate_limit_s=rate_limit,
             )
         except Exception as e:
             log("error", str(e))
@@ -155,7 +166,7 @@ class FetchEpisodeStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -187,9 +198,13 @@ class FetchEpisodeStep(Step):
         if on_progress:
             on_progress(self.name, 0.0, f"Fetching {self.episode_id}...")
         try:
-            rate_limit = getattr(context.get("config"), "rate_limit_s", 2.0)
-            time.sleep(rate_limit)
-            html = adapter.fetch_episode_html(self.episode_url)
+            config = context.get("config")
+            rate_limit = getattr(config, "rate_limit_s", 2.0) if config else 2.0
+            html = adapter.fetch_episode_html(
+                self.episode_url,
+                user_agent=getattr(config, "user_agent", None) if config else None,
+                rate_limit_s=rate_limit,
+            )
             store.save_episode_html(self.episode_id, html)
             raw_text, meta = adapter.parse_episode(html, self.episode_url)
             store.save_episode_raw(self.episode_id, raw_text, meta)
@@ -216,7 +231,7 @@ class NormalizeEpisodeStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -259,7 +274,7 @@ class BuildDbIndexStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -282,7 +297,10 @@ class BuildDbIndexStep(Step):
                     if d.is_dir() and (d / "clean.txt").exists():
                         to_index.append(d.name)
         n = len(to_index)
+        is_cancelled = context.get("is_cancelled")
         for i, eid in enumerate(to_index):
+            if is_cancelled and is_cancelled():
+                return StepResult(False, "Cancelled")
             if not force and eid in db.get_episode_ids_indexed():
                 continue
             clean = store.load_episode_text(eid, kind="clean")
@@ -306,7 +324,7 @@ class SegmentEpisodeStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -365,7 +383,7 @@ class RebuildSegmentsIndexStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -385,7 +403,10 @@ class RebuildSegmentsIndexStep(Step):
                     to_segment.append(d.name)
         n = len(to_segment)
         lang_hint = getattr(context.get("config"), "normalize_profile", "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        is_cancelled = context.get("is_cancelled")
         for i, eid in enumerate(to_segment):
+            if is_cancelled and is_cancelled():
+                return StepResult(False, "Cancelled")
             step = SegmentEpisodeStep(eid, lang_hint=lang_hint)
             step.run(context, force=force, on_progress=on_progress, on_log=on_log)
             if on_progress and n:
@@ -407,7 +428,7 @@ class ImportSubtitlesStep(Step):
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -416,11 +437,11 @@ class ImportSubtitlesStep(Step):
         store: ProjectStore = context["store"]
         db: CorpusDB | None = context.get("db")
         if not self.file_path.exists():
-            return StepResult(False, f"Fichier introuvable: {self.file_path}")
+            return StepResult(False, f"Fichier introuvable: {self.file_path.name}")
         if on_progress:
             on_progress(self.name, 0.0, f"Parsing {self.file_path.name}...")
         try:
-            content = self.file_path.read_text(encoding="utf-8", errors="replace")
+            content = read_subtitle_file_content(self.file_path)
             cues, fmt = parse_subtitle_content(content, str(self.file_path))
         except Exception as e:
             logger.exception("Parse subtitles")
@@ -458,6 +479,95 @@ class ImportSubtitlesStep(Step):
         return StepResult(True, f"Imported {len(cues)} cues", {"cues_count": len(cues), "format": fmt})
 
 
+class DownloadOpenSubtitlesStep(Step):
+    """P2 §6.2 : télécharge un sous-titre depuis OpenSubtitles puis l'importe (store + DB)."""
+
+    name = "download_opensubtitles"
+
+    def __init__(
+        self,
+        episode_id: str,
+        season: int,
+        episode: int,
+        lang: str,
+        api_key: str,
+        imdb_id: str,
+    ):
+        self.episode_id = episode_id
+        self.season = season
+        self.episode = episode
+        self.lang = lang
+        self.api_key = api_key
+        self.imdb_id = imdb_id.strip().lower()
+        if not self.imdb_id.startswith("tt"):
+            self.imdb_id = f"tt{self.imdb_id}"
+
+    def run(
+        self,
+        context: PipelineContext,
+        *,
+        force: bool = False,
+        on_progress: Callable[[str, float, str], None] | None = None,
+        on_log: Callable[[str, str], None] | None = None,
+    ) -> StepResult:
+        store: ProjectStore = context["store"]
+        db: CorpusDB | None = context.get("db")
+        if on_progress:
+            on_progress(self.name, 0.0, f"Search OpenSubtitles {self.episode_id} ({self.lang})...")
+        try:
+            client = OpenSubtitlesClient(api_key=self.api_key)
+            hits = client.search(self.imdb_id, self.season, self.episode, self.lang)
+        except OpenSubtitlesError as e:
+            return StepResult(False, str(e))
+        if not hits:
+            return StepResult(False, f"Aucun sous-titre trouvé pour {self.episode_id} ({self.lang})")
+        if on_progress:
+            on_progress(self.name, 0.3, f"Download {self.episode_id} ({self.lang})...")
+        try:
+            content = client.download(hits[0].file_id)
+        except OpenSubtitlesError as e:
+            return StepResult(False, str(e))
+        path = store.save_episode_subtitle_content(self.episode_id, self.lang, content, "srt")
+        if on_progress:
+            on_progress(self.name, 0.7, f"Import {self.episode_id} ({self.lang})...")
+        try:
+            cues, fmt = parse_subtitle_content(content, str(path))
+        except Exception as e:
+            logger.exception("Parse subtitles after download")
+            return StepResult(False, str(e))
+        for c in cues:
+            c.episode_id = self.episode_id
+            c.lang = self.lang
+        track_id = f"{self.episode_id}:{self.lang}"
+        cues_audit = [
+            {
+                "cue_id": c.cue_id,
+                "n": c.n,
+                "start_ms": c.start_ms,
+                "end_ms": c.end_ms,
+                "text_raw": c.text_raw,
+                "text_clean": c.text_clean,
+            }
+            for c in cues
+        ]
+        store.save_episode_subtitles(self.episode_id, self.lang, content, "srt", cues_audit)
+        if db:
+            imported_at = datetime.datetime.utcnow().isoformat() + "Z"
+            db.add_track(
+                track_id=track_id,
+                episode_id=self.episode_id,
+                lang=self.lang,
+                fmt="srt",
+                source_path=str(path),
+                imported_at=imported_at,
+                meta_json=json.dumps({"source": "OpenSubtitles"}),
+            )
+            db.upsert_cues(track_id, self.episode_id, self.lang, cues)
+        if on_progress:
+            on_progress(self.name, 1.0, f"Downloaded {len(cues)} cues for {self.episode_id} ({self.lang})")
+        return StepResult(True, f"Downloaded {len(cues)} cues", {"cues_count": len(cues)})
+
+
 class AlignEpisodeStep(Step):
     """Phase 4 : aligne segments (phrases) ↔ cues EN puis cues EN ↔ cues target (FR) par temps."""
 
@@ -469,15 +579,17 @@ class AlignEpisodeStep(Step):
         pivot_lang: str = "en",
         target_langs: list[str] | None = None,
         min_confidence: float = 0.3,
+        use_similarity_for_cues: bool = False,
     ):
         self.episode_id = episode_id
         self.pivot_lang = pivot_lang
         self.target_langs = target_langs or ["fr"]
         self.min_confidence = min_confidence
+        self.use_similarity_for_cues = use_similarity_for_cues
 
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
@@ -511,7 +623,12 @@ class AlignEpisodeStep(Step):
         for tl in self.target_langs:
             cues_target = db.get_cues_for_episode_lang(self.episode_id, tl)
             if cues_target:
-                if cues_have_timecodes(cues_en) and cues_have_timecodes(cues_target):
+                use_time = (
+                    not self.use_similarity_for_cues
+                    and cues_have_timecodes(cues_en)
+                    and cues_have_timecodes(cues_target)
+                )
+                if use_time:
                     target_links = align_cues_by_time(cues_en, cues_target)
                 else:
                     target_links = align_cues_by_similarity(
@@ -522,7 +639,12 @@ class AlignEpisodeStep(Step):
                 all_links.extend(target_links)
         run_id = f"{self.episode_id}:align:{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
         created_at = datetime.datetime.utcnow().isoformat() + "Z"
-        params = {"pivot_lang": self.pivot_lang, "target_langs": self.target_langs, "min_confidence": self.min_confidence}
+        params = {
+            "pivot_lang": self.pivot_lang,
+            "target_langs": self.target_langs,
+            "min_confidence": self.min_confidence,
+            "use_similarity_for_cues": self.use_similarity_for_cues,
+        }
         summary = {"pivot_links": len(pivot_links), "total_links": len(all_links), "segments_count": len(segments), "cues_en_count": len(cues_en)}
         db.create_align_run(run_id, self.episode_id, self.pivot_lang, json.dumps(params), created_at, json.dumps(summary))
         links_dicts = [link.to_dict(link_id=f"{run_id}:{i}") for i, link in enumerate(all_links)]

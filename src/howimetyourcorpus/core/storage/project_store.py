@@ -77,6 +77,23 @@ class ProjectStore:
         }
         _write_toml(root / "config.toml", data)
 
+    def load_config_extra(self) -> dict[str, Any]:
+        """Charge config.toml en dict (clés optionnelles : opensubtitles_api_key, series_imdb_id, etc.)."""
+        path = self.root_dir / "config.toml"
+        if not path.exists():
+            return {}
+        return _read_toml(path)
+
+    def save_config_extra(self, updates: dict[str, str | int | float | bool]) -> None:
+        """Met à jour des clés dans config.toml (ex. opensubtitles_api_key, series_imdb_id)."""
+        path = self.root_dir / "config.toml"
+        data = dict(self.load_config_extra())
+        for k, v in updates.items():
+            if v is not None and v != "":
+                data[k] = v
+        if data:
+            _write_toml(path, data)
+
     def save_series_index(self, series_index: SeriesIndex) -> None:
         """Sauvegarde l'index série en JSON."""
         path = self.root_dir / "series_index.json"
@@ -263,7 +280,7 @@ class ProjectStore:
         )
 
     def _episode_dir(self, episode_id: str) -> Path:
-        """Répertoire d'un épisode. Sanitize episode_id pour éviter path traversal (.., /, \)."""
+        r"""Répertoire d'un épisode. Sanitize episode_id pour éviter path traversal (.., /, \)."""
         safe_id = (
             episode_id.replace("\\", "_").replace("/", "_").replace("..", "_").strip("._ ")
         )
@@ -396,6 +413,14 @@ class ProjectStore:
             return (d / f"{lang}.vtt", "vtt")
         return None
 
+    def remove_episode_subtitle(self, episode_id: str, lang: str) -> None:
+        """Supprime les fichiers sous-titres pour cet épisode et langue (.srt/.vtt et _cues.jsonl)."""
+        d = self._subs_dir(episode_id)
+        for name in [f"{lang}.srt", f"{lang}.vtt", f"{lang}_cues.jsonl"]:
+            p = d / name
+            if p.exists():
+                p.unlink()
+
     def load_episode_subtitle_content(self, episode_id: str, lang: str) -> tuple[str, str] | None:
         """Charge le contenu brut du fichier SRT/VTT. Retourne (contenu, "srt"|"vtt") ou None."""
         res = self.get_episode_subtitle_path(episode_id, lang)
@@ -431,3 +456,94 @@ class ProjectStore:
             json.dumps(report, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+    def propagate_character_names(
+        self,
+        db: Any,
+        episode_id: str,
+        run_id: str,
+    ) -> tuple[int, int]:
+        """
+        Propagation §8 : à partir des assignations et des liens d'alignement,
+        met à jour segments.speaker_explicit et les text_clean des cues, puis réécrit les SRT.
+        Retourne (nb_segments_updated, nb_cues_updated).
+        """
+        from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
+
+        assignments = self.load_character_assignments()
+        characters = self.load_character_names()
+        char_by_id = {ch.get("id") or ch.get("canonical") or "": ch for ch in characters}
+        episode_assignments = [a for a in assignments if a.get("episode_id") == episode_id]
+        assign_segment: dict[str, str] = {}
+        assign_cue: dict[str, str] = {}
+        for a in episode_assignments:
+            st = a.get("source_type") or ""
+            sid = (a.get("source_id") or "").strip()
+            cid = (a.get("character_id") or "").strip()
+            if not sid or not cid:
+                continue
+            if st == "segment":
+                assign_segment[sid] = cid
+            else:
+                assign_cue[sid] = cid
+
+        links = db.query_alignment_for_episode(episode_id, run_id=run_id)
+        for lnk in links:
+            if lnk.get("role") == "pivot" and lnk.get("segment_id") and lnk.get("cue_id"):
+                seg_id = lnk["segment_id"]
+                cue_id = lnk["cue_id"]
+                if seg_id in assign_segment and cue_id not in assign_cue:
+                    assign_cue[cue_id] = assign_segment[seg_id]
+
+        nb_seg = 0
+        for seg_id, cid in assign_segment.items():
+            db.update_segment_speaker(seg_id, cid)
+            nb_seg += 1
+
+        def name_for_lang(character_id: str, lang: str) -> str:
+            ch = char_by_id.get(character_id) or {}
+            names = ch.get("names_by_lang") or {}
+            return names.get(lang) or ch.get("canonical") or character_id
+
+        langs_updated: set[str] = set()
+        nb_cue = 0
+        for cue_id, cid in assign_cue.items():
+            cues_en = db.get_cues_for_episode_lang(episode_id, "en")
+            cue_row = next((c for c in cues_en if c.get("cue_id") == cue_id), None)
+            if cue_row:
+                text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
+                prefix = name_for_lang(cid, "en") + ": "
+                if not text.startswith(prefix):
+                    new_text = prefix + text
+                    db.update_cue_text_clean(cue_id, new_text)
+                    nb_cue += 1
+                    langs_updated.add("en")
+
+        for lnk in links:
+            if lnk.get("role") != "target" or not lnk.get("cue_id") or not lnk.get("cue_id_target"):
+                continue
+            cue_en = lnk["cue_id"]
+            cue_target = lnk["cue_id_target"]
+            lang = (lnk.get("lang") or "fr").strip().lower()
+            if cue_en not in assign_cue:
+                continue
+            cid = assign_cue[cue_en]
+            name = name_for_lang(cid, lang)
+            cues_lang = db.get_cues_for_episode_lang(episode_id, lang)
+            cue_row = next((c for c in cues_lang if c.get("cue_id") == cue_target), None)
+            if cue_row:
+                text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
+                prefix = name + ": "
+                if not text.startswith(prefix):
+                    new_text = prefix + text
+                    db.update_cue_text_clean(cue_target, new_text)
+                    nb_cue += 1
+                    langs_updated.add(lang)
+
+        for lang in langs_updated:
+            cues = db.get_cues_for_episode_lang(episode_id, lang)
+            if cues:
+                srt_content = cues_to_srt(cues)
+                self.save_episode_subtitle_content(episode_id, lang, srt_content, "srt")
+
+        return nb_seg, nb_cue

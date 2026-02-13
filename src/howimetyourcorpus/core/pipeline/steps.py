@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from howimetyourcorpus.core.pipeline.context import PipelineContext
+
 
 @dataclass
 class StepResult:
@@ -24,13 +26,17 @@ class Step(ABC):
     @abstractmethod
     def run(
         self,
-        context: dict[str, Any],
+        context: PipelineContext,
         *,
         force: bool = False,
         on_progress: Callable[[str, float, str], None] | None = None,
         on_log: Callable[[str, str], None] | None = None,
     ) -> StepResult:
-        """Exécute l'étape. context contient config, store, db, etc."""
+        """
+        Exécute l'étape.
+
+        context : voir PipelineContext (config, store, db optionnel, custom_profiles optionnel).
+        """
         ...
 
 
