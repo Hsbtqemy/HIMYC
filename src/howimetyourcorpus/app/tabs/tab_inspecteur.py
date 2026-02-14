@@ -278,8 +278,10 @@ class InspectorTabWidget(QWidget):
         meta = store.load_episode_transform_meta(eid)
         if meta is not None:
             stats = meta.get("raw_lines", 0), meta.get("clean_lines", 0), meta.get("merges", 0)
+            profile = str(meta.get("profile_id") or "").strip()
+            profile_info = f", profil={profile}" if profile else ""
             self.inspect_stats_label.setText(
-                f"Stats: raw_lines={stats[0]}, clean_lines={stats[1]}, merges={stats[2]}"
+                f"Stats: raw_lines={stats[0]}, clean_lines={stats[1]}, merges={stats[2]}{profile_info}"
             )
             examples = meta.get("debug", {}).get("merge_examples", [])
             self.merge_examples_edit.setPlainText(

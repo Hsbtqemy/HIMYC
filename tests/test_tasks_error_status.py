@@ -30,6 +30,29 @@ class _NormalizeStoreStub:
         return ""
 
 
+class _NormalizeSuccessStoreStub:
+    def __init__(self) -> None:
+        self.saved_profile_id: str | None = None
+
+    def has_episode_clean(self, episode_id: str) -> bool:
+        return False
+
+    def load_episode_text(self, episode_id: str, kind: str = "raw") -> str:
+        assert kind == "raw"
+        return "Hello world"
+
+    def save_episode_clean(
+        self,
+        episode_id: str,
+        clean_text: str,
+        stats,
+        debug,
+        *,
+        profile_id: str | None = None,
+    ) -> None:
+        self.saved_profile_id = profile_id
+
+
 class _SegmentStoreStub:
     def __init__(self, root_dir: Path) -> None:
         self.root_dir = root_dir
@@ -61,6 +84,22 @@ def test_normalize_marks_error_when_raw_missing() -> None:
     assert not result.success
     assert result.message == "No raw text: S01E01"
     assert db.status_updates[-1] == ("S01E01", EpisodeStatus.ERROR.value)
+
+
+def test_normalize_persists_profile_id_in_store_metadata() -> None:
+    db = _StatusDbStub()
+    store = _NormalizeSuccessStoreStub()
+    step = NormalizeEpisodeStep("S01E01", "default_en_v1")
+    result = step.run(
+        {
+            "store": store,
+            "db": db,
+            "custom_profiles": {},
+        }
+    )
+    assert result.success
+    assert store.saved_profile_id == "default_en_v1"
+    assert db.status_updates[-1] == ("S01E01", EpisodeStatus.NORMALIZED.value)
 
 
 def test_segment_marks_error_when_clean_missing(tmp_path: Path) -> None:

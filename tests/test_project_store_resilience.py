@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from howimetyourcorpus.core.models import ProjectConfig
+from howimetyourcorpus.core.models import ProjectConfig, TransformStats
 from howimetyourcorpus.core.storage.project_store import ProjectStore
 
 
@@ -110,3 +110,18 @@ def test_load_project_languages_falls_back_to_defaults_on_invalid_json(tmp_path:
     (tmp_path / "languages.json").write_text("{invalid", encoding="utf-8")
 
     assert store.load_project_languages() == ProjectStore.DEFAULT_LANGUAGES
+
+
+def test_save_episode_clean_persists_profile_traceability(tmp_path: Path) -> None:
+    store = _init_store(tmp_path)
+    store.save_episode_clean(
+        "S01E01",
+        "clean line",
+        TransformStats(raw_lines=2, clean_lines=1, merges=1),
+        debug={"merge_examples": []},
+        profile_id="default_en_v1",
+    )
+    meta = store.load_episode_transform_meta("S01E01")
+    assert meta is not None
+    assert meta.get("profile_id") == "default_en_v1"
+    assert str(meta.get("normalized_at_utc") or "").endswith("+00:00")

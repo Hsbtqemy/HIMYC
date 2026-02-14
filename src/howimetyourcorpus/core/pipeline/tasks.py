@@ -279,7 +279,13 @@ class NormalizeEpisodeStep(Step):
             on_progress(self.name, 0.5, f"Normalizing {self.episode_id}...")
         try:
             clean_text, stats, debug = profile.apply(raw)
-            store.save_episode_clean(self.episode_id, clean_text, stats, debug)
+            store.save_episode_clean(
+                self.episode_id,
+                clean_text,
+                stats,
+                debug,
+                profile_id=self.profile_id,
+            )
         except Exception as e:
             _mark_episode_error(db, self.episode_id)
             logger.exception("Normalize episode failed")
@@ -288,7 +294,11 @@ class NormalizeEpisodeStep(Step):
             db.set_episode_status(self.episode_id, EpisodeStatus.NORMALIZED.value)
         if on_progress:
             on_progress(self.name, 1.0, f"Normalized: {self.episode_id}")
-        return StepResult(True, f"Normalized: {self.episode_id}", {"stats": stats, "debug": debug})
+        return StepResult(
+            True,
+            f"Normalized: {self.episode_id}",
+            {"stats": stats, "debug": debug, "profile_id": self.profile_id},
+        )
 
 
 class BuildDbIndexStep(Step):

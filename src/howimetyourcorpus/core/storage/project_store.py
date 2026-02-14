@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
@@ -360,6 +361,8 @@ class ProjectStore:
         clean_text: str,
         stats: TransformStats,
         debug: dict[str, Any],
+        *,
+        profile_id: str | None = None,
     ) -> None:
         """Sauvegarde le texte normalisé + stats + debug (exemples merges)."""
         d = self._episode_dir(episode_id)
@@ -372,7 +375,10 @@ class ProjectStore:
             "kept_breaks": stats.kept_breaks,
             "duration_ms": stats.duration_ms,
             "debug": debug,
+            "normalized_at_utc": datetime.now(timezone.utc).isoformat(),
         }
+        if profile_id:
+            transform_meta["profile_id"] = profile_id
         (d / "transform_meta.json").write_text(
             json.dumps(transform_meta, ensure_ascii=False, indent=2), encoding="utf-8"
         )
