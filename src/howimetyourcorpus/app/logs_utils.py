@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shlex
 from dataclasses import dataclass
+from typing import Iterable
 
 _EPISODE_RE = re.compile(r"\bS\d+E\d+\b", re.IGNORECASE)
 _LEVEL_IN_LINE_RE = re.compile(r"\[(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]", re.IGNORECASE)
@@ -16,6 +18,20 @@ _LEVEL_RANK = {
     "ERROR": 40,
     "CRITICAL": 50,
 }
+
+LOGS_CUSTOM_PRESET_LABEL = "Personnalisé"
+LOGS_BUILTIN_PRESETS: tuple[tuple[str, str, str], ...] = (
+    ("Tous", "ALL", ""),
+    ("Erreurs (ERROR+)", "ERROR", ""),
+    ("Pipeline", "INFO", "step|running|indexed|normalized|segmented|fetched"),
+    ("Fetch", "ALL", "fetch|download"),
+    ("Normalize", "ALL", "normalize|normalized"),
+    ("Segment", "ALL", "segment|segmented"),
+    ("Index", "ALL", "index|indexed|fts"),
+    ("Alignement", "ALL", "align|pivot|target"),
+    ("Concordance", "ALL", "kwic|concordance"),
+)
+_ALLOWED_MIN_LEVELS = {"ALL", "INFO", "WARNING", "ERROR"}
 
 
 @dataclass(frozen=True)
@@ -94,6 +110,64 @@ def parse_formatted_log_line(line: str) -> LogEntry:
         if tail:
             message = tail
     return LogEntry(level=level, message=message, formatted_line=text)
+
+
+def decode_custom_logs_presets(
+    raw: object,
+    *,
+    reserved_labels: Iterable[str] = (),
+) -> list[tuple[str, str, str]]:
+    """Decode des presets custom (QSettings/JSON) vers tuples (label, level, query)."""
+    payload = raw
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return []
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(payload, list):
+        return []
+    reserved = {str(label).strip().casefold() for label in reserved_labels if str(label).strip()}
+    result: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "") or "").strip()
+        if not label:
+            continue
+        label_key = label.casefold()
+        if label_key in reserved or label_key in seen:
+            continue
+        level = str(item.get("level", "ALL") or "ALL").strip().upper()
+        query = str(item.get("query", "") or "").strip()
+        if level not in _ALLOWED_MIN_LEVELS:
+            level = "ALL"
+        seen.add(label_key)
+        result.append((label, level, query))
+    return result
+
+
+def encode_custom_logs_presets(presets: Iterable[tuple[str, str, str]]) -> str:
+    """Encode des presets custom en JSON stable pour QSettings."""
+    payload: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for label_raw, level_raw, query_raw in presets:
+        label = str(label_raw or "").strip()
+        if not label:
+            continue
+        label_key = label.casefold()
+        if label_key in seen:
+            continue
+        level = str(level_raw or "ALL").strip().upper()
+        query = str(query_raw or "").strip()
+        if level not in _ALLOWED_MIN_LEVELS:
+            level = "ALL"
+        payload.append({"label": label, "level": level, "query": query})
+        seen.add(label_key)
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def build_logs_diagnostic_report(

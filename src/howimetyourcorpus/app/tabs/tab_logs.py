@@ -12,8 +12,10 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
@@ -23,11 +25,20 @@ from PySide6.QtWidgets import (
 from howimetyourcorpus.app.feedback import show_info, warn_precondition
 from howimetyourcorpus.app.logs_utils import (
     build_logs_diagnostic_report,
+    decode_custom_logs_presets,
+    encode_custom_logs_presets,
     LogEntry,
+    LOGS_BUILTIN_PRESETS,
+    LOGS_CUSTOM_PRESET_LABEL,
     extract_episode_id,
     matches_log_filters,
     parse_formatted_log_line,
 )
+
+
+_LOGS_LEVEL_FILTER_KEY = "logs/levelFilter"
+_LOGS_QUERY_TEXT_KEY = "logs/queryText"
+_LOGS_CUSTOM_PRESETS_KEY = "logs/customPresets"
 
 
 class _LogSignalBridge(QObject):
@@ -68,23 +79,26 @@ class LogsTabWidget(QWidget):
         self._on_open_inspector = on_open_inspector
         self._get_log_path = get_log_path
         self._entries: deque[LogEntry] = deque(maxlen=5000)
+        self._visible_count = 0
         self._applying_preset = False
+        self._custom_presets: list[tuple[str, str, str]] = []
+        self._builtin_preset_labels = {label.casefold() for label, _level, _query in LOGS_BUILTIN_PRESETS}
 
         controls = QHBoxLayout()
         controls.addWidget(QLabel("Preset:"))
         self.preset_combo = QComboBox()
-        self.preset_combo.addItem("Tous", ("ALL", ""))
-        self.preset_combo.addItem("Erreurs (ERROR+)", ("ERROR", ""))
-        self.preset_combo.addItem("Pipeline", ("INFO", "step|running|indexed|normalized|segmented|fetched"))
-        self.preset_combo.addItem("Fetch", ("ALL", "fetch|download"))
-        self.preset_combo.addItem("Normalize", ("ALL", "normalize|normalized"))
-        self.preset_combo.addItem("Segment", ("ALL", "segment|segmented"))
-        self.preset_combo.addItem("Index", ("ALL", "index|indexed|fts"))
-        self.preset_combo.addItem("Alignement", ("ALL", "align|pivot|target"))
-        self.preset_combo.addItem("Concordance", ("ALL", "kwic|concordance"))
-        self.preset_combo.addItem("Personnalisé", ("CUSTOM", ""))
+        self._restore_custom_presets_state()
+        self._rebuild_preset_combo()
         self.preset_combo.currentIndexChanged.connect(self._apply_selected_preset)
         controls.addWidget(self.preset_combo)
+        save_preset_btn = QPushButton("Sauver preset")
+        save_preset_btn.setToolTip("Enregistre les filtres actuels (niveau + recherche) sous un nom.")
+        save_preset_btn.clicked.connect(self._save_current_as_custom_preset)
+        controls.addWidget(save_preset_btn)
+        delete_preset_btn = QPushButton("Supprimer preset")
+        delete_preset_btn.setToolTip("Supprime le preset personnalisé sélectionné.")
+        delete_preset_btn.clicked.connect(self._delete_selected_custom_preset)
+        controls.addWidget(delete_preset_btn)
         controls.addWidget(QLabel("Niveau:"))
         self.level_filter_combo = QComboBox()
         self.level_filter_combo.addItem("Tous", "ALL")
@@ -161,6 +175,115 @@ class LogsTabWidget(QWidget):
     def _current_query(self) -> str:
         return self.search_edit.text().strip()
 
+    def _rebuild_preset_combo(self, *, selected_label: str | None = None) -> None:
+        if selected_label is None:
+            selected_label = (self.preset_combo.currentText() or "").strip()
+        self._applying_preset = True
+        try:
+            self.preset_combo.clear()
+            for label, level, query in LOGS_BUILTIN_PRESETS:
+                self.preset_combo.addItem(label, (level, query))
+            for label, level, query in self._custom_presets:
+                self.preset_combo.addItem(label, (level, query))
+            self.preset_combo.addItem(LOGS_CUSTOM_PRESET_LABEL, ("CUSTOM", ""))
+            if selected_label:
+                idx = self.preset_combo.findText(selected_label)
+                if idx >= 0:
+                    self.preset_combo.setCurrentIndex(idx)
+        finally:
+            self._applying_preset = False
+
+    def _find_custom_preset_index(self, label: str) -> int:
+        needle = label.strip().casefold()
+        if not needle:
+            return -1
+        for i, (current_label, _level, _query) in enumerate(self._custom_presets):
+            if current_label.casefold() == needle:
+                return i
+        return -1
+
+    def _restore_custom_presets_state(self) -> None:
+        settings = QSettings()
+        reserved = [label for label, _level, _query in LOGS_BUILTIN_PRESETS]
+        reserved.append(LOGS_CUSTOM_PRESET_LABEL)
+        self._custom_presets = decode_custom_logs_presets(
+            settings.value(_LOGS_CUSTOM_PRESETS_KEY, ""),
+            reserved_labels=reserved,
+        )
+
+    def _save_custom_presets_state(self) -> None:
+        settings = QSettings()
+        settings.setValue(_LOGS_CUSTOM_PRESETS_KEY, encode_custom_logs_presets(self._custom_presets))
+
+    def _save_current_as_custom_preset(self) -> None:
+        default_label = ""
+        current_label = (self.preset_combo.currentText() or "").strip()
+        if self._find_custom_preset_index(current_label) >= 0:
+            default_label = current_label
+        label, ok = QInputDialog.getText(self, "Logs", "Nom du preset:", text=default_label)
+        if not ok:
+            return
+        clean_label = label.strip()
+        if not clean_label:
+            warn_precondition(
+                self,
+                "Logs",
+                "Nom de preset vide.",
+                next_step="Entrez un nom explicite (ex: QA Alignement, Erreurs corpus).",
+            )
+            return
+        key = clean_label.casefold()
+        if key in self._builtin_preset_labels or key == LOGS_CUSTOM_PRESET_LABEL.casefold():
+            warn_precondition(
+                self,
+                "Logs",
+                f"'{clean_label}' est réservé pour un preset système.",
+                next_step="Choisissez un autre nom pour votre preset personnalisé.",
+            )
+            return
+        level = self._current_level_filter()
+        query = self._current_query()
+        existing_idx = self._find_custom_preset_index(clean_label)
+        if existing_idx >= 0:
+            answer = QMessageBox.question(
+                self,
+                "Logs",
+                f"Le preset '{clean_label}' existe déjà. Voulez-vous l'écraser ?",
+            )
+            if answer != QMessageBox.Yes:
+                return
+            self._custom_presets[existing_idx] = (clean_label, level, query)
+        else:
+            self._custom_presets.append((clean_label, level, query))
+        self._save_custom_presets_state()
+        self._rebuild_preset_combo(selected_label=clean_label)
+        self._sync_preset_with_filters()
+        self._save_filters_state()
+        self._refresh_view()
+        show_info(self, "Logs", f"Preset personnalisé enregistré: {clean_label}")
+
+    def _delete_selected_custom_preset(self) -> None:
+        label = (self.preset_combo.currentText() or "").strip()
+        idx = self._find_custom_preset_index(label)
+        if idx < 0:
+            warn_precondition(
+                self,
+                "Logs",
+                "Sélectionnez un preset personnalisé à supprimer.",
+                next_step="Choisissez un preset utilisateur dans la liste puis réessayez.",
+            )
+            return
+        answer = QMessageBox.question(self, "Logs", f"Supprimer le preset '{label}' ?")
+        if answer != QMessageBox.Yes:
+            return
+        del self._custom_presets[idx]
+        self._save_custom_presets_state()
+        self._rebuild_preset_combo(selected_label=LOGS_CUSTOM_PRESET_LABEL)
+        self._sync_preset_with_filters()
+        self._save_filters_state()
+        self._refresh_view()
+        show_info(self, "Logs", f"Preset supprimé: {label}")
+
     def _on_filters_changed(self, *_args) -> None:
         if self._applying_preset:
             return
@@ -222,10 +345,17 @@ class LogsTabWidget(QWidget):
         )
 
     def _on_log_emitted(self, level: str, message: str, formatted_line: str) -> None:
+        dropped_entry: LogEntry | None = None
+        if self._entries.maxlen and len(self._entries) >= self._entries.maxlen:
+            dropped_entry = self._entries[0]
         entry = LogEntry(level=level, message=message, formatted_line=formatted_line)
         self._entries.append(entry)
+        if dropped_entry and self._entry_matches_current_filters(dropped_entry):
+            self._visible_count = max(0, self._visible_count - 1)
         if self._entry_matches_current_filters(entry):
             self.logs_edit.appendPlainText(formatted_line)
+            self._visible_count += 1
+        self.count_label.setText(f"{self._visible_count} / {len(self._entries)}")
 
     def _refresh_view(self, *_args) -> None:
         self.logs_edit.clear()
@@ -234,17 +364,18 @@ class LogsTabWidget(QWidget):
             if self._entry_matches_current_filters(entry):
                 self.logs_edit.appendPlainText(entry.formatted_line)
                 visible_count += 1
-        self.count_label.setText(f"{visible_count} / {len(self._entries)}")
+        self._visible_count = visible_count
+        self.count_label.setText(f"{self._visible_count} / {len(self._entries)}")
 
     def _save_filters_state(self) -> None:
         settings = QSettings()
-        settings.setValue("logs/levelFilter", self._current_level_filter())
-        settings.setValue("logs/queryText", self._current_query())
+        settings.setValue(_LOGS_LEVEL_FILTER_KEY, self._current_level_filter())
+        settings.setValue(_LOGS_QUERY_TEXT_KEY, self._current_query())
 
     def _restore_filters_state(self) -> None:
         settings = QSettings()
-        level = str(settings.value("logs/levelFilter", "ALL") or "ALL")
-        query = str(settings.value("logs/queryText", "") or "")
+        level = str(settings.value(_LOGS_LEVEL_FILTER_KEY, "ALL") or "ALL")
+        query = str(settings.value(_LOGS_QUERY_TEXT_KEY, "") or "")
         self._applying_preset = True
         try:
             idx = self.level_filter_combo.findData(level)
@@ -256,10 +387,12 @@ class LogsTabWidget(QWidget):
     def save_state(self) -> None:
         """Sauvegarde l'état des filtres Logs (appelé à la fermeture globale)."""
         self._save_filters_state()
+        self._save_custom_presets_state()
 
     def _clear_live_buffer(self) -> None:
         self._entries.clear()
         self.logs_edit.clear()
+        self._visible_count = 0
         self.count_label.setText("0 / 0")
 
     def load_file_tail(self, *, max_lines: int = 400, clear_existing: bool = False) -> int:

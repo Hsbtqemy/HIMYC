@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from howimetyourcorpus.app.logs_utils import (
     build_logs_diagnostic_report,
+    decode_custom_logs_presets,
+    encode_custom_logs_presets,
     LogEntry,
+    LOGS_BUILTIN_PRESETS,
     extract_episode_id,
     matches_log_filters,
     parse_formatted_log_line,
@@ -115,3 +118,42 @@ def test_build_logs_diagnostic_report_handles_empty_recent_lines() -> None:
     assert "Recherche: —" in report
     assert "Dernières lignes pertinentes:" in report
     assert "- —" in report
+
+
+def test_decode_custom_logs_presets_filters_invalid_and_reserved_labels() -> None:
+    payload = [
+        {"label": " Mes erreurs ", "level": "error", "query": "failed"},
+        {"label": "Tous", "level": "WARNING", "query": "ignored"},
+        {"label": "", "level": "INFO", "query": "ignored"},
+        {"label": "Mes erreurs", "level": "INFO", "query": "duplicate"},
+        {"label": "Scope QA", "level": "TRACE", "query": "scope"},
+        "bad-shape",
+    ]
+    presets = decode_custom_logs_presets(
+        payload,
+        reserved_labels=[label for label, _level, _query in LOGS_BUILTIN_PRESETS],
+    )
+    assert presets == [
+        ("Mes erreurs", "ERROR", "failed"),
+        ("Scope QA", "ALL", "scope"),
+    ]
+
+
+def test_decode_custom_logs_presets_accepts_json_string_payload() -> None:
+    raw = '[{"label":"Build","level":"warning","query":"run failed"}]'
+    assert decode_custom_logs_presets(raw) == [("Build", "WARNING", "run failed")]
+
+
+def test_encode_custom_logs_presets_returns_deduplicated_json() -> None:
+    encoded = encode_custom_logs_presets(
+        [
+            ("  QA ", "warning", "index"),
+            ("QA", "ERROR", "duplicate"),
+            ("Broken", "TRACE", "step"),
+            ("", "INFO", "ignored"),
+        ]
+    )
+    assert encoded == (
+        '[{"label": "QA", "level": "WARNING", "query": "index"}, '
+        '{"label": "Broken", "level": "ALL", "query": "step"}]'
+    )
