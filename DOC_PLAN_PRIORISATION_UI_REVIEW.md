@@ -267,6 +267,7 @@ Etat 2026-02-14:
 - Table d'assignation conservee en `QTableWidget` volontairement (risque faible, migration incrementale).
 - Tests de base model/view ajoutes dans `tests/test_tab_personnages.py`.
 - Parite I/O JSON (noms + assignations) verrouillee via `tests/test_project_store_propagation.py`.
+- Chargement assignations optimise en remplissage batch (moins de freeze UI sur gros episodes).
 
 ### Acceptance criteria
 - Parite fonctionnelle charge/edit/save/propager.
