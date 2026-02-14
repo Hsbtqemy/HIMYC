@@ -105,6 +105,7 @@ class CorpusTabWidget(QWidget):
         self._workflow_service = WorkflowService()
         self._primary_action: Callable[[], None] | None = None
         self._cached_index: SeriesIndex | None = None
+        self._episode_scope_capabilities: dict[str, tuple[bool, bool, bool, bool]] = {}
         self._workflow_busy = False
 
         layout = QVBoxLayout(self)
@@ -466,6 +467,7 @@ class CorpusTabWidget(QWidget):
         primary_action: Callable[[], None] | None,
     ) -> None:
         self._cached_index = None
+        self._episode_scope_capabilities = {}
         self.season_filter_combo.clear()
         self.season_filter_combo.addItem("Toutes les saisons", None)
         self.corpus_status_label.setText("")
@@ -548,6 +550,7 @@ class CorpusTabWidget(QWidget):
             )
             return
         self._cached_index = index
+        self._episode_scope_capabilities = self._build_episode_scope_capabilities(index, store)
         episode_ids = [e.episode_id for e in index.episodes]
         statuses = load_episode_status_map(db, episode_ids) if db else {}
         counts, error_ids = compute_workflow_status(
@@ -871,6 +874,40 @@ class CorpusTabWidget(QWidget):
             return
         self._show_status(f"{prefix}: {skipped} épisode(s) ignoré(s) ({reason}).", 5000)
 
+    def _build_episode_scope_capabilities(
+        self,
+        index: SeriesIndex,
+        store: Any,
+    ) -> dict[str, tuple[bool, bool, bool, bool]]:
+        episode_url_by_id = self._build_episode_url_by_id(index)
+        capabilities: dict[str, tuple[bool, bool, bool, bool]] = {}
+        for eid in [e.episode_id for e in index.episodes]:
+            has_url = self._has_non_empty_value(episode_url_by_id.get(eid))
+            try:
+                has_raw = bool(store.has_episode_raw(eid))
+            except Exception:
+                logger.exception("Failed to check RAW availability for %s", eid)
+                has_raw = False
+            try:
+                has_clean = bool(store.has_episode_clean(eid))
+            except Exception:
+                logger.exception("Failed to check CLEAN availability for %s", eid)
+                has_clean = False
+            capabilities[eid] = (has_url, has_raw, has_clean, has_url or has_raw or has_clean)
+        return capabilities
+
+    def _get_episode_scope_capabilities(
+        self,
+        *,
+        index: SeriesIndex,
+        store: Any,
+    ) -> dict[str, tuple[bool, bool, bool, bool]]:
+        expected_ids = [e.episode_id for e in index.episodes]
+        cache = self._episode_scope_capabilities
+        if len(cache) != len(expected_ids) or any(eid not in cache for eid in expected_ids):
+            self._episode_scope_capabilities = self._build_episode_scope_capabilities(index, store)
+        return self._episode_scope_capabilities
+
     def _resolve_scope_ids_silent(
         self,
         index: SeriesIndex,
@@ -910,18 +947,11 @@ class CorpusTabWidget(QWidget):
             self._set_scope_actions_unavailable("Action indisponible: aucun épisode dans le scope courant.")
             return
 
-        episode_url_by_id = self._build_episode_url_by_id(index)
-        fetchable_ids = self._filter_ids_with_source_url(
-            ids=ids,
-            episode_url_by_id=episode_url_by_id,
-        )
-        ids_with_raw = self._filter_ids_with_raw(ids=ids, store=store)
-        ids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
-        runnable_ids = self._filter_runnable_ids_for_full_workflow(
-            ids=ids,
-            store=store,
-            episode_url_by_id=episode_url_by_id,
-        )
+        capabilities = self._get_episode_scope_capabilities(index=index, store=store)
+        fetchable_ids = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[0]]
+        ids_with_raw = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[1]]
+        ids_with_clean = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[2]]
+        runnable_ids = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[3]]
 
         self._set_scope_action_buttons_enabled(
             fetch=bool(fetchable_ids),
