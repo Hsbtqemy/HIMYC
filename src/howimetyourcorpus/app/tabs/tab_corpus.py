@@ -736,7 +736,12 @@ class CorpusTabWidget(QWidget):
             return
         url = url_edit.text().strip()
         if not url:
-            QMessageBox.warning(self, "Corpus", "Indiquez l'URL de la série.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Indiquez l'URL de la série.",
+                next_step="Renseignez une URL source puis relancez « Découvrir (fusionner) ».",
+            )
             return
         source_id = source_combo.currentText() or "subslikescript"
         step = FetchAndMergeSeriesIndexStep(url, source_id, config.user_agent)
@@ -745,7 +750,12 @@ class CorpusTabWidget(QWidget):
     def _add_episodes_manually(self) -> None:
         store = self._get_store()
         if not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return
         dlg = QDialog(self)
         dlg.setWindowTitle("Ajouter des épisodes")
@@ -783,7 +793,12 @@ class CorpusTabWidget(QWidget):
                 )
             )
         if not new_refs:
-            QMessageBox.warning(self, "Corpus", "Aucun episode_id valide (format S01E01).")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun episode_id valide (format S01E01).",
+                next_step="Saisissez un identifiant par ligne, ex. S01E01.",
+            )
             return
         index = store.load_series_index()
         existing_ids = {e.episode_id for e in (index.episodes or [])} if index else set()
@@ -1525,11 +1540,21 @@ class CorpusTabWidget(QWidget):
     def _export_corpus(self) -> None:
         store = self._get_store()
         if not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return
         index = store.load_series_index()
         if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Découvrez d'abord les épisodes.",
+                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+            )
             return
         episodes_data: list[tuple[EpisodeRef, str]] = []
         for ref in index.episodes:
@@ -1537,8 +1562,11 @@ class CorpusTabWidget(QWidget):
                 text = store.load_episode_text(ref.episode_id, kind="clean")
                 episodes_data.append((ref, text))
         if not episodes_data:
-            QMessageBox.warning(
-                self, "Corpus", "Aucun épisode normalisé (CLEAN) à exporter."
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode normalisé (CLEAN) à exporter.",
+                next_step="Lancez « Normaliser » puis réessayez l'export.",
             )
             return
         path, selected_filter = QFileDialog.getSaveFileName(
