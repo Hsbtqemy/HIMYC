@@ -75,6 +75,7 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_kind_combo.addItem("Phrases", "sentence")
         self.kwic_kind_combo.addItem("Tours", "utterance")
         self.kwic_kind_combo.setToolTip("Filtre applicable uniquement au scope « Segments ».")
+        self.kwic_kind_combo.currentIndexChanged.connect(self._on_query_inputs_changed)
         row.addWidget(self.kwic_kind_combo)
         row.addWidget(QLabel("Langue:"))
         self.kwic_lang_combo = QComboBox()
@@ -82,18 +83,21 @@ class ConcordanceTabWidget(QWidget):
         for lang in ["en", "fr", "it"]:
             self.kwic_lang_combo.addItem(lang, lang)
         self.kwic_lang_combo.setToolTip("Filtre applicable uniquement au scope « Cues ».")
+        self.kwic_lang_combo.currentIndexChanged.connect(self._on_query_inputs_changed)
         row.addWidget(self.kwic_lang_combo)
         row.addWidget(QLabel("Saison:"))
         self.kwic_season_spin = QSpinBox()
         self.kwic_season_spin.setMinimum(0)
         self.kwic_season_spin.setMaximum(99)
         self.kwic_season_spin.setSpecialValueText("—")
+        self.kwic_season_spin.valueChanged.connect(self._on_query_inputs_changed)
         row.addWidget(self.kwic_season_spin)
         row.addWidget(QLabel("Épisode:"))
         self.kwic_episode_spin = QSpinBox()
         self.kwic_episode_spin.setMinimum(0)
         self.kwic_episode_spin.setMaximum(999)
         self.kwic_episode_spin.setSpecialValueText("—")
+        self.kwic_episode_spin.valueChanged.connect(self._on_query_inputs_changed)
         row.addWidget(self.kwic_episode_spin)
         layout.addLayout(row)
         self.kwic_table = QTableView()
@@ -103,7 +107,7 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.kwic_table)
         self.kwic_search_edit.returnPressed.connect(self._run_kwic)
-        self.kwic_search_edit.textChanged.connect(lambda _text: self._apply_controls_enabled())
+        self.kwic_search_edit.textChanged.connect(self._on_query_inputs_changed)
         self._kwic_go_tooltip_default = self.kwic_go_btn.toolTip()
         self._kwic_export_tooltip_default = self.export_kwic_btn.toolTip()
         self._kwic_kind_tooltip_default = self.kwic_kind_combo.toolTip()
@@ -111,7 +115,16 @@ class ConcordanceTabWidget(QWidget):
         self._apply_controls_enabled()
 
     def _on_scope_changed(self, *_args) -> None:
+        self._invalidate_hits()
         self._apply_controls_enabled()
+
+    def _on_query_inputs_changed(self, *_args) -> None:
+        self._invalidate_hits()
+        self._apply_controls_enabled()
+
+    def _invalidate_hits(self) -> None:
+        if self.kwic_model.get_all_hits():
+            self.kwic_model.set_hits([])
 
     def _apply_scope_filter_states(self, *, controls_enabled: bool) -> None:
         scope = self.kwic_scope_combo.currentData() or "episodes"
