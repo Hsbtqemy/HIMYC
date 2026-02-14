@@ -115,6 +115,7 @@ class CorpusTabWidget(QWidget):
         self._cached_index: SeriesIndex | None = None
         self._episode_scope_capabilities: dict[str, tuple[bool, bool, bool, bool]] = {}
         self._workflow_busy = False
+        self._sidebar_sections_detached = False
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -125,6 +126,7 @@ class CorpusTabWidget(QWidget):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         content = QWidget()
         layout = QVBoxLayout(content)
+        self._content_layout = layout
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
         view_filter_row = QHBoxLayout()
@@ -257,12 +259,12 @@ class CorpusTabWidget(QWidget):
         layout.addWidget(self.episodes_empty_label)
 
         # Bloc 1 — Import (constitution du corpus) §14
-        group_import = QGroupBox("1. Importer — Constituer le corpus")
-        group_import.setToolTip(
+        self.group_import = QGroupBox("1. Importer — Constituer le corpus")
+        self.group_import.setToolTip(
             "Workflow §14 : Découvrir les épisodes, télécharger les transcripts (RAW), importer les SRT (panneau Sous-titres de l'Inspecteur). "
             "Pas de normalisation ni d'alignement ici."
         )
-        import_layout = QVBoxLayout(group_import)
+        import_layout = QVBoxLayout(self.group_import)
         import_layout.setContentsMargins(8, 8, 8, 8)
         import_layout.setSpacing(6)
         import_primary_row = QHBoxLayout()
@@ -322,16 +324,16 @@ class CorpusTabWidget(QWidget):
         import_outputs_label.setStyleSheet("color: #666; font-size: 0.9em;")
         import_outputs_label.setWordWrap(True)
         import_layout.addWidget(import_outputs_label)
-        layout.addWidget(group_import)
+        layout.addWidget(self.group_import)
 
         # Bloc 2 — Normalisation / segmentation (après import) §14
-        group_norm = QGroupBox("2. Transformer / Indexer — Après import")
-        group_norm.setToolTip(
+        self.group_norm = QGroupBox("2. Transformer / Indexer — Après import")
+        self.group_norm.setToolTip(
             "Workflow §14 : Mise au propre des transcripts (RAW → CLEAN) et segmentation. "
             "Prérequis : au moins un épisode téléchargé (Bloc 1). "
             "Le Bloc 3 se fait dans Validation & Annotation (alignement/personnages) et Concordance."
         )
-        norm_layout = QVBoxLayout(group_norm)
+        norm_layout = QVBoxLayout(self.group_norm)
         norm_layout.setContentsMargins(8, 8, 8, 8)
         norm_layout.setSpacing(6)
         norm_settings_row = QHBoxLayout()
@@ -420,13 +422,13 @@ class CorpusTabWidget(QWidget):
         norm_outputs_label.setStyleSheet("color: #666; font-size: 0.9em;")
         norm_outputs_label.setWordWrap(True)
         norm_layout.addWidget(norm_outputs_label)
-        layout.addWidget(group_norm)
+        layout.addWidget(self.group_norm)
 
-        group_recovery = QGroupBox("3. Reprise — Erreurs")
-        group_recovery.setToolTip(
+        self.group_recovery = QGroupBox("3. Reprise — Erreurs")
+        self.group_recovery.setToolTip(
             "Liste les épisodes en statut ERROR, permet une relance ciblée et l'ouverture directe dans l'Inspecteur."
         )
-        recovery_layout = QVBoxLayout(group_recovery)
+        recovery_layout = QVBoxLayout(self.group_recovery)
         recovery_layout.setContentsMargins(8, 8, 8, 8)
         recovery_layout.setSpacing(6)
         self.error_summary_label = QLabel("Épisodes en erreur: 0")
@@ -474,7 +476,7 @@ class CorpusTabWidget(QWidget):
         recovery_hint.setStyleSheet("color: gray; font-size: 0.9em;")
         recovery_hint.setWordWrap(True)
         recovery_layout.addWidget(recovery_hint)
-        layout.addWidget(group_recovery)
+        layout.addWidget(self.group_recovery)
 
         self.corpus_progress = QProgressBar()
         self.corpus_progress.setMaximum(100)
@@ -512,6 +514,19 @@ class CorpusTabWidget(QWidget):
         layout.addStretch()
         scroll.setWidget(content)
         root_layout.addWidget(scroll)
+
+    def take_right_column_sections(self) -> list[QWidget]:
+        """Détache les blocs secondaires pour les réutiliser dans la colonne droite du Pilotage."""
+        sections = [self.group_norm, self.group_recovery]
+        if self._sidebar_sections_detached:
+            return sections
+        parent_layout = getattr(self, "_content_layout", None)
+        if parent_layout is not None:
+            for widget in sections:
+                parent_layout.removeWidget(widget)
+                widget.setParent(None)
+        self._sidebar_sections_detached = True
+        return sections
 
     def _save_force_reprocess_state(self, checked: bool) -> None:
         settings = QSettings()

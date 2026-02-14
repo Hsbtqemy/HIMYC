@@ -5,12 +5,23 @@ from __future__ import annotations
 from typing import Callable
 
 from PySide6.QtCore import Qt, QSettings
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSplitter, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSplitter,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 _HELP_EXPANDED_KEY = "pilotage/helpExpanded"
-_SPLITTER_KEY = "pilotage/splitter"
+_SPLITTER_KEY = "pilotage/splitter_hcols"
 _PROJECT_PANEL_VISIBLE_KEY = "pilotage/projectPanelVisible"
-_DEFAULT_SPLITTER_SIZES = [320, 760]
+_DEFAULT_SPLITTER_SIZES = [820, 560]
 
 
 class PilotageTabWidget(QWidget):
@@ -37,22 +48,62 @@ class PilotageTabWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
+
+        self._header_widget = QWidget(self)
+        self._header_widget.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Maximum,
+        )
+        header_layout = QVBoxLayout(self._header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(6)
+
         self._state_summary_label = QLabel("")
         self._state_summary_label.setStyleSheet("color: #505050; font-weight: 600;")
         self._state_summary_label.setWordWrap(True)
-        layout.addWidget(self._state_summary_label)
+        self._state_summary_label.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Maximum,
+        )
+        header_layout.addWidget(self._state_summary_label)
 
         self._project_panel_toggle_btn = QToolButton()
         self._project_panel_toggle_btn.setCheckable(True)
         self._project_panel_toggle_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self._project_panel_toggle_btn.toggled.connect(self._set_project_panel_visible)
-        layout.addWidget(self._project_panel_toggle_btn)
 
         self._help_toggle_btn = QToolButton()
         self._help_toggle_btn.setCheckable(True)
         self._help_toggle_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self._help_toggle_btn.toggled.connect(self._set_help_expanded)
-        layout.addWidget(self._help_toggle_btn)
+
+        top_actions_row = QHBoxLayout()
+        top_actions_row.setContentsMargins(0, 0, 0, 0)
+        top_actions_row.setSpacing(6)
+        top_actions_row.addWidget(self._project_panel_toggle_btn)
+        top_actions_row.addWidget(self._help_toggle_btn)
+        top_actions_row.addSpacing(8)
+        top_actions_row.addWidget(QLabel("Étapes suivantes:"))
+        inspect_btn = QPushButton("Inspecteur (QA local)")
+        inspect_btn.setToolTip("Comparer RAW/CLEAN, normaliser/segmenter un épisode, inspecter les pistes SRT.")
+        inspect_btn.setMinimumHeight(28)
+        inspect_btn.setEnabled(self._on_open_inspector is not None)
+        inspect_btn.clicked.connect(self._open_inspector)
+        top_actions_row.addWidget(inspect_btn)
+        validation_btn = QPushButton("Validation & Annotation")
+        validation_btn.setToolTip("Lancer/relire l'alignement et assigner/propager les personnages.")
+        validation_btn.setMinimumHeight(28)
+        validation_btn.setEnabled(self._on_open_validation is not None)
+        validation_btn.clicked.connect(self._open_validation)
+        top_actions_row.addWidget(validation_btn)
+        concordance_btn = QPushButton("Concordance")
+        concordance_btn.setToolTip("Explorer le corpus (KWIC) et exporter des résultats.")
+        concordance_btn.setMinimumHeight(28)
+        concordance_btn.setEnabled(self._on_open_concordance is not None)
+        concordance_btn.clicked.connect(self._open_concordance)
+        top_actions_row.addWidget(concordance_btn)
+        top_actions_row.addStretch()
+        header_layout.addLayout(top_actions_row)
 
         self._help_panel = QWidget(self)
         help_layout = QVBoxLayout(self._help_panel)
@@ -74,43 +125,35 @@ class PilotageTabWidget(QWidget):
         policy.setWordWrap(True)
         policy.setStyleSheet("color: #666;")
         help_layout.addWidget(policy)
-        layout.addWidget(self._help_panel)
+        header_layout.addWidget(self._help_panel)
+        layout.addWidget(self._header_widget, 0)
 
-        nav_row = QHBoxLayout()
-        nav_row.setContentsMargins(0, 0, 0, 0)
-        nav_row.setSpacing(6)
-        nav_row.addWidget(QLabel("Étapes suivantes:"))
-        inspect_btn = QPushButton("Inspecteur (QA local)")
-        inspect_btn.setToolTip("Comparer RAW/CLEAN, normaliser/segmenter un épisode, inspecter les pistes SRT.")
-        inspect_btn.setMinimumHeight(28)
-        inspect_btn.setEnabled(self._on_open_inspector is not None)
-        inspect_btn.clicked.connect(self._open_inspector)
-        nav_row.addWidget(inspect_btn)
-        validation_btn = QPushButton("Validation & Annotation")
-        validation_btn.setToolTip("Lancer/relire l'alignement et assigner/propager les personnages.")
-        validation_btn.setMinimumHeight(28)
-        validation_btn.setEnabled(self._on_open_validation is not None)
-        validation_btn.clicked.connect(self._open_validation)
-        nav_row.addWidget(validation_btn)
-        concordance_btn = QPushButton("Concordance")
-        concordance_btn.setToolTip("Explorer le corpus (KWIC) et exporter des résultats.")
-        concordance_btn.setMinimumHeight(28)
-        concordance_btn.setEnabled(self._on_open_concordance is not None)
-        concordance_btn.clicked.connect(self._open_concordance)
-        nav_row.addWidget(concordance_btn)
-        nav_row.addStretch()
-        layout.addLayout(nav_row)
+        self._right_column_content = QWidget(self)
+        right_layout = QVBoxLayout(self._right_column_content)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(8)
+        right_layout.addWidget(self._project_widget)
+        take_sidebar_sections = getattr(self._corpus_widget, "take_right_column_sections", None)
+        if callable(take_sidebar_sections):
+            for section in take_sidebar_sections():
+                right_layout.addWidget(section)
+        right_layout.addStretch()
+        self._right_column_scroll = QScrollArea(self)
+        self._right_column_scroll.setWidgetResizable(True)
+        self._right_column_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._right_column_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._right_column_scroll.setWidget(self._right_column_content)
 
-        self._splitter = QSplitter(Qt.Orientation.Vertical)
-        self._splitter.addWidget(self._project_widget)
+        self._splitter = QSplitter(Qt.Orientation.Horizontal)
         self._splitter.addWidget(self._corpus_widget)
+        self._splitter.addWidget(self._right_column_scroll)
         self._splitter.setChildrenCollapsible(False)
-        self._project_widget.setMinimumHeight(180)
-        self._corpus_widget.setMinimumHeight(360)
-        self._splitter.setStretchFactor(0, 0)
-        self._splitter.setStretchFactor(1, 1)
+        self._right_column_scroll.setMinimumWidth(500)
+        self._corpus_widget.setMinimumWidth(640)
+        self._splitter.setStretchFactor(0, 1)
+        self._splitter.setStretchFactor(1, 0)
         self._splitter.setSizes(list(_DEFAULT_SPLITTER_SIZES))
-        layout.addWidget(self._splitter)
+        layout.addWidget(self._splitter, 1)
         self._restore_help_expanded()
         self._restore_splitter_sizes()
         self._restore_project_panel_visibility()
@@ -133,7 +176,7 @@ class PilotageTabWidget(QWidget):
         n_episodes = len(index.episodes) if index and getattr(index, "episodes", None) else 0
 
         if not project_open:
-            if not self._project_widget.isVisible():
+            if not self._right_column_scroll.isVisible():
                 self._set_project_panel_visible(True, persist=False)
             self._state_summary_label.setText(
                 "État rapide: projet non ouvert. Commencez par « Ouvrir / créer le projet »."
@@ -190,9 +233,9 @@ class PilotageTabWidget(QWidget):
     def _set_project_panel_visible(self, visible: bool, *, persist: bool = True) -> None:
         panel_visible = bool(visible)
         sizes = self._splitter.sizes()
-        if len(sizes) >= 2 and sizes[0] > 0:
+        if len(sizes) >= 2 and sizes[1] > 0:
             self._project_panel_sizes = [int(sizes[0]), int(sizes[1])]
-        self._project_widget.setVisible(panel_visible)
+        self._right_column_scroll.setVisible(panel_visible)
         self._project_panel_toggle_btn.blockSignals(True)
         self._project_panel_toggle_btn.setChecked(panel_visible)
         self._project_panel_toggle_btn.blockSignals(False)
@@ -206,7 +249,7 @@ class PilotageTabWidget(QWidget):
             self._splitter.setSizes(list(self._project_panel_sizes))
         else:
             total = max(1, sum(self._splitter.sizes()))
-            self._splitter.setSizes([0, total])
+            self._splitter.setSizes([total, 0])
         if persist:
             settings = QSettings()
             settings.setValue(_PROJECT_PANEL_VISIBLE_KEY, panel_visible)
