@@ -27,6 +27,17 @@ def test_normalize_export_path_uses_filter_when_missing_suffix() -> None:
     assert path.suffix == ".docx"
 
 
+def test_normalize_export_path_prefers_more_specific_filter_tokens() -> None:
+    path = normalize_export_path(
+        Path("/tmp/resultats"),
+        "JSONL (*.jsonl)",
+        allowed_suffixes=(".json", ".jsonl"),
+        default_suffix=".json",
+        filter_to_suffix={"JSON": ".json", "JSONL": ".jsonl"},
+    )
+    assert path.suffix == ".jsonl"
+
+
 def test_normalize_export_path_uses_default_when_unknown() -> None:
     path = normalize_export_path(
         Path("/tmp/resultats.abc"),

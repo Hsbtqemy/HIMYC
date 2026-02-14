@@ -21,7 +21,11 @@ def normalize_export_path(
         return path
     chosen = (selected_filter or "").upper()
     if filter_to_suffix:
-        for token, mapped_suffix in filter_to_suffix.items():
+        for token, mapped_suffix in sorted(
+            filter_to_suffix.items(),
+            key=lambda item: len(item[0]),
+            reverse=True,
+        ):
             if token.upper() in chosen:
                 return path.with_suffix(mapped_suffix.lower())
     return path.with_suffix(default_suffix.lower())
@@ -41,7 +45,11 @@ def resolve_export_key(
         return suffix_key
     chosen = (selected_filter or "").upper()
     if filter_to_key:
-        for token, key in filter_to_key.items():
+        for token, key in sorted(
+            filter_to_key.items(),
+            key=lambda item: len(item[0]),
+            reverse=True,
+        ):
             if token.upper() in chosen:
                 return key
     return default_key
