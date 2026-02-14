@@ -122,7 +122,7 @@ class InspecteurEtSousTitresTabWidget(QWidget):
             self.episode_combo.setCurrentIndex(target_index)
         self.episode_combo.blockSignals(False)
         selected_episode = self.episode_combo.currentData()
-        if selected_episode:
+        if selected_episode and str(selected_episode) != str(current_inspect or ""):
             self.set_episode_and_load(str(selected_episode))
 
     def _restore_combined_splitter(self) -> None:
