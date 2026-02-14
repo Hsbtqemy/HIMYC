@@ -436,8 +436,25 @@ class CorpusTabWidget(QWidget):
         self._cached_index = index
         n_total = len(index.episodes)
         episode_ids = [e.episode_id for e in index.episodes]
-        n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
-        n_norm = sum(1 for e in index.episodes if store.has_episode_clean(e.episode_id))
+        statuses = self._get_episode_status_map(episode_ids) if db else {}
+        fetched_statuses = {
+            EpisodeStatus.FETCHED.value,
+            EpisodeStatus.NORMALIZED.value,
+            EpisodeStatus.INDEXED.value,
+        }
+        normalized_statuses = {
+            EpisodeStatus.NORMALIZED.value,
+            EpisodeStatus.INDEXED.value,
+        }
+        n_fetched = 0
+        n_norm = 0
+        for e in index.episodes:
+            eid = e.episode_id
+            st = (statuses.get(eid) or "").lower()
+            if st in fetched_statuses or store.has_episode_raw(eid):
+                n_fetched += 1
+            if st in normalized_statuses or store.has_episode_clean(eid):
+                n_norm += 1
         n_segmented = 0
         n_indexed = 0
         if db and episode_ids:
@@ -445,7 +462,7 @@ class CorpusTabWidget(QWidget):
             indexed_ids = set(db.get_episode_ids_indexed())
             n_segmented = len(set(episode_ids) & segmented_ids)
             n_indexed = len(set(episode_ids) & indexed_ids)
-        error_ids = self._get_error_episode_ids(index)
+        error_ids = self._get_error_episode_ids(index, status_map=statuses)
         n_error = len(error_ids)
         n_with_srt = 0
         n_aligned = 0
@@ -974,9 +991,14 @@ class CorpusTabWidget(QWidget):
             logger.exception("Failed to load episode statuses")
             return {}
 
-    def _get_error_episode_ids(self, index: SeriesIndex) -> list[str]:
+    def _get_error_episode_ids(
+        self,
+        index: SeriesIndex,
+        *,
+        status_map: dict[str, str] | None = None,
+    ) -> list[str]:
         episode_ids = [e.episode_id for e in index.episodes]
-        statuses = self._get_episode_status_map(episode_ids)
+        statuses = status_map if status_map is not None else self._get_episode_status_map(episode_ids)
         return [
             eid
             for eid in episode_ids

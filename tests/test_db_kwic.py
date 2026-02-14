@@ -58,6 +58,40 @@ def test_get_episode_statuses_returns_db_status_map(db):
     assert "S99E99" not in statuses
 
 
+def test_get_episode_statuses_multiple_values(db):
+    refs = [
+        EpisodeRef(
+            episode_id="S01E20",
+            season=1,
+            episode=20,
+            title="A",
+            url="https://example.com/s01e20",
+        ),
+        EpisodeRef(
+            episode_id="S01E21",
+            season=1,
+            episode=21,
+            title="B",
+            url="https://example.com/s01e21",
+        ),
+        EpisodeRef(
+            episode_id="S01E22",
+            season=1,
+            episode=22,
+            title="C",
+            url="https://example.com/s01e22",
+        ),
+    ]
+    db.upsert_episode(refs[0], status=EpisodeStatus.FETCHED.value)
+    db.upsert_episode(refs[1], status=EpisodeStatus.NORMALIZED.value)
+    db.upsert_episode(refs[2], status=EpisodeStatus.INDEXED.value)
+
+    statuses = db.get_episode_statuses([r.episode_id for r in refs])
+    assert statuses["S01E20"] == EpisodeStatus.FETCHED.value
+    assert statuses["S01E21"] == EpisodeStatus.NORMALIZED.value
+    assert statuses["S01E22"] == EpisodeStatus.INDEXED.value
+
+
 def test_db_kwic(db):
     """Indexer un texte, requêter KWIC, vérifier left/match/right."""
     ref = EpisodeRef(
