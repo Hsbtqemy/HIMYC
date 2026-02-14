@@ -83,6 +83,7 @@ class CorpusTabWidget(QWidget):
         on_cancel_job: Callable[[], None],
         on_open_inspector: Callable[[str], None] | None = None,
         on_open_alignment: Callable[[], None] | None = None,
+        on_open_concordance: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -95,6 +96,7 @@ class CorpusTabWidget(QWidget):
         self._on_cancel_job = on_cancel_job
         self._on_open_inspector = on_open_inspector
         self._on_open_alignment = on_open_alignment
+        self._on_open_concordance = on_open_concordance
         self._workflow_service = WorkflowService()
         self._primary_action: Callable[[], None] | None = None
         self._cached_index: SeriesIndex | None = None
@@ -479,6 +481,21 @@ class CorpusTabWidget(QWidget):
                 "Prochaine action: relancer les épisodes en erreur avec « Relancer toutes les erreurs » (ou ciblé via « Relancer épisode »)."
             )
             self._set_primary_action("Relancer toutes les erreurs", self._retry_error_episodes)
+        elif (
+            n_with_srt > 0
+            and n_fetched == 0
+            and n_norm == 0
+            and n_segmented == 0
+            and n_indexed == 0
+        ):
+            self.corpus_next_step_label.setText(
+                "Mode SRT-first détecté: vous pouvez déjà explorer les sous-titres dans Concordance (scope « Cues »). "
+                "Pour l'alignement segment↔cues, ajoutez ensuite les transcripts (Télécharger → Normaliser → Segmenter)."
+            )
+            if self._on_open_concordance:
+                self._set_primary_action("Ouvrir Concordance (Cues)", self._open_concordance_tab)
+            else:
+                self._set_primary_action("Concordance (Cues)", None)
         elif n_fetched < n_total:
             self.corpus_next_step_label.setText(
                 "Prochaine action: importer les transcripts manquants avec « Télécharger » (scope « Tout le corpus »)."
@@ -648,6 +665,10 @@ class CorpusTabWidget(QWidget):
     def _open_alignment_tab(self) -> None:
         if self._on_open_alignment:
             self._on_open_alignment()
+
+    def _open_concordance_tab(self) -> None:
+        if self._on_open_concordance:
+            self._on_open_concordance()
 
     def _on_check_season_clicked(self) -> None:
         season = self.season_filter_combo.currentData()

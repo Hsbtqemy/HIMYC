@@ -301,6 +301,7 @@ class MainWindow(QMainWindow):
             on_cancel_job=self._cancel_job,
             on_open_inspector=self._kwic_open_inspector_impl,
             on_open_alignment=self._open_alignment_in_validation,
+            on_open_concordance=self._open_concordance_tab,
         )
 
     def _build_tab_pilotage(self) -> None:
@@ -332,6 +333,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, "validation_tab") and self.validation_tab:
             self.validation_tab.focus_alignment()
         self._refresh_align_runs()
+
+    def _open_concordance_tab(self) -> None:
+        self.tabs.setCurrentIndex(TAB_CONCORDANCE)
 
     def _get_context(self) -> PipelineContext:
         custom_profiles = self._store.load_custom_profiles() if self._store else {}
