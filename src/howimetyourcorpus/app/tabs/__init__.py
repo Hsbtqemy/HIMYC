@@ -10,6 +10,7 @@ from howimetyourcorpus.app.tabs.tab_pilotage import PilotageTabWidget
 from howimetyourcorpus.app.tabs.tab_personnages import PersonnagesTabWidget
 from howimetyourcorpus.app.tabs.tab_projet import ProjectTabWidget
 from howimetyourcorpus.app.tabs.tab_sous_titres import SubtitleTabWidget
+from howimetyourcorpus.app.tabs.tab_validation_annotation import ValidationAnnotationTabWidget
 
 __all__ = [
     "AlignmentTabWidget",
@@ -22,4 +23,5 @@ __all__ = [
     "PersonnagesTabWidget",
     "ProjectTabWidget",
     "SubtitleTabWidget",
+    "ValidationAnnotationTabWidget",
 ]

@@ -1,4 +1,4 @@
-"""Fenêtre principale : onglets Pilotage, Inspecteur, Alignement, Concordance, Personnages, Logs."""
+"""Fenêtre principale : onglets Pilotage, Inspecteur, Validation & Annotation, Concordance, Logs."""
 
 from __future__ import annotations
 
@@ -64,6 +64,7 @@ from howimetyourcorpus.app.tabs import (
     PilotageTabWidget,
     PersonnagesTabWidget,
     ProjectTabWidget,
+    ValidationAnnotationTabWidget,
 )
 from howimetyourcorpus.app.workers import JobRunner
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
@@ -74,14 +75,15 @@ logger = logging.getLogger(__name__)
 # Index des onglets (Pilotage fusionne Projet + Corpus)
 TAB_PILOTAGE = 0
 TAB_INSPECTEUR = 1
-TAB_ALIGNEMENT = 2
+TAB_VALIDATION = 2
 TAB_CONCORDANCE = 3
-TAB_PERSONNAGES = 4
-TAB_LOGS = 5
+TAB_LOGS = 4
 
 # Aliases de compatibilité interne.
 TAB_PROJET = TAB_PILOTAGE
 TAB_CORPUS = TAB_PILOTAGE
+TAB_ALIGNEMENT = TAB_VALIDATION
+TAB_PERSONNAGES = TAB_VALIDATION
 
 
 class MainWindow(QMainWindow):
@@ -119,9 +121,8 @@ class MainWindow(QMainWindow):
         self._build_menu_bar()
         self._build_tab_pilotage()
         self._build_tab_inspecteur()
-        self._build_tab_alignement()
+        self._build_tab_validation()
         self._build_tab_concordance()
-        self._build_tab_personnages()
         self._build_tab_logs()
         self.tabs.setCurrentIndex(TAB_PILOTAGE)
         self.tabs.currentChanged.connect(self._on_tab_changed)
@@ -323,7 +324,7 @@ class MainWindow(QMainWindow):
             ),
             on_cancel_job=self._cancel_job,
             on_open_inspector=self._kwic_open_inspector_impl,
-            on_open_alignment=lambda: self.tabs.setCurrentIndex(TAB_ALIGNEMENT),
+            on_open_alignment=self._open_alignment_in_validation,
         )
 
     def _build_tab_pilotage(self) -> None:
@@ -348,6 +349,13 @@ class MainWindow(QMainWindow):
             self.pilotage_tab.focus_corpus()
         if self._store is not None:
             QTimer.singleShot(0, self._refresh_episodes_from_store)
+
+    def _open_alignment_in_validation(self) -> None:
+        """Navigation pilotée vers la zone Alignement dans l'onglet fusionné Validation & Annotation."""
+        self.tabs.setCurrentIndex(TAB_ALIGNEMENT)
+        if hasattr(self, "validation_tab") and self.validation_tab:
+            self.validation_tab.focus_alignment()
+        self._refresh_align_runs()
 
     def _get_context(self) -> PipelineContext:
         custom_profiles = self._store.load_custom_profiles() if self._store else {}
@@ -535,8 +543,6 @@ class MainWindow(QMainWindow):
             get_db=lambda: self._db,
             run_job=self._run_job,
         )
-        self.tabs.addTab(self.alignment_tab, "Alignement")
-        self.tabs.setTabToolTip(TAB_ALIGNEMENT, "Workflow §14 — Bloc 3 : Alignement transcript↔cues, liens, export concordancier.")
 
     def _refresh_align_runs(self):
         if hasattr(self, "alignment_tab") and self.alignment_tab:
@@ -556,8 +562,20 @@ class MainWindow(QMainWindow):
             get_db=lambda: self._db,
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
         )
-        self.tabs.addTab(self.personnages_tab, "Personnages")
-        self.tabs.setTabToolTip(TAB_PERSONNAGES, "Workflow §14 — Bloc 3 : Assignation segment/cue→personnage, propagation (après alignement).")
+
+    def _build_tab_validation(self) -> None:
+        """Crée l'onglet Validation & Annotation (fusion Alignement + Personnages)."""
+        self._build_tab_alignement()
+        self._build_tab_personnages()
+        self.validation_tab = ValidationAnnotationTabWidget(
+            alignment_widget=self.alignment_tab,
+            characters_widget=self.personnages_tab,
+        )
+        self.tabs.addTab(self.validation_tab, "Validation & Annotation")
+        self.tabs.setTabToolTip(
+            TAB_VALIDATION,
+            "Workflow §14 — Bloc 3 : valider l'alignement puis annoter/propager les personnages.",
+        )
 
     def _refresh_personnages(self):
         if hasattr(self, "personnages_tab") and self.personnages_tab:
