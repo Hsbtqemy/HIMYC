@@ -36,6 +36,7 @@ from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_e
 from howimetyourcorpus.core.workflow import (
     WorkflowActionError,
     WorkflowActionId,
+    WorkflowOptionError,
     WorkflowScope,
     WorkflowScopeError,
     WorkflowService,
@@ -555,7 +556,7 @@ class InspectorTabWidget(QWidget):
                 episode_refs=refs,
                 options=options or {},
             )
-        except (WorkflowScopeError, WorkflowActionError) as exc:
+        except (WorkflowScopeError, WorkflowActionError, WorkflowOptionError) as exc:
             warn_precondition(self, title, str(exc))
             return None
         return list(plan.steps)
