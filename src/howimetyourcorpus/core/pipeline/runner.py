@@ -46,6 +46,7 @@ class PipelineRunner:
         """
         self._cancelled = False
         results: list[StepResult] = []
+        total_steps = len(steps)
 
         def log(level: str, msg: str):
             if on_log:
@@ -61,11 +62,24 @@ class PipelineRunner:
             log("info", f"Running step: {step.name}")
             ctx = dict(context)
             ctx["is_cancelled"] = lambda: self._cancelled
+
+            def emit_progress(step_name: str, percent: float, message: str) -> None:
+                if not on_progress:
+                    return
+                local = float(percent) if percent is not None else 0.0
+                local = max(0.0, min(1.0, local))
+                if total_steps <= 0:
+                    global_percent = local
+                else:
+                    global_percent = (i + local) / total_steps
+                on_progress(step_name, global_percent, message)
+
+            emit_progress(step.name, 0.0, f"Starting: {step.name}")
             try:
                 result = step.run(
                     ctx,
                     force=force,
-                    on_progress=on_progress,
+                    on_progress=emit_progress,
                     on_log=on_log,
                 )
                 results.append(result)
@@ -79,6 +93,7 @@ class PipelineRunner:
                             on_error(step.name, RuntimeError(result.message))
                         log("error", result.message)
                     break
+                emit_progress(step.name, 1.0, result.message or f"Done: {step.name}")
             except Exception as e:
                 logger.exception("Step %s failed", step.name)
                 if on_error:

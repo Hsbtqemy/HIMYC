@@ -242,8 +242,9 @@ def cues_to_srt(cues: list[dict]) -> str:
     Utilisé pour réécrire les fichiers SRT après propagation des noms de personnages (§8).
     """
     blocks: list[str] = []
-    for c in sorted(cues, key=lambda x: (x.get("n", 0), x.get("start_ms", 0))):
-        n = c.get("n", 0)
+    ordered = sorted(cues, key=lambda x: (x.get("n", 0), x.get("start_ms", 0)))
+    for idx, c in enumerate(ordered, start=1):
+        n = idx
         start_ms = int(c.get("start_ms", 0))
         end_ms = int(c.get("end_ms", 0))
         text = (c.get("text_clean") or c.get("text_raw") or "").strip()

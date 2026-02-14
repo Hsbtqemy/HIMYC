@@ -44,6 +44,20 @@ def test_upsert_episode_and_index(db):
     assert "S01E01" in ids
 
 
+def test_get_episode_statuses_returns_db_status_map(db):
+    ref = EpisodeRef(
+        episode_id="S09E09",
+        season=9,
+        episode=9,
+        title="Finale",
+        url="https://example.com/s09e09",
+    )
+    db.upsert_episode(ref, status=EpisodeStatus.ERROR.value)
+    statuses = db.get_episode_statuses(["S09E09", "S99E99"])
+    assert statuses.get("S09E09") == EpisodeStatus.ERROR.value
+    assert "S99E99" not in statuses
+
+
 def test_db_kwic(db):
     """Indexer un texte, requêter KWIC, vérifier left/match/right."""
     ref = EpisodeRef(
@@ -198,6 +212,29 @@ def test_align_stats_and_parallel_concordance(db):
     assert rows[0]["text_fr"] == "Bonjour le monde"
     assert rows[0]["confidence_pivot"] == 0.9
     assert rows[0]["confidence_fr"] == 1.0
+
+
+def test_align_stats_avg_confidence_aggregates_per_row(db):
+    """Moyenne de confiance exacte même quand plusieurs liens partagent role+status."""
+    ref = EpisodeRef(
+        episode_id="S01E10",
+        season=1,
+        episode=10,
+        title="Pineapple Incident",
+        url="https://example.com/s01e10",
+    )
+    db.upsert_episode(ref)
+    run_id = "S01E10:align:20250212T150000Z"
+    db.create_align_run(run_id, "S01E10", "en", None, "2025-02-12T15:00:00Z", "{}")
+    links = [
+        {"segment_id": "S01E10:sentence:0", "cue_id": "S01E10:en:0", "lang": "en", "role": "pivot", "confidence": 0.1, "status": "auto"},
+        {"segment_id": "S01E10:sentence:1", "cue_id": "S01E10:en:1", "lang": "en", "role": "pivot", "confidence": 0.9, "status": "auto"},
+        {"cue_id": "S01E10:en:1", "cue_id_target": "S01E10:fr:1", "lang": "fr", "role": "target", "confidence": 1.0, "status": "auto"},
+    ]
+    db.upsert_align_links(run_id, "S01E10", links)
+    stats = db.get_align_stats_for_run("S01E10", run_id)
+    # (0.1 + 0.9 + 1.0) / 3 = 0.666666...
+    assert stats["avg_confidence"] == pytest.approx(0.6667, abs=1e-4)
 
 
 def test_kwic_episode_non_regression(db):

@@ -1,0 +1,48 @@
+"""Tests PipelineRunner: progression globale et bornage du pourcentage."""
+
+from __future__ import annotations
+
+from howimetyourcorpus.core.pipeline.runner import PipelineRunner
+from howimetyourcorpus.core.pipeline.steps import Step, StepResult
+
+
+class _ProgressStep(Step):
+    name = "progress_step"
+
+    def __init__(self, marks: list[float]):
+        self._marks = marks
+
+    def run(self, context, *, force=False, on_progress=None, on_log=None) -> StepResult:
+        if on_progress:
+            for p in self._marks:
+                on_progress(self.name, p, f"p={p}")
+        return StepResult(True, "ok")
+
+
+def test_pipeline_runner_reports_global_monotonic_progress() -> None:
+    runner = PipelineRunner()
+    emitted: list[float] = []
+    results = runner.run(
+        [_ProgressStep([0.0, 0.5, 1.0]), _ProgressStep([0.0, 0.5, 1.0])],
+        context={},
+        on_progress=lambda _s, p, _m: emitted.append(p),
+    )
+    assert len(results) == 2
+    assert emitted
+    assert emitted[0] == 0.0
+    assert emitted[-1] == 1.0
+    assert all(emitted[i] <= emitted[i + 1] for i in range(len(emitted) - 1))
+
+
+def test_pipeline_runner_clamps_out_of_range_progress() -> None:
+    runner = PipelineRunner()
+    emitted: list[float] = []
+    runner.run(
+        [_ProgressStep([-2.0, 2.0])],
+        context={},
+        on_progress=lambda _s, p, _m: emitted.append(p),
+    )
+    assert emitted
+    assert min(emitted) >= 0.0
+    assert max(emitted) <= 1.0
+    assert emitted[-1] == 1.0

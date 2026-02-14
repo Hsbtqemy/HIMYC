@@ -140,15 +140,16 @@ class ConcordanceTabWidget(QWidget):
         if path.suffix.lower() != ".docx" and "Word" in (selected_filter or ""):
             path = path.with_suffix(".docx")
         try:
-            if path.suffix.lower() == ".csv" or "CSV" in (selected_filter or ""):
+            chosen_filter = (selected_filter or "").upper()
+            if path.suffix.lower() == ".csv" or chosen_filter.startswith("CSV"):
                 export_kwic_csv(hits, path)
-            elif path.suffix.lower() == ".tsv" or "TSV" in (selected_filter or ""):
+            elif path.suffix.lower() == ".tsv" or chosen_filter.startswith("TSV"):
                 export_kwic_tsv(hits, path)
-            elif path.suffix.lower() == ".json" or "JSON" in (selected_filter or ""):
-                export_kwic_json(hits, path)
-            elif path.suffix.lower() == ".jsonl" or "JSONL" in (selected_filter or ""):
+            elif path.suffix.lower() == ".jsonl" or chosen_filter.startswith("JSONL"):
                 export_kwic_jsonl(hits, path)
-            elif path.suffix.lower() == ".docx" or "Word" in (selected_filter or ""):
+            elif path.suffix.lower() == ".json" or chosen_filter.startswith("JSON"):
+                export_kwic_json(hits, path)
+            elif path.suffix.lower() == ".docx" or "WORD" in chosen_filter:
                 export_kwic_docx(hits, path)
             else:
                 QMessageBox.warning(self, "Export", "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx")

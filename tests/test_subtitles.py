@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from howimetyourcorpus.core.subtitles import Cue, parse_srt, parse_vtt, parse_subtitle_file
+from howimetyourcorpus.core.subtitles import Cue, cues_to_srt, parse_srt, parse_vtt, parse_subtitle_file
 
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -88,3 +88,13 @@ def test_parse_subtitle_file_vtt():
     assert fmt == "vtt"
     assert len(cues) >= 2
     assert any("Legendary" in c.text_clean for c in cues)
+
+
+def test_cues_to_srt_renumbers_entries_from_one():
+    cues = [
+        {"n": 0, "start_ms": 1000, "end_ms": 2000, "text_clean": "Hello"},
+        {"n": 4, "start_ms": 2500, "end_ms": 3500, "text_clean": "World"},
+    ]
+    srt = cues_to_srt(cues)
+    assert srt.startswith("1\n00:00:01,000 --> 00:00:02,000\nHello")
+    assert "\n\n2\n00:00:02,500 --> 00:00:03,500\nWorld\n" in srt

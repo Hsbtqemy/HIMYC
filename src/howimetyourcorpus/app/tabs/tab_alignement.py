@@ -145,6 +145,13 @@ class AlignmentTabWidget(QWidget):
         self.align_run_combo = QComboBox()
         self.align_run_combo.currentIndexChanged.connect(self._on_run_changed)
         row.addWidget(self.align_run_combo)
+        row.addWidget(QLabel("Langue cible:"))
+        self.align_target_lang_combo = QComboBox()
+        self.align_target_lang_combo.setToolTip(
+            "Langue des sous-titres à aligner contre EN (pivot). "
+            "Les valeurs sont déduites des langues projet et des pistes disponibles."
+        )
+        row.addWidget(self.align_target_lang_combo)
         self.align_run_btn = QPushButton("Lancer alignement")
         self.align_run_btn.clicked.connect(self._run_align_episode)
         row.addWidget(self.align_run_btn)
@@ -176,9 +183,9 @@ class AlignmentTabWidget(QWidget):
         row.addWidget(self.align_accepted_only_cb)
         layout.addLayout(row)
         help_label = QLabel(
-            "Flux : 1) Onglet Sous-titres : importer SRT EN (pivot) et FR (cible). "
+            "Flux : 1) Onglet Sous-titres : importer SRT EN (pivot) et la langue cible (FR/IT/...). "
             "2) Inspecteur : segmenter l'épisode (transcript → segments). "
-            "3) Ici : « Lancer alignement » crée un run (segment↔cue EN, puis cue EN↔cue FR). "
+            "3) Ici : choisir la langue cible, puis « Lancer alignement » crée un run (segment↔cue EN, puis cue EN↔cue cible). "
             "Un run = un calcul d'alignement ; vous pouvez en relancer un autre ou supprimer un run. "
             "Clic droit sur une ligne : Accepter, Rejeter, Modifier la cible."
         )
@@ -200,6 +207,7 @@ class AlignmentTabWidget(QWidget):
         self.align_episode_combo.clear()
         store = self._get_store()
         if not store:
+            self._refresh_target_lang_combo(None)
             return
         index = store.load_series_index()
         if index and index.episodes:
@@ -207,10 +215,44 @@ class AlignmentTabWidget(QWidget):
                 self.align_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
         self._on_episode_changed()
 
+    def _resolve_target_langs(self, episode_id: str | None) -> list[str]:
+        langs: list[str] = []
+        store = self._get_store()
+        if store:
+            try:
+                project_langs = store.load_project_languages()
+            except Exception:
+                project_langs = []
+            langs.extend([(lng or "").lower() for lng in project_langs])
+        db = self._get_db()
+        if db and episode_id:
+            tracks = db.get_tracks_for_episode(episode_id)
+            langs.extend([(t.get("lang") or "").lower() for t in tracks])
+        dedup: list[str] = []
+        seen: set[str] = set()
+        for lng in langs:
+            if not lng or lng == "en" or lng in seen:
+                continue
+            seen.add(lng)
+            dedup.append(lng)
+        return dedup or ["fr"]
+
+    def _refresh_target_lang_combo(self, episode_id: str | None) -> None:
+        current = (self.align_target_lang_combo.currentData() or "").lower()
+        langs = self._resolve_target_langs(episode_id)
+        self.align_target_lang_combo.clear()
+        for lng in langs:
+            self.align_target_lang_combo.addItem(lng.upper(), lng)
+        if current and current in langs:
+            idx = langs.index(current)
+            self.align_target_lang_combo.setCurrentIndex(idx)
+        self.align_target_lang_combo.setEnabled(self.align_target_lang_combo.count() > 0)
+
     def _on_episode_changed(self) -> None:
         self.align_run_combo.clear()
         eid = self.align_episode_combo.currentData()
         db = self._get_db()
+        self._refresh_target_lang_combo(eid if eid else None)
         if not eid or not db:
             self._fill_links()
             return
@@ -294,12 +336,16 @@ class AlignmentTabWidget(QWidget):
         if not eid or not store or not db:
             QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode et ouvrez un projet.")
             return
+        target_lang = (self.align_target_lang_combo.currentData() or "fr").lower()
+        if target_lang == "en":
+            QMessageBox.warning(self, "Alignement", "La langue cible doit être différente de EN (pivot).")
+            return
         use_similarity = self.align_by_similarity_cb.isChecked()
         self._run_job([
             AlignEpisodeStep(
                 eid,
                 pivot_lang="en",
-                target_langs=["fr"],
+                target_langs=[target_lang],
                 use_similarity_for_cues=use_similarity,
             )
         ])

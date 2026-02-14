@@ -165,11 +165,6 @@ class SubtitleTabWidget(QWidget):
         self._subs_episode_label.setVisible(visible)
         self.subs_episode_combo.setVisible(visible)
 
-    def set_episode_selector_visible(self, visible: bool) -> None:
-        """§15.4 — Masque ou affiche le sélecteur d'épisode (quand intégré dans l'onglet fusionné)."""
-        self._subs_episode_label.setVisible(visible)
-        self.subs_episode_combo.setVisible(visible)
-
     def set_episode_and_load(self, episode_id: str) -> None:
         """§15.4 — Sélectionne l'épisode donné et charge ses pistes (synchro avec Inspecteur)."""
         for i in range(self.subs_episode_combo.count()):

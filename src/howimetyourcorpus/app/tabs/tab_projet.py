@@ -51,8 +51,7 @@ class ProjectTabWidget(QWidget):
         self._open_profiles_callback = on_open_profiles_dialog
         self._refresh_language_combos_callback = on_refresh_language_combos
         self._show_status = show_status
-        self._on_discover_episodes: Callable[[], None] | None = None
-        self._on_fetch_all: Callable[[], None] | None = None
+        self._on_open_corpus: Callable[[], None] | None = None
 
         main = QVBoxLayout(self)
         main.setSpacing(12)
@@ -115,24 +114,21 @@ class ProjectTabWidget(QWidget):
         form_source.addRow("Rate limit:", self.rate_limit_spin)
         layout.addWidget(group_source)
 
-        # —— 3. Acquisition (§15.3) ——
-        group_acquisition = QGroupBox("Acquisition — Remplir le corpus")
+        # —— 3. Workflow corpus (§refonte) ——
+        group_acquisition = QGroupBox("Workflow corpus")
         group_acquisition.setToolTip(
-            "Découvrir les épisodes puis télécharger les transcripts. Le Corpus affiche la liste après téléchargement."
+            "Les opérations de workflow (découvrir, télécharger, normaliser, segmenter, indexer) sont centralisées dans l'onglet Corpus."
         )
         acq_row = QHBoxLayout(group_acquisition)
-        self.discover_btn = QPushButton("Découvrir épisodes")
-        self.discover_btn.setToolTip("Récupère la liste des épisodes depuis la source.")
-        self.discover_btn.clicked.connect(self._on_discover_clicked)
-        self.fetch_all_btn = QPushButton("Télécharger tout")
-        self.fetch_all_btn.setToolTip("Télécharge tous les épisodes découverts. Rafraîchit le Corpus à la fin.")
-        self.fetch_all_btn.clicked.connect(self._on_fetch_all_clicked)
-        acq_row.addWidget(self.discover_btn)
-        acq_row.addWidget(self.fetch_all_btn)
+        self.open_corpus_btn = QPushButton("Ouvrir le pilotage Corpus")
+        self.open_corpus_btn.setToolTip(
+            "Aller à l'onglet Corpus pour exécuter les opérations Import/Transformer/Indexer."
+        )
+        self.open_corpus_btn.clicked.connect(self._on_open_corpus_clicked)
+        acq_row.addWidget(self.open_corpus_btn)
         acq_row.addStretch()
         layout.addWidget(group_acquisition)
-        self.discover_btn.setEnabled(False)
-        self.fetch_all_btn.setEnabled(False)
+        self.open_corpus_btn.setEnabled(False)
 
         # —— 4. Normalisation ——
         group_norm = QGroupBox("Normalisation")
@@ -172,26 +168,18 @@ class ProjectTabWidget(QWidget):
         scroll.setWidget(content)
         main.addWidget(scroll)
 
-    def set_acquisition_callbacks(
+    def set_open_corpus_callback(
         self,
-        on_discover_episodes: Callable[[], None] | None,
-        on_fetch_all: Callable[[], None] | None,
+        on_open_corpus: Callable[[], None] | None,
     ) -> None:
-        """§15.3 — Connecte Découvrir / Télécharger tout à la logique Corpus (appelé par MainWindow après création du Corpus)."""
-        self._on_discover_episodes = on_discover_episodes
-        self._on_fetch_all = on_fetch_all
+        """Connecte le bouton Projet -> ouverture du pilotage dans l'onglet Corpus."""
+        self._on_open_corpus = on_open_corpus
 
-    def _on_discover_clicked(self) -> None:
-        if self._on_discover_episodes:
-            self._on_discover_episodes()
+    def _on_open_corpus_clicked(self) -> None:
+        if self._on_open_corpus:
+            self._on_open_corpus()
         else:
-            self._show_status("Ouvrez un projet puis utilisez l'onglet Corpus pour découvrir les épisodes.", 4000)
-
-    def _on_fetch_all_clicked(self) -> None:
-        if self._on_fetch_all:
-            self._on_fetch_all()
-        else:
-            self._show_status("Ouvrez un projet puis utilisez l'onglet Corpus pour télécharger.", 4000)
+            self._show_status("Ouvrez un projet puis utilisez l'onglet Corpus pour le workflow.", 4000)
 
     def get_form_data(self) -> dict[str, Any]:
         """Retourne les données du formulaire pour init/charger le projet."""
@@ -234,9 +222,7 @@ class ProjectTabWidget(QWidget):
             for lang in store.load_project_languages():
                 self.languages_list.addItem(lang)
         self.add_lang_btn.setEnabled(bool(store))
-        # §15.3 — Découvrir / Télécharger tout actifs seulement si projet ouvert
-        self.discover_btn.setEnabled(bool(store))
-        self.fetch_all_btn.setEnabled(bool(store))
+        self.open_corpus_btn.setEnabled(bool(store))
         self._on_languages_selection_changed()
 
     def _browse(self) -> None:

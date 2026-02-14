@@ -124,9 +124,14 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
     def _build_menu_bar(self):
-        """Barre de menu : Aide > À propos, Vérifier les mises à jour (Phase 6)."""
+        """Barre de menu : Vue (journal) + Aide."""
         menu_bar = QMenuBar(self)
         self.setMenuBar(menu_bar)
+        view_menu = menu_bar.addMenu("&Vue")
+        logs_act = QAction("Journal d'exécution", self)
+        logs_act.setToolTip("Afficher les logs applicatifs sans surcharger les onglets.")
+        logs_act.triggered.connect(self._open_logs_panel)
+        view_menu.addAction(logs_act)
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
         about_act.triggered.connect(self._show_about)
@@ -311,14 +316,11 @@ class MainWindow(QMainWindow):
             ),
             on_cancel_job=self._cancel_job,
             on_open_inspector=self._kwic_open_inspector_impl,
+            on_open_alignment=lambda: self.tabs.setCurrentIndex(TAB_ALIGNEMENT),
         )
         self.tabs.addTab(self.corpus_tab, "Corpus")
         self.tabs.setTabToolTip(TAB_CORPUS, "Workflow §14 — Bloc 1 (Import) + Bloc 2 (Normalisation / segmentation) : découverte, téléchargement, normaliser, indexer.")
-        # §15.3 — Projet = lieu du téléchargement : connecter les boutons Projet à la logique Corpus
-        self.project_tab.set_acquisition_callbacks(
-            on_discover_episodes=lambda: self.corpus_tab._discover_episodes(),
-            on_fetch_all=lambda: self.corpus_tab._fetch_episodes(False),
-        )
+        self.project_tab.set_open_corpus_callback(lambda: self.tabs.setCurrentIndex(TAB_CORPUS))
 
     def _get_context(self) -> PipelineContext:
         custom_profiles = self._store.load_custom_profiles() if self._store else {}
@@ -330,6 +332,15 @@ class MainWindow(QMainWindow):
         }
 
     def _run_job(self, steps: list):
+        if not steps:
+            self.statusBar().showMessage("Aucune opération à exécuter.", 3000)
+            return
+        if self._job_runner and self._job_runner.is_running():
+            self.statusBar().showMessage(
+                "Un traitement est déjà en cours. Annulez-le avant d'en lancer un autre.",
+                6000,
+            )
+            return
         # Synchroniser la config depuis l'onglet Projet (URL série, etc.) avant tout job
         if self._config and self._store and hasattr(self, "project_tab") and self.project_tab:
             data = self.project_tab.get_form_data()
@@ -365,7 +376,10 @@ class MainWindow(QMainWindow):
 
     def _on_job_progress(self, step_name: str, percent: float, message: str):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_progress(int(percent * 100))
+            pct = max(0, min(100, int(percent * 100)))
+            self.corpus_tab.set_progress(pct)
+        if message:
+            self.statusBar().showMessage(f"{step_name}: {message}", 2000)
 
     def _on_job_log(self, level: str, message: str):
         if self.tabs.count() > TAB_LOGS:
@@ -421,6 +435,7 @@ class MainWindow(QMainWindow):
     def _on_job_cancelled(self):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_cancel_btn_enabled(False)
+        self.statusBar().showMessage("Traitement annulé.", 5000)
         self._job_runner = None
 
     def _on_job_error(self, step_name: str, exc: object):
@@ -530,6 +545,13 @@ class MainWindow(QMainWindow):
     def _build_tab_logs(self):
         w = LogsTabWidget(on_open_log=self._open_log_file)
         self.tabs.addTab(w, "Logs")
+        # Réduit la surcharge visuelle: logs accessibles via menu Vue.
+        self.tabs.setTabVisible(TAB_LOGS, False)
+
+    def _open_logs_panel(self) -> None:
+        """Affiche l'onglet logs (masqué par défaut) et le sélectionne."""
+        self.tabs.setTabVisible(TAB_LOGS, True)
+        self.tabs.setCurrentIndex(TAB_LOGS)
 
     def _open_log_file(self):
         if not self._config:
@@ -539,5 +561,6 @@ class MainWindow(QMainWindow):
         if not log_path.exists():
             QMessageBox.information(self, "Logs", "Aucun fichier log pour l'instant.")
             return
-        import os
-        os.startfile(str(log_path))
+        url = QUrl.fromLocalFile(str(log_path))
+        if not QDesktopServices.openUrl(url):
+            QMessageBox.warning(self, "Logs", f"Impossible d'ouvrir le fichier log: {log_path}")

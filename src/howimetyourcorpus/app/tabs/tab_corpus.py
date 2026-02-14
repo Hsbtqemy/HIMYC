@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
@@ -42,15 +43,19 @@ from howimetyourcorpus.core.export_utils import (
     export_corpus_phrases_jsonl,
     export_corpus_phrases_csv,
 )
-from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
+from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 from howimetyourcorpus.core.pipeline.tasks import (
     FetchSeriesIndexStep,
     FetchAndMergeSeriesIndexStep,
-    FetchEpisodeStep,
-    NormalizeEpisodeStep,
-    SegmentEpisodeStep,
-    BuildDbIndexStep,
+)
+from howimetyourcorpus.core.workflow import (
+    WorkflowActionError,
+    WorkflowActionId,
+    WorkflowOptionError,
+    WorkflowScope,
+    WorkflowScopeError,
+    WorkflowService,
 )
 from howimetyourcorpus.app.models_qt import (
     EpisodesTreeModel,
@@ -75,6 +80,7 @@ class CorpusTabWidget(QWidget):
         refresh_after_episodes_added: Callable[[], None],
         on_cancel_job: Callable[[], None],
         on_open_inspector: Callable[[str], None] | None = None,
+        on_open_alignment: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -86,6 +92,9 @@ class CorpusTabWidget(QWidget):
         self._refresh_after_episodes_added = refresh_after_episodes_added
         self._on_cancel_job = on_cancel_job
         self._on_open_inspector = on_open_inspector
+        self._on_open_alignment = on_open_alignment
+        self._workflow_service = WorkflowService()
+        self._primary_action: Callable[[], None] | None = None
 
         layout = QVBoxLayout(self)
         filter_row = QHBoxLayout()
@@ -94,6 +103,17 @@ class CorpusTabWidget(QWidget):
         self.season_filter_combo.setMinimumWidth(140)
         self.season_filter_combo.currentIndexChanged.connect(self._on_season_filter_changed)
         filter_row.addWidget(self.season_filter_combo)
+        filter_row.addWidget(QLabel("Statut:"))
+        self.status_filter_combo = QComboBox()
+        self.status_filter_combo.setMinimumWidth(160)
+        self.status_filter_combo.addItem("Tous", None)
+        self.status_filter_combo.addItem("Nouveaux", EpisodeStatus.NEW.value)
+        self.status_filter_combo.addItem("Téléchargés", EpisodeStatus.FETCHED.value)
+        self.status_filter_combo.addItem("Normalisés", EpisodeStatus.NORMALIZED.value)
+        self.status_filter_combo.addItem("Indexés", EpisodeStatus.INDEXED.value)
+        self.status_filter_combo.addItem("En erreur", EpisodeStatus.ERROR.value)
+        self.status_filter_combo.currentIndexChanged.connect(self._on_status_filter_changed)
+        filter_row.addWidget(self.status_filter_combo)
         self.check_season_btn = QPushButton("Cocher la saison")
         self.check_season_btn.setToolTip(
             "Coche tous les épisodes de la saison choisie dans le filtre (ou tout si « Toutes les saisons »)."
@@ -133,7 +153,7 @@ class CorpusTabWidget(QWidget):
         layout.addWidget(self.episodes_tree)
 
         # Bloc 1 — Import (constitution du corpus) §14
-        group_import = QGroupBox("1. Import — Constitution du corpus")
+        group_import = QGroupBox("1. Importer — Constituer le corpus")
         group_import.setToolTip(
             "Workflow §14 : Découvrir les épisodes, télécharger les transcripts (RAW), importer les SRT (onglet Sous-titres). "
             "Pas de normalisation ni d'alignement ici."
@@ -171,7 +191,7 @@ class CorpusTabWidget(QWidget):
         layout.addWidget(group_import)
 
         # Bloc 2 — Normalisation / segmentation (après import) §14
-        group_norm = QGroupBox("2. Normalisation / segmentation — Après import")
+        group_norm = QGroupBox("2. Transformer / Indexer — Après import")
         group_norm.setToolTip(
             "Workflow §14 : Mise au propre des transcripts (RAW → CLEAN) et segmentation. "
             "Prérequis : au moins un épisode téléchargé (Bloc 1). L'alignement (Bloc 3) est dans les onglets Alignement, Concordance, Personnages."
@@ -220,12 +240,58 @@ class CorpusTabWidget(QWidget):
         self.cancel_job_btn = QPushButton("Annuler")
         self.cancel_job_btn.clicked.connect(self._emit_cancel_job)
         self.cancel_job_btn.setEnabled(False)
-        for b in (self.norm_sel_btn, self.norm_all_btn, self.segment_sel_btn, self.segment_all_btn, self.all_in_one_btn, self.index_btn, self.export_corpus_btn):
+        for b in (
+            self.norm_sel_btn,
+            self.norm_all_btn,
+            self.segment_sel_btn,
+            self.segment_all_btn,
+            self.all_in_one_btn,
+            self.index_btn,
+            self.export_corpus_btn,
+        ):
             btn_row2.addWidget(b)
         btn_row2.addWidget(self.cancel_job_btn)
         btn_row2.addStretch()
         group_norm.setLayout(btn_row2)
         layout.addWidget(group_norm)
+
+        group_recovery = QGroupBox("3. Reprise — Erreurs")
+        group_recovery.setToolTip(
+            "Liste les épisodes en statut ERROR, permet une relance ciblée et l'ouverture directe dans l'Inspecteur."
+        )
+        recovery_layout = QVBoxLayout(group_recovery)
+        self.error_summary_label = QLabel("Épisodes en erreur: 0")
+        recovery_layout.addWidget(self.error_summary_label)
+        self.error_list = QListWidget()
+        self.error_list.setMaximumHeight(110)
+        self.error_list.currentRowChanged.connect(self._on_error_selection_changed)
+        recovery_layout.addWidget(self.error_list)
+        recovery_btn_row = QHBoxLayout()
+        self.retry_selected_error_btn = QPushButton("Relancer épisode")
+        self.retry_selected_error_btn.setToolTip("Relance l'épisode sélectionné (workflow complet).")
+        self.retry_selected_error_btn.clicked.connect(self._retry_selected_error_episode)
+        self.retry_selected_error_btn.setEnabled(False)
+        self.retry_all_errors_btn = QPushButton("Relancer toutes les erreurs")
+        self.retry_all_errors_btn.setToolTip("Relance tous les épisodes actuellement en erreur.")
+        self.retry_all_errors_btn.clicked.connect(self._retry_error_episodes)
+        self.retry_all_errors_btn.setEnabled(False)
+        self.inspect_error_btn = QPushButton("Ouvrir dans Inspecteur")
+        self.inspect_error_btn.setToolTip("Ouvre l'épisode sélectionné dans l'Inspecteur pour diagnostic.")
+        self.inspect_error_btn.clicked.connect(self._open_selected_error_in_inspector)
+        self.inspect_error_btn.setEnabled(False)
+        self.refresh_errors_btn = QPushButton("Rafraîchir liste")
+        self.refresh_errors_btn.clicked.connect(self._refresh_error_panel_from_ui)
+        recovery_btn_row.addWidget(self.retry_selected_error_btn)
+        recovery_btn_row.addWidget(self.retry_all_errors_btn)
+        recovery_btn_row.addWidget(self.inspect_error_btn)
+        recovery_btn_row.addWidget(self.refresh_errors_btn)
+        recovery_btn_row.addStretch()
+        recovery_layout.addLayout(recovery_btn_row)
+        recovery_hint = QLabel("Astuce: pour les détails d'erreur complets, ouvrez le Journal d'exécution (menu Vue).")
+        recovery_hint.setStyleSheet("color: gray; font-size: 0.9em;")
+        recovery_hint.setWordWrap(True)
+        recovery_layout.addWidget(recovery_hint)
+        layout.addWidget(group_recovery)
 
         self.corpus_progress = QProgressBar()
         self.corpus_progress.setMaximum(100)
@@ -237,6 +303,18 @@ class CorpusTabWidget(QWidget):
             "Bloc 2 = Normalisés (CLEAN) → Segmentés (DB). Bloc 3 = Alignés (onglets Alignement, Concordance, Personnages)."
         )
         layout.addWidget(self.corpus_status_label)
+        self.corpus_next_step_label = QLabel("")
+        self.corpus_next_step_label.setStyleSheet("color: #505050;")
+        self.corpus_next_step_label.setWordWrap(True)
+        layout.addWidget(self.corpus_next_step_label)
+        self.primary_action_row = QHBoxLayout()
+        self.primary_action_row.addWidget(QLabel("Action recommandée:"))
+        self.primary_action_btn = QPushButton("—")
+        self.primary_action_btn.clicked.connect(self._run_primary_action)
+        self.primary_action_btn.setEnabled(False)
+        self.primary_action_row.addWidget(self.primary_action_btn)
+        self.primary_action_row.addStretch()
+        layout.addLayout(self.primary_action_row)
         scope_label = QLabel(
             "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (onglet Sous-titres). "
             "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
@@ -255,6 +333,16 @@ class CorpusTabWidget(QWidget):
     def _emit_cancel_job(self) -> None:
         self._on_cancel_job()
 
+    def _set_primary_action(self, label: str, action: Callable[[], None] | None) -> None:
+        self.primary_action_btn.setText(label)
+        self._primary_action = action
+        self.primary_action_btn.setEnabled(action is not None)
+
+    def _run_primary_action(self) -> None:
+        if self._primary_action is None:
+            return
+        self._primary_action()
+
     def refresh(self) -> None:
         """Recharge l'arbre et le statut depuis le store (appelé après ouverture projet / fin de job)."""
         store = self._get_store()
@@ -263,43 +351,96 @@ class CorpusTabWidget(QWidget):
             self.season_filter_combo.clear()
             self.season_filter_combo.addItem("Toutes les saisons", None)
             self.corpus_status_label.setText("")
+            self.corpus_next_step_label.setText("Prochaine action: ouvrez ou créez un projet dans l'onglet Projet.")
             self.norm_sel_btn.setEnabled(False)
             self.norm_all_btn.setEnabled(False)
             self.segment_sel_btn.setEnabled(False)
             self.segment_all_btn.setEnabled(False)
             self.all_in_one_btn.setEnabled(False)
+            self._refresh_error_panel(index=None, error_ids=[])
+            self._set_primary_action("Ouvrez un projet", None)
             return
         index = store.load_series_index()
         if not index or not index.episodes:
             self.season_filter_combo.clear()
             self.season_filter_combo.addItem("Toutes les saisons", None)
             self.corpus_status_label.setText("")
+            self.corpus_next_step_label.setText("Prochaine action: cliquez sur « Découvrir épisodes » (ou ajoutez des épisodes en mode SRT only).")
             self.norm_sel_btn.setEnabled(False)
             self.norm_all_btn.setEnabled(False)
             self.segment_sel_btn.setEnabled(False)
             self.segment_all_btn.setEnabled(False)
             self.all_in_one_btn.setEnabled(False)
+            self._refresh_error_panel(index=None, error_ids=[])
+            self._set_primary_action("Découvrir épisodes", self._discover_episodes)
             return
         n_total = len(index.episodes)
+        episode_ids = [e.episode_id for e in index.episodes]
         n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
         n_norm = sum(1 for e in index.episodes if store.has_episode_clean(e.episode_id))
-        n_indexed = len(db.get_episode_ids_indexed()) if db else 0
+        n_indexed = 0
+        if db and episode_ids:
+            indexed_ids = set(db.get_episode_ids_indexed())
+            n_indexed = len(set(episode_ids) & indexed_ids)
+        error_ids = self._get_error_episode_ids(index)
+        n_error = len(error_ids)
         n_with_srt = 0
         n_aligned = 0
-        if db and index.episodes:
-            episode_ids = [e.episode_id for e in index.episodes]
+        if db and episode_ids:
             tracks_by_ep = db.get_tracks_for_episodes(episode_ids)
             runs_by_ep = db.get_align_runs_for_episodes(episode_ids)
             n_with_srt = sum(1 for e in index.episodes if tracks_by_ep.get(e.episode_id))
             n_aligned = sum(1 for e in index.episodes if runs_by_ep.get(e.episode_id))
         self.corpus_status_label.setText(
-            f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | SRT {n_with_srt} | Alignés {n_aligned}"
+            f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | Erreurs {n_error} | SRT {n_with_srt} | Alignés {n_aligned}"
         )
+        if n_error > 0:
+            self.corpus_next_step_label.setText(
+                "Prochaine action: relancer les épisodes en erreur avec « Relancer toutes les erreurs » (ou ciblé via « Relancer épisode »)."
+            )
+            self._set_primary_action("Relancer toutes les erreurs", self._retry_error_episodes)
+        elif n_fetched < n_total:
+            self.corpus_next_step_label.setText(
+                "Prochaine action: importer les transcripts manquants avec « Télécharger sélection » ou « Télécharger tout »."
+            )
+            self._set_primary_action("Télécharger tout", lambda: self._fetch_episodes(selection_only=False))
+        elif n_norm < n_fetched:
+            self.corpus_next_step_label.setText(
+                "Prochaine action: normaliser les épisodes FETCHED avec « Normaliser sélection » ou « Normaliser tout »."
+            )
+            self._set_primary_action("Normaliser tout", lambda: self._normalize_episodes(selection_only=False))
+        elif n_indexed < n_norm:
+            self.corpus_next_step_label.setText(
+                "Prochaine action: segmenter et indexer les épisodes NORMALIZED (boutons Segmenter / Indexer DB)."
+            )
+            self._set_primary_action("Segmenter + Indexer", self._segment_and_index_all)
+        elif n_with_srt == 0:
+            self.corpus_next_step_label.setText(
+                "Prochaine action: importer des sous-titres (SRT/VTT) dans l'Inspecteur pour préparer l'alignement."
+            )
+            if self._on_open_inspector:
+                self._set_primary_action("Ouvrir Inspecteur (SRT)", self._open_selected_or_first_episode_in_inspector)
+            else:
+                self._set_primary_action("Importer SRT (Inspecteur)", None)
+        elif n_aligned < n_with_srt:
+            self.corpus_next_step_label.setText(
+                "Prochaine action: lancer l'alignement des épisodes avec SRT (onglet Alignement), puis vérifier Personnages."
+            )
+            if self._on_open_alignment:
+                self._set_primary_action("Aller à Alignement", self._open_alignment_tab)
+            else:
+                self._set_primary_action("Passer à Alignement", None)
+        else:
+            self.corpus_next_step_label.setText(
+                "Corpus prêt: passez aux onglets Alignement, Concordance et Personnages pour l'analyse."
+            )
+            self._set_primary_action("Corpus prêt", None)
         self.norm_sel_btn.setEnabled(n_fetched > 0)
         self.norm_all_btn.setEnabled(n_fetched > 0)
         self.segment_sel_btn.setEnabled(n_norm > 0)
         self.segment_all_btn.setEnabled(n_norm > 0)
         self.all_in_one_btn.setEnabled(n_total > 0)
+        self._refresh_error_panel(index=index, error_ids=error_ids)
         # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
         # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
         self.episodes_tree_model.set_store(store)
@@ -325,6 +466,7 @@ class CorpusTabWidget(QWidget):
             self.season_filter_combo.addItem(f"Saison {sn}", sn)
         self.season_filter_combo.blockSignals(False)
         self._on_season_filter_changed()
+        self._on_status_filter_changed()
 
     def _on_season_filter_changed(self) -> None:
         season = self.season_filter_combo.currentData()
@@ -339,6 +481,10 @@ class CorpusTabWidget(QWidget):
             except (ValueError, AttributeError):
                 pass
 
+    def _on_status_filter_changed(self) -> None:
+        status = self.status_filter_combo.currentData()
+        self.episodes_tree_proxy.set_status_filter(status)
+
     def _on_episode_double_clicked(self, proxy_index: QModelIndex) -> None:
         """Double-clic sur un épisode : ouvrir l'Inspecteur sur cet épisode (comme Concordance)."""
         if not proxy_index.isValid() or not self._on_open_inspector:
@@ -347,6 +493,22 @@ class CorpusTabWidget(QWidget):
         episode_id = self.episodes_tree_model.get_episode_id_for_index(source_index)
         if episode_id:
             self._on_open_inspector(episode_id)
+
+    def _open_selected_or_first_episode_in_inspector(self) -> None:
+        if not self._on_open_inspector:
+            return
+        selected_ids = self._resolve_selected_episode_ids()
+        if selected_ids:
+            self._on_open_inspector(selected_ids[0])
+            return
+        store = self._get_store()
+        index = store.load_series_index() if store else None
+        if index and index.episodes:
+            self._on_open_inspector(index.episodes[0].episode_id)
+
+    def _open_alignment_tab(self) -> None:
+        if self._on_open_alignment:
+            self._on_open_alignment()
 
     def _on_check_season_clicked(self) -> None:
         season = self.season_filter_combo.currentData()
@@ -456,6 +618,220 @@ class CorpusTabWidget(QWidget):
         self._refresh_after_episodes_added()
         self._show_status(f"{len(new_refs)} épisode(s) ajouté(s).", 3000)
 
+    def _resolve_selected_episode_ids(self) -> list[str]:
+        """Résout les episode_id via cases cochées puis sélection de lignes."""
+        ids = self.episodes_tree_model.get_checked_episode_ids()
+        if ids:
+            return ids
+        selection_model = self.episodes_tree.selectionModel()
+        if selection_model is None:
+            return []
+        proxy_indices = selection_model.selectedIndexes()
+        source_indices = [self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices]
+        return self.episodes_tree_model.get_episode_ids_selection(source_indices)
+
+    def _resolve_scope_and_ids(
+        self,
+        index: SeriesIndex,
+        *,
+        selection_only: bool,
+    ) -> tuple[WorkflowScope, list[str]] | None:
+        if selection_only:
+            ids = self._resolve_selected_episode_ids()
+            if not ids:
+                QMessageBox.warning(
+                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
+                )
+                return None
+            return WorkflowScope.selection(ids), ids
+        return WorkflowScope.all(), [e.episode_id for e in index.episodes]
+
+    def _build_profile_by_episode(
+        self,
+        *,
+        store: Any,
+        episode_refs: list[EpisodeRef],
+        episode_ids: list[str],
+        batch_profile: str,
+    ) -> dict[str, str]:
+        ref_by_id = {e.episode_id: e for e in episode_refs}
+        episode_preferred = store.load_episode_preferred_profiles()
+        source_defaults = store.load_source_profile_defaults()
+        profile_by_episode: dict[str, str] = {}
+        for eid in episode_ids:
+            ref = ref_by_id.get(eid)
+            profile = (
+                episode_preferred.get(eid)
+                or (source_defaults.get(ref.source_id or "") if ref else None)
+                or batch_profile
+            )
+            profile_by_episode[eid] = profile
+        return profile_by_episode
+
+    @staticmethod
+    def _resolve_lang_hint(context: dict[str, Any]) -> str:
+        config = context.get("config")
+        if config and getattr(config, "normalize_profile", None):
+            return (
+                (config.normalize_profile or "default_en_v1")
+                .split("_")[0]
+                .replace("default", "en")
+                or "en"
+            )
+        return "en"
+
+    def _build_plan_or_warn(
+        self,
+        *,
+        action_id: WorkflowActionId,
+        context: dict[str, Any],
+        scope: WorkflowScope,
+        episode_refs: list[EpisodeRef],
+        options: dict[str, Any] | None = None,
+    ):
+        try:
+            return self._workflow_service.build_plan(
+                action_id=action_id,
+                context=context,
+                scope=scope,
+                episode_refs=episode_refs,
+                options=options,
+            )
+        except (WorkflowActionError, WorkflowScopeError, WorkflowOptionError) as exc:
+            QMessageBox.warning(self, "Corpus", str(exc))
+            return None
+
+    def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
+        db = self._get_db()
+        if not db or not episode_ids:
+            return {}
+        try:
+            return db.get_episode_statuses(episode_ids)
+        except Exception:
+            logger.exception("Failed to load episode statuses")
+            return {}
+
+    def _get_error_episode_ids(self, index: SeriesIndex) -> list[str]:
+        episode_ids = [e.episode_id for e in index.episodes]
+        statuses = self._get_episode_status_map(episode_ids)
+        return [
+            eid
+            for eid in episode_ids
+            if (statuses.get(eid) or "").lower() == EpisodeStatus.ERROR.value
+        ]
+
+    def _selected_error_episode_id(self) -> str | None:
+        item = self.error_list.currentItem()
+        if not item:
+            return None
+        eid = (item.text() or "").strip()
+        return eid or None
+
+    def _on_error_selection_changed(self) -> None:
+        has_selection = self._selected_error_episode_id() is not None
+        self.retry_selected_error_btn.setEnabled(has_selection)
+        self.inspect_error_btn.setEnabled(has_selection and self._on_open_inspector is not None)
+        self.retry_all_errors_btn.setEnabled(self.error_list.count() > 0)
+
+    def _refresh_error_panel(
+        self,
+        *,
+        index: SeriesIndex | None,
+        error_ids: list[str] | None = None,
+    ) -> None:
+        previous = self._selected_error_episode_id()
+        if error_ids is None:
+            error_ids = self._get_error_episode_ids(index) if index else []
+        self.error_list.blockSignals(True)
+        self.error_list.clear()
+        for eid in error_ids:
+            self.error_list.addItem(eid)
+        if previous and previous in error_ids:
+            self.error_list.setCurrentRow(error_ids.index(previous))
+        elif error_ids:
+            self.error_list.setCurrentRow(0)
+        self.error_list.blockSignals(False)
+        self.error_summary_label.setText(f"Épisodes en erreur: {len(error_ids)}")
+        self._on_error_selection_changed()
+
+    def _refresh_error_panel_from_ui(self) -> None:
+        store = self._get_store()
+        if not store:
+            self._refresh_error_panel(index=None, error_ids=[])
+            return
+        index = store.load_series_index()
+        self._refresh_error_panel(index=index if index and index.episodes else None)
+
+    def _run_all_for_episode_ids(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+    ) -> None:
+        if not ids:
+            QMessageBox.warning(
+                self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
+            )
+            return
+        scope = WorkflowScope.selection(ids)
+        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
+        profile_by_episode = self._build_profile_by_episode(
+            store=store,
+            episode_refs=index.episodes,
+            episode_ids=ids,
+            batch_profile=batch_profile,
+        )
+        fetch_plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.FETCH_EPISODES,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+            options={"episode_url_by_id": {ref.episode_id: ref.url for ref in index.episodes}},
+        )
+        if not fetch_plan:
+            return
+        normalize_plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.NORMALIZE_EPISODES,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+            options={
+                "default_profile_id": batch_profile,
+                "profile_by_episode": profile_by_episode,
+            },
+        )
+        if not normalize_plan:
+            return
+        segment_plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.SEGMENT_EPISODES,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+            options={"lang_hint": self._resolve_lang_hint(context)},
+        )
+        if not segment_plan:
+            return
+        index_plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+        )
+        if not index_plan:
+            return
+        steps = (
+            list(fetch_plan.steps)
+            + list(normalize_plan.steps)
+            + list(segment_plan.steps)
+            + list(index_plan.steps)
+        )
+        if not steps:
+            QMessageBox.information(self, "Corpus", "Aucune opération à exécuter.")
+            return
+        self._run_job(steps)
+
     def _fetch_episodes(self, selection_only: bool) -> None:
         store = self._get_store()
         db = self._get_db()
@@ -467,29 +843,23 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        if selection_only:
-            ids = self.episodes_tree_model.get_checked_episode_ids()
-            if not ids:
-                proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-                source_indices = [
-                    self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-                ]
-                ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
-            if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-                )
-                return
-        else:
-            ids = [e.episode_id for e in index.episodes]
-        steps = [
-            FetchEpisodeStep(ref.episode_id, ref.url)
-            for ref in index.episodes
-            if ref.episode_id in ids
-        ]
-        if not steps:
+        resolved = self._resolve_scope_and_ids(index, selection_only=selection_only)
+        if resolved is None:
             return
-        self._run_job(steps)
+        scope, _ids = resolved
+        plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.FETCH_EPISODES,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+            options={"episode_url_by_id": {ref.episode_id: ref.url for ref in index.episodes}},
+        )
+        if not plan:
+            return
+        if not plan.steps:
+            QMessageBox.information(self, "Corpus", "Aucun épisode à télécharger.")
+            return
+        self._run_job(list(plan.steps))
 
     def _normalize_episodes(self, selection_only: bool) -> None:
         store = self._get_store()
@@ -501,35 +871,33 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        if selection_only:
-            ids = self.episodes_tree_model.get_checked_episode_ids()
-            if not ids:
-                proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-                source_indices = [
-                    self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-                ]
-                ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
-            if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-                )
-                return
-        else:
-            ids = [e.episode_id for e in index.episodes]
-        ref_by_id = {e.episode_id: e for e in index.episodes}
-        episode_preferred = store.load_episode_preferred_profiles()
-        source_defaults = store.load_source_profile_defaults()
+        resolved = self._resolve_scope_and_ids(index, selection_only=selection_only)
+        if resolved is None:
+            return
+        scope, ids = resolved
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        steps = []
-        for eid in ids:
-            ref = ref_by_id.get(eid)
-            profile = (
-                episode_preferred.get(eid)
-                or (source_defaults.get(ref.source_id or "") if ref else None)
-                or batch_profile
-            )
-            steps.append(NormalizeEpisodeStep(eid, profile))
-        self._run_job(steps)
+        profile_by_episode = self._build_profile_by_episode(
+            store=store,
+            episode_refs=index.episodes,
+            episode_ids=ids,
+            batch_profile=batch_profile,
+        )
+        plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.NORMALIZE_EPISODES,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+            options={
+                "default_profile_id": batch_profile,
+                "profile_by_episode": profile_by_episode,
+            },
+        )
+        if not plan:
+            return
+        if not plan.steps:
+            QMessageBox.information(self, "Corpus", "Aucun épisode à normaliser.")
+            return
+        self._run_job(list(plan.steps))
 
     def _segment_episodes(self, selection_only: bool) -> None:
         """Bloc 2 — Segmente les épisodes (sélection ou tout) ayant clean.txt."""
@@ -542,21 +910,10 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        if selection_only:
-            ids = self.episodes_tree_model.get_checked_episode_ids()
-            if not ids:
-                proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-                source_indices = [
-                    self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-                ]
-                ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
-            if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-                )
-                return
-        else:
-            ids = [e.episode_id for e in index.episodes]
+        resolved = self._resolve_scope_and_ids(index, selection_only=selection_only)
+        if resolved is None:
+            return
+        _scope, ids = resolved
         eids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
         if not eids_with_clean:
             QMessageBox.warning(
@@ -564,12 +921,19 @@ class CorpusTabWidget(QWidget):
                 "Aucun épisode sélectionné n'a de fichier CLEAN. Normalisez d'abord la sélection."
             )
             return
-        config = context.get("config")
-        lang_hint = "en"
-        if config and getattr(config, "normalize_profile", None):
-            lang_hint = (config.normalize_profile or "default_en_v1").split("_")[0].replace("default", "en") or "en"
-        steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in eids_with_clean]
-        self._run_job(steps)
+        plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.SEGMENT_EPISODES,
+            context=context,
+            scope=WorkflowScope.selection(eids_with_clean),
+            episode_refs=index.episodes,
+            options={"lang_hint": self._resolve_lang_hint(context)},
+        )
+        if not plan:
+            return
+        if not plan.steps:
+            QMessageBox.information(self, "Corpus", "Aucun épisode à segmenter.")
+            return
+        self._run_job(list(plan.steps))
 
     def _run_all_for_selection(self) -> None:
         """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB pour les épisodes cochés."""
@@ -583,50 +947,131 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        ids = self.episodes_tree_model.get_checked_episode_ids()
-        if not ids:
-            proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-            source_indices = [
-                self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-            ]
-            ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
-        if not ids:
-            QMessageBox.warning(
-                self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-            )
+        resolved = self._resolve_scope_and_ids(index, selection_only=True)
+        if resolved is None:
             return
-        ref_by_id = {e.episode_id: e for e in index.episodes}
-        episode_preferred = store.load_episode_preferred_profiles()
-        source_defaults = store.load_source_profile_defaults()
-        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        config = context.get("config")
-        lang_hint = "en"
-        if config and getattr(config, "normalize_profile", None):
-            lang_hint = (config.normalize_profile or "default_en_v1").split("_")[0].replace("default", "en") or "en"
-        fetch_steps = [
-            FetchEpisodeStep(ref_by_id[eid].episode_id, ref_by_id[eid].url)
-            for eid in ids if eid in ref_by_id
-        ]
-        norm_steps = []
-        for eid in ids:
-            ref = ref_by_id.get(eid)
-            profile = (
-                episode_preferred.get(eid)
-                or (source_defaults.get(ref.source_id or "") if ref else None)
-                or batch_profile
-            )
-            norm_steps.append(NormalizeEpisodeStep(eid, profile))
-        segment_steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in ids]
-        steps = fetch_steps + norm_steps + segment_steps + [BuildDbIndexStep()]
-        self._run_job(steps)
+        _scope, ids = resolved
+        self._run_all_for_episode_ids(ids=ids, index=index, store=store, context=context)
+
+    def _retry_selected_error_episode(self) -> None:
+        store = self._get_store()
+        db = self._get_db()
+        context = self._get_context()
+        if not context.get("config") or not store or not db:
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return
+        eid = self._selected_error_episode_id()
+        if not eid:
+            QMessageBox.information(self, "Corpus", "Sélectionnez un épisode en erreur à relancer.")
+            return
+        if eid not in {e.episode_id for e in index.episodes}:
+            QMessageBox.warning(self, "Corpus", f"Épisode introuvable dans l'index: {eid}")
+            return
+        self._run_all_for_episode_ids(
+            ids=[eid],
+            index=index,
+            store=store,
+            context=context,
+        )
+
+    def _retry_error_episodes(self) -> None:
+        """Relance les épisodes en erreur avec un enchaînement complet."""
+        store = self._get_store()
+        db = self._get_db()
+        context = self._get_context()
+        if not context.get("config") or not store or not db:
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return
+        error_ids = self._get_error_episode_ids(index)
+        if not error_ids:
+            QMessageBox.information(self, "Corpus", "Aucun épisode en erreur à relancer.")
+            return
+        self._run_all_for_episode_ids(
+            ids=error_ids,
+            index=index,
+            store=store,
+            context=context,
+        )
+
+    def _open_selected_error_in_inspector(self) -> None:
+        if not self._on_open_inspector:
+            return
+        eid = self._selected_error_episode_id()
+        if not eid:
+            QMessageBox.information(self, "Corpus", "Sélectionnez un épisode à ouvrir.")
+            return
+        self._on_open_inspector(eid)
 
     def _index_db(self) -> None:
         store = self._get_store()
         db = self._get_db()
-        if not store or not db:
+        context = self._get_context()
+        if not context.get("config") or not store or not db:
             QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
             return
-        self._run_job([BuildDbIndexStep()])
+        index = store.load_series_index()
+        episode_refs = index.episodes if index else []
+        plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            context=context,
+            scope=WorkflowScope.all(),
+            episode_refs=episode_refs,
+            options={"allow_all_with_clean": True},
+        )
+        if not plan:
+            return
+        if not plan.steps:
+            QMessageBox.information(self, "Corpus", "Aucun épisode CLEAN à indexer.")
+            return
+        self._run_job(list(plan.steps))
+
+    def _segment_and_index_all(self) -> None:
+        """Chaîne segmenter puis indexer pour tous les épisodes CLEAN."""
+        store = self._get_store()
+        db = self._get_db()
+        context = self._get_context()
+        if not context.get("config") or not store or not db:
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return
+        ids_with_clean = [e.episode_id for e in index.episodes if store.has_episode_clean(e.episode_id)]
+        if not ids_with_clean:
+            QMessageBox.warning(self, "Corpus", "Aucun épisode CLEAN à segmenter/indexer.")
+            return
+        scope = WorkflowScope.selection(ids_with_clean)
+        segment_plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.SEGMENT_EPISODES,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+            options={"lang_hint": self._resolve_lang_hint(context)},
+        )
+        if not segment_plan:
+            return
+        index_plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+        )
+        if not index_plan:
+            return
+        steps = list(segment_plan.steps) + list(index_plan.steps)
+        if not steps:
+            QMessageBox.information(self, "Corpus", "Aucune opération à exécuter.")
+            return
+        self._run_job(steps)
 
     def _export_corpus(self) -> None:
         store = self._get_store()

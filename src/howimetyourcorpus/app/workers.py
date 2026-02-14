@@ -36,6 +36,9 @@ class JobRunner(QObject):
 
     def run_async(self) -> None:
         """Lance l'exécution dans un thread dédié."""
+        if self.is_running():
+            logger.warning("JobRunner already running; run_async ignored")
+            return
         self._thread = QThread()
         self._worker_obj = _PipelineWorker(
             self._runner,
@@ -58,9 +61,18 @@ class JobRunner(QObject):
             self._thread.quit()
             if not self._thread.wait(3000):
                 logger.warning("Worker thread did not finish within 3s")
+        if self._worker_obj is not None:
+            self._worker_obj.deleteLater()
+            self._worker_obj = None
+        if self._thread is not None:
+            self._thread.deleteLater()
+            self._thread = None
 
     def cancel(self) -> None:
         self._runner.cancel()
+
+    def is_running(self) -> bool:
+        return bool(self._thread and self._thread.isRunning())
 
 
 class _PipelineWorker(QObject):

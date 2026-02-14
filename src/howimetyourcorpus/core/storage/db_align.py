@@ -21,7 +21,7 @@ def create_align_run(
 ) -> None:
     """Crée une entrée de run d'alignement."""
     if not created_at:
-        created_at = datetime.datetime.utcnow().isoformat() + "Z"
+        created_at = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
     conn.execute(
         """
         INSERT INTO align_runs (align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json)
@@ -176,7 +176,9 @@ def get_align_stats_for_run(
         where += " AND status = ?"
         params.append(status_filter)
     rows = conn.execute(
-        f"""SELECT role, status, confidence, COUNT(*) AS cnt
+        f"""SELECT role, status, COUNT(*) AS cnt,
+                    SUM(CASE WHEN confidence IS NOT NULL THEN confidence ELSE 0 END) AS conf_sum,
+                    COUNT(confidence) AS conf_count
            FROM align_links {where}
            GROUP BY role, status""",
         params,
@@ -196,9 +198,8 @@ def get_align_stats_for_run(
             nb_target += cnt
         st = r["status"] or "auto"
         by_status[st] = by_status.get(st, 0) + cnt
-        if r["confidence"] is not None:
-            conf_sum += r["confidence"] * cnt
-            conf_count += cnt
+        conf_sum += float(r["conf_sum"] or 0.0)
+        conf_count += int(r["conf_count"] or 0)
     avg_confidence = conf_sum / conf_count if conf_count else None
     return {
         "episode_id": episode_id,

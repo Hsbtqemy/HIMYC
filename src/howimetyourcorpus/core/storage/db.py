@@ -140,7 +140,7 @@ class CorpusDB:
         self, episode_id: str, status: str, timestamp: str | None = None
     ) -> None:
         """Met à jour le statut d'un épisode (et fetched_at / normalized_at si fourni)."""
-        ts = timestamp or datetime.datetime.utcnow().isoformat() + "Z"
+        ts = timestamp or datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
         conn = self._conn()
         try:
             if status == EpisodeStatus.FETCHED.value:
@@ -201,6 +201,21 @@ class CorpusDB:
                 "SELECT episode_id FROM documents"
             ).fetchall()
             return [r[0] for r in rows]
+        finally:
+            conn.close()
+
+    def get_episode_statuses(self, episode_ids: list[str]) -> dict[str, str]:
+        """Retourne les statuts épisodes depuis la DB (episode_id -> status)."""
+        if not episode_ids:
+            return {}
+        conn = self._conn()
+        try:
+            placeholders = ",".join("?" * len(episode_ids))
+            rows = conn.execute(
+                f"SELECT episode_id, status FROM episodes WHERE episode_id IN ({placeholders})",
+                episode_ids,
+            ).fetchall()
+            return {str(r[0]): str(r[1]) for r in rows if r and r[0] is not None and r[1] is not None}
         finally:
             conn.close()
 

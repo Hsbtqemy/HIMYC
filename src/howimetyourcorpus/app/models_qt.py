@@ -25,6 +25,28 @@ def _node_episode(node: tuple) -> EpisodeRef | None:
     return None
 
 
+def _resolve_episode_processing_status(
+    *,
+    episode_id: str,
+    store: ProjectStore | None,
+    db_status_by_ep: dict[str, str],
+    indexed: set[str],
+) -> str:
+    """Résout un statut UI cohérent à partir des artefacts disque + statut DB."""
+    db_status = (db_status_by_ep.get(episode_id) or "").lower()
+    if episode_id in indexed or db_status == EpisodeStatus.INDEXED.value:
+        return EpisodeStatus.INDEXED.value
+    if db_status == EpisodeStatus.ERROR.value:
+        return EpisodeStatus.ERROR.value
+    has_clean = bool(store and store.has_episode_clean(episode_id))
+    has_raw = bool(store and store.has_episode_raw(episode_id))
+    if has_clean or db_status == EpisodeStatus.NORMALIZED.value:
+        return EpisodeStatus.NORMALIZED.value
+    if has_raw or db_status == EpisodeStatus.FETCHED.value:
+        return EpisodeStatus.FETCHED.value
+    return EpisodeStatus.NEW.value
+
+
 class EpisodesTreeModel(QAbstractItemModel):
     """Modèle d'arbre : racine → Saisons → Épisodes (même colonnes que la table + case à cocher)."""
 
@@ -72,17 +94,16 @@ class EpisodesTreeModel(QAbstractItemModel):
             return
         indexed = set(self._db.get_episode_ids_indexed()) if self._db else set()
         episode_ids = [ref.episode_id for ref in self._episodes]
+        db_status_by_ep = self._db.get_episode_statuses(episode_ids) if self._db else {}
         tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
         runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
         for ref in self._episodes:
-            s = EpisodeStatus.NEW.value
-            if self._store:
-                if self._store.has_episode_clean(ref.episode_id):
-                    s = EpisodeStatus.NORMALIZED.value
-                elif self._store.has_episode_raw(ref.episode_id):
-                    s = EpisodeStatus.FETCHED.value
-            if ref.episode_id in indexed:
-                s = EpisodeStatus.INDEXED.value
+            s = _resolve_episode_processing_status(
+                episode_id=ref.episode_id,
+                store=self._store,
+                db_status_by_ep=db_status_by_ep,
+                indexed=indexed,
+            )
             self._status_map[ref.episode_id] = s
             if self._db:
                 tracks = tracks_by_ep.get(ref.episode_id, [])
@@ -206,6 +227,9 @@ class EpisodesTreeModel(QAbstractItemModel):
         ref = _node_episode(index.internalPointer() if index.isValid() else None)
         return ref.episode_id if ref else None
 
+    def get_status_for_episode_id(self, episode_id: str) -> str:
+        return self._status_map.get(episode_id, EpisodeStatus.NEW.value)
+
     def get_episode_ids_selection(self, indices: list[QModelIndex]) -> list[str]:
         ids = []
         for ix in indices:
@@ -301,20 +325,40 @@ class EpisodesTreeFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._season_filter: int | None = None
+        self._status_filter: str | None = None
 
     def set_season_filter(self, season: int | None) -> None:
         self._season_filter = season
         self.invalidateFilter()
 
+    def set_status_filter(self, status: str | None) -> None:
+        self._status_filter = (status or "").strip().lower() or None
+        self.invalidateFilter()
+
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        if self._season_filter is None:
-            return True
         sm = self.sourceModel()
         if not isinstance(sm, EpisodesTreeModel):
             return True
         if not source_parent.isValid():
-            return sm.get_season_at_root_row(source_row) == self._season_filter
-        return True
+            if self._season_filter is not None and sm.get_season_at_root_row(source_row) != self._season_filter:
+                return False
+            if self._status_filter is None:
+                return True
+            season_index = sm.index(source_row, 0, QModelIndex())
+            child_count = sm.rowCount(season_index)
+            for child_row in range(child_count):
+                child_index = sm.index(child_row, 0, season_index)
+                eid = sm.get_episode_id_for_index(child_index)
+                if eid and sm.get_status_for_episode_id(eid) == self._status_filter:
+                    return True
+            return False
+        if self._status_filter is None:
+            return True
+        child_index = sm.index(source_row, 0, source_parent)
+        eid = sm.get_episode_id_for_index(child_index)
+        if not eid:
+            return True
+        return sm.get_status_for_episode_id(eid) == self._status_filter
 
 
 class EpisodesTableModel(QAbstractTableModel):
@@ -359,17 +403,16 @@ class EpisodesTableModel(QAbstractTableModel):
         else:
             indexed = set()
         episode_ids = [ref.episode_id for ref in self._episodes]
+        db_status_by_ep = self._db.get_episode_statuses(episode_ids) if self._db else {}
         tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
         runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
         for ref in self._episodes:
-            s = EpisodeStatus.NEW.value
-            if self._store:
-                if self._store.has_episode_clean(ref.episode_id):
-                    s = EpisodeStatus.NORMALIZED.value
-                elif self._store.has_episode_raw(ref.episode_id):
-                    s = EpisodeStatus.FETCHED.value
-            if ref.episode_id in indexed:
-                s = EpisodeStatus.INDEXED.value
+            s = _resolve_episode_processing_status(
+                episode_id=ref.episode_id,
+                store=self._store,
+                db_status_by_ep=db_status_by_ep,
+                indexed=indexed,
+            )
             self._status_map[ref.episode_id] = s
             if self._db:
                 tracks = tracks_by_ep.get(ref.episode_id, [])
@@ -456,6 +499,9 @@ class EpisodesTableModel(QAbstractTableModel):
         ref = self.get_episode_at(index.row()) if index.isValid() else None
         return ref.episode_id if ref else None
 
+    def get_status_for_episode_id(self, episode_id: str) -> str:
+        return self._status_map.get(episode_id, EpisodeStatus.NEW.value)
+
     def get_episode_ids_selection(self, indices: list[QModelIndex]) -> list[str]:
         rows = sorted(set(i.row() for i in indices if i.isValid()))
         return [self._episodes[r].episode_id for r in rows if 0 <= r < len(self._episodes)]
@@ -506,21 +552,28 @@ class EpisodesFilterProxyModel(QSortFilterProxyModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._season_filter: int | None = None  # None = toutes les saisons
+        self._status_filter: str | None = None
 
     def set_season_filter(self, season: int | None) -> None:
         self._season_filter = season
         self.invalidateFilter()
 
+    def set_status_filter(self, status: str | None) -> None:
+        self._status_filter = (status or "").strip().lower() or None
+        self.invalidateFilter()
+
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
-        if self._season_filter is None:
-            return True
         src = self.sourceModel()
         if not isinstance(src, EpisodesTableModel):
             return True
         ref = src.get_episode_at(source_row)
         if ref is None:
             return True
-        return ref.season == self._season_filter
+        if self._season_filter is not None and ref.season != self._season_filter:
+            return False
+        if self._status_filter is None:
+            return True
+        return src.get_status_for_episode_id(ref.episode_id) == self._status_filter
 
 
 class KwicTableModel(QAbstractTableModel):
