@@ -56,9 +56,11 @@ class ConcordanceTabWidget(QWidget):
         row.addWidget(self.kwic_search_edit)
         self.kwic_go_btn = QPushButton("Rechercher")
         self.kwic_go_btn.clicked.connect(self._run_kwic)
+        self.kwic_go_btn.setToolTip("Lance la recherche KWIC sur le scope sélectionné.")
         row.addWidget(self.kwic_go_btn)
         self.export_kwic_btn = QPushButton("Exporter résultats")
         self.export_kwic_btn.clicked.connect(self._export_kwic)
+        self.export_kwic_btn.setToolTip("Exporte les résultats KWIC actuels.")
         row.addWidget(self.export_kwic_btn)
         row.addWidget(QLabel("Scope:"))
         self.kwic_scope_combo = QComboBox()
@@ -98,14 +100,15 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.kwic_table)
         self.kwic_search_edit.returnPressed.connect(self._run_kwic)
+        self.kwic_search_edit.textChanged.connect(lambda _text: self._apply_controls_enabled())
+        self._kwic_go_tooltip_default = self.kwic_go_btn.toolTip()
+        self._kwic_export_tooltip_default = self.export_kwic_btn.toolTip()
         self._apply_controls_enabled()
 
     def _apply_controls_enabled(self) -> None:
         enabled = not self._job_busy
         controls = (
             self.kwic_search_edit,
-            self.kwic_go_btn,
-            self.export_kwic_btn,
             self.kwic_scope_combo,
             self.kwic_kind_combo,
             self.kwic_lang_combo,
@@ -114,6 +117,27 @@ class ConcordanceTabWidget(QWidget):
         )
         for widget in controls:
             widget.setEnabled(enabled)
+        has_db = self._get_db() is not None
+        has_term = bool(self.kwic_search_edit.text().strip())
+        has_hits = bool(self.kwic_model.get_all_hits())
+        go_enabled = enabled and has_db and has_term
+        export_enabled = enabled and has_hits
+        self.kwic_go_btn.setEnabled(go_enabled)
+        self.export_kwic_btn.setEnabled(export_enabled)
+        if go_enabled:
+            self.kwic_go_btn.setToolTip(self._kwic_go_tooltip_default)
+        elif not enabled:
+            self.kwic_go_btn.setToolTip("Recherche indisponible pendant un job.")
+        elif not has_db:
+            self.kwic_go_btn.setToolTip("Recherche indisponible: ouvrez un projet.")
+        else:
+            self.kwic_go_btn.setToolTip("Saisissez un terme pour lancer la recherche.")
+        if export_enabled:
+            self.export_kwic_btn.setToolTip(self._kwic_export_tooltip_default)
+        elif not enabled:
+            self.export_kwic_btn.setToolTip("Export indisponible pendant un job.")
+        else:
+            self.export_kwic_btn.setToolTip("Aucun résultat à exporter.")
 
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions de recherche/export pendant un job pipeline."""
@@ -132,7 +156,22 @@ class ConcordanceTabWidget(QWidget):
             return
         term = self.kwic_search_edit.text().strip()
         db = self._get_db()
-        if not term or not db:
+        if not term:
+            warn_precondition(
+                self,
+                "Concordance",
+                "Saisissez un terme avant de lancer la recherche.",
+            )
+            self._apply_controls_enabled()
+            return
+        if not db:
+            warn_precondition(
+                self,
+                "Concordance",
+                "Base de données indisponible.",
+                next_step="Ouvrez un projet puis indexez au moins un épisode.",
+            )
+            self._apply_controls_enabled()
             return
         season = self.kwic_season_spin.value() if self.kwic_season_spin.value() > 0 else None
         episode = self.kwic_episode_spin.value() if self.kwic_episode_spin.value() > 0 else None
@@ -146,6 +185,7 @@ class ConcordanceTabWidget(QWidget):
         else:
             hits = db.query_kwic(term, season=season, episode=episode, window=45, limit=200)
         self.kwic_model.set_hits(hits)
+        self._apply_controls_enabled()
 
     def _export_kwic(self) -> None:
         if self._job_busy:
