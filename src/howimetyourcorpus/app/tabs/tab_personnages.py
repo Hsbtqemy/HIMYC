@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -17,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from howimetyourcorpus.app.feedback import show_error, warn_precondition
+from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 
 
@@ -284,10 +283,11 @@ class PersonnagesTabWidget(QWidget):
         episode_ids = [e.episode_id for e in index.episodes]
         speakers = db.get_distinct_speaker_explicit(episode_ids)
         if not speakers:
-            QMessageBox.information(
+            warn_precondition(
                 self,
                 "Personnages",
                 "Aucun nom de locuteur trouvé dans les segments. Segmentez d'abord les épisodes (Inspecteur).",
+                next_step="Inspecteur: lancez « Segmente l'épisode » puis revenez importer les locuteurs.",
             )
             return
         characters = list(store.load_character_names())
@@ -316,8 +316,11 @@ class PersonnagesTabWidget(QWidget):
             self.refresh()
             self._show_status(f"{added} nom(s) importé(s) depuis les segments.", 4000)
         else:
-            QMessageBox.information(
-                self, "Personnages", "Tous les noms trouvés dans les segments sont déjà dans la grille."
+            show_info(
+                self,
+                "Personnages",
+                "Tous les noms trouvés dans les segments sont déjà dans la grille.",
+                status_callback=self._show_status,
             )
 
     def _save(self) -> None:

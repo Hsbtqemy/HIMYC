@@ -503,7 +503,12 @@ class SubtitleTabWidget(QWidget):
             ep, lang = _parse_subtitle_filename(p)
             rows.append((str(p.resolve()), ep, lang))
         if not rows:
-            QMessageBox.information(self, "Import", "Aucun fichier .srt ou .vtt trouvé dans ce dossier.")
+            warn_precondition(
+                self,
+                "Import",
+                "Aucun fichier .srt ou .vtt trouvé dans ce dossier.",
+                next_step="Choisissez un dossier contenant des fichiers .srt/.vtt nommés par épisode.",
+            )
             return
         episode_ids = [e.episode_id for e in index.episodes]
         langs = store.load_project_languages() if store else None

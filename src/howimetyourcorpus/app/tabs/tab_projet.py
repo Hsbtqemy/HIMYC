@@ -291,8 +291,11 @@ class ProjectTabWidget(QWidget):
             return
         langs = store.load_project_languages()
         if code in langs:
-            QMessageBox.information(
-                self, "Langues", f"La langue « {code} » est déjà dans la liste."
+            warn_precondition(
+                self,
+                "Langues",
+                f"La langue « {code} » est déjà dans la liste.",
+                next_step="Indiquez un autre code (ex. de, es, pt) ou annulez.",
             )
             return
         langs.append(code)
@@ -314,7 +317,12 @@ class ProjectTabWidget(QWidget):
             return
         row = self.languages_list.currentRow()
         if row < 0:
-            QMessageBox.information(self, "Langues", "Sélectionnez une langue à supprimer.")
+            warn_precondition(
+                self,
+                "Langues",
+                "Sélectionnez une langue à supprimer.",
+                next_step="Cliquez une langue dans la liste, puis relancez « Supprimer ».",
+            )
             return
         code = self.languages_list.item(row).text()
         if (
