@@ -117,3 +117,14 @@ def resolve_http_options_for_config(
         user_agent=user_agent_override or (getattr(config, "user_agent", None) if config is not None else None),
         rate_limit_s=getattr(config, "rate_limit_s", None) if config is not None else None,
     )
+
+
+def format_http_options_summary(options: AcquisitionHttpOptions) -> str:
+    """Résumé compact des options HTTP effectives (diagnostic UI/log)."""
+    return (
+        f"profile={options.acquisition_profile_id} "
+        f"rate={options.rate_limit_s:.1f}s "
+        f"timeout={options.timeout_s:.1f}s "
+        f"retries={options.retries} "
+        f"backoff={options.backoff_s:.1f}s"
+    )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from howimetyourcorpus.core.acquisition.profiles import (
     DEFAULT_ACQUISITION_PROFILE_ID,
+    format_http_options_summary,
     resolve_http_options,
 )
 
@@ -46,3 +47,18 @@ def test_resolve_http_options_does_not_duplicate_user_agent_marker() -> None:
     )
 
     assert opts.user_agent.count("acq=fast_v1") == 1
+
+
+def test_format_http_options_summary_contains_key_runtime_fields() -> None:
+    opts = resolve_http_options(
+        acquisition_profile_id="safe_v1",
+        user_agent="Agent/1.0",
+        rate_limit_s=5.0,
+    )
+
+    summary = format_http_options_summary(opts)
+
+    assert "profile=safe_v1" in summary
+    assert "rate=5.0s" in summary
+    assert "timeout=45.0s" in summary
+    assert "retries=4" in summary

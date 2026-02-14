@@ -18,7 +18,11 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QIcon
 
-from howimetyourcorpus.core.acquisition.profiles import DEFAULT_ACQUISITION_PROFILE_ID
+from howimetyourcorpus.core.acquisition.profiles import (
+    DEFAULT_ACQUISITION_PROFILE_ID,
+    format_http_options_summary,
+    resolve_http_options_for_config,
+)
 from howimetyourcorpus.core.models import ProjectConfig
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.pipeline.context import PipelineContext
@@ -55,6 +59,13 @@ TAB_PROJET = TAB_PILOTAGE
 TAB_CORPUS = TAB_PILOTAGE
 TAB_ALIGNEMENT = TAB_VALIDATION
 TAB_PERSONNAGES = TAB_VALIDATION
+
+_NETWORK_STEP_NAMES = {
+    "fetch_series_index",
+    "fetch_and_merge_series_index",
+    "fetch_episode",
+    "download_opensubtitles",
+}
 
 
 class MainWindow(QMainWindow):
@@ -372,6 +383,15 @@ class MainWindow(QMainWindow):
         context = self._get_context()
         if not context.get("config"):
             return
+        config = context["config"]
+        http_opts = resolve_http_options_for_config(config)
+        has_network_step = any(getattr(step, "name", "") in _NETWORK_STEP_NAMES for step in steps)
+        runtime_summary = format_http_options_summary(http_opts)
+        runtime_label = (
+            f"Acquisition runtime (HTTP): {runtime_summary}"
+            if has_network_step
+            else f"Acquisition runtime (local-only): {runtime_summary}"
+        )
         self._job_runner = JobRunner(steps, context, force=force)
         self._job_runner.progress.connect(self._on_job_progress)
         self._job_runner.log.connect(self._on_job_log)
@@ -385,8 +405,12 @@ class MainWindow(QMainWindow):
             "info",
             f"Job démarré: {len(steps)} étape(s), force={'oui' if force else 'non'}",
         )
+        self._on_job_log("info", runtime_label)
+        if has_network_step:
+            self.statusBar().showMessage(runtime_label, 5000)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_progress(0)
+            self.corpus_tab.set_acquisition_runtime_info(runtime_label)
         self._job_runner.run_async()
 
     def _on_job_progress(self, step_name: str, percent: float, message: str):

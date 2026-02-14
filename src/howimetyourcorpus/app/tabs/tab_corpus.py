@@ -345,6 +345,13 @@ class CorpusTabWidget(QWidget):
         self.corpus_next_step_label.setStyleSheet("color: #505050;")
         self.corpus_next_step_label.setWordWrap(True)
         layout.addWidget(self.corpus_next_step_label)
+        self.acquisition_runtime_label = QLabel("")
+        self.acquisition_runtime_label.setStyleSheet("color: #505050; font-size: 0.9em;")
+        self.acquisition_runtime_label.setWordWrap(True)
+        self.acquisition_runtime_label.setToolTip(
+            "Paramètres d'acquisition HTTP effectivement appliqués au dernier job."
+        )
+        layout.addWidget(self.acquisition_runtime_label)
         self.primary_action_row = QHBoxLayout()
         self.primary_action_row.addWidget(QLabel("Action recommandée:"))
         self.primary_action_btn = QPushButton("—")
@@ -375,6 +382,10 @@ class CorpusTabWidget(QWidget):
 
     def set_progress(self, value: int) -> None:
         self.corpus_progress.setValue(value)
+
+    def set_acquisition_runtime_info(self, text: str) -> None:
+        """Affiche un diagnostic runtime des options d'acquisition (profil/rate-limit/timeout/retry)."""
+        self.acquisition_runtime_label.setText(text or "")
 
     def set_cancel_btn_enabled(self, enabled: bool) -> None:
         self.cancel_job_btn.setEnabled(enabled)
@@ -502,6 +513,7 @@ class CorpusTabWidget(QWidget):
         self.season_filter_combo.addItem("Toutes les saisons", None)
         self.corpus_status_label.setText("")
         self.corpus_next_step_label.setText(next_step_message)
+        self.acquisition_runtime_label.setText("")
         self._set_scope_action_buttons_enabled(
             fetch=False,
             normalize=False,
