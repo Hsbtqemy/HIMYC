@@ -28,7 +28,7 @@ class _DbStub:
         statuses: dict[str, str] | None = None,
         segmented_ids: set[str] | None = None,
         indexed_ids: set[str] | None = None,
-        tracks_by_ep: dict[str, list[int]] | None = None,
+        tracks_by_ep: dict[str, list[object]] | None = None,
         runs_by_ep: dict[str, list[int]] | None = None,
     ) -> None:
         self._statuses = statuses or {}
@@ -47,7 +47,7 @@ class _DbStub:
     def get_episode_ids_indexed(self) -> list[str]:
         return list(self._indexed_ids)
 
-    def get_tracks_for_episodes(self, episode_ids: list[str]) -> dict[str, list[int]]:
+    def get_tracks_for_episodes(self, episode_ids: list[str]) -> dict[str, list[object]]:
         return {eid: self._tracks_by_ep.get(eid, []) for eid in episode_ids}
 
     def get_align_runs_for_episodes(self, episode_ids: list[str]) -> dict[str, list[int]]:
@@ -126,3 +126,18 @@ def test_compute_workflow_status_is_resilient_to_db_failures() -> None:
     assert counts.n_with_srt == 0
     assert counts.n_aligned == 0
     assert error_ids == ["S01E03"]
+
+
+def test_compute_workflow_status_ignores_empty_subtitle_tracks() -> None:
+    counts, _error_ids = compute_workflow_status(
+        index=_index(),
+        store=_StoreStub(),
+        db=_DbStub(
+            tracks_by_ep={
+                "S01E01": [{"lang": "en", "nb_cues": 0}],
+                "S01E02": [{"lang": "fr", "nb_cues": 3}],
+                "S01E03": [],
+            }
+        ),
+    )
+    assert counts.n_with_srt == 1

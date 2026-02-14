@@ -11,6 +11,25 @@ from howimetyourcorpus.core.models import EpisodeStatus, SeriesIndex
 logger = logging.getLogger(__name__)
 
 
+def _has_usable_subtitle_track(tracks: object) -> bool:
+    """Retourne True si au moins une piste contient des cues exploitables."""
+    if not tracks or not isinstance(tracks, list):
+        return False
+    for track in tracks:
+        if isinstance(track, Mapping):
+            try:
+                if int(track.get("nb_cues") or 0) > 0:
+                    return True
+            except Exception:
+                # Fallback défensif: si nb_cues est invalide mais une langue est présente,
+                # on considère la piste comme potentiellement exploitable.
+                if track.get("lang"):
+                    return True
+        elif track:
+            return True
+    return False
+
+
 def load_episode_status_map(db: Any, episode_ids: list[str]) -> dict[str, str]:
     """Retourne les statuts DB par épisode (fallback vide en cas d'erreur)."""
     if not db or not episode_ids:
@@ -84,7 +103,7 @@ def compute_workflow_status(
         except Exception:
             logger.exception("Failed to load alignment runs by episode")
             runs_by_ep = {}
-        n_with_srt = sum(1 for eid in episode_ids if tracks_by_ep.get(eid))
+        n_with_srt = sum(1 for eid in episode_ids if _has_usable_subtitle_track(tracks_by_ep.get(eid)))
         n_aligned = sum(1 for eid in episode_ids if runs_by_ep.get(eid))
     return (
         WorkflowStatusCounts(
