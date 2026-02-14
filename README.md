@@ -100,6 +100,7 @@ Voir **example/README.md** pour les instructions détaillées.
    **Workflow recommandé (batch par saison)**  
    - **Option A — Saison par saison** : pour chaque saison, sélectionner « Saison N » + `Périmètre action = Saison filtrée` → « Télécharger » → « Normaliser » → « Indexer DB » (ou segmenter / importer SRT / aligner selon vos besoins), puis passer à la saison suivante.  
    - **Option B — Tout normaliser puis traiter par saison** : `Périmètre action = Tout le corpus` + « Télécharger » puis « Normaliser » ; ensuite utiliser le filtre saison + `Périmètre action = Saison filtrée` pour segmenter, importer les sous-titres et aligner saison par saison.
+   - **Mode SRT-first** : si vous importez d’abord des sous-titres (sans transcripts), le Pilotage propose une bascule directe vers **Concordance** (scope **Cues**) pour commencer l’exploration ; l’alignement segment↔cues reste disponible après `Télécharger → Normaliser → Segmenter`.
 
 3. **Inspecter** (onglet Inspecteur)  
    - Choisir un épisode et comparer RAW vs CLEAN, stats et exemples de fusions.  
