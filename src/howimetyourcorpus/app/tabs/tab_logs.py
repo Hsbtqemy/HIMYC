@@ -98,6 +98,9 @@ class LogsTabWidget(QWidget):
         self.search_edit.setPlaceholderText('Ex: fetch S01E01 -debug align|kwic "run failed"')
         self.search_edit.textChanged.connect(self._on_filters_changed)
         controls.addWidget(self.search_edit)
+        self.count_label = QLabel("0 / 0")
+        self.count_label.setToolTip("Nombre de lignes visibles / nombre total en tampon live.")
+        controls.addWidget(self.count_label)
         self.clear_btn = QPushButton("Effacer tampon live")
         self.clear_btn.setToolTip("Vide le tampon des logs affichés dans cette session.")
         self.clear_btn.clicked.connect(self._clear_live_buffer)
@@ -226,9 +229,12 @@ class LogsTabWidget(QWidget):
 
     def _refresh_view(self, *_args) -> None:
         self.logs_edit.clear()
+        visible_count = 0
         for entry in self._entries:
             if self._entry_matches_current_filters(entry):
                 self.logs_edit.appendPlainText(entry.formatted_line)
+                visible_count += 1
+        self.count_label.setText(f"{visible_count} / {len(self._entries)}")
 
     def _save_filters_state(self) -> None:
         settings = QSettings()
@@ -254,6 +260,7 @@ class LogsTabWidget(QWidget):
     def _clear_live_buffer(self) -> None:
         self._entries.clear()
         self.logs_edit.clear()
+        self.count_label.setText("0 / 0")
 
     def load_file_tail(self, *, max_lines: int = 400, clear_existing: bool = False) -> int:
         """Charge les dernières lignes du fichier log projet dans le tampon visible."""
