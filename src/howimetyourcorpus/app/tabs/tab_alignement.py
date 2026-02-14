@@ -645,6 +645,14 @@ class AlignmentTabWidget(QWidget):
         )
         try:
             links = db.query_alignment_for_episode(eid, run_id=run_id)
+            if not links:
+                warn_precondition(
+                    self,
+                    "Export alignement",
+                    "Aucun lien d'alignement à exporter pour ce run.",
+                    next_step="Relancez l'alignement ou choisissez un autre run.",
+                )
+                return
             if export_key == "jsonl":
                 with path.open("w", encoding="utf-8") as f:
                     for row in links:
@@ -713,6 +721,14 @@ class AlignmentTabWidget(QWidget):
         try:
             status_filter = self._selected_status_filter()
             rows = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
+            if not rows:
+                warn_precondition(
+                    self,
+                    "Concordancier parallèle",
+                    "Aucune ligne à exporter pour ce run.",
+                    next_step="Vérifiez les liens du run ou décochez « Liens acceptés uniquement ».",
+                )
+                return
             if export_key == "jsonl":
                 export_parallel_concordance_jsonl(rows, path)
             elif export_key == "tsv":
