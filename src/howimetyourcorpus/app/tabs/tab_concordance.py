@@ -126,7 +126,7 @@ class ConcordanceTabWidget(QWidget):
     def __init__(
         self,
         get_db: Callable[[], object],
-        on_open_inspector: Callable[[str], None],
+        on_open_inspector: Callable[..., None],
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -559,7 +559,16 @@ class ConcordanceTabWidget(QWidget):
         hit = self.kwic_model.get_hit_at(index.row())
         if not hit:
             return
-        self._on_open_inspector(hit.episode_id)
+        try:
+            self._on_open_inspector(
+                hit.episode_id,
+                segment_id=hit.segment_id,
+                cue_id=hit.cue_id,
+                cue_lang=hit.lang,
+            )
+        except TypeError:
+            # Compatibilité: callback historique ne prend que l'episode_id.
+            self._on_open_inspector(hit.episode_id)
 
     def closeEvent(self, event) -> None:
         if self._kwic_busy:

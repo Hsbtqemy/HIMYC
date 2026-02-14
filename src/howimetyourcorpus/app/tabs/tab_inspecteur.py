@@ -275,6 +275,13 @@ class InspectorTabWidget(QWidget):
                 return
         self._load_episode()
 
+    def set_episode_and_focus(self, episode_id: str, *, segment_id: str | None = None) -> bool:
+        """Sélectionne l'épisode puis tente de focus le segment demandé."""
+        self.set_episode_and_load(episode_id)
+        if not segment_id:
+            return True
+        return self.focus_segment(segment_id)
+
     def _load_episode(self) -> None:
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
@@ -418,6 +425,32 @@ class InspectorTabWidget(QWidget):
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, s)
             self.inspect_segments_list.addItem(item)
+
+    def focus_segment(self, segment_id: str) -> bool:
+        """Positionne la vue sur un segment précis dans le mode Segments."""
+        wanted_id = str(segment_id or "").strip()
+        if not wanted_id:
+            return False
+        seg_view_idx = self.inspect_view_combo.findData("segments")
+        if seg_view_idx >= 0 and self.inspect_view_combo.currentIndex() != seg_view_idx:
+            self.inspect_view_combo.setCurrentIndex(seg_view_idx)
+        else:
+            episode_id = self.inspect_episode_combo.currentData()
+            if episode_id:
+                self._fill_segments(str(episode_id))
+        for i in range(self.inspect_segments_list.count()):
+            item = self.inspect_segments_list.item(i)
+            if item is None:
+                continue
+            seg = item.data(Qt.ItemDataRole.UserRole)
+            sid = str((seg or {}).get("segment_id") or "") if isinstance(seg, dict) else ""
+            if sid != wanted_id:
+                continue
+            self.inspect_segments_list.setCurrentItem(item)
+            self.inspect_segments_list.scrollToItem(item)
+            self.inspect_segments_list.setFocus()
+            return True
+        return False
 
     def _on_segment_selected(self, current: QListWidgetItem | None) -> None:
         if not current:

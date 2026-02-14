@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -184,6 +185,106 @@ class SubtitleTabWidget(QWidget):
                     self._on_episode_changed()
                 return
         self._on_episode_changed()
+
+    def set_episode_and_focus_cue(
+        self,
+        episode_id: str,
+        *,
+        cue_id: str | None = None,
+        cue_lang: str | None = None,
+    ) -> bool:
+        """Sélectionne l'épisode puis tente de focus la cue demandée."""
+        self.set_episode_and_load(episode_id)
+        if not cue_id:
+            return True
+        return self.focus_cue(cue_id, cue_lang=cue_lang)
+
+    def _find_track_item_for_lang(self, lang: str) -> QListWidgetItem | None:
+        target_lang = (lang or "").strip().lower()
+        if not target_lang:
+            return None
+        for i in range(self.subs_tracks_list.count()):
+            item = self.subs_tracks_list.item(i)
+            if item is None:
+                continue
+            data = item.data(Qt.ItemDataRole.UserRole)
+            item_lang = str((data or {}).get("lang") or "").strip().lower() if isinstance(data, dict) else ""
+            if item_lang == target_lang:
+                return item
+        return None
+
+    @staticmethod
+    def _infer_lang_from_cue_id(cue_id: str) -> str | None:
+        parts = [part for part in str(cue_id or "").split(":") if part]
+        if len(parts) < 2:
+            return None
+        lang = parts[-2].strip().lower()
+        return lang or None
+
+    def _select_text_in_content(self, text: str) -> bool:
+        content = self.subs_content_edit.toPlainText()
+        if not content or not text:
+            return False
+        pos = content.find(text)
+        if pos < 0:
+            pos = content.casefold().find(text.casefold())
+        if pos < 0:
+            return False
+        cursor = self.subs_content_edit.textCursor()
+        cursor.setPosition(pos)
+        cursor.setPosition(pos + len(text), QTextCursor.MoveMode.KeepAnchor)
+        self.subs_content_edit.setTextCursor(cursor)
+        self.subs_content_edit.ensureCursorVisible()
+        self.subs_content_edit.setFocus()
+        return True
+
+    def focus_cue(self, cue_id: str, *, cue_lang: str | None = None) -> bool:
+        """Positionne la vue sur une cue précise (langue + extrait texte)."""
+        wanted_cue_id = str(cue_id or "").strip()
+        if not wanted_cue_id:
+            return False
+        episode_id = self.subs_episode_combo.currentData()
+        if not episode_id:
+            return False
+        lang = (cue_lang or self._infer_lang_from_cue_id(wanted_cue_id) or "").strip().lower()
+        if not lang:
+            return False
+        item = self._find_track_item_for_lang(lang)
+        if item is None:
+            return False
+        if self.subs_tracks_list.currentItem() is not item:
+            self.subs_tracks_list.setCurrentItem(item)
+        else:
+            self._on_track_selected(item)
+        db = self._get_db()
+        if not db:
+            return False
+        try:
+            cues = db.get_cues_for_episode_lang(str(episode_id), lang)
+        except Exception:
+            return False
+        cue = next((row for row in cues if str(row.get("cue_id") or "") == wanted_cue_id), None)
+        if cue:
+            text_candidates = [
+                str(cue.get("text_clean") or "").strip(),
+                str(cue.get("text_raw") or "").strip(),
+            ]
+            for candidate in text_candidates:
+                if candidate and self._select_text_in_content(candidate):
+                    return True
+            n = cue.get("n")
+            if isinstance(n, int):
+                line_pattern = re.compile(rf"(?m)^\s*{int(n) + 1}\s*$")
+                match = line_pattern.search(self.subs_content_edit.toPlainText())
+                if match:
+                    cursor = self.subs_content_edit.textCursor()
+                    cursor.setPosition(match.start())
+                    cursor.setPosition(match.end(), QTextCursor.MoveMode.KeepAnchor)
+                    self.subs_content_edit.setTextCursor(cursor)
+                    self.subs_content_edit.ensureCursorVisible()
+                    self.subs_content_edit.setFocus()
+                    return True
+        return False
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et les pistes (appelé après ouverture projet / import)."""

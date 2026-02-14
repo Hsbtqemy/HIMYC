@@ -717,11 +717,26 @@ class MainWindow(QMainWindow):
         if hasattr(self, "personnages_tab") and self.personnages_tab:
             self.personnages_tab.refresh()
 
-    def _kwic_open_inspector_impl(self, episode_id: str) -> None:
-        """Passe à l'onglet Inspecteur et charge l'épisode (appelé depuis l'onglet Concordance)."""
+    def _kwic_open_inspector_impl(
+        self,
+        episode_id: str,
+        *,
+        segment_id: str | None = None,
+        cue_id: str | None = None,
+        cue_lang: str | None = None,
+    ) -> None:
+        """Passe à l'onglet Inspecteur et charge l'épisode, avec focus optionnel segment/cue."""
         self.tabs.setCurrentIndex(TAB_INSPECTEUR)
         if hasattr(self, "inspector_tab") and self.inspector_tab:
-            self.inspector_tab.set_episode_and_load(episode_id)
+            if hasattr(self.inspector_tab, "set_episode_and_focus_hit"):
+                self.inspector_tab.set_episode_and_focus_hit(
+                    episode_id,
+                    segment_id=segment_id,
+                    cue_id=cue_id,
+                    cue_lang=cue_lang,
+                )
+            else:
+                self.inspector_tab.set_episode_and_load(episode_id)
 
     def _build_tab_logs(self):
         self.logs_tab = LogsTabWidget(

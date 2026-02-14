@@ -190,6 +190,27 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         self.inspector_tab.set_episode_and_load(episode_id)
         self.subtitles_tab.set_episode_and_load(episode_id)
 
+    def set_episode_and_focus_hit(
+        self,
+        episode_id: str,
+        *,
+        segment_id: str | None = None,
+        cue_id: str | None = None,
+        cue_lang: str | None = None,
+    ) -> bool:
+        """
+        Ouvre l'épisode et tente un focus précis sur un hit Concordance:
+        - segment_id côté Transcript
+        - cue_id côté Sous-titres
+        """
+        self.set_episode_and_load(episode_id)
+        focused = False
+        if segment_id:
+            focused = self.inspector_tab.focus_segment(segment_id) or focused
+        if cue_id:
+            focused = self.subtitles_tab.focus_cue(cue_id, cue_lang=cue_lang) or focused
+        return focused
+
     def set_acquisition_runtime_info(self, text: str) -> None:
         """Expose le diagnostic runtime d'acquisition pour les jobs lancés depuis cet onglet."""
         self.acquisition_runtime_label.setText(text or "")
