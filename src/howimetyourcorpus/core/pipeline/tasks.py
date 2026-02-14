@@ -24,6 +24,16 @@ from howimetyourcorpus.core.subtitles.parsers import read_subtitle_file_content
 logger = logging.getLogger(__name__)
 
 
+def _mark_episode_error(db: CorpusDB | None, episode_id: str) -> None:
+    """Marque l'épisode en erreur sans bloquer le traitement si la DB échoue."""
+    if not db:
+        return
+    try:
+        db.set_episode_status(episode_id, EpisodeStatus.ERROR.value)
+    except Exception:
+        logger.exception("Failed to set episode status ERROR for %s", episode_id)
+
+
 class FetchSeriesIndexStep(Step):
     """Récupère la page série, parse, sauvegarde series_index.json."""
 
@@ -229,8 +239,7 @@ class FetchEpisodeStep(Step):
                 on_progress(self.name, 1.0, f"Fetched: {self.episode_id}")
             return StepResult(True, f"Fetched: {self.episode_id}", {"meta": meta})
         except Exception as e:
-            if db:
-                db.set_episode_status(self.episode_id, EpisodeStatus.ERROR.value)
+            _mark_episode_error(db, self.episode_id)
             logger.exception("Fetch episode failed")
             return StepResult(False, str(e))
 
@@ -266,11 +275,17 @@ class NormalizeEpisodeStep(Step):
             return StepResult(True, f"Already normalized: {self.episode_id}")
         raw = store.load_episode_text(self.episode_id, kind="raw")
         if not raw.strip():
+            _mark_episode_error(db, self.episode_id)
             return StepResult(False, f"No raw text: {self.episode_id}")
         if on_progress:
             on_progress(self.name, 0.5, f"Normalizing {self.episode_id}...")
-        clean_text, stats, debug = profile.apply(raw)
-        store.save_episode_clean(self.episode_id, clean_text, stats, debug)
+        try:
+            clean_text, stats, debug = profile.apply(raw)
+            store.save_episode_clean(self.episode_id, clean_text, stats, debug)
+        except Exception as e:
+            _mark_episode_error(db, self.episode_id)
+            logger.exception("Normalize episode failed")
+            return StepResult(False, str(e))
         if db:
             db.set_episode_status(self.episode_id, EpisodeStatus.NORMALIZED.value)
         if on_progress:
@@ -321,10 +336,15 @@ class BuildDbIndexStep(Step):
                 return StepResult(False, "Cancelled")
             if not force and eid in indexed_ids:
                 continue
-            clean = store.load_episode_text(eid, kind="clean")
-            if clean:
-                db.index_episode_text(eid, clean)
-                indexed_ids.add(eid)
+            try:
+                clean = store.load_episode_text(eid, kind="clean")
+                if clean:
+                    db.index_episode_text(eid, clean)
+                    indexed_ids.add(eid)
+            except Exception as e:
+                _mark_episode_error(db, eid)
+                logger.exception("Build DB index failed for %s", eid)
+                return StepResult(False, f"Indexing failed for {eid}: {e}")
             if on_progress and n:
                 on_progress(self.name, (i + 1) / n, f"Indexed {eid}")
         if on_progress:
@@ -359,34 +379,40 @@ class SegmentEpisodeStep(Step):
             return StepResult(True, f"Already segmented: {self.episode_id}")
         clean = store.load_episode_text(self.episode_id, kind="clean")
         if not clean.strip():
+            _mark_episode_error(db, self.episode_id)
             return StepResult(False, f"No clean text: {self.episode_id}")
         if on_progress:
             on_progress(self.name, 0.0, f"Segmenting {self.episode_id}...")
-        sentences = segmenter_sentences(clean, self.lang_hint)
-        utterances = segmenter_utterances(clean)
-        for s in sentences:
-            s.episode_id = self.episode_id
-        for u in utterances:
-            u.episode_id = self.episode_id
-        ep_dir.mkdir(parents=True, exist_ok=True)
-        with segments_path.open("w", encoding="utf-8") as f:
-            for seg in sentences + utterances:
-                obj = {
-                    "segment_id": seg.segment_id,
-                    "episode_id": seg.episode_id,
-                    "kind": seg.kind,
-                    "n": seg.n,
-                    "start_char": seg.start_char,
-                    "end_char": seg.end_char,
-                    "text": seg.text,
-                    "speaker_explicit": seg.speaker_explicit,
-                    "meta": seg.meta,
-                }
-                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
-        if db:
-            db.upsert_segments(self.episode_id, "sentence", sentences)
-            db.upsert_segments(self.episode_id, "utterance", utterances)
-            db.delete_align_runs_for_episode(self.episode_id)
+        try:
+            sentences = segmenter_sentences(clean, self.lang_hint)
+            utterances = segmenter_utterances(clean)
+            for s in sentences:
+                s.episode_id = self.episode_id
+            for u in utterances:
+                u.episode_id = self.episode_id
+            ep_dir.mkdir(parents=True, exist_ok=True)
+            with segments_path.open("w", encoding="utf-8") as f:
+                for seg in sentences + utterances:
+                    obj = {
+                        "segment_id": seg.segment_id,
+                        "episode_id": seg.episode_id,
+                        "kind": seg.kind,
+                        "n": seg.n,
+                        "start_char": seg.start_char,
+                        "end_char": seg.end_char,
+                        "text": seg.text,
+                        "speaker_explicit": seg.speaker_explicit,
+                        "meta": seg.meta,
+                    }
+                    f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+            if db:
+                db.upsert_segments(self.episode_id, "sentence", sentences)
+                db.upsert_segments(self.episode_id, "utterance", utterances)
+                db.delete_align_runs_for_episode(self.episode_id)
+        except Exception as e:
+            _mark_episode_error(db, self.episode_id)
+            logger.exception("Segment episode failed")
+            return StepResult(False, str(e))
         if on_progress:
             on_progress(self.name, 1.0, f"Segmented: {self.episode_id} ({len(sentences)} sentences, {len(utterances)} utterances)")
         return StepResult(
@@ -428,7 +454,9 @@ class RebuildSegmentsIndexStep(Step):
             if is_cancelled and is_cancelled():
                 return StepResult(False, "Cancelled")
             step = SegmentEpisodeStep(eid, lang_hint=lang_hint)
-            step.run(context, force=force, on_progress=on_progress, on_log=on_log)
+            segment_result = step.run(context, force=force, on_progress=on_progress, on_log=on_log)
+            if not segment_result.success:
+                return segment_result
             if on_progress and n:
                 on_progress(self.name, (i + 1) / n, f"Segmented {eid}")
         if on_progress:
