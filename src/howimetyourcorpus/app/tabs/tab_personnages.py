@@ -80,6 +80,9 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_source_combo.currentIndexChanged.connect(self._apply_controls_enabled)
         assign_row.addWidget(self.personnages_source_combo)
         self.personnages_load_assign_btn = QPushButton("Charger")
+        self.personnages_load_assign_btn.setToolTip(
+            "Charge les segments/cues de la source choisie pour l'épisode sélectionné."
+        )
         self.personnages_load_assign_btn.clicked.connect(self._load_assignments)
         assign_row.addWidget(self.personnages_load_assign_btn)
         layout.addLayout(assign_row)
@@ -90,6 +93,9 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_assign_table.itemSelectionChanged.connect(self._apply_controls_enabled)
         layout.addWidget(self.personnages_assign_table)
         self.personnages_save_assign_btn = QPushButton("Enregistrer assignations")
+        self.personnages_save_assign_btn.setToolTip(
+            "Enregistre les correspondances source -> personnage pour cet épisode."
+        )
         self.personnages_save_assign_btn.clicked.connect(self._save_assignments)
         layout.addWidget(self.personnages_save_assign_btn)
         self.personnages_propagate_btn = QPushButton("Propager vers les autres fichiers")
@@ -98,6 +104,9 @@ class PersonnagesTabWidget(QWidget):
         )
         self.personnages_propagate_btn.clicked.connect(self._propagate)
         layout.addWidget(self.personnages_propagate_btn)
+        self._load_assign_tooltip_default = self.personnages_load_assign_btn.toolTip()
+        self._save_assign_tooltip_default = self.personnages_save_assign_btn.toolTip()
+        self._propagate_tooltip_default = self.personnages_propagate_btn.toolTip()
         self.personnages_table.itemSelectionChanged.connect(self._apply_controls_enabled)
         self._apply_controls_enabled()
 
@@ -155,6 +164,32 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_assign_table.setEnabled(controls_enabled and has_episode)
         self.personnages_save_assign_btn.setEnabled(controls_enabled and has_episode and has_assignment_rows)
         self.personnages_propagate_btn.setEnabled(controls_enabled and has_episode)
+        if self._job_busy:
+            hint = "Action indisponible pendant l'exécution d'un job."
+            self.personnages_load_assign_btn.setToolTip(hint)
+            self.personnages_save_assign_btn.setToolTip(hint)
+            self.personnages_propagate_btn.setToolTip(hint)
+            return
+        if not has_project:
+            hint = "Action indisponible: ouvrez un projet."
+            self.personnages_load_assign_btn.setToolTip(hint)
+            self.personnages_save_assign_btn.setToolTip(hint)
+            self.personnages_propagate_btn.setToolTip(hint)
+            return
+        if not has_episode:
+            hint = "Action indisponible: sélectionnez un épisode."
+            self.personnages_load_assign_btn.setToolTip(hint)
+            self.personnages_save_assign_btn.setToolTip(hint)
+            self.personnages_propagate_btn.setToolTip(hint)
+            return
+        self.personnages_load_assign_btn.setToolTip(self._load_assign_tooltip_default)
+        if has_assignment_rows:
+            self.personnages_save_assign_btn.setToolTip(self._save_assign_tooltip_default)
+        else:
+            self.personnages_save_assign_btn.setToolTip(
+                "Action indisponible: chargez d'abord une source (segments/cues)."
+            )
+        self.personnages_propagate_btn.setToolTip(self._propagate_tooltip_default)
 
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions d'annotation pendant un job pipeline."""
