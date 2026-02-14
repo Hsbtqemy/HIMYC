@@ -95,6 +95,7 @@ Voir **example/README.md** pour les instructions détaillées.
    - « Segmenter » / « Indexer DB » : segmente et indexe selon le périmètre choisi.  
    - « Tout faire » : enchaîne Télécharger → Normaliser → Segmenter → Indexer DB sur le périmètre choisi.  
    - **« Exporter corpus »** : exporte les épisodes normalisés en **TXT**, **CSV**, **JSON**, **Word (.docx)**, ou en **segmenté** : **JSONL** / **CSV** par **utterances** (tours de parole) ou par **phrases**.
+   - Pendant un job (Télécharger / Normaliser / Segmenter / Indexer / Tout faire), les actions Pilotage sont temporairement verrouillées pour éviter les doubles lancements ; utilisez **« Annuler »** si nécessaire.
 
    **Workflow recommandé (batch par saison)**  
    - **Option A — Saison par saison** : pour chaque saison, sélectionner « Saison N » + `Périmètre action = Saison filtrée` → « Télécharger » → « Normaliser » → « Indexer DB » (ou segmenter / importer SRT / aligner selon vos besoins), puis passer à la saison suivante.  
