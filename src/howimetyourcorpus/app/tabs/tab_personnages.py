@@ -69,7 +69,7 @@ class PersonnagesTabWidget(QWidget):
         assign_row.addWidget(QLabel("Épisode:"))
         self.personnages_episode_combo = QComboBox()
         self.personnages_episode_combo.setMinimumWidth(200)
-        self.personnages_episode_combo.currentIndexChanged.connect(self._apply_controls_enabled)
+        self.personnages_episode_combo.currentIndexChanged.connect(self._on_assignment_context_changed)
         assign_row.addWidget(self.personnages_episode_combo)
         assign_row.addWidget(QLabel("Source:"))
         self.personnages_source_combo = QComboBox()
@@ -77,7 +77,7 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_source_combo.addItem("Cues EN", "cues_en")
         self.personnages_source_combo.addItem("Cues FR", "cues_fr")
         self.personnages_source_combo.addItem("Cues IT", "cues_it")
-        self.personnages_source_combo.currentIndexChanged.connect(self._apply_controls_enabled)
+        self.personnages_source_combo.currentIndexChanged.connect(self._on_assignment_context_changed)
         assign_row.addWidget(self.personnages_source_combo)
         self.personnages_load_assign_btn = QPushButton("Charger")
         self.personnages_load_assign_btn.setToolTip(
@@ -159,6 +159,12 @@ class PersonnagesTabWidget(QWidget):
             self.personnages_episode_combo.setCurrentIndex(episode_idx)
         self.personnages_episode_combo.blockSignals(False)
         self.personnages_source_combo.blockSignals(False)
+        self._apply_controls_enabled()
+
+    def _on_assignment_context_changed(self, *_args) -> None:
+        """Changement d'épisode/source: invalide les lignes chargées pour éviter les sauvegardes hors contexte."""
+        if self.personnages_assign_table.rowCount() > 0:
+            self.personnages_assign_table.setRowCount(0)
         self._apply_controls_enabled()
 
     def _apply_controls_enabled(self, *_args) -> None:
