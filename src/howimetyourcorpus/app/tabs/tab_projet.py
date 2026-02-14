@@ -81,13 +81,14 @@ class ProjectTabWidget(QWidget):
         validate_btn = QPushButton("Ouvrir / créer le projet")
         validate_btn.clicked.connect(self._emit_validate)
         validate_btn.setDefault(True)
-        save_config_btn = QPushButton("Enregistrer la config.")
-        save_config_btn.setToolTip(
+        self.save_config_btn = QPushButton("Enregistrer la config.")
+        self.save_config_btn.setToolTip(
             "Sauvegarde source, URL série, profil, etc. dans config.toml (projet déjà ouvert)."
         )
-        save_config_btn.clicked.connect(self._save_config)
+        self.save_config_btn.clicked.connect(self._save_config)
+        self._save_config_btn_tooltip_default = self.save_config_btn.toolTip()
         btn_row.addWidget(validate_btn)
-        btn_row.addWidget(save_config_btn)
+        btn_row.addWidget(self.save_config_btn)
         btn_row.addStretch()
         form_projet.addRow("", btn_row)
         layout.addWidget(group_projet)
@@ -131,6 +132,7 @@ class ProjectTabWidget(QWidget):
         acq_row.addStretch()
         layout.addWidget(group_acquisition)
         self.open_corpus_btn.setEnabled(False)
+        self.save_config_btn.setEnabled(False)
 
         # —— 4. Normalisation ——
         group_norm = QGroupBox("Normalisation")
@@ -225,6 +227,11 @@ class ProjectTabWidget(QWidget):
                 self.languages_list.addItem(lang)
         self.add_lang_btn.setEnabled(bool(store))
         self.open_corpus_btn.setEnabled(bool(store))
+        self.save_config_btn.setEnabled(bool(store))
+        if store:
+            self.save_config_btn.setToolTip(self._save_config_btn_tooltip_default)
+        else:
+            self.save_config_btn.setToolTip("Action indisponible: ouvrez un projet d'abord.")
         self._on_languages_selection_changed()
 
     def _browse(self) -> None:
@@ -295,6 +302,12 @@ class ProjectTabWidget(QWidget):
     def _remove_language(self) -> None:
         store = self._get_store()
         if not store:
+            warn_precondition(
+                self,
+                "Langues",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return
         row = self.languages_list.currentRow()
         if row < 0:
