@@ -133,6 +133,7 @@ class ConcordanceTabWidget(QWidget):
 
     def _apply_controls_enabled(self) -> None:
         enabled = not self._job_busy
+        db = self._get_db()
         controls = (
             self.kwic_search_edit,
             self.kwic_scope_combo,
@@ -142,7 +143,7 @@ class ConcordanceTabWidget(QWidget):
         for widget in controls:
             widget.setEnabled(enabled)
         self._apply_scope_filter_states(controls_enabled=enabled)
-        has_db = self._get_db() is not None
+        has_db = db is not None
         has_term = bool(self.kwic_search_edit.text().strip())
         has_hits = bool(self.kwic_model.get_all_hits())
         go_enabled = enabled and has_db and has_term
