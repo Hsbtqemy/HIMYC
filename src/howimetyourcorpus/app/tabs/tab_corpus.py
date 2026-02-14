@@ -59,7 +59,11 @@ from howimetyourcorpus.core.workflow import (
 )
 from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
-from howimetyourcorpus.app.workflow_advice import WorkflowStatusCounts, build_workflow_advice
+from howimetyourcorpus.app.workflow_advice import build_workflow_advice
+from howimetyourcorpus.app.workflow_status import (
+    compute_workflow_status,
+    load_episode_status_map,
+)
 from howimetyourcorpus.app.models_qt import (
     EpisodesTreeModel,
     EpisodesTreeFilterProxyModel,
@@ -437,58 +441,22 @@ class CorpusTabWidget(QWidget):
             self._refresh_scope_preview(index=None)
             return
         self._cached_index = index
-        n_total = len(index.episodes)
         episode_ids = [e.episode_id for e in index.episodes]
-        statuses = self._get_episode_status_map(episode_ids) if db else {}
-        fetched_statuses = {
-            EpisodeStatus.FETCHED.value,
-            EpisodeStatus.NORMALIZED.value,
-            EpisodeStatus.INDEXED.value,
-        }
-        normalized_statuses = {
-            EpisodeStatus.NORMALIZED.value,
-            EpisodeStatus.INDEXED.value,
-        }
-        n_fetched = 0
-        n_norm = 0
-        for e in index.episodes:
-            eid = e.episode_id
-            st = (statuses.get(eid) or "").lower()
-            if st in fetched_statuses or store.has_episode_raw(eid):
-                n_fetched += 1
-            if st in normalized_statuses or store.has_episode_clean(eid):
-                n_norm += 1
-        n_segmented = 0
-        n_indexed = 0
-        if db and episode_ids:
-            segmented_ids = set(db.get_episode_ids_with_segments(kind="sentence"))
-            indexed_ids = set(db.get_episode_ids_indexed())
-            n_segmented = len(set(episode_ids) & segmented_ids)
-            n_indexed = len(set(episode_ids) & indexed_ids)
-        error_ids = self._get_error_episode_ids(index, status_map=statuses)
-        n_error = len(error_ids)
-        n_with_srt = 0
-        n_aligned = 0
-        if db and episode_ids:
-            tracks_by_ep = db.get_tracks_for_episodes(episode_ids)
-            runs_by_ep = db.get_align_runs_for_episodes(episode_ids)
-            n_with_srt = sum(1 for e in index.episodes if tracks_by_ep.get(e.episode_id))
-            n_aligned = sum(1 for e in index.episodes if runs_by_ep.get(e.episode_id))
+        statuses = load_episode_status_map(db, episode_ids) if db else {}
+        counts, error_ids = compute_workflow_status(
+            index=index,
+            store=store,
+            db=db,
+            status_map=statuses,
+        )
         self.corpus_status_label.setText(
-            f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_segmented} | Indexés {n_indexed} | Erreurs {n_error} | SRT {n_with_srt} | Alignés {n_aligned}"
+            "Workflow : "
+            f"Découverts {counts.n_total} | Téléchargés {counts.n_fetched} | "
+            f"Normalisés {counts.n_norm} | Segmentés {counts.n_segmented} | "
+            f"Indexés {counts.n_indexed} | Erreurs {counts.n_error} | "
+            f"SRT {counts.n_with_srt} | Alignés {counts.n_aligned}"
         )
-        advice = build_workflow_advice(
-            WorkflowStatusCounts(
-                n_total=n_total,
-                n_fetched=n_fetched,
-                n_norm=n_norm,
-                n_segmented=n_segmented,
-                n_indexed=n_indexed,
-                n_error=n_error,
-                n_with_srt=n_with_srt,
-                n_aligned=n_aligned,
-            )
-        )
+        advice = build_workflow_advice(counts)
         self.corpus_next_step_label.setText(advice.message)
         if advice.action_id == "retry_errors":
             self._set_primary_action(advice.label, self._retry_error_episodes)
@@ -529,11 +497,11 @@ class CorpusTabWidget(QWidget):
                 self._set_primary_action("Passer à Validation", None)
         else:
             self._set_primary_action(advice.label, None)
-        self.fetch_btn.setEnabled(n_total > 0)
-        self.norm_btn.setEnabled(n_fetched > 0)
-        self.segment_btn.setEnabled(n_norm > 0)
-        self.all_in_one_btn.setEnabled(n_total > 0)
-        self.index_btn.setEnabled(n_norm > 0)
+        self.fetch_btn.setEnabled(counts.n_total > 0)
+        self.norm_btn.setEnabled(counts.n_fetched > 0)
+        self.segment_btn.setEnabled(counts.n_norm > 0)
+        self.all_in_one_btn.setEnabled(counts.n_total > 0)
+        self.index_btn.setEnabled(counts.n_norm > 0)
         self._refresh_error_panel(index=index, error_ids=error_ids)
         # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
         # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
@@ -983,14 +951,7 @@ class CorpusTabWidget(QWidget):
         return True
 
     def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
-        db = self._get_db()
-        if not db or not episode_ids:
-            return {}
-        try:
-            return db.get_episode_statuses(episode_ids)
-        except Exception:
-            logger.exception("Failed to load episode statuses")
-            return {}
+        return load_episode_status_map(self._get_db(), episode_ids)
 
     def _get_error_episode_ids(
         self,
