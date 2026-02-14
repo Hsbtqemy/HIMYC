@@ -176,14 +176,33 @@ class ConcordanceTabWidget(QWidget):
         season = self.kwic_season_spin.value() if self.kwic_season_spin.value() > 0 else None
         episode = self.kwic_episode_spin.value() if self.kwic_episode_spin.value() > 0 else None
         scope = self.kwic_scope_combo.currentData() or "episodes"
-        if scope == "segments":
-            kind = self.kwic_kind_combo.currentData() or None
-            hits = db.query_kwic_segments(term, kind=kind, season=season, episode=episode, window=45, limit=200)
-        elif scope == "cues":
-            lang = self.kwic_lang_combo.currentData() or None
-            hits = db.query_kwic_cues(term, lang=lang, season=season, episode=episode, window=45, limit=200)
-        else:
-            hits = db.query_kwic(term, season=season, episode=episode, window=45, limit=200)
+        try:
+            if scope == "segments":
+                kind = self.kwic_kind_combo.currentData() or None
+                hits = db.query_kwic_segments(
+                    term,
+                    kind=kind,
+                    season=season,
+                    episode=episode,
+                    window=45,
+                    limit=200,
+                )
+            elif scope == "cues":
+                lang = self.kwic_lang_combo.currentData() or None
+                hits = db.query_kwic_cues(
+                    term,
+                    lang=lang,
+                    season=season,
+                    episode=episode,
+                    window=45,
+                    limit=200,
+                )
+            else:
+                hits = db.query_kwic(term, season=season, episode=episode, window=45, limit=200)
+        except Exception as e:
+            logger.exception("KWIC query failed")
+            show_error(self, exc=e, context="Recherche KWIC")
+            return
         self.kwic_model.set_hits(hits)
         self._apply_controls_enabled()
 
