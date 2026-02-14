@@ -312,7 +312,12 @@ class AlignmentTabWidget(QWidget):
         if db and episode_id:
             try:
                 tracks = db.get_tracks_for_episode(episode_id)
-                track_langs = [(t.get("lang") or "").lower() for t in tracks]
+                for t in tracks:
+                    lang = (t.get("lang") or "").lower()
+                    nb_cues = int(t.get("nb_cues") or 0)
+                    # Ne garder que les pistes réellement exploitables pour l'alignement.
+                    if lang and nb_cues > 0:
+                        track_langs.append(lang)
             except Exception:
                 logger.exception("Failed to load subtitle tracks for alignment")
                 track_langs = []
