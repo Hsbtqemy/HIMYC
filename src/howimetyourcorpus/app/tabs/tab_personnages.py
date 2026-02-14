@@ -428,9 +428,9 @@ class PersonnagesTabWidget(QWidget):
             if not (a.get("episode_id") == eid and a.get("source_type") == source_type)
         ]
         all_assignments.extend(new_assignments)
-            store.save_character_assignments(all_assignments)
-            self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
-            self._apply_controls_enabled()
+        store.save_character_assignments(all_assignments)
+        self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
+        self._apply_controls_enabled()
 
     def _insert_assignment_row(
         self,
