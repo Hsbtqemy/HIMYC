@@ -346,7 +346,7 @@ class AlignmentTabWidget(QWidget):
         else:
             self.align_target_lang_combo.setToolTip(
                 "Langue des sous-titres à aligner contre EN (pivot). "
-                "Les valeurs sont déduites des pistes disponibles."
+                "Les valeurs sont déduites des pistes/langues projet; des cues importées sont requises pour lancer."
             )
         self._refresh_run_button_state(episode_id)
 
@@ -380,10 +380,17 @@ class AlignmentTabWidget(QWidget):
         )
 
     def _resolve_run_prerequisites(self, episode_id: str, db: object) -> tuple[bool, list[str]] | None:
-        has_target = self.align_target_lang_combo.count() > 0
+        target_lang = (self.align_target_lang_combo.currentData() or "").lower()
+        has_target_choice = bool(target_lang) and target_lang != "en"
+        has_target_available = self.align_target_lang_combo.count() > 0
         try:
             has_segments = bool(db.get_segments_for_episode(episode_id, kind="sentence"))
             has_cues_en = bool(db.get_cues_for_episode_lang(episode_id, "en"))
+            has_cues_target = (
+                bool(db.get_cues_for_episode_lang(episode_id, target_lang))
+                if has_target_choice
+                else False
+            )
         except Exception:
             logger.exception("Failed to evaluate align prerequisites")
             return None
@@ -392,8 +399,12 @@ class AlignmentTabWidget(QWidget):
             missing.append("segments transcript")
         if not has_cues_en:
             missing.append("piste EN")
-        if not has_target:
+        if not has_target_available:
             missing.append("piste cible")
+        elif not has_target_choice:
+            missing.append("langue cible ≠ EN")
+        elif not has_cues_target:
+            missing.append(f"cues {target_lang.upper()}")
         return len(missing) == 0, missing
 
     def _on_episode_changed(self) -> None:
