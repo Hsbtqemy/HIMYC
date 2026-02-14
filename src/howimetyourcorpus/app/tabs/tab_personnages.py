@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.feedback import show_error, warn_precondition
+from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 
 
 class PersonnagesTabWidget(QWidget):
@@ -114,15 +115,20 @@ class PersonnagesTabWidget(QWidget):
         """Charge la liste des personnages et le combo épisodes (appelé après ouverture projet)."""
         current_episode = self.personnages_episode_combo.currentData()
         current_source = self.personnages_source_combo.currentData()
-        self.personnages_episode_combo.blockSignals(True)
-        self.personnages_source_combo.blockSignals(True)
         self.personnages_table.setRowCount(0)
         self.personnages_assign_table.setRowCount(0)
-        self.personnages_episode_combo.clear()
         store = self._get_store()
         if not store:
-            self.personnages_episode_combo.blockSignals(False)
-            self.personnages_source_combo.blockSignals(False)
+            refill_combo_preserve_selection(
+                self.personnages_episode_combo,
+                items=[],
+                current_data=None,
+            )
+            refill_combo_preserve_selection(
+                self.personnages_source_combo,
+                items=[],
+                current_data=None,
+            )
             self._apply_controls_enabled()
             return
         langs = store.load_project_languages()
@@ -130,13 +136,14 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_table.setHorizontalHeaderLabels(
             ["Id", "Canonique"] + [lang.upper() for lang in langs]
         )
-        self.personnages_source_combo.clear()
-        self.personnages_source_combo.addItem("Segments", "segments")
-        for lang in langs:
-            self.personnages_source_combo.addItem(f"Cues {lang.upper()}", f"cues_{lang}")
-        source_idx = self.personnages_source_combo.findData(current_source)
-        if source_idx >= 0:
-            self.personnages_source_combo.setCurrentIndex(source_idx)
+        source_items = [("Segments", "segments")] + [
+            (f"Cues {lang.upper()}", f"cues_{lang}") for lang in langs
+        ]
+        refill_combo_preserve_selection(
+            self.personnages_source_combo,
+            items=source_items,
+            current_data=current_source,
+        )
         characters = store.load_character_names()
         for ch in characters:
             row = self.personnages_table.rowCount()
@@ -149,16 +156,14 @@ class PersonnagesTabWidget(QWidget):
                     row, 2 + i, QTableWidgetItem(names.get(lang, ""))
                 )
         index = store.load_series_index()
+        episode_items: list[tuple[str, str]] = []
         if index and index.episodes:
-            for e in index.episodes:
-                self.personnages_episode_combo.addItem(
-                    f"{e.episode_id} - {e.title}", e.episode_id
-                )
-        episode_idx = self.personnages_episode_combo.findData(current_episode)
-        if episode_idx >= 0:
-            self.personnages_episode_combo.setCurrentIndex(episode_idx)
-        self.personnages_episode_combo.blockSignals(False)
-        self.personnages_source_combo.blockSignals(False)
+            episode_items = [(f"{e.episode_id} - {e.title}", e.episode_id) for e in index.episodes]
+        refill_combo_preserve_selection(
+            self.personnages_episode_combo,
+            items=episode_items,
+            current_data=current_episode,
+        )
         self._apply_controls_enabled()
 
     def _on_assignment_context_changed(self, *_args) -> None:

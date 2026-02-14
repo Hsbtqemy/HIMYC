@@ -353,12 +353,11 @@ class AlignmentTabWidget(QWidget):
     def _refresh_target_lang_combo(self, episode_id: str | None) -> None:
         current = (self.align_target_lang_combo.currentData() or "").lower()
         langs = self._resolve_target_langs(episode_id)
-        self.align_target_lang_combo.clear()
-        for lng in langs:
-            self.align_target_lang_combo.addItem(lng.upper(), lng)
-        if current and current in langs:
-            idx = langs.index(current)
-            self.align_target_lang_combo.setCurrentIndex(idx)
+        refill_combo_preserve_selection(
+            self.align_target_lang_combo,
+            items=[(lng.upper(), lng) for lng in langs],
+            current_data=current,
+        )
         has_target = self.align_target_lang_combo.count() > 0
         controls_enabled = not self._job_busy
         self.align_target_lang_combo.setEnabled(has_target and controls_enabled)
