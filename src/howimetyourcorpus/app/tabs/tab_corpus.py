@@ -1318,24 +1318,6 @@ class CorpusTabWidget(QWidget):
         )
         return None
 
-    def _build_profile_by_episode(
-        self,
-        *,
-        store: Any,
-        episode_refs: list[EpisodeRef],
-        episode_ids: list[str],
-        batch_profile: str,
-    ) -> dict[str, str]:
-        episode_preferred = store.load_episode_preferred_profiles()
-        source_defaults = store.load_source_profile_defaults()
-        return build_profile_by_episode(
-            episode_refs=episode_refs,
-            episode_ids=episode_ids,
-            batch_profile=batch_profile,
-            episode_preferred_profiles=episode_preferred,
-            source_profile_defaults=source_defaults,
-        )
-
     @staticmethod
     def _resolve_lang_hint(context: dict[str, Any]) -> str:
         config = context.get("config")
@@ -1536,11 +1518,12 @@ class CorpusTabWidget(QWidget):
         fetch_scope = WorkflowScope.selection(ids)
         runnable_scope = WorkflowScope.selection(runnable_ids) if runnable_ids else None
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        profile_by_episode = self._build_profile_by_episode(
-            store=store,
+        profile_by_episode = build_profile_by_episode(
             episode_refs=index.episodes,
             episode_ids=runnable_ids,
             batch_profile=batch_profile,
+            episode_preferred_profiles=store.load_episode_preferred_profiles(),
+            source_profile_defaults=store.load_source_profile_defaults(),
         )
         fetch_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.FETCH_EPISODES,
@@ -1652,11 +1635,12 @@ class CorpusTabWidget(QWidget):
             reason="sans RAW dans le scope",
         )
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        profile_by_episode = self._build_profile_by_episode(
-            store=store,
+        profile_by_episode = build_profile_by_episode(
             episode_refs=index.episodes,
             episode_ids=ids_with_raw,
             batch_profile=batch_profile,
+            episode_preferred_profiles=store.load_episode_preferred_profiles(),
+            source_profile_defaults=store.load_source_profile_defaults(),
         )
         self._run_action_for_scope(
             action_id=WorkflowActionId.NORMALIZE_EPISODES,
