@@ -268,6 +268,7 @@ class AlignmentTabWidget(QWidget):
                 self,
                 title,
                 "La langue cible doit être différente de EN (pivot).",
+                next_step="Sélectionnez une autre langue cible (fr, it, etc.) dans le sélecteur.",
             )
             return None
         return target_lang

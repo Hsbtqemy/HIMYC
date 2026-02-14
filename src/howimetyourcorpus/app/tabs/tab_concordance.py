@@ -201,6 +201,7 @@ class ConcordanceTabWidget(QWidget):
                 self,
                 "Concordance",
                 "Saisissez un terme avant de lancer la recherche.",
+                next_step="Entrez un mot ou une expression, puis cliquez sur « Rechercher ».",
             )
             self._apply_controls_enabled()
             return
@@ -309,6 +310,7 @@ class ConcordanceTabWidget(QWidget):
                     self,
                     "Export",
                     "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx",
+                    next_step="Choisissez un format supporté dans la boîte d'export.",
                 )
                 return
             show_info(self, "Export", f"Résultats exportés : {len(hits)} occurrence(s).")
