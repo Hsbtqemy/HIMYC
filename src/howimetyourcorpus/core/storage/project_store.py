@@ -426,24 +426,46 @@ class ProjectStore:
 
     def has_episode_subs(self, episode_id: str, lang: str) -> bool:
         """True si un fichier subs existe pour cet épisode et cette langue."""
-        d = self._subs_dir(episode_id)
-        return (d / f"{lang}.srt").exists() or (d / f"{lang}.vtt").exists()
+        return self.get_episode_subtitle_path(episode_id, lang) is not None
 
     def get_episode_subtitle_path(self, episode_id: str, lang: str) -> tuple[Path, str] | None:
         """Retourne (chemin du fichier, "srt"|"vtt") si une piste existe pour cet épisode et langue."""
         d = self._subs_dir(episode_id)
-        if (d / f"{lang}.srt").exists():
-            return (d / f"{lang}.srt", "srt")
-        if (d / f"{lang}.vtt").exists():
-            return (d / f"{lang}.vtt", "vtt")
-        return None
+        if not d.exists():
+            return None
+        lang_norm = (lang or "").strip().lower()
+        candidates: list[Path] = []
+        for p in d.iterdir():
+            if not p.is_file():
+                continue
+            if p.stem.lower() != lang_norm:
+                continue
+            suffix = p.suffix.lower()
+            if suffix not in {".srt", ".vtt"}:
+                continue
+            candidates.append(p)
+        if not candidates:
+            return None
+        # Priorité SRT puis VTT pour préserver le comportement historique.
+        candidates.sort(key=lambda p: (p.suffix.lower() != ".srt", p.name.lower()))
+        best = candidates[0]
+        return (best, "srt" if best.suffix.lower() == ".srt" else "vtt")
 
     def remove_episode_subtitle(self, episode_id: str, lang: str) -> None:
         """Supprime les fichiers sous-titres pour cet épisode et langue (.srt/.vtt et _cues.jsonl)."""
         d = self._subs_dir(episode_id)
-        for name in [f"{lang}.srt", f"{lang}.vtt", f"{lang}_cues.jsonl"]:
-            p = d / name
-            if p.exists():
+        if not d.exists():
+            return
+        lang_norm = (lang or "").strip().lower()
+        cue_stem = f"{lang_norm}_cues"
+        for p in d.iterdir():
+            if not p.is_file():
+                continue
+            stem = p.stem.lower()
+            suffix = p.suffix.lower()
+            if stem == lang_norm and suffix in {".srt", ".vtt"}:
+                p.unlink()
+            elif stem == cue_stem and suffix == ".jsonl":
                 p.unlink()
 
     def load_episode_subtitle_content(self, episode_id: str, lang: str) -> tuple[str, str] | None:
