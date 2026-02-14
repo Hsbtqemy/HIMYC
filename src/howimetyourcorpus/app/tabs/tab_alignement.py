@@ -507,7 +507,11 @@ class AlignmentTabWidget(QWidget):
         )
         if reply != QMessageBox.StandardButton.Yes:
             return
-        db.delete_align_run(run_id)
+        try:
+            db.delete_align_run(run_id)
+        except Exception as e:
+            show_error(self, exc=e, context="Suppression run alignement")
+            return
         self.refresh()
         self._fill_links()
 
@@ -628,8 +632,8 @@ class AlignmentTabWidget(QWidget):
             selected_filter,
             suffix_to_key={".csv": "csv", ".jsonl": "jsonl"},
         )
-        links = db.query_alignment_for_episode(eid, run_id=run_id)
         try:
+            links = db.query_alignment_for_episode(eid, run_id=run_id)
             if export_key == "jsonl":
                 with path.open("w", encoding="utf-8") as f:
                     for row in links:
