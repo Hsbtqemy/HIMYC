@@ -55,6 +55,7 @@ def query_kwic(
             JOIN documents d ON d.rowid = documents_fts.rowid
             JOIN episodes e ON e.episode_id = d.episode_id
             WHERE documents_fts MATCH ? AND e.season = ? AND e.episode = ?
+            ORDER BY e.season, e.episode, d.episode_id
             """,
             (fts_query, season, episode),
         ).fetchall()
@@ -66,6 +67,7 @@ def query_kwic(
             JOIN documents d ON d.rowid = documents_fts.rowid
             JOIN episodes e ON e.episode_id = d.episode_id
             WHERE documents_fts MATCH ? AND e.season = ?
+            ORDER BY e.season, e.episode, d.episode_id
             """,
             (fts_query, season),
         ).fetchall()
@@ -77,6 +79,7 @@ def query_kwic(
             JOIN documents d ON d.rowid = documents_fts.rowid
             JOIN episodes e ON e.episode_id = d.episode_id
             WHERE documents_fts MATCH ?
+            ORDER BY e.season, e.episode, d.episode_id
             """,
             (fts_query,),
         ).fetchall()
@@ -151,6 +154,7 @@ def query_kwic_segments(
         JOIN segments s ON s.rowid = segments_fts.rowid
         JOIN episodes e ON e.episode_id = s.episode_id
         WHERE segments_fts MATCH ?{where_extra}
+        ORDER BY e.season, e.episode, s.kind, s.n, s.segment_id
         """,
         params,
     ).fetchall()
@@ -229,6 +233,7 @@ def query_kwic_cues(
         JOIN subtitle_cues c ON c.rowid = cues_fts.rowid
         JOIN episodes e ON e.episode_id = c.episode_id
         WHERE cues_fts MATCH ?{where_extra}
+        ORDER BY e.season, e.episode, c.lang, c.n, c.cue_id
         """,
         params,
     ).fetchall()

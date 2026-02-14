@@ -170,6 +170,41 @@ def test_db_kwic_offset_paginates_results(db):
     assert page1[1].position < page2[0].position
 
 
+def test_db_kwic_pagination_order_is_stable_across_episodes(db):
+    refs = [
+        EpisodeRef(
+            episode_id="S01E11",
+            season=1,
+            episode=11,
+            title="Episode 11",
+            url="https://example.com/s01e11",
+        ),
+        EpisodeRef(
+            episode_id="S01E10",
+            season=1,
+            episode=10,
+            title="Episode 10",
+            url="https://example.com/s01e10",
+        ),
+    ]
+    for ref in refs:
+        db.upsert_episode(ref)
+        db.index_episode_text(
+            ref.episode_id,
+            "Legendary alpha. Legendary beta. Legendary gamma.",
+        )
+    page_size = 3
+    page1 = db.query_kwic("legendary", limit=page_size, offset=0)
+    page2 = db.query_kwic("legendary", limit=page_size, offset=page_size)
+    all_hits = db.query_kwic("legendary", limit=20, offset=0)
+    flattened = page1 + page2
+    assert [(h.episode_id, h.position) for h in flattened] == [
+        (h.episode_id, h.position) for h in all_hits[: len(flattened)]
+    ]
+    assert all(h.episode_id == "S01E10" for h in flattened[:3])
+    assert all(h.episode_id == "S01E11" for h in flattened[3:])
+
+
 def test_upsert_segments_and_query_kwic_segments(db):
     """Phase 2 : upsert segments, query_kwic_segments, segment_id/kind présents."""
     ref = EpisodeRef(
@@ -194,6 +229,62 @@ def test_upsert_segments_and_query_kwic_segments(db):
         assert h.segment_id is not None
         assert h.kind == "sentence"
         assert h.match.lower() == "legendary"
+
+
+def test_query_kwic_segments_pagination_order_is_stable(db):
+    from howimetyourcorpus.core.segment import Segment
+
+    refs = [
+        EpisodeRef(
+            episode_id="S01E12",
+            season=1,
+            episode=12,
+            title="Episode 12",
+            url="https://example.com/s01e12",
+        ),
+        EpisodeRef(
+            episode_id="S01E09",
+            season=1,
+            episode=9,
+            title="Episode 09",
+            url="https://example.com/s01e09",
+        ),
+    ]
+    for ref in refs:
+        db.upsert_episode(ref)
+        db.upsert_segments(
+            ref.episode_id,
+            "sentence",
+            [
+                Segment(
+                    episode_id=ref.episode_id,
+                    kind="sentence",
+                    n=0,
+                    start_char=0,
+                    end_char=20,
+                    text="Legendary opening line",
+                ),
+                Segment(
+                    episode_id=ref.episode_id,
+                    kind="sentence",
+                    n=1,
+                    start_char=21,
+                    end_char=40,
+                    text="Another legendary line",
+                ),
+            ],
+        )
+
+    page_size = 2
+    page1 = db.query_kwic_segments("legendary", kind="sentence", limit=page_size, offset=0)
+    page2 = db.query_kwic_segments("legendary", kind="sentence", limit=page_size, offset=page_size)
+    all_hits = db.query_kwic_segments("legendary", kind="sentence", limit=20, offset=0)
+    flattened = page1 + page2
+    assert [(h.segment_id, h.position) for h in flattened] == [
+        (h.segment_id, h.position) for h in all_hits[: len(flattened)]
+    ]
+    assert all(h.episode_id == "S01E09" for h in flattened[:2])
+    assert all(h.episode_id == "S01E12" for h in flattened[2:])
 
 
 def test_get_episode_ids_with_segments(db):
@@ -265,6 +356,67 @@ Legendary word.
     assert hits[0].episode_id == "S01E05"
     assert hits[0].cue_id is not None
     assert hits[0].lang == "en"
+
+
+def test_query_kwic_cues_pagination_order_is_stable(db):
+    from howimetyourcorpus.core.subtitles import Cue
+
+    refs = [
+        EpisodeRef(
+            episode_id="S01E15",
+            season=1,
+            episode=15,
+            title="Episode 15",
+            url="https://example.com/s01e15",
+        ),
+        EpisodeRef(
+            episode_id="S01E08",
+            season=1,
+            episode=8,
+            title="Episode 08",
+            url="https://example.com/s01e08",
+        ),
+    ]
+    for ref in refs:
+        db.upsert_episode(ref)
+        track_id = f"{ref.episode_id}:en"
+        db.add_track(track_id, ref.episode_id, "en", "srt", None, None, None)
+        db.upsert_cues(
+            track_id,
+            ref.episode_id,
+            "en",
+            [
+                Cue(
+                    episode_id=ref.episode_id,
+                    lang="en",
+                    n=0,
+                    start_ms=0,
+                    end_ms=1200,
+                    text_raw="Legendary start cue",
+                    text_clean="Legendary start cue",
+                ),
+                Cue(
+                    episode_id=ref.episode_id,
+                    lang="en",
+                    n=1,
+                    start_ms=1300,
+                    end_ms=2400,
+                    text_raw="Another legendary cue",
+                    text_clean="Another legendary cue",
+                ),
+            ],
+        )
+
+    page_size = 2
+    page1 = db.query_kwic_cues("legendary", lang="en", limit=page_size, offset=0)
+    page2 = db.query_kwic_cues("legendary", lang="en", limit=page_size, offset=page_size)
+    all_hits = db.query_kwic_cues("legendary", lang="en", limit=20, offset=0)
+    flattened = page1 + page2
+    assert [(h.cue_id, h.position) for h in flattened] == [
+        (h.cue_id, h.position) for h in all_hits[: len(flattened)]
+    ]
+    assert all(h.episode_id == "S01E08" for h in flattened[:2])
+    assert all(h.episode_id == "S01E15" for h in flattened[2:])
 
 
 def test_replace_track_with_cues_and_bulk_clean_update(db):
