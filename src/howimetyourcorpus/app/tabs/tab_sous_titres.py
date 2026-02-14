@@ -245,7 +245,13 @@ class SubtitleTabWidget(QWidget):
             lang = t.get("lang", "")
             fmt = t.get("format", "")
             nb = t.get("nb_cues", 0)
-            item = QListWidgetItem(f"{lang} | {fmt} | {nb} cues")
+            profile_suffix = ""
+            if store:
+                meta = store.load_subtitle_normalize_meta(str(eid), str(lang))
+                profile = str(meta.get("profile_id") or "").strip() if isinstance(meta, dict) else ""
+                if profile:
+                    profile_suffix = f" | profil={profile}"
+            item = QListWidgetItem(f"{lang} | {fmt} | {nb} cues{profile_suffix}")
             item.setData(Qt.ItemDataRole.UserRole, {"lang": lang, "format": fmt})
             self.subs_tracks_list.addItem(item)
             if (
