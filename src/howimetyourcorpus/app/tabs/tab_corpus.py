@@ -352,6 +352,21 @@ class CorpusTabWidget(QWidget):
     def set_cancel_btn_enabled(self, enabled: bool) -> None:
         self.cancel_job_btn.setEnabled(enabled)
 
+    def _set_scope_action_buttons_enabled(
+        self,
+        *,
+        fetch: bool,
+        normalize: bool,
+        segment: bool,
+        run_all: bool,
+        index: bool,
+    ) -> None:
+        self.fetch_btn.setEnabled(fetch)
+        self.norm_btn.setEnabled(normalize)
+        self.segment_btn.setEnabled(segment)
+        self.all_in_one_btn.setEnabled(run_all)
+        self.index_btn.setEnabled(index)
+
     def set_workflow_busy(self, busy: bool) -> None:
         """Active/désactive les contrôles de pilotage pendant l'exécution d'un job."""
         self._workflow_busy = busy
@@ -382,6 +397,8 @@ class CorpusTabWidget(QWidget):
         for widget in controls:
             widget.setEnabled(enabled)
         self.cancel_job_btn.setEnabled(busy)
+        if not busy:
+            self._refresh_scope_action_states(self._cached_index)
 
     def _emit_cancel_job(self) -> None:
         self._on_cancel_job()
@@ -417,11 +434,13 @@ class CorpusTabWidget(QWidget):
         self.season_filter_combo.addItem("Toutes les saisons", None)
         self.corpus_status_label.setText("")
         self.corpus_next_step_label.setText(next_step_message)
-        self.fetch_btn.setEnabled(False)
-        self.norm_btn.setEnabled(False)
-        self.segment_btn.setEnabled(False)
-        self.all_in_one_btn.setEnabled(False)
-        self.index_btn.setEnabled(False)
+        self._set_scope_action_buttons_enabled(
+            fetch=False,
+            normalize=False,
+            segment=False,
+            run_all=False,
+            index=False,
+        )
         self._refresh_error_panel(index=None, error_ids=[])
         self._set_primary_action(primary_label, primary_action)
         self._refresh_scope_preview(index=None)
@@ -504,11 +523,13 @@ class CorpusTabWidget(QWidget):
         advice = build_workflow_advice(counts)
         self.corpus_next_step_label.setText(advice.message)
         self._apply_workflow_advice(advice.action_id, advice.label)
-        self.fetch_btn.setEnabled(counts.n_total > 0)
-        self.norm_btn.setEnabled(counts.n_fetched > 0)
-        self.segment_btn.setEnabled(counts.n_norm > 0)
-        self.all_in_one_btn.setEnabled(counts.n_total > 0)
-        self.index_btn.setEnabled(counts.n_norm > 0)
+        self._set_scope_action_buttons_enabled(
+            fetch=counts.n_total > 0,
+            normalize=counts.n_fetched > 0,
+            segment=counts.n_norm > 0,
+            run_all=counts.n_total > 0,
+            index=counts.n_norm > 0,
+        )
         self._refresh_error_panel(index=index, error_ids=error_ids)
         # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
         # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
@@ -517,6 +538,7 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree_model.set_episodes(index.episodes)
         self._refresh_season_filter_combo()
         self._refresh_scope_preview(index)
+        self._refresh_scope_action_states(index)
         if self._workflow_busy:
             self.set_workflow_busy(True)
 
@@ -568,6 +590,7 @@ class CorpusTabWidget(QWidget):
 
     def _refresh_scope_preview_from_ui(self, *_args) -> None:
         self._refresh_scope_preview(self._cached_index)
+        self._refresh_scope_action_states(self._cached_index)
 
     def _refresh_scope_preview(self, index: SeriesIndex | None) -> None:
         if index is None or not index.episodes:
@@ -804,6 +827,84 @@ class CorpusTabWidget(QWidget):
         if skipped <= 0:
             return
         self._show_status(f"{prefix}: {skipped} épisode(s) ignoré(s) ({reason}).", 5000)
+
+    def _resolve_scope_ids_silent(
+        self,
+        index: SeriesIndex,
+        *,
+        scope_mode: str | None = None,
+    ) -> list[str]:
+        mode = (scope_mode or self.batch_scope_combo.currentData() or "selection").lower()
+        if mode == "current":
+            eid = self._resolve_current_episode_id()
+            return [eid] if eid else []
+        if mode == "selection":
+            return self._resolve_selected_episode_ids()
+        if mode == "season":
+            season = self.season_filter_combo.currentData()
+            if season is None:
+                return []
+            return self.episodes_tree_model.get_episode_ids_for_season(season)
+        if mode == "all":
+            return [e.episode_id for e in index.episodes]
+        return []
+
+    def _refresh_scope_action_states(self, index: SeriesIndex | None) -> None:
+        if self._workflow_busy:
+            return
+
+        if index is None or not index.episodes:
+            self._set_scope_action_buttons_enabled(
+                fetch=False,
+                normalize=False,
+                segment=False,
+                run_all=False,
+                index=False,
+            )
+            return
+
+        store = self._get_store()
+        if not store:
+            self._set_scope_action_buttons_enabled(
+                fetch=False,
+                normalize=False,
+                segment=False,
+                run_all=False,
+                index=False,
+            )
+            return
+
+        ids = self._resolve_scope_ids_silent(index)
+        if not ids:
+            self._set_scope_action_buttons_enabled(
+                fetch=False,
+                normalize=False,
+                segment=False,
+                run_all=False,
+                index=False,
+            )
+            return
+
+        episode_url_by_id = self._build_episode_url_by_id(index)
+        fetchable_ids = self._filter_ids_with_source_url(
+            ids=ids,
+            episode_url_by_id=episode_url_by_id,
+        )
+        ids_with_raw = self._filter_ids_with_raw(ids=ids, store=store)
+        ids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
+        runnable_ids = self._filter_runnable_ids_for_full_workflow(
+            ids=ids,
+            store=store,
+            episode_url_by_id=episode_url_by_id,
+        )
+
+        self._set_scope_action_buttons_enabled(
+            fetch=bool(fetchable_ids),
+            normalize=bool(ids_with_raw),
+            segment=bool(ids_with_clean),
+            run_all=bool(runnable_ids),
+            index=bool(ids_with_clean),
+        )
 
     def _resolve_scope_and_ids(
         self,
