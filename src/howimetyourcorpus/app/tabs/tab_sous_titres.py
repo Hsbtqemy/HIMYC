@@ -203,6 +203,12 @@ class SubtitleTabWidget(QWidget):
         self._on_episode_changed()
 
     def _on_episode_changed(self) -> None:
+        current_track_data = None
+        current_track_item = self.subs_tracks_list.currentItem()
+        if current_track_item:
+            data = current_track_item.data(Qt.ItemDataRole.UserRole)
+            if isinstance(data, dict):
+                current_track_data = data
         self.subs_tracks_list.clear()
         self.subs_content_edit.clear()
         self._editing_lang = None
@@ -220,7 +226,14 @@ class SubtitleTabWidget(QWidget):
         if not eid or not db:
             self._refresh_action_buttons()
             return
-        tracks = db.get_tracks_for_episode(eid)
+        try:
+            tracks = db.get_tracks_for_episode(eid)
+        except Exception as e:
+            logger.exception("Chargement pistes sous-titres")
+            show_error(self, exc=e, context="Chargement pistes sous-titres")
+            self._refresh_action_buttons()
+            return
+        selected_item: QListWidgetItem | None = None
         for t in tracks:
             lang = t.get("lang", "")
             fmt = t.get("format", "")
@@ -228,6 +241,14 @@ class SubtitleTabWidget(QWidget):
             item = QListWidgetItem(f"{lang} | {fmt} | {nb} cues")
             item.setData(Qt.ItemDataRole.UserRole, {"lang": lang, "format": fmt})
             self.subs_tracks_list.addItem(item)
+            if (
+                isinstance(current_track_data, dict)
+                and lang == current_track_data.get("lang")
+                and fmt == current_track_data.get("format")
+            ):
+                selected_item = item
+        if selected_item is not None:
+            self.subs_tracks_list.setCurrentItem(selected_item)
         self._refresh_action_buttons()
 
     def _on_track_selected(self, current: QListWidgetItem | None) -> None:
@@ -251,7 +272,13 @@ class SubtitleTabWidget(QWidget):
             return
         lang = data.get("lang", "")
         fmt = data.get("format", "srt")
-        content_fmt = store.load_episode_subtitle_content(eid, lang)
+        try:
+            content_fmt = store.load_episode_subtitle_content(eid, lang)
+        except Exception as e:
+            logger.exception("Chargement contenu sous-titres")
+            show_error(self, exc=e, context="Chargement sous-titres")
+            self._refresh_action_buttons()
+            return
         if not content_fmt:
             self._refresh_action_buttons()
             return
