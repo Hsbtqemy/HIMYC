@@ -365,20 +365,28 @@ class AlignmentTabWidget(QWidget):
             self.align_run_btn.setEnabled(False)
             self.align_run_btn.setToolTip("Base de données indisponible. Rouvrez le projet.")
             return
+        prerequisites = self._resolve_run_prerequisites(episode_id, db)
+        if prerequisites is None:
+            self.align_run_btn.setEnabled(False)
+            self.align_run_btn.setToolTip("Impossible de vérifier les prérequis d'alignement.")
+            return
+        can_run, missing = prerequisites
+        self.align_run_btn.setEnabled(can_run)
+        if can_run:
+            self.align_run_btn.setToolTip("Lancer l'alignement de l'épisode sélectionné.")
+            return
+        self.align_run_btn.setToolTip(
+            "Prérequis manquants: " + ", ".join(missing) + "."
+        )
+
+    def _resolve_run_prerequisites(self, episode_id: str, db: object) -> tuple[bool, list[str]] | None:
         has_target = self.align_target_lang_combo.count() > 0
         try:
             has_segments = bool(db.get_segments_for_episode(episode_id, kind="sentence"))
             has_cues_en = bool(db.get_cues_for_episode_lang(episode_id, "en"))
         except Exception:
-            logger.exception("Failed to refresh align prerequisites")
-            self.align_run_btn.setEnabled(False)
-            self.align_run_btn.setToolTip("Impossible de vérifier les prérequis d'alignement.")
-            return
-        can_run = has_target and has_segments and has_cues_en
-        self.align_run_btn.setEnabled(can_run)
-        if can_run:
-            self.align_run_btn.setToolTip("Lancer l'alignement de l'épisode sélectionné.")
-            return
+            logger.exception("Failed to evaluate align prerequisites")
+            return None
         missing: list[str] = []
         if not has_segments:
             missing.append("segments transcript")
@@ -386,9 +394,7 @@ class AlignmentTabWidget(QWidget):
             missing.append("piste EN")
         if not has_target:
             missing.append("piste cible")
-        self.align_run_btn.setToolTip(
-            "Prérequis manquants: " + ", ".join(missing) + "."
-        )
+        return len(missing) == 0, missing
 
     def _on_episode_changed(self) -> None:
         self.align_run_combo.clear()
@@ -561,7 +567,25 @@ class AlignmentTabWidget(QWidget):
         )
         if resolved is None:
             return
-        eid, _store, _db = resolved
+        eid, _store, db = resolved
+        prerequisites = self._resolve_run_prerequisites(eid, db)
+        if prerequisites is None:
+            warn_precondition(
+                self,
+                "Alignement",
+                "Impossible de vérifier les prérequis d'alignement.",
+                next_step="Rafraîchissez l'onglet puis réessayez.",
+            )
+            return
+        can_run, missing = prerequisites
+        if not can_run:
+            warn_precondition(
+                self,
+                "Alignement",
+                "Prérequis manquants: " + ", ".join(missing) + ".",
+                next_step="Inspecteur: importez EN + cible, puis segmentez l'épisode.",
+            )
+            return
         target_lang = self._resolve_target_lang_or_warn(title="Alignement")
         if target_lang is None:
             return
