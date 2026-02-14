@@ -32,6 +32,7 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         run_job: Callable[[list], None],
         refresh_episodes: Callable[[], None],
         show_status: Callable[[str, int], None],
+        on_open_pilotage: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -59,6 +60,7 @@ class InspecteurEtSousTitresTabWidget(QWidget):
             get_config=get_config,
             run_job=run_job,
             show_status=show_status,
+            on_open_pilotage=on_open_pilotage,
         )
         self.subtitles_tab = SubtitleTabWidget(
             get_store=get_store,

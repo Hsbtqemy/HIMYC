@@ -56,6 +56,7 @@ class InspectorTabWidget(QWidget):
         get_config: Callable[[], object],
         run_job: Callable[[list], None],
         show_status: Callable[[str, int], None],
+        on_open_pilotage: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -64,6 +65,7 @@ class InspectorTabWidget(QWidget):
         self._get_config = get_config
         self._run_job = run_job
         self._show_status = show_status
+        self._on_open_pilotage = on_open_pilotage
         self._current_episode_id: str | None = None
         self._workflow_service = WorkflowService()
         self._job_busy = False
@@ -116,6 +118,19 @@ class InspectorTabWidget(QWidget):
         self._inspect_segment_tooltip_default = self.inspect_segment_btn.toolTip()
         self._inspect_export_segments_tooltip_default = self.inspect_export_segments_btn.toolTip()
         layout.addLayout(row)
+        workflow_hint_row = QHBoxLayout()
+        inspect_scope_hint = QLabel("Mode Inspecteur: actions locales sur l'épisode courant.")
+        inspect_scope_hint.setStyleSheet("color: #505050;")
+        workflow_hint_row.addWidget(inspect_scope_hint)
+        self.inspect_open_pilotage_btn = QPushButton("Aller au Pilotage (batch)")
+        self.inspect_open_pilotage_btn.setToolTip(
+            "Ouvre l'onglet Pilotage pour les opérations en lot (sélection, saison, tout le corpus)."
+        )
+        self.inspect_open_pilotage_btn.setEnabled(self._on_open_pilotage is not None)
+        self.inspect_open_pilotage_btn.clicked.connect(self._open_pilotage_batch)
+        workflow_hint_row.addWidget(self.inspect_open_pilotage_btn)
+        workflow_hint_row.addStretch()
+        layout.addLayout(workflow_hint_row)
 
         self.inspect_main_split = QSplitter(Qt.Orientation.Horizontal)
         self.raw_edit = QPlainTextEdit()
@@ -404,6 +419,17 @@ class InspectorTabWidget(QWidget):
             )
             return None
         return str(eid), store
+
+    def _open_pilotage_batch(self) -> None:
+        if self._on_open_pilotage is None:
+            warn_precondition(
+                self,
+                "Inspecteur",
+                "Navigation vers Pilotage indisponible.",
+                next_step="Ouvrez l'onglet Pilotage manuellement pour lancer un traitement batch.",
+            )
+            return
+        self._on_open_pilotage()
 
     def _resolve_episode_store_db_or_warn(self, *, title: str) -> tuple[str, object, object] | None:
         resolved = self._resolve_episode_store_or_warn(title=title)

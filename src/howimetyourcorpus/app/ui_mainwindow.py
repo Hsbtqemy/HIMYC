@@ -513,6 +513,7 @@ class MainWindow(QMainWindow):
             run_job=self._run_job,
             refresh_episodes=self._refresh_episodes_from_store,
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
+            on_open_pilotage=self._open_corpus_in_pilotage,
         )
         self.tabs.addTab(self.inspector_tab, "Inspecteur")
         self.tabs.setTabToolTip(TAB_INSPECTEUR, "§15.4 — Transcript (RAW/CLEAN, segments) + Sous-titres (pistes, import, normaliser) pour l'épisode courant.")
