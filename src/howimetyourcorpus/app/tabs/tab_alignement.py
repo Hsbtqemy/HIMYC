@@ -228,6 +228,34 @@ class AlignmentTabWidget(QWidget):
         self.align_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.align_table.customContextMenuRequested.connect(self._table_context_menu)
         layout.addWidget(self.align_table)
+        self._configure_tab_order()
+
+    def _configure_tab_order(self) -> None:
+        """Ordre clavier explicite pour les contrôles d'alignement."""
+        chain = [
+            self.align_episode_combo,
+            self.align_run_combo,
+            self.align_target_lang_combo,
+            self.align_run_btn,
+            self.align_delete_run_btn,
+            self.align_by_similarity_cb,
+            self.export_align_btn,
+            self.export_parallel_btn,
+            self.align_report_btn,
+            self.align_stats_btn,
+            self.align_accepted_only_cb,
+            self.align_table,
+        ]
+        for current, nxt in zip(chain, chain[1:]):
+            self.setTabOrder(current, nxt)
+
+    def first_focus_widget(self) -> QWidget:
+        """Point d'entrée focus (Validation & Annotation)."""
+        return self.align_episode_combo
+
+    def last_focus_widget(self) -> QWidget:
+        """Point de sortie focus (Validation & Annotation)."""
+        return self.align_table
 
     def _current_episode_id(self) -> str | None:
         episode_id = self.align_episode_combo.currentData()

@@ -88,24 +88,24 @@ class PilotageTabWidget(QWidget):
         top_actions_row.addWidget(self._help_toggle_btn)
         top_actions_row.addSpacing(8)
         top_actions_row.addWidget(QLabel("Étapes suivantes:"))
-        inspect_btn = QPushButton("Inspecteur (QA local)")
-        inspect_btn.setToolTip("Comparer RAW/CLEAN, normaliser/segmenter un épisode, inspecter les pistes SRT.")
-        inspect_btn.setMinimumHeight(28)
-        inspect_btn.setEnabled(self._on_open_inspector is not None)
-        inspect_btn.clicked.connect(self._open_inspector)
-        top_actions_row.addWidget(inspect_btn)
-        validation_btn = QPushButton("Validation & Annotation")
-        validation_btn.setToolTip("Lancer/relire l'alignement et assigner/propager les personnages.")
-        validation_btn.setMinimumHeight(28)
-        validation_btn.setEnabled(self._on_open_validation is not None)
-        validation_btn.clicked.connect(self._open_validation)
-        top_actions_row.addWidget(validation_btn)
-        concordance_btn = QPushButton("Concordance")
-        concordance_btn.setToolTip("Explorer le corpus (KWIC) et exporter des résultats.")
-        concordance_btn.setMinimumHeight(28)
-        concordance_btn.setEnabled(self._on_open_concordance is not None)
-        concordance_btn.clicked.connect(self._open_concordance)
-        top_actions_row.addWidget(concordance_btn)
+        self.inspect_next_btn = QPushButton("Inspecteur (QA local)")
+        self.inspect_next_btn.setToolTip("Comparer RAW/CLEAN, normaliser/segmenter un épisode, inspecter les pistes SRT.")
+        self.inspect_next_btn.setMinimumHeight(28)
+        self.inspect_next_btn.setEnabled(self._on_open_inspector is not None)
+        self.inspect_next_btn.clicked.connect(self._open_inspector)
+        top_actions_row.addWidget(self.inspect_next_btn)
+        self.validation_next_btn = QPushButton("Validation & Annotation")
+        self.validation_next_btn.setToolTip("Lancer/relire l'alignement et assigner/propager les personnages.")
+        self.validation_next_btn.setMinimumHeight(28)
+        self.validation_next_btn.setEnabled(self._on_open_validation is not None)
+        self.validation_next_btn.clicked.connect(self._open_validation)
+        top_actions_row.addWidget(self.validation_next_btn)
+        self.concordance_next_btn = QPushButton("Concordance")
+        self.concordance_next_btn.setToolTip("Explorer le corpus (KWIC) et exporter des résultats.")
+        self.concordance_next_btn.setMinimumHeight(28)
+        self.concordance_next_btn.setEnabled(self._on_open_concordance is not None)
+        self.concordance_next_btn.clicked.connect(self._open_concordance)
+        top_actions_row.addWidget(self.concordance_next_btn)
         top_actions_row.addStretch()
         header_layout.addLayout(top_actions_row)
 
@@ -180,6 +180,7 @@ class PilotageTabWidget(QWidget):
         self._restore_project_panel_visibility()
         self._update_right_panel_box_widths()
         self.refresh_state_banner()
+        self._configure_tab_order()
 
     def eventFilter(self, obj, event):  # type: ignore[override]
         viewport = self._right_column_scroll.viewport() if hasattr(self, "_right_column_scroll") else None
@@ -242,6 +243,29 @@ class PilotageTabWidget(QWidget):
     def _open_concordance(self) -> None:
         if self._on_open_concordance:
             self._on_open_concordance()
+
+    def _configure_tab_order(self) -> None:
+        """Ordre clavier explicite de l'entête vers le workflow corpus/projet."""
+        project_first = getattr(self._project_widget, "first_focus_widget", None)
+        project_last = getattr(self._project_widget, "last_focus_widget", None)
+        corpus_first = getattr(self._corpus_widget, "first_focus_widget", None)
+        corpus_last = getattr(self._corpus_widget, "last_focus_widget", None)
+        chain: list[QWidget] = [
+            self._project_panel_toggle_btn,
+            self._help_toggle_btn,
+            self.inspect_next_btn,
+            self.validation_next_btn,
+            self.concordance_next_btn,
+        ]
+        if callable(corpus_first):
+            chain.append(corpus_first())
+        if callable(corpus_last) and callable(project_first):
+            chain.append(corpus_last())
+            chain.append(project_first())
+        if callable(project_last):
+            chain.append(project_last())
+        for current, nxt in zip(chain, chain[1:]):
+            self.setTabOrder(current, nxt)
 
     def _set_help_expanded(self, expanded: bool, *, persist: bool = True) -> None:
         self._help_panel.setVisible(bool(expanded))

@@ -87,19 +87,19 @@ class ProjectTabWidget(QWidget):
         form_projet.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.proj_root_edit = QLineEdit()
         self.proj_root_edit.setPlaceholderText("C:\\...\\MonProjet ou /path/to/project")
-        browse_btn = QPushButton("Parcourir…")
-        browse_btn.clicked.connect(self._browse)
+        self.browse_btn = QPushButton("Parcourir…")
+        self.browse_btn.clicked.connect(self._browse)
         row_root = QHBoxLayout()
         row_root.setContentsMargins(0, 0, 0, 0)
         row_root.setSpacing(6)
         row_root.addWidget(self.proj_root_edit, 1)
-        row_root.addWidget(browse_btn)
+        row_root.addWidget(self.browse_btn)
         form_projet.addRow("Dossier:", row_root)
         btn_row = QHBoxLayout()
-        validate_btn = QPushButton("Ouvrir / créer le projet")
-        validate_btn.setMinimumHeight(30)
-        validate_btn.clicked.connect(self._emit_validate)
-        validate_btn.setDefault(True)
+        self.validate_btn = QPushButton("Ouvrir / créer le projet")
+        self.validate_btn.setMinimumHeight(30)
+        self.validate_btn.clicked.connect(self._emit_validate)
+        self.validate_btn.setDefault(True)
         self.save_config_btn = QPushButton("Enregistrer la config.")
         self.save_config_btn.setMinimumHeight(30)
         self.save_config_btn.setToolTip(
@@ -107,7 +107,7 @@ class ProjectTabWidget(QWidget):
         )
         self.save_config_btn.clicked.connect(self._save_config)
         self._save_config_btn_tooltip_default = self.save_config_btn.toolTip()
-        btn_row.addWidget(validate_btn)
+        btn_row.addWidget(self.validate_btn)
         btn_row.addWidget(self.save_config_btn)
         btn_row.addStretch()
         form_projet.addRow("", btn_row)
@@ -225,11 +225,11 @@ class ProjectTabWidget(QWidget):
         self.normalize_profile_combo = QComboBox()
         self.normalize_profile_combo.addItems(list(PROFILES.keys()))
         form_norm.addRow("Profil:", self.normalize_profile_combo)
-        profiles_btn = QPushButton("Gérer les profils…")
-        profiles_btn.setMinimumHeight(28)
-        profiles_btn.setToolTip("Créer, modifier ou supprimer les profils personnalisés (profiles.json).")
-        profiles_btn.clicked.connect(self._emit_open_profiles)
-        form_norm.addRow("", profiles_btn)
+        self.profiles_btn = QPushButton("Gérer les profils…")
+        self.profiles_btn.setMinimumHeight(28)
+        self.profiles_btn.setToolTip("Créer, modifier ou supprimer les profils personnalisés (profiles.json).")
+        self.profiles_btn.clicked.connect(self._emit_open_profiles)
+        form_norm.addRow("", self.profiles_btn)
         norm_policy = QLabel(
             "Le profil de normalisation s'applique aux transcripts (RAW→CLEAN, Pilotage/Inspecteur) "
             "et aux pistes SRT/VTT via « Normaliser la piste ». "
@@ -297,6 +297,39 @@ class ProjectTabWidget(QWidget):
         self._details_expanded = self._read_details_expanded_setting()
         self._set_project_details_expanded(True, persist=False)
         self._refresh_project_summary()
+        self._configure_tab_order()
+
+    def _configure_tab_order(self) -> None:
+        """Ordre clavier explicite pour le panneau Projet (accessibilité)."""
+        chain = [
+            self.proj_root_edit,
+            self.browse_btn,
+            self.validate_btn,
+            self.save_config_btn,
+            self.project_toggle_details_btn,
+            self.open_corpus_compact_btn,
+            self.project_details_tabs,
+            self.source_id_combo,
+            self.acquisition_profile_combo,
+            self.series_url_edit,
+            self.srt_only_cb,
+            self.rate_limit_spin,
+            self.normalize_profile_combo,
+            self.profiles_btn,
+            self.languages_list,
+            self.add_lang_btn,
+            self.remove_lang_btn,
+        ]
+        for current, nxt in zip(chain, chain[1:]):
+            self.setTabOrder(current, nxt)
+
+    def first_focus_widget(self) -> QWidget:
+        """Point d'entrée focus (Pilotage)."""
+        return self.proj_root_edit
+
+    def last_focus_widget(self) -> QWidget:
+        """Point de sortie focus (Pilotage)."""
+        return self.remove_lang_btn
 
     def set_open_corpus_callback(
         self,

@@ -519,6 +519,48 @@ class CorpusTabWidget(QWidget):
         layout.addStretch()
         scroll.setWidget(content)
         root_layout.addWidget(scroll)
+        self._configure_tab_order()
+
+    def _configure_tab_order(self) -> None:
+        """Ordre clavier explicite pour les actions principales du corpus."""
+        chain = [
+            self.season_filter_combo,
+            self.status_filter_combo,
+            self.check_season_btn,
+            self.batch_scope_combo,
+            self.primary_action_btn,
+            self.episodes_tree,
+            self.discover_btn,
+            self.fetch_btn,
+            self.check_all_btn,
+            self.uncheck_all_btn,
+            self.add_episodes_btn,
+            self.discover_merge_btn,
+            self.norm_batch_profile_combo,
+            self.force_reprocess_check,
+            self.norm_btn,
+            self.segment_btn,
+            self.index_btn,
+            self.all_in_one_btn,
+            self.export_corpus_btn,
+            self.cancel_job_btn,
+            self.error_list,
+            self.retry_selected_error_btn,
+            self.retry_all_errors_btn,
+            self.inspect_error_btn,
+            self.logs_error_btn,
+            self.refresh_errors_btn,
+        ]
+        for current, nxt in zip(chain, chain[1:]):
+            self.setTabOrder(current, nxt)
+
+    def first_focus_widget(self) -> QWidget:
+        """Point d'entrée focus (Pilotage)."""
+        return self.season_filter_combo
+
+    def last_focus_widget(self) -> QWidget:
+        """Point de sortie focus (Pilotage)."""
+        return self.refresh_errors_btn
 
     def take_right_column_sections(self) -> list[QWidget]:
         """Détache les blocs secondaires pour les réutiliser dans la colonne droite du Pilotage."""

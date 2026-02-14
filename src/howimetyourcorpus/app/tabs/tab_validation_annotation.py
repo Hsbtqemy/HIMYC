@@ -37,6 +37,18 @@ class ValidationAnnotationTabWidget(QWidget):
         self._splitter.setSizes([560, 480])
         layout.addWidget(self._splitter)
         self._restore_splitter_sizes()
+        self._configure_tab_order()
+
+    def _configure_tab_order(self) -> None:
+        """Relie le parcours clavier Alignement -> Personnages."""
+        align_first = getattr(self._alignment_widget, "first_focus_widget", None)
+        align_last = getattr(self._alignment_widget, "last_focus_widget", None)
+        chars_first = getattr(self._characters_widget, "first_focus_widget", None)
+        chars_last = getattr(self._characters_widget, "last_focus_widget", None)
+        if callable(align_last) and callable(chars_first):
+            self.setTabOrder(align_last(), chars_first())
+        if callable(chars_last) and callable(align_first):
+            self.setTabOrder(chars_last(), align_first())
 
     def focus_alignment(self) -> None:
         """Met l'accent sur la partie Alignement."""

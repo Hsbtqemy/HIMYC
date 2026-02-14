@@ -136,7 +136,36 @@ class PersonnagesTabWidget(QWidget):
         sel_model = self.personnages_table.selectionModel()
         if sel_model is not None:
             sel_model.selectionChanged.connect(self._apply_controls_enabled)
+        self._configure_tab_order()
         self._apply_controls_enabled()
+
+    def _configure_tab_order(self) -> None:
+        """Ordre clavier explicite pour les contrôles Personnages."""
+        chain = [
+            self.personnages_table,
+            self.personnages_add_btn,
+            self.personnages_remove_btn,
+            self.personnages_save_btn,
+            self.personnages_import_speakers_btn,
+            self.personnages_episode_combo,
+            self.personnages_source_combo,
+            self.personnages_load_assign_btn,
+            self.personnages_run_combo,
+            self.personnages_refresh_runs_btn,
+            self.personnages_assign_table,
+            self.personnages_save_assign_btn,
+            self.personnages_propagate_btn,
+        ]
+        for current, nxt in zip(chain, chain[1:]):
+            self.setTabOrder(current, nxt)
+
+    def first_focus_widget(self) -> QWidget:
+        """Point d'entrée focus (Validation & Annotation)."""
+        return self.personnages_table
+
+    def last_focus_widget(self) -> QWidget:
+        """Point de sortie focus (Validation & Annotation)."""
+        return self.personnages_propagate_btn
 
     def refresh(self) -> None:
         """Charge la liste des personnages et le combo épisodes (appelé après ouverture projet)."""
