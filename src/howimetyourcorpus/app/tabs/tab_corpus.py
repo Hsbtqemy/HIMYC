@@ -49,15 +49,13 @@ from howimetyourcorpus.core.pipeline.tasks import (
     FetchAndMergeSeriesIndexStep,
 )
 from howimetyourcorpus.core.workflow import (
-    WorkflowActionError,
     WorkflowActionId,
-    WorkflowOptionError,
     WorkflowScope,
-    WorkflowScopeError,
     WorkflowService,
 )
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 from howimetyourcorpus.app.workflow_advice import build_workflow_advice
 from howimetyourcorpus.app.workflow_status import (
     compute_workflow_status,
@@ -1104,27 +1102,6 @@ class CorpusTabWidget(QWidget):
         profile_id = getattr(config, "normalize_profile", None) if config else None
         return resolve_lang_hint_from_profile_id(profile_id, fallback="en")
 
-    def _build_plan_or_warn(
-        self,
-        *,
-        action_id: WorkflowActionId,
-        context: dict[str, Any],
-        scope: WorkflowScope,
-        episode_refs: list[EpisodeRef],
-        options: dict[str, Any] | None = None,
-    ):
-        try:
-            return self._workflow_service.build_plan(
-                action_id=action_id,
-                context=context,
-                scope=scope,
-                episode_refs=episode_refs,
-                options=options,
-            )
-        except (WorkflowActionError, WorkflowScopeError, WorkflowOptionError) as exc:
-            warn_precondition(self, "Corpus", str(exc))
-            return None
-
     def _resolve_project_context(
         self,
         *,
@@ -1183,16 +1160,15 @@ class CorpusTabWidget(QWidget):
         episode_refs: list[EpisodeRef],
         options: dict[str, Any] | None = None,
     ) -> list[Any] | None:
-        plan = self._build_plan_or_warn(
+        return build_workflow_steps_or_warn(
+            workflow_service=self._workflow_service,
             action_id=action_id,
             context=context,
             scope=scope,
             episode_refs=episode_refs,
             options=options,
+            warn_precondition_message=lambda message: warn_precondition(self, "Corpus", message),
         )
-        if not plan:
-            return None
-        return list(plan.steps)
 
     def _run_action_for_scope(
         self,

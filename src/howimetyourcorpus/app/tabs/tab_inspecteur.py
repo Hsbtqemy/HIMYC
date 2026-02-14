@@ -37,13 +37,11 @@ from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondit
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 from howimetyourcorpus.core.workflow import (
-    WorkflowActionError,
     WorkflowActionId,
-    WorkflowOptionError,
     WorkflowScope,
-    WorkflowScopeError,
     WorkflowService,
 )
+from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 
 logger = logging.getLogger(__name__)
 
@@ -577,15 +575,12 @@ class InspectorTabWidget(QWidget):
             "store": store,
             "db": self._get_db(),
         }
-        try:
-            plan = self._workflow_service.build_plan(
-                action_id=action_id,
-                context=context,
-                scope=WorkflowScope.current(episode_id),
-                episode_refs=refs,
-                options=options or {},
-            )
-        except (WorkflowScopeError, WorkflowActionError, WorkflowOptionError) as exc:
-            warn_precondition(self, title, str(exc))
-            return None
-        return list(plan.steps)
+        return build_workflow_steps_or_warn(
+            workflow_service=self._workflow_service,
+            action_id=action_id,
+            context=context,
+            scope=WorkflowScope.current(episode_id),
+            episode_refs=refs,
+            options=options or {},
+            warn_precondition_message=lambda message: warn_precondition(self, title, message),
+        )
