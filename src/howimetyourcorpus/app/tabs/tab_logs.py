@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QSettings, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
@@ -142,6 +142,7 @@ class LogsTabWidget(QWidget):
         self._handler: logging.Handler | None = TextEditHandler(self._bridge.log_emitted.emit)
         self._handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
         self._logger.addHandler(self._handler)
+        self._restore_filters_state()
         self._sync_preset_with_filters()
 
     def _current_level_filter(self) -> str:
@@ -151,7 +152,10 @@ class LogsTabWidget(QWidget):
         return self.search_edit.text().strip()
 
     def _on_filters_changed(self, *_args) -> None:
+        if self._applying_preset:
+            return
         self._sync_preset_with_filters()
+        self._save_filters_state()
         self._refresh_view()
 
     def _apply_selected_preset(self, *_args) -> None:
@@ -170,6 +174,8 @@ class LogsTabWidget(QWidget):
                 self.search_edit.setText(query)
         finally:
             self._applying_preset = False
+        self._sync_preset_with_filters()
+        self._save_filters_state()
         self._refresh_view()
 
     def _sync_preset_with_filters(self) -> None:
@@ -216,6 +222,27 @@ class LogsTabWidget(QWidget):
         for entry in self._entries:
             if self._entry_matches_current_filters(entry):
                 self.logs_edit.appendPlainText(entry.formatted_line)
+
+    def _save_filters_state(self) -> None:
+        settings = QSettings()
+        settings.setValue("logs/levelFilter", self._current_level_filter())
+        settings.setValue("logs/queryText", self._current_query())
+
+    def _restore_filters_state(self) -> None:
+        settings = QSettings()
+        level = str(settings.value("logs/levelFilter", "ALL") or "ALL")
+        query = str(settings.value("logs/queryText", "") or "")
+        self._applying_preset = True
+        try:
+            idx = self.level_filter_combo.findData(level)
+            self.level_filter_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            self.search_edit.setText(query)
+        finally:
+            self._applying_preset = False
+
+    def save_state(self) -> None:
+        """Sauvegarde l'état des filtres Logs (appelé à la fermeture globale)."""
+        self._save_filters_state()
 
     def _clear_live_buffer(self) -> None:
         self._entries.clear()
@@ -359,6 +386,7 @@ class LogsTabWidget(QWidget):
         show_info(self, "Logs", f"Épisode copié: {episode_id}")
 
     def closeEvent(self, event) -> None:
+        self.save_state()
         if self._handler is not None:
             self._logger.removeHandler(self._handler)
             self._handler = None

@@ -525,6 +525,8 @@ class MainWindow(QMainWindow):
             self.inspector_tab.save_state()
         if hasattr(self, "validation_tab") and self.validation_tab:
             self.validation_tab.save_state()
+        if hasattr(self, "logs_tab") and self.logs_tab:
+            self.logs_tab.save_state()
         super().closeEvent(event)
 
     def _refresh_inspecteur_episodes(self):
