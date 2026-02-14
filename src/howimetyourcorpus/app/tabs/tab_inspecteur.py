@@ -136,6 +136,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_notes_edit.setMaximumHeight(100)
         layout.addWidget(self.inspect_notes_edit)
         self.inspect_segments_list.setVisible(False)
+        self._refresh_action_buttons(episode_id=None, store=None)
 
     def _restore_splitter_sizes(self) -> None:
         def to_sizes(val) -> list[int] | None:
@@ -178,6 +179,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_episode_combo.clear()
         store = self._get_store()
         if not store:
+            self._refresh_action_buttons(episode_id=None, store=None)
             return
         index = store.load_series_index()
         if index and index.episodes:
@@ -219,6 +221,7 @@ class InspectorTabWidget(QWidget):
             self.merge_examples_edit.clear()
             self.inspect_notes_edit.clear()
             self.inspect_segments_list.clear()
+            self._refresh_action_buttons(episode_id=None, store=store)
             return
         if self._current_episode_id and self._current_episode_id != eid:
             store.save_episode_notes(
@@ -263,6 +266,24 @@ class InspectorTabWidget(QWidget):
         if profile and profile in get_all_profile_ids():
             self.inspect_profile_combo.setCurrentText(profile)
         self._fill_segments(eid)
+        self._refresh_action_buttons(episode_id=str(eid), store=store)
+
+    def _refresh_action_buttons(self, *, episode_id: str | None, store: Any | None) -> None:
+        has_episode = bool(episode_id and store)
+        has_raw = bool(has_episode and store and store.has_episode_raw(str(episode_id)))
+        has_clean = bool(has_episode and store and store.has_episode_clean(str(episode_id)))
+        db = self._get_db()
+        has_segments = False
+        if has_episode and db:
+            try:
+                has_segments = bool(db.get_segments_for_episode(str(episode_id)))
+            except Exception:
+                logger.exception("Failed to load segments for button state")
+                has_segments = False
+        self.inspect_set_preferred_profile_btn.setEnabled(has_episode)
+        self.inspect_norm_btn.setEnabled(has_raw)
+        self.inspect_segment_btn.setEnabled(has_clean)
+        self.inspect_export_segments_btn.setEnabled(has_segments and bool(db))
 
     def _switch_view(self) -> None:
         is_segments = self.inspect_view_combo.currentData() == "segments"
