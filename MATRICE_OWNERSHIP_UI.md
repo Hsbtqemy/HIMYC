@@ -15,7 +15,7 @@ Date: 2026-02-14
 | Lot -1 | Refonte ergonomique Pilotage mac (2 colonnes, boxes droite, table corpus) | hsmy + codex | TBD | TBD | Fait |
 | Lot 0 | Baseline KPI + gouvernance + rollback | hsmy + codex | TBD | TBD | En cours |
 | Lot 1 | Fiabilite critique workflow (run explicite + etat global job) | hsmy + codex | TBD | TBD | En cours |
-| Lot 2 | Concordance async + cancel + pagination stable | hsmy + codex | TBD | TBD | En cours |
+| Lot 2 | Concordance async + cancel + pagination stable | hsmy + codex | TBD | TBD | Fait |
 | Lot 3 | Logs perf (debounce + incremental/tail + pin UX) | TBD | TBD | TBD | A faire |
 | Lot 4 | Personnages model/view + parite I/O | TBD | TBD | TBD | A faire |
 | Lot 5 | Accessibilite/HDPI/shortcuts + clarte visuelle | TBD | TBD | TBD | A faire |
@@ -29,3 +29,4 @@ Date: 2026-02-14
 | 2026-02-14 | Lot 0 | Baseline perf scriptable ajoutee | Mesure avant/apres fiable | hsmy + codex |
 | 2026-02-14 | Lot 1 | Etat global job normalise (`idle/running/cancelling/done/error`) + persistance run personnages | Feedback robuste + reprise fiable | hsmy + codex |
 | 2026-02-14 | Lot 2 | Tri deterministe KWIC (episodes/segments/cues) pour pagination stable | Resultats "charger plus" coherents et reproductibles | hsmy + codex |
+| 2026-02-14 | Lot 2 | Telemetrie KWIC (status/hits/duree) ajoutee dans la UI + logs | Visibilite perf/diagnostic continue | hsmy + codex |

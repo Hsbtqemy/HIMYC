@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import time
 from typing import Callable
 
 from PySide6.QtCore import QModelIndex, QObject, QThread, Signal
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 class _KwicQueryWorker(QObject):
     """Worker asynchrone pour exécuter une requête KWIC hors thread UI."""
 
-    finished = Signal(list, bool)  # hits, has_more
+    finished = Signal(list, bool, int)  # hits, has_more, elapsed_ms
     failed = Signal(object)
     cancelled = Signal()
 
@@ -79,6 +80,7 @@ class _KwicQueryWorker(QObject):
         if self._cancel_requested:
             self.cancelled.emit()
             return
+        t0 = time.perf_counter()
         limit = self._page_size + 1  # +1 pour détecter s'il reste des résultats.
         try:
             if self._scope == "segments":
@@ -117,7 +119,8 @@ class _KwicQueryWorker(QObject):
             self.cancelled.emit()
             return
         has_more = len(hits) > self._page_size
-        self.finished.emit(hits[: self._page_size], has_more)
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        self.finished.emit(hits[: self._page_size], has_more, elapsed_ms)
 
 
 class ConcordanceTabWidget(QWidget):
@@ -140,6 +143,8 @@ class ConcordanceTabWidget(QWidget):
         self._kwic_append_mode = False
         self._kwic_thread: QThread | None = None
         self._kwic_worker: _KwicQueryWorker | None = None
+        self._kwic_last_elapsed_ms = 0
+        self._kwic_last_offset = 0
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -389,6 +394,7 @@ class ConcordanceTabWidget(QWidget):
         season = signature[4] or None
         episode = signature[5] or None
         offset = len(self.kwic_model.get_all_hits()) if append else 0
+        self._kwic_last_offset = offset
         if not append:
             self.kwic_model.set_hits([])
             self._kwic_has_more = False
@@ -438,19 +444,40 @@ class ConcordanceTabWidget(QWidget):
         if worker is not None:
             worker.deleteLater()
 
-    def _on_kwic_finished(self, hits: list, has_more: bool) -> None:
+    def _emit_kwic_telemetry(self, *, status: str, hits_count: int, elapsed_ms: int) -> None:
+        term = self.kwic_search_edit.text().strip()
+        scope = str(self.kwic_scope_combo.currentData() or "episodes")
+        logger.info(
+            "KWIC status=%s scope=%s term=%r offset=%d hits=%d elapsed_ms=%d",
+            status,
+            scope,
+            term,
+            int(self._kwic_last_offset),
+            int(hits_count),
+            int(elapsed_ms),
+        )
+
+    def _on_kwic_finished(self, hits: list, has_more: bool, elapsed_ms: int) -> None:
         try:
             existing = self.kwic_model.get_all_hits() if self._kwic_append_mode else []
             merged = existing + list(hits)
             self.kwic_model.set_hits(merged)
             self._kwic_has_more = bool(has_more)
+            self._kwic_last_elapsed_ms = max(0, int(elapsed_ms))
             count = len(merged)
             if self._kwic_has_more:
                 self.kwic_feedback_label.setText(
-                    f"{count} résultat(s) affiché(s). D'autres résultats sont disponibles."
+                    f"{count} résultat(s) affiché(s). D'autres résultats sont disponibles. ({self._kwic_last_elapsed_ms} ms)"
                 )
             else:
-                self.kwic_feedback_label.setText(f"{count} résultat(s) affiché(s).")
+                self.kwic_feedback_label.setText(
+                    f"{count} résultat(s) affiché(s). ({self._kwic_last_elapsed_ms} ms)"
+                )
+            self._emit_kwic_telemetry(
+                status="success",
+                hits_count=len(hits),
+                elapsed_ms=self._kwic_last_elapsed_ms,
+            )
         finally:
             self._kwic_busy = False
             self._kwic_append_mode = False
@@ -461,6 +488,7 @@ class ConcordanceTabWidget(QWidget):
         try:
             logger.error("KWIC query failed: %s", exc)
             self.kwic_feedback_label.setText("Erreur pendant la recherche KWIC.")
+            self._emit_kwic_telemetry(status="error", hits_count=0, elapsed_ms=0)
             show_error(self, exc=exc, context="Recherche KWIC")
         finally:
             self._kwic_busy = False
@@ -472,6 +500,7 @@ class ConcordanceTabWidget(QWidget):
         self._kwic_busy = False
         self._kwic_append_mode = False
         self.kwic_feedback_label.setText("Recherche KWIC annulée.")
+        self._emit_kwic_telemetry(status="cancelled", hits_count=0, elapsed_ms=0)
         self._cleanup_kwic_worker()
         self._apply_controls_enabled()
 

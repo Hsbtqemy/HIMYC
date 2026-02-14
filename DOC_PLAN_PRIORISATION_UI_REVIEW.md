@@ -202,7 +202,7 @@ Etat 2026-02-14:
 - Async + cancel: deja en place dans `tab_concordance.py` (worker/thread + annulation).
 - Tri/paging deterministe: implemente dans `db_kwic.py` (ORDER BY explicite episodes/segments/cues).
 - Tests de non-regression pagination stable: ajoutes dans `tests/test_db_kwic.py`.
-- Reste a faire Lot 2: telemetrie requete (temps/hits/cancel-success-error) surfacée cote UI.
+- Telemetrie requete: implementee dans `tab_concordance.py` (log status/hits/elapsed + feedback ms).
 
 ### Acceptance criteria
 - Pas de freeze perceptible pendant recherche longue.
