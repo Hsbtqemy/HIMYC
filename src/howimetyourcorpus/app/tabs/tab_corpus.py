@@ -1021,52 +1021,72 @@ class CorpusTabWidget(QWidget):
                 self, "Corpus", "Aucun épisode résolu pour le scope choisi."
             )
             return
-        scope = WorkflowScope.selection(ids)
+        episode_url_by_id = {ref.episode_id: ref.url for ref in index.episodes}
+        runnable_ids = [
+            eid
+            for eid in ids
+            if store.has_episode_clean(eid)
+            or store.has_episode_raw(eid)
+            or bool((episode_url_by_id.get(eid) or "").strip())
+        ]
+        skipped = len(ids) - len(runnable_ids)
+        if skipped > 0:
+            self._show_status(
+                "Tout faire: "
+                f"{skipped} épisode(s) ignoré(s) (sans URL source, RAW ni CLEAN).",
+                5000,
+            )
+        fetch_scope = WorkflowScope.selection(ids)
+        runnable_scope = WorkflowScope.selection(runnable_ids) if runnable_ids else None
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
         profile_by_episode = self._build_profile_by_episode(
             store=store,
             episode_refs=index.episodes,
-            episode_ids=ids,
+            episode_ids=runnable_ids,
             batch_profile=batch_profile,
         )
         fetch_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
-            scope=scope,
+            scope=fetch_scope,
             episode_refs=index.episodes,
-            options={"episode_url_by_id": {ref.episode_id: ref.url for ref in index.episodes}},
+            options={"episode_url_by_id": episode_url_by_id},
         )
         if fetch_steps is None:
             return
-        normalize_steps = self._build_action_steps_or_warn(
-            action_id=WorkflowActionId.NORMALIZE_EPISODES,
-            context=context,
-            scope=scope,
-            episode_refs=index.episodes,
-            options={
-                "default_profile_id": batch_profile,
-                "profile_by_episode": profile_by_episode,
-            },
-        )
-        if normalize_steps is None:
-            return
-        segment_steps = self._build_action_steps_or_warn(
-            action_id=WorkflowActionId.SEGMENT_EPISODES,
-            context=context,
-            scope=scope,
-            episode_refs=index.episodes,
-            options={"lang_hint": self._resolve_lang_hint(context)},
-        )
-        if segment_steps is None:
-            return
-        index_steps = self._build_action_steps_or_warn(
-            action_id=WorkflowActionId.BUILD_DB_INDEX,
-            context=context,
-            scope=scope,
-            episode_refs=index.episodes,
-        )
-        if index_steps is None:
-            return
+        normalize_steps: list[Any] = []
+        segment_steps: list[Any] = []
+        index_steps: list[Any] = []
+        if runnable_scope is not None:
+            normalize_steps = self._build_action_steps_or_warn(
+                action_id=WorkflowActionId.NORMALIZE_EPISODES,
+                context=context,
+                scope=runnable_scope,
+                episode_refs=index.episodes,
+                options={
+                    "default_profile_id": batch_profile,
+                    "profile_by_episode": profile_by_episode,
+                },
+            )
+            if normalize_steps is None:
+                return
+            segment_steps = self._build_action_steps_or_warn(
+                action_id=WorkflowActionId.SEGMENT_EPISODES,
+                context=context,
+                scope=runnable_scope,
+                episode_refs=index.episodes,
+                options={"lang_hint": self._resolve_lang_hint(context)},
+            )
+            if segment_steps is None:
+                return
+            index_steps = self._build_action_steps_or_warn(
+                action_id=WorkflowActionId.BUILD_DB_INDEX,
+                context=context,
+                scope=runnable_scope,
+                episode_refs=index.episodes,
+            )
+            if index_steps is None:
+                return
         steps = fetch_steps + normalize_steps + segment_steps + index_steps
         if not steps:
             QMessageBox.information(self, "Corpus", "Aucune opération à exécuter.")
