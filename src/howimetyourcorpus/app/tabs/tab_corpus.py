@@ -76,6 +76,8 @@ from howimetyourcorpus.app.corpus_scope import (
     filter_ids_with_raw,
     filter_ids_with_source_url,
     filter_runnable_ids_for_full_workflow,
+    normalize_scope_mode,
+    resolve_scope_ids,
     resolve_episode_scope_capabilities_cache,
 )
 from howimetyourcorpus.app.models_qt import (
@@ -1187,20 +1189,15 @@ class CorpusTabWidget(QWidget):
         *,
         scope_mode: str | None = None,
     ) -> list[str]:
-        mode = (scope_mode or self.batch_scope_combo.currentData() or "selection").lower()
-        if mode == "current":
-            eid = self._resolve_current_episode_id()
-            return [eid] if eid else []
-        if mode == "selection":
-            return self._resolve_selected_episode_ids()
-        if mode == "season":
-            season = self.season_filter_combo.currentData()
-            if season is None:
-                return []
-            return self.episodes_tree_model.get_episode_ids_for_season(season)
-        if mode == "all":
-            return [e.episode_id for e in index.episodes]
-        return []
+        mode = normalize_scope_mode(scope_mode or self.batch_scope_combo.currentData())
+        return resolve_scope_ids(
+            scope_mode=mode,
+            all_episode_ids=[e.episode_id for e in index.episodes],
+            current_episode_id=self._resolve_current_episode_id(),
+            selected_episode_ids=self._resolve_selected_episode_ids(),
+            season=self.season_filter_combo.currentData(),
+            get_episode_ids_for_season=self.episodes_tree_model.get_episode_ids_for_season,
+        )
 
     def _refresh_scope_action_states(self, index: SeriesIndex | None) -> None:
         if self._workflow_busy:
@@ -1267,7 +1264,7 @@ class CorpusTabWidget(QWidget):
         *,
         scope_mode: str | None = None,
     ) -> tuple[WorkflowScope, list[str]] | None:
-        mode = (scope_mode or self.batch_scope_combo.currentData() or "selection").lower()
+        mode = normalize_scope_mode(scope_mode or self.batch_scope_combo.currentData())
         if mode == "current":
             eid = self._resolve_current_episode_id()
             if not eid:

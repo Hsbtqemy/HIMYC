@@ -11,6 +11,34 @@ from howimetyourcorpus.core.models import SeriesIndex
 ScopeCapabilities = dict[str, tuple[bool, bool, bool, bool]]
 
 
+def normalize_scope_mode(scope_mode: str | None, *, default_mode: str = "selection") -> str:
+    mode = (scope_mode or "").strip().lower()
+    return mode or default_mode
+
+
+def resolve_scope_ids(
+    *,
+    scope_mode: str | None,
+    all_episode_ids: list[str],
+    current_episode_id: str | None,
+    selected_episode_ids: list[str],
+    season: int | None,
+    get_episode_ids_for_season: Callable[[int], list[str]],
+) -> list[str]:
+    mode = normalize_scope_mode(scope_mode)
+    if mode == "current":
+        return [current_episode_id] if current_episode_id else []
+    if mode == "selection":
+        return list(selected_episode_ids)
+    if mode == "season":
+        if season is None:
+            return []
+        return list(get_episode_ids_for_season(int(season)))
+    if mode == "all":
+        return list(all_episode_ids)
+    return []
+
+
 def has_non_empty_value(value: str | None) -> bool:
     return bool((value or "").strip())
 

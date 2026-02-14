@@ -9,6 +9,8 @@ from howimetyourcorpus.app.corpus_scope import (
     filter_ids_with_raw,
     filter_ids_with_source_url,
     filter_runnable_ids_for_full_workflow,
+    normalize_scope_mode,
+    resolve_scope_ids,
     resolve_episode_scope_capabilities_cache,
 )
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
@@ -34,6 +36,43 @@ def test_build_episode_url_and_filter_source_url() -> None:
         ids=["S01E01", "S01E02", "S01E03"],
         episode_url_by_id=by_id,
     ) == ["S01E01"]
+
+
+def test_normalize_scope_mode_and_resolve_scope_ids() -> None:
+    assert normalize_scope_mode(None) == "selection"
+    assert normalize_scope_mode(" CURRENT ") == "current"
+    assert resolve_scope_ids(
+        scope_mode="current",
+        all_episode_ids=["S01E01", "S01E02"],
+        current_episode_id="S01E02",
+        selected_episode_ids=["S01E01"],
+        season=1,
+        get_episode_ids_for_season=lambda _season: ["S01E01", "S01E02"],
+    ) == ["S01E02"]
+    assert resolve_scope_ids(
+        scope_mode="selection",
+        all_episode_ids=["S01E01", "S01E02"],
+        current_episode_id="S01E02",
+        selected_episode_ids=["S01E01"],
+        season=1,
+        get_episode_ids_for_season=lambda _season: ["S01E01", "S01E02"],
+    ) == ["S01E01"]
+    assert resolve_scope_ids(
+        scope_mode="season",
+        all_episode_ids=["S01E01", "S01E02"],
+        current_episode_id="S01E02",
+        selected_episode_ids=["S01E01"],
+        season=1,
+        get_episode_ids_for_season=lambda _season: ["S01E01", "S01E02"],
+    ) == ["S01E01", "S01E02"]
+    assert resolve_scope_ids(
+        scope_mode="all",
+        all_episode_ids=["S01E01", "S01E02"],
+        current_episode_id="S01E02",
+        selected_episode_ids=["S01E01"],
+        season=1,
+        get_episode_ids_for_season=lambda _season: ["S01E01", "S01E02"],
+    ) == ["S01E01", "S01E02"]
 
 
 def test_filter_ids_with_raw_clean_and_runnable() -> None:
