@@ -51,6 +51,7 @@ class PipelineRunner:
         def log(level: str, msg: str):
             if on_log:
                 on_log(level, msg)
+                return
             getattr(logger, level.lower(), logger.info)(msg)
 
         for i, step in enumerate(steps):

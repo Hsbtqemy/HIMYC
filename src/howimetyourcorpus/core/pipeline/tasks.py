@@ -60,6 +60,7 @@ class FetchSeriesIndexStep(Step):
         def log(level: str, msg: str):
             if on_log:
                 on_log(level, msg)
+                return
             getattr(logger, level.lower(), logger.info)(msg)
 
         series_url = (self.series_url or config.series_url or "").strip()
@@ -128,6 +129,7 @@ class FetchAndMergeSeriesIndexStep(Step):
         def log(level: str, msg: str):
             if on_log:
                 on_log(level, msg)
+                return
             getattr(logger, level.lower(), logger.info)(msg)
 
         if on_progress:
@@ -215,10 +217,6 @@ class FetchEpisodeStep(Step):
             if db:
                 db.set_episode_status(self.episode_id, EpisodeStatus.FETCHED.value)
             return StepResult(True, f"Already fetched: {self.episode_id}")
-
-        def log(level: str, msg: str):
-            if on_log:
-                on_log(level, msg)
 
         if on_progress:
             on_progress(self.name, 0.0, f"Fetching {self.episode_id}...")

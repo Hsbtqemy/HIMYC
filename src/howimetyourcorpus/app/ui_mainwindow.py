@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QWidget,
     QVBoxLayout,
-    QPlainTextEdit,
     QMessageBox,
     QMenuBar,
 )
@@ -393,21 +392,13 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"{step_name}: {message}", 2000)
 
     def _on_job_log(self, level: str, message: str):
-        if self.tabs.count() > TAB_LOGS:
-            log_widget = self.tabs.widget(TAB_LOGS)
-            if isinstance(log_widget, QWidget) and log_widget.layout() and log_widget.layout().itemAt(0):
-                te = log_widget.findChild(QPlainTextEdit)
-                if te:
-                    te.appendPlainText(f"[{level}] {message}")
+        corpus_logger = logging.getLogger("howimetyourcorpus")
+        log_fn = getattr(corpus_logger, str(level).lower(), corpus_logger.info)
+        log_fn(message)
 
     def _append_job_summary_to_log(self, summary: str) -> None:
         """Ajoute le résumé de fin de job dans l'onglet Logs."""
-        if self.tabs.count() > TAB_LOGS:
-            log_widget = self.tabs.widget(TAB_LOGS)
-            if isinstance(log_widget, QWidget):
-                te = log_widget.findChild(QPlainTextEdit)
-                if te:
-                    te.appendPlainText(f"[info] {summary}")
+        self._on_job_log("info", summary)
 
     def _on_job_finished(self, results: list):
         self._set_job_ui_busy(False)
