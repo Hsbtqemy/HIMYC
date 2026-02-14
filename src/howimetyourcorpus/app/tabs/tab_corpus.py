@@ -405,6 +405,27 @@ class CorpusTabWidget(QWidget):
         self._set_scope_mode(mode)
         action(scope_mode=mode)
 
+    def _apply_empty_corpus_state(
+        self,
+        *,
+        next_step_message: str,
+        primary_label: str,
+        primary_action: Callable[[], None] | None,
+    ) -> None:
+        self._cached_index = None
+        self.season_filter_combo.clear()
+        self.season_filter_combo.addItem("Toutes les saisons", None)
+        self.corpus_status_label.setText("")
+        self.corpus_next_step_label.setText(next_step_message)
+        self.fetch_btn.setEnabled(False)
+        self.norm_btn.setEnabled(False)
+        self.segment_btn.setEnabled(False)
+        self.all_in_one_btn.setEnabled(False)
+        self.index_btn.setEnabled(False)
+        self._refresh_error_panel(index=None, error_ids=[])
+        self._set_primary_action(primary_label, primary_action)
+        self._refresh_scope_preview(index=None)
+
     def _apply_workflow_advice(self, action_id: str, label: str) -> None:
         if action_id == "retry_errors":
             self._set_primary_action(label, self._retry_error_episodes)
@@ -447,35 +468,22 @@ class CorpusTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not store:
-            self._cached_index = None
-            self.season_filter_combo.clear()
-            self.season_filter_combo.addItem("Toutes les saisons", None)
-            self.corpus_status_label.setText("")
-            self.corpus_next_step_label.setText("Prochaine action: ouvrez ou créez un projet dans la section Projet (Pilotage).")
-            self.fetch_btn.setEnabled(False)
-            self.norm_btn.setEnabled(False)
-            self.segment_btn.setEnabled(False)
-            self.all_in_one_btn.setEnabled(False)
-            self.index_btn.setEnabled(False)
-            self._refresh_error_panel(index=None, error_ids=[])
-            self._set_primary_action("Ouvrez un projet", None)
-            self._refresh_scope_preview(index=None)
+            self._apply_empty_corpus_state(
+                next_step_message="Prochaine action: ouvrez ou créez un projet dans la section Projet (Pilotage).",
+                primary_label="Ouvrez un projet",
+                primary_action=None,
+            )
             return
         index = store.load_series_index()
         if not index or not index.episodes:
-            self._cached_index = None
-            self.season_filter_combo.clear()
-            self.season_filter_combo.addItem("Toutes les saisons", None)
-            self.corpus_status_label.setText("")
-            self.corpus_next_step_label.setText("Prochaine action: cliquez sur « Découvrir épisodes » (ou ajoutez des épisodes en mode SRT only).")
-            self.fetch_btn.setEnabled(False)
-            self.norm_btn.setEnabled(False)
-            self.segment_btn.setEnabled(False)
-            self.all_in_one_btn.setEnabled(False)
-            self.index_btn.setEnabled(False)
-            self._refresh_error_panel(index=None, error_ids=[])
-            self._set_primary_action("Découvrir épisodes", self._discover_episodes)
-            self._refresh_scope_preview(index=None)
+            self._apply_empty_corpus_state(
+                next_step_message=(
+                    "Prochaine action: cliquez sur « Découvrir épisodes » "
+                    "(ou ajoutez des épisodes en mode SRT only)."
+                ),
+                primary_label="Découvrir épisodes",
+                primary_action=self._discover_episodes,
+            )
             return
         self._cached_index = index
         episode_ids = [e.episode_id for e in index.episodes]
