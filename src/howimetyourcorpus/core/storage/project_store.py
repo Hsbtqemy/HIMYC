@@ -664,19 +664,35 @@ class ProjectStore:
             names = ch.get("names_by_lang") or {}
             return names.get(lang) or ch.get("canonical") or character_id
 
+        target_langs: set[str] = set()
+        for lnk in links:
+            if lnk.get("role") != "target" or not lnk.get("cue_id") or not lnk.get("cue_id_target"):
+                continue
+            cue_en = lnk["cue_id"]
+            if cue_en not in assign_cue:
+                continue
+            target_langs.add((lnk.get("lang") or "fr").strip().lower())
+        needed_langs = {"en"} | target_langs
+        cues_by_lang: dict[str, dict[str, dict[str, Any]]] = {}
+        for lang in needed_langs:
+            rows = db.get_cues_for_episode_lang(episode_id, lang)
+            cues_by_lang[lang] = {str(row.get("cue_id") or ""): row for row in rows if row.get("cue_id")}
+
+        cue_updates: dict[str, str] = {}
         langs_updated: set[str] = set()
-        nb_cue = 0
+        cues_en = cues_by_lang.get("en", {})
         for cue_id, cid in assign_cue.items():
-            cues_en = db.get_cues_for_episode_lang(episode_id, "en")
-            cue_row = next((c for c in cues_en if c.get("cue_id") == cue_id), None)
-            if cue_row:
-                text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
-                prefix = name_for_lang(cid, "en") + ": "
-                if not text.startswith(prefix):
-                    new_text = prefix + text
-                    db.update_cue_text_clean(cue_id, new_text)
-                    nb_cue += 1
-                    langs_updated.add("en")
+            cue_row = cues_en.get(cue_id)
+            if not cue_row:
+                continue
+            text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
+            prefix = name_for_lang(cid, "en") + ": "
+            if text.startswith(prefix):
+                continue
+            new_text = prefix + text
+            cue_updates[cue_id] = new_text
+            cue_row["text_clean"] = new_text
+            langs_updated.add("en")
 
         for lnk in links:
             if lnk.get("role") != "target" or not lnk.get("cue_id") or not lnk.get("cue_id_target"):
@@ -687,17 +703,28 @@ class ProjectStore:
             if cue_en not in assign_cue:
                 continue
             cid = assign_cue[cue_en]
-            name = name_for_lang(cid, lang)
-            cues_lang = db.get_cues_for_episode_lang(episode_id, lang)
-            cue_row = next((c for c in cues_lang if c.get("cue_id") == cue_target), None)
-            if cue_row:
-                text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
-                prefix = name + ": "
-                if not text.startswith(prefix):
-                    new_text = prefix + text
-                    db.update_cue_text_clean(cue_target, new_text)
-                    nb_cue += 1
-                    langs_updated.add(lang)
+            cue_row = (cues_by_lang.get(lang) or {}).get(cue_target)
+            if not cue_row:
+                continue
+            text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
+            prefix = name_for_lang(cid, lang) + ": "
+            if text.startswith(prefix):
+                continue
+            new_text = prefix + text
+            cue_updates[cue_target] = new_text
+            cue_row["text_clean"] = new_text
+            langs_updated.add(lang)
+
+        updates = list(cue_updates.items())
+        if updates:
+            if hasattr(db, "update_cues_text_clean_bulk"):
+                nb_cue = int(db.update_cues_text_clean_bulk(updates))
+            else:
+                for cue_id, text_clean in updates:
+                    db.update_cue_text_clean(cue_id, text_clean)
+                nb_cue = len(updates)
+        else:
+            nb_cue = 0
 
         for lang in langs_updated:
             cues = db.get_cues_for_episode_lang(episode_id, lang)

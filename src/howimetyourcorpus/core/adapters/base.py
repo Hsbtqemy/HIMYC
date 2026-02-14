@@ -13,11 +13,29 @@ class SourceAdapter(Protocol):
 
     id: str
 
-    def discover_series(self, series_url: str) -> SeriesIndex:
+    def discover_series(
+        self,
+        series_url: str,
+        *,
+        user_agent: str | None = None,
+        rate_limit_s: float | None = None,
+        timeout_s: float = 30.0,
+        retries: int = 3,
+        backoff_s: float = 2.0,
+    ) -> SeriesIndex:
         """Parse la page série et retourne l'index des épisodes."""
         ...
 
-    def fetch_episode_html(self, episode_url: str) -> str:
+    def fetch_episode_html(
+        self,
+        episode_url: str,
+        *,
+        user_agent: str | None = None,
+        rate_limit_s: float | None = None,
+        timeout_s: float = 30.0,
+        retries: int = 3,
+        backoff_s: float = 2.0,
+    ) -> str:
         """Récupère le HTML de la page épisode (délégué au pipeline avec rate limit)."""
         ...
 

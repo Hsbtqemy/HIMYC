@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from howimetyourcorpus.core.acquisition.profiles import resolve_http_options_for_config
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, ProjectConfig, RunMeta, SeriesIndex, TransformStats
 from howimetyourcorpus.core.normalize.profiles import get_profile, resolve_lang_hint_from_profile_id
@@ -81,11 +82,14 @@ class FetchSeriesIndexStep(Step):
             if on_progress:
                 on_progress(self.name, 0.0, "Discovering episodes...")
             try:
-                rate_limit = getattr(config, "rate_limit_s", 2.0)
+                http_opts = resolve_http_options_for_config(config, user_agent_override=self.user_agent)
                 index = adapter.discover_series(
                     series_url,
-                    user_agent=self.user_agent or config.user_agent,
-                    rate_limit_s=rate_limit,
+                    user_agent=http_opts.user_agent,
+                    rate_limit_s=http_opts.rate_limit_s,
+                    timeout_s=http_opts.timeout_s,
+                    retries=http_opts.retries,
+                    backoff_s=http_opts.backoff_s,
                 )
             except Exception as e:
                 log("error", str(e))
@@ -135,11 +139,14 @@ class FetchAndMergeSeriesIndexStep(Step):
         if on_progress:
             on_progress(self.name, 0.0, "Discovering episodes from source...")
         try:
-            rate_limit = getattr(config, "rate_limit_s", 2.0)
+            http_opts = resolve_http_options_for_config(config, user_agent_override=self.user_agent)
             new_index = adapter.discover_series(
                 self.series_url,
-                user_agent=self.user_agent or config.user_agent,
-                rate_limit_s=rate_limit,
+                user_agent=http_opts.user_agent,
+                rate_limit_s=http_opts.rate_limit_s,
+                timeout_s=http_opts.timeout_s,
+                retries=http_opts.retries,
+                backoff_s=http_opts.backoff_s,
             )
         except Exception as e:
             log("error", str(e))
@@ -222,11 +229,14 @@ class FetchEpisodeStep(Step):
             on_progress(self.name, 0.0, f"Fetching {self.episode_id}...")
         try:
             config = context.get("config")
-            rate_limit = getattr(config, "rate_limit_s", 2.0) if config else 2.0
+            http_opts = resolve_http_options_for_config(config)
             html = adapter.fetch_episode_html(
                 self.episode_url,
-                user_agent=getattr(config, "user_agent", None) if config else None,
-                rate_limit_s=rate_limit,
+                user_agent=http_opts.user_agent,
+                rate_limit_s=http_opts.rate_limit_s,
+                timeout_s=http_opts.timeout_s,
+                retries=http_opts.retries,
+                backoff_s=http_opts.backoff_s,
             )
             store.save_episode_html(self.episode_id, html)
             raw_text, meta = adapter.parse_episode(html, self.episode_url)

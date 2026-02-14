@@ -125,6 +125,8 @@ class ProjectTabWidget(QWidget):
         self.rate_limit_spin.setSuffix(" s")
         self.rate_limit_spin.setToolTip("Délai minimal entre requêtes vers la source.")
         form_source.addRow("Rate limit:", self.rate_limit_spin)
+        self._last_applied_acquisition_profile_id = DEFAULT_ACQUISITION_PROFILE_ID
+        self.acquisition_profile_combo.currentTextChanged.connect(self._on_acquisition_profile_changed)
         layout.addWidget(group_source)
 
         # —— 3. Workflow corpus (§refonte) ——
@@ -245,6 +247,9 @@ class ProjectTabWidget(QWidget):
             self.acquisition_profile_combo.setCurrentText(acq_profile_id)
         elif self.acquisition_profile_combo.count() > 0:
             self.acquisition_profile_combo.setCurrentIndex(0)
+        self._last_applied_acquisition_profile_id = (
+            self.acquisition_profile_combo.currentText() or DEFAULT_ACQUISITION_PROFILE_ID
+        )
         self.rate_limit_spin.setValue(int(config.rate_limit_s))
         self.source_id_combo.setCurrentText(config.source_id)
 
@@ -282,6 +287,19 @@ class ProjectTabWidget(QWidget):
             and self.languages_list.count() > 0
             and self.languages_list.currentRow() >= 0
         )
+
+    def _on_acquisition_profile_changed(self, profile_id: str) -> None:
+        """Ajuste le rate-limit par défaut quand le profil change, sans écraser un override manuel."""
+        previous = ACQUISITION_PROFILES.get(self._last_applied_acquisition_profile_id)
+        new_profile = ACQUISITION_PROFILES.get(profile_id)
+        if new_profile is None:
+            self._last_applied_acquisition_profile_id = profile_id
+            return
+        current_rate = int(self.rate_limit_spin.value())
+        previous_default = int(round(previous.default_rate_limit_s)) if previous else None
+        if previous_default is None or current_rate == previous_default:
+            self.rate_limit_spin.setValue(int(round(new_profile.default_rate_limit_s)))
+        self._last_applied_acquisition_profile_id = profile_id
 
     def _add_language(self) -> None:
         store = self._get_store()

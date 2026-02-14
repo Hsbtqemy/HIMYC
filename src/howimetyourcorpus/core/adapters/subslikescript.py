@@ -68,6 +68,9 @@ class SubslikescriptAdapter:
         *,
         user_agent: str | None = None,
         rate_limit_s: float | None = None,
+        timeout_s: float = 30.0,
+        retries: int = 3,
+        backoff_s: float = 2.0,
     ) -> SeriesIndex:
         """Récupère la page série puis parse pour produire SeriesIndex."""
         from howimetyourcorpus.core.utils.http import get_html
@@ -75,6 +78,9 @@ class SubslikescriptAdapter:
             series_url,
             user_agent=user_agent,
             min_interval_s=rate_limit_s,
+            timeout_s=timeout_s,
+            retries=retries,
+            backoff_s=backoff_s,
         )
         return self.discover_series_from_html(html, series_url)
 
@@ -149,6 +155,9 @@ class SubslikescriptAdapter:
         *,
         user_agent: str | None = None,
         rate_limit_s: float | None = None,
+        timeout_s: float = 30.0,
+        retries: int = 3,
+        backoff_s: float = 2.0,
     ) -> str:
         """Récupère le HTML ; rate_limit_s passé à get_html pour politesse en boucle."""
         from howimetyourcorpus.core.utils.http import get_html
@@ -156,6 +165,9 @@ class SubslikescriptAdapter:
             episode_url,
             user_agent=user_agent,
             min_interval_s=rate_limit_s,
+            timeout_s=timeout_s,
+            retries=retries,
+            backoff_s=backoff_s,
         )
 
     def parse_episode(self, html: str, episode_url: str) -> tuple[str, dict]:
