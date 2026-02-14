@@ -170,18 +170,24 @@ class AlignmentTabWidget(QWidget):
         )
         row.addWidget(self.align_by_similarity_cb)
         self.export_align_btn = QPushButton("Exporter aligné")
+        self.export_align_btn.setToolTip("Exporte les liens du run sélectionné (CSV/JSONL).")
         self.export_align_btn.clicked.connect(self._export_alignment)
         self.export_align_btn.setEnabled(False)
         row.addWidget(self.export_align_btn)
         self.export_parallel_btn = QPushButton("Exporter concordancier parallèle")
+        self.export_parallel_btn.setToolTip(
+            "Exporte le concordancier parallèle EN↔cible du run sélectionné."
+        )
         self.export_parallel_btn.clicked.connect(self._export_parallel_concordance)
         self.export_parallel_btn.setEnabled(False)
         row.addWidget(self.export_parallel_btn)
         self.align_report_btn = QPushButton("Rapport HTML")
+        self.align_report_btn.setToolTip("Génère un rapport HTML synthétique pour le run sélectionné.")
         self.align_report_btn.clicked.connect(self._export_align_report)
         self.align_report_btn.setEnabled(False)
         row.addWidget(self.align_report_btn)
         self.align_stats_btn = QPushButton("Stats")
+        self.align_stats_btn.setToolTip("Affiche les statistiques du run sélectionné.")
         self.align_stats_btn.clicked.connect(self._show_align_stats)
         self.align_stats_btn.setEnabled(False)
         row.addWidget(self.align_stats_btn)
@@ -191,6 +197,11 @@ class AlignmentTabWidget(QWidget):
         )
         row.addWidget(self.align_accepted_only_cb)
         layout.addLayout(row)
+        self._align_delete_run_tooltip_default = self.align_delete_run_btn.toolTip()
+        self._export_align_tooltip_default = self.export_align_btn.toolTip()
+        self._export_parallel_tooltip_default = self.export_parallel_btn.toolTip()
+        self._align_report_tooltip_default = self.align_report_btn.toolTip()
+        self._align_stats_tooltip_default = self.align_stats_btn.toolTip()
         help_label = QLabel(
             "Flux : 1) Onglet Sous-titres : importer SRT EN (pivot) et la langue cible (FR/IT/...). "
             "2) Inspecteur : segmenter l'épisode (transcript → segments). "
@@ -381,6 +392,7 @@ class AlignmentTabWidget(QWidget):
 
     def _on_episode_changed(self) -> None:
         self.align_run_combo.clear()
+        self._set_run_actions_enabled(False, reason="Sélectionnez d'abord un run d'alignement.")
         eid = self._current_episode_id()
         db = self._get_db()
         self._refresh_target_lang_combo(eid if eid else None)
@@ -400,30 +412,39 @@ class AlignmentTabWidget(QWidget):
 
     def _on_run_changed(self) -> None:
         run_id = self._current_run_id()
-        self._set_run_actions_enabled(bool(run_id))
+        self._set_run_actions_enabled(
+            bool(run_id),
+            reason="Sélectionnez d'abord un run d'alignement.",
+        )
         self._fill_links()
 
     def _on_target_lang_changed(self, *_args) -> None:
         self._refresh_run_button_state(self._current_episode_id())
 
-    def _set_run_actions_enabled(self, enabled: bool) -> None:
+    def _set_run_actions_enabled(self, enabled: bool, *, reason: str | None = None) -> None:
         controls_enabled = enabled and not self._job_busy
         self.align_delete_run_btn.setEnabled(controls_enabled)
         self.export_align_btn.setEnabled(controls_enabled)
         self.export_parallel_btn.setEnabled(controls_enabled)
         self.align_report_btn.setEnabled(controls_enabled)
         self.align_stats_btn.setEnabled(controls_enabled)
-        if enabled:
-            self.export_align_btn.setToolTip("")
-            self.export_parallel_btn.setToolTip("")
-            self.align_report_btn.setToolTip("")
-            self.align_stats_btn.setToolTip("")
-        else:
-            hint = "Créez ou sélectionnez d'abord un run d'alignement."
-            self.export_align_btn.setToolTip(hint)
-            self.export_parallel_btn.setToolTip(hint)
-            self.align_report_btn.setToolTip(hint)
-            self.align_stats_btn.setToolTip(hint)
+        if controls_enabled:
+            self.align_delete_run_btn.setToolTip(self._align_delete_run_tooltip_default)
+            self.export_align_btn.setToolTip(self._export_align_tooltip_default)
+            self.export_parallel_btn.setToolTip(self._export_parallel_tooltip_default)
+            self.align_report_btn.setToolTip(self._align_report_tooltip_default)
+            self.align_stats_btn.setToolTip(self._align_stats_tooltip_default)
+            return
+        hint = (
+            "Action indisponible pendant l'exécution d'un job."
+            if self._job_busy
+            else (reason or "Créez ou sélectionnez d'abord un run d'alignement.")
+        )
+        self.align_delete_run_btn.setToolTip(hint)
+        self.export_align_btn.setToolTip(hint)
+        self.export_parallel_btn.setToolTip(hint)
+        self.align_report_btn.setToolTip(hint)
+        self.align_stats_btn.setToolTip(hint)
 
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions interactives pendant un job en cours."""
@@ -445,11 +466,15 @@ class AlignmentTabWidget(QWidget):
         for widget in controls:
             widget.setEnabled(not busy)
         if busy:
+            self._set_run_actions_enabled(False, reason="Action indisponible pendant l'exécution d'un job.")
             return
         # Restaurer l'état normal selon les données courantes.
         eid = self._current_episode_id()
         self._refresh_target_lang_combo(eid if eid else None)
-        self._set_run_actions_enabled(bool(self._current_run_id()))
+        self._set_run_actions_enabled(
+            bool(self._current_run_id()),
+            reason="Sélectionnez d'abord un run d'alignement.",
+        )
         self.align_episode_combo.setEnabled(True)
         self.align_run_combo.setEnabled(True)
         self.align_by_similarity_cb.setEnabled(True)
@@ -460,6 +485,12 @@ class AlignmentTabWidget(QWidget):
         run_id = self.align_run_combo.currentData()
         db = self._get_db()
         if not run_id or not db:
+            warn_precondition(
+                self,
+                "Alignement",
+                "Sélectionnez un run d'alignement.",
+                next_step="Choisissez un épisode puis un run dans la liste.",
+            )
             return
         reply = QMessageBox.question(
             self,

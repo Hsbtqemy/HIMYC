@@ -392,16 +392,20 @@ class PersonnagesTabWidget(QWidget):
         assignments = store.load_character_assignments()
         episode_assignments = [a for a in assignments if a.get("episode_id") == eid]
         if not episode_assignments:
-            QMessageBox.information(
-                self, "Propagation", "Aucune assignation pour cet épisode. Enregistrez des assignations d'abord."
+            warn_precondition(
+                self,
+                "Propagation",
+                "Aucune assignation pour cet épisode.",
+                next_step="Chargez une source, assignez des personnages puis cliquez sur « Enregistrer assignations ».",
             )
             return
         runs = db.get_align_runs_for_episode(eid)
         if not runs:
-            QMessageBox.information(
+            warn_precondition(
                 self,
                 "Propagation",
-                "Aucun run d'alignement pour cet épisode. Lancez l'alignement (onglet Alignement) d'abord.",
+                "Aucun run d'alignement pour cet épisode.",
+                next_step="Validation & Annotation > Alignement: lancez un alignement pour cet épisode.",
             )
             return
         run_id = runs[0].get("align_run_id")
