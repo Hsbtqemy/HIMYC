@@ -290,13 +290,13 @@ class CorpusTabWidget(QWidget):
         self.uncheck_all_btn.clicked.connect(self._uncheck_all_episodes)
         import_secondary_row.addWidget(self.check_all_btn)
         import_secondary_row.addWidget(self.uncheck_all_btn)
-        self.add_episodes_btn = QPushButton("Ajouter épisodes\n(SRT only)")
+        self.add_episodes_btn = QPushButton("Ajouter épisodes (SRT only)")
         self.add_episodes_btn.setMinimumHeight(28)
         self.add_episodes_btn.setToolTip(
             "Ajoute des épisodes à la main (un par ligne, ex. S01E01). Pour projet SRT uniquement."
         )
         self.add_episodes_btn.clicked.connect(self._add_episodes_manually)
-        self.discover_merge_btn = QPushButton("Découvrir (fusionner\nune autre source)...")
+        self.discover_merge_btn = QPushButton("Découvrir + fusionner une source...")
         self.discover_merge_btn.setMinimumHeight(28)
         self.discover_merge_btn.setToolTip(
             "Découvre une série depuis une autre source/URL et fusionne avec l'index existant (sans écraser les épisodes déjà présents)."
