@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -33,6 +34,7 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         refresh_episodes: Callable[[], None],
         show_status: Callable[[str, int], None],
         on_open_pilotage: Callable[[], None] | None = None,
+        on_open_validation: Callable[[], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -42,6 +44,7 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         self._run_job = run_job
         self._refresh_episodes = refresh_episodes
         self._show_status = show_status
+        self._on_open_validation = on_open_validation
 
         layout = QVBoxLayout(self)
         # Un seul sélecteur d'épisode en haut (§15.4)
@@ -51,8 +54,22 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         self.episode_combo.setToolTip("§15.4 — Épisode courant pour Transcript et Sous-titres.")
         self.episode_combo.currentIndexChanged.connect(self._on_episode_changed)
         row.addWidget(self.episode_combo)
+        open_validation_btn = QPushButton("Aller à Validation & Annotation")
+        open_validation_btn.setToolTip(
+            "Passe à l'onglet Validation & Annotation pour alignement et assignation/propagation personnages."
+        )
+        open_validation_btn.setEnabled(self._on_open_validation is not None)
+        open_validation_btn.clicked.connect(self._open_validation_tab)
+        row.addWidget(open_validation_btn)
         row.addStretch()
         layout.addLayout(row)
+        workflow_hint = QLabel(
+            "Position workflow: ici = QA épisode + normalisation pistes SRT. "
+            "Assignation personnages et propagation = onglet Validation & Annotation."
+        )
+        workflow_hint.setStyleSheet("color: #666;")
+        workflow_hint.setWordWrap(True)
+        layout.addWidget(workflow_hint)
 
         self.inspector_tab = InspectorTabWidget(
             get_store=get_store,
@@ -79,6 +96,10 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         self._main_split.setStretchFactor(1, 1)
         layout.addWidget(self._main_split)
         self._restore_combined_splitter()
+
+    def _open_validation_tab(self) -> None:
+        if self._on_open_validation:
+            self._on_open_validation()
 
     @staticmethod
     def _wrap_label(widget: QWidget, title: str) -> QWidget:
