@@ -316,8 +316,12 @@ class AlignmentTabWidget(QWidget):
             except Exception:
                 logger.exception("Failed to load subtitle tracks for alignment")
                 track_langs = []
-        # Priorité aux langues réellement disponibles pour l'épisode.
-        langs = track_langs or project_langs
+        # Si un épisode est sélectionné, ne proposer que les langues réellement présentes
+        # sur cet épisode pour éviter des cibles "théoriques" non alignables.
+        if episode_id:
+            langs = track_langs
+        else:
+            langs = project_langs
         dedup: list[str] = []
         seen: set[str] = set()
         for lng in langs:
