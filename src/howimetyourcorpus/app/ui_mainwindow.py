@@ -384,8 +384,8 @@ class MainWindow(QMainWindow):
         self._job_runner.error.connect(self._on_job_error)
         self._job_runner.finished.connect(self._on_job_finished)
         self._job_runner.cancelled.connect(self._on_job_cancelled)
+        self._set_job_ui_busy(True)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_workflow_busy(True)
             self.corpus_tab.set_progress(0)
         self._job_runner.run_async()
 
@@ -414,8 +414,8 @@ class MainWindow(QMainWindow):
                     te.appendPlainText(f"[info] {summary}")
 
     def _on_job_finished(self, results: list):
+        self._set_job_ui_busy(False)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_workflow_busy(False)
             self.corpus_tab.set_progress(100)
         ok = sum(1 for r in results if getattr(r, "success", True))
         fail = len(results) - ok
@@ -448,8 +448,7 @@ class MainWindow(QMainWindow):
         self._job_runner = None
 
     def _on_job_cancelled(self):
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_workflow_busy(False)
+        self._set_job_ui_busy(False)
         self.statusBar().showMessage("Traitement annulé.", 5000)
         self._job_runner = None
 
@@ -461,6 +460,13 @@ class MainWindow(QMainWindow):
     def _cancel_job(self):
         if self._job_runner:
             self._job_runner.cancel()
+
+    def _set_job_ui_busy(self, busy: bool) -> None:
+        """Synchronise l'état busy des zones de workflow pendant un job."""
+        if hasattr(self, "corpus_tab") and self.corpus_tab:
+            self.corpus_tab.set_workflow_busy(busy)
+        if hasattr(self, "inspector_tab") and self.inspector_tab:
+            self.inspector_tab.set_job_busy(busy)
 
     def _on_tab_changed(self, index: int) -> None:
         """Remplit le Corpus au passage sur Pilotage (évite segfault Qt/macOS au chargement du projet)."""

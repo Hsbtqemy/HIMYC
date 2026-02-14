@@ -64,6 +64,7 @@ class InspectorTabWidget(QWidget):
         self._show_status = show_status
         self._current_episode_id: str | None = None
         self._workflow_service = WorkflowService()
+        self._job_busy = False
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -280,10 +281,20 @@ class InspectorTabWidget(QWidget):
             except Exception:
                 logger.exception("Failed to load segments for button state")
                 has_segments = False
-        self.inspect_set_preferred_profile_btn.setEnabled(has_episode)
-        self.inspect_norm_btn.setEnabled(has_raw)
-        self.inspect_segment_btn.setEnabled(has_clean)
-        self.inspect_export_segments_btn.setEnabled(has_segments and bool(db))
+        controls_enabled = not self._job_busy
+        self.inspect_set_preferred_profile_btn.setEnabled(has_episode and controls_enabled)
+        self.inspect_norm_btn.setEnabled(has_raw and controls_enabled)
+        self.inspect_segment_btn.setEnabled(has_clean and controls_enabled)
+        self.inspect_export_segments_btn.setEnabled(has_segments and bool(db) and controls_enabled)
+        self.inspect_profile_combo.setEnabled(has_episode and controls_enabled)
+        self.inspect_view_combo.setEnabled(has_episode and controls_enabled)
+
+    def set_job_busy(self, busy: bool) -> None:
+        """Désactive les actions de mutation pendant un job de fond."""
+        self._job_busy = busy
+        self.inspect_episode_combo.setEnabled(not busy)
+        store = self._get_store()
+        self._refresh_action_buttons(episode_id=self._current_episode_id, store=store)
 
     def _switch_view(self) -> None:
         is_segments = self.inspect_view_combo.currentData() == "segments"

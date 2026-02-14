@@ -63,6 +63,7 @@ class SubtitleTabWidget(QWidget):
         self._run_job = run_job
         self._refresh_episodes = refresh_episodes
         self._show_status = show_status
+        self._job_busy = False
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -156,6 +157,7 @@ class SubtitleTabWidget(QWidget):
         layout.addWidget(self.subs_save_btn)
         self._editing_lang: str | None = None
         self._editing_fmt: str | None = None
+        self._refresh_action_buttons()
 
     def set_languages(self, langs: list[str]) -> None:
         """Met à jour la liste des langues (appelé quand les langues du projet changent)."""
@@ -179,6 +181,7 @@ class SubtitleTabWidget(QWidget):
         self.subs_episode_combo.clear()
         store = self._get_store()
         if not store:
+            self._refresh_action_buttons()
             return
         index = store.load_series_index()
         if index and index.episodes:
@@ -189,10 +192,6 @@ class SubtitleTabWidget(QWidget):
     def _on_episode_changed(self) -> None:
         self.subs_tracks_list.clear()
         self.subs_content_edit.clear()
-        self.subs_save_btn.setEnabled(False)
-        self.subs_delete_track_btn.setEnabled(False)
-        self.subs_export_final_btn.setEnabled(False)
-        self.subs_norm_btn.setEnabled(False)
         self._editing_lang = None
         self._editing_fmt = None
         store = self._get_store()
@@ -215,36 +214,61 @@ class SubtitleTabWidget(QWidget):
             item = QListWidgetItem(f"{lang} | {fmt} | {nb} cues")
             item.setData(Qt.ItemDataRole.UserRole, {"lang": lang, "format": fmt})
             self.subs_tracks_list.addItem(item)
+        self._refresh_action_buttons()
 
     def _on_track_selected(self, current: QListWidgetItem | None) -> None:
         self.subs_content_edit.clear()
-        self.subs_save_btn.setEnabled(False)
-        self.subs_delete_track_btn.setEnabled(bool(current))
-        self.subs_export_final_btn.setEnabled(bool(current))
-        self.subs_norm_btn.setEnabled(bool(current))
         self._editing_lang = None
         self._editing_fmt = None
         if not current:
+            self._refresh_action_buttons()
             return
         store = self._get_store()
         if not store:
+            self._refresh_action_buttons()
             return
         eid = self.subs_episode_combo.currentData()
         if not eid:
+            self._refresh_action_buttons()
             return
         data = current.data(Qt.ItemDataRole.UserRole)
         if not data or not isinstance(data, dict):
+            self._refresh_action_buttons()
             return
         lang = data.get("lang", "")
         fmt = data.get("format", "srt")
         content_fmt = store.load_episode_subtitle_content(eid, lang)
         if not content_fmt:
+            self._refresh_action_buttons()
             return
         content, detected_fmt = content_fmt
         self._editing_lang = lang
         self._editing_fmt = detected_fmt
         self.subs_content_edit.setPlainText(content)
-        self.subs_save_btn.setEnabled(True)
+        self._refresh_action_buttons()
+
+    def _refresh_action_buttons(self) -> None:
+        has_project = bool(self._get_store() and self._get_db())
+        has_episode = bool(self.subs_episode_combo.currentData())
+        has_track = self.subs_tracks_list.currentItem() is not None
+        editable = bool(self._editing_lang and self._editing_fmt)
+        controls_enabled = not self._job_busy
+        self.subs_episode_combo.setEnabled(has_project and controls_enabled)
+        self.subs_lang_combo.setEnabled(has_project and controls_enabled)
+        self.subs_import_btn.setEnabled(has_project and has_episode and controls_enabled)
+        self.subs_import_batch_btn.setEnabled(has_project and controls_enabled)
+        self.subs_opensubtitles_btn.setEnabled(has_project and controls_enabled)
+        self.subs_delete_track_btn.setEnabled(has_track and controls_enabled)
+        self.subs_export_final_btn.setEnabled(has_track and controls_enabled)
+        self.subs_norm_btn.setEnabled(has_track and controls_enabled)
+        self.subs_norm_profile_combo.setEnabled(has_track and controls_enabled)
+        self.subs_rewrite_srt_check.setEnabled(has_track and controls_enabled)
+        self.subs_save_btn.setEnabled(editable and controls_enabled)
+
+    def set_job_busy(self, busy: bool) -> None:
+        """Désactive les actions de mutation pendant un job de fond."""
+        self._job_busy = busy
+        self._refresh_action_buttons()
 
     def _delete_selected_track(self) -> None:
         current = self.subs_tracks_list.currentItem()

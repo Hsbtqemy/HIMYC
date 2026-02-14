@@ -142,3 +142,9 @@ class InspecteurEtSousTitresTabWidget(QWidget):
                 break
         self.inspector_tab.set_episode_and_load(episode_id)
         self.subtitles_tab.set_episode_and_load(episode_id)
+
+    def set_job_busy(self, busy: bool) -> None:
+        """Désactive les actions de mutation pendant un job global."""
+        self.episode_combo.setEnabled(not busy)
+        self.inspector_tab.set_job_busy(busy)
+        self.subtitles_tab.set_job_busy(busy)
