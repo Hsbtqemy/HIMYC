@@ -411,7 +411,12 @@ class SubtitleTabWidget(QWidget):
         try:
             cues = db.get_cues_for_episode_lang(eid, lang)
             if not cues:
-                QMessageBox.warning(self, "Export SRT", "Aucune cue pour cette piste.")
+                warn_precondition(
+                    self,
+                    "Export SRT",
+                    "Aucune cue pour cette piste.",
+                    next_step="Réimportez la piste sous-titres puis relancez l'export.",
+                )
                 return
             srt_content = cues_to_srt(cues)
             path.write_text(srt_content, encoding="utf-8")
