@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from howimetyourcorpus.app.logs_utils import LogEntry, extract_episode_id, matches_log_filters
+from howimetyourcorpus.app.logs_utils import (
+    LogEntry,
+    extract_episode_id,
+    matches_log_filters,
+    parse_formatted_log_line,
+)
 
 
 def test_extract_episode_id_returns_canonical_uppercase() -> None:
@@ -29,3 +34,18 @@ def test_matches_log_filters_query_matches_formatted_line_or_message() -> None:
     assert matches_log_filters(entry, level_min="ALL", query="S01E01")
     assert matches_log_filters(entry, level_min="ALL", query="failed to index")
     assert not matches_log_filters(entry, level_min="ALL", query="S02E03")
+
+
+def test_parse_formatted_log_line_extracts_level_and_tail_message() -> None:
+    line = "2026-02-14 10:00:00 [WARNING] Indexing failed for S01E01"
+    entry = parse_formatted_log_line(line)
+    assert entry.level == "WARNING"
+    assert entry.message == "Indexing failed for S01E01"
+    assert entry.formatted_line == line
+
+
+def test_parse_formatted_log_line_falls_back_to_info_when_level_missing() -> None:
+    line = "custom trace without bracket level"
+    entry = parse_formatted_log_line(line)
+    assert entry.level == "INFO"
+    assert entry.message == line

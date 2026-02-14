@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 
 _EPISODE_RE = re.compile(r"\bS\d+E\d+\b", re.IGNORECASE)
+_LEVEL_IN_LINE_RE = re.compile(r"\[(DEBUG|INFO|WARNING|ERROR|CRITICAL)\]", re.IGNORECASE)
 
 _LEVEL_RANK = {
     "DEBUG": 10,
@@ -50,3 +51,17 @@ def matches_log_filters(
         if q not in haystack:
             return False
     return True
+
+
+def parse_formatted_log_line(line: str) -> LogEntry:
+    """Parse une ligne formatée de log vers LogEntry."""
+    text = (line or "").rstrip("\n")
+    level = "INFO"
+    message = text
+    match = _LEVEL_IN_LINE_RE.search(text)
+    if match:
+        level = match.group(1).upper()
+        tail = text[match.end() :].strip()
+        if tail:
+            message = tail
+    return LogEntry(level=level, message=message, formatted_line=text)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 import logging
+from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QObject, Signal
@@ -19,7 +20,12 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.feedback import warn_precondition
-from howimetyourcorpus.app.logs_utils import LogEntry, extract_episode_id, matches_log_filters
+from howimetyourcorpus.app.logs_utils import (
+    LogEntry,
+    extract_episode_id,
+    matches_log_filters,
+    parse_formatted_log_line,
+)
 
 
 class _LogSignalBridge(QObject):
@@ -51,27 +57,40 @@ class LogsTabWidget(QWidget):
         self,
         on_open_log: Callable[[], None] | None = None,
         on_open_inspector: Callable[[str], None] | None = None,
+        get_log_path: Callable[[], Path | None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         layout = QVBoxLayout(self)
 
         self._on_open_inspector = on_open_inspector
+        self._get_log_path = get_log_path
         self._entries: deque[LogEntry] = deque(maxlen=5000)
+        self._applying_preset = False
 
         controls = QHBoxLayout()
+        controls.addWidget(QLabel("Preset:"))
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItem("Tous", ("ALL", ""))
+        self.preset_combo.addItem("Erreurs (ERROR+)", ("ERROR", ""))
+        self.preset_combo.addItem("Pipeline", ("INFO", "step"))
+        self.preset_combo.addItem("Alignement", ("ALL", "align"))
+        self.preset_combo.addItem("Concordance", ("ALL", "kwic"))
+        self.preset_combo.addItem("Personnalisé", ("CUSTOM", ""))
+        self.preset_combo.currentIndexChanged.connect(self._apply_selected_preset)
+        controls.addWidget(self.preset_combo)
         controls.addWidget(QLabel("Niveau:"))
         self.level_filter_combo = QComboBox()
         self.level_filter_combo.addItem("Tous", "ALL")
         self.level_filter_combo.addItem("INFO+", "INFO")
         self.level_filter_combo.addItem("WARNING+", "WARNING")
         self.level_filter_combo.addItem("ERROR+", "ERROR")
-        self.level_filter_combo.currentIndexChanged.connect(self._refresh_view)
+        self.level_filter_combo.currentIndexChanged.connect(self._on_filters_changed)
         controls.addWidget(self.level_filter_combo)
         controls.addWidget(QLabel("Recherche:"))
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Filtrer (texte, épisode, étape, erreur...)")
-        self.search_edit.textChanged.connect(self._refresh_view)
+        self.search_edit.textChanged.connect(self._on_filters_changed)
         controls.addWidget(self.search_edit)
         self.clear_btn = QPushButton("Effacer tampon live")
         self.clear_btn.setToolTip("Vide le tampon des logs affichés dans cette session.")
@@ -93,6 +112,10 @@ class LogsTabWidget(QWidget):
         )
         open_episode_btn.clicked.connect(self._open_episode_from_selected_log)
         row.addWidget(open_episode_btn)
+        load_file_tail_btn = QPushButton("Charger extrait fichier")
+        load_file_tail_btn.setToolTip("Charge les dernières lignes du fichier log projet (si disponible).")
+        load_file_tail_btn.clicked.connect(self._load_file_tail_from_button)
+        row.addWidget(load_file_tail_btn)
         open_log_btn = QPushButton("Ouvrir fichier log")
         open_log_btn.clicked.connect(on_open_log or (lambda: None))
         row.addWidget(open_log_btn)
@@ -106,12 +129,61 @@ class LogsTabWidget(QWidget):
         self._handler: logging.Handler | None = TextEditHandler(self._bridge.log_emitted.emit)
         self._handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
         self._logger.addHandler(self._handler)
+        self._sync_preset_with_filters()
 
     def _current_level_filter(self) -> str:
         return str(self.level_filter_combo.currentData() or "ALL")
 
     def _current_query(self) -> str:
         return self.search_edit.text().strip()
+
+    def _on_filters_changed(self, *_args) -> None:
+        self._sync_preset_with_filters()
+        self._refresh_view()
+
+    def _apply_selected_preset(self, *_args) -> None:
+        data = self.preset_combo.currentData()
+        if not isinstance(data, tuple) or len(data) != 2:
+            return
+        level, query = str(data[0]), str(data[1])
+        if level == "CUSTOM":
+            return
+        self._applying_preset = True
+        try:
+            idx = self.level_filter_combo.findData(level)
+            if idx >= 0 and idx != self.level_filter_combo.currentIndex():
+                self.level_filter_combo.setCurrentIndex(idx)
+            if self.search_edit.text() != query:
+                self.search_edit.setText(query)
+        finally:
+            self._applying_preset = False
+        self._refresh_view()
+
+    def _sync_preset_with_filters(self) -> None:
+        if self._applying_preset:
+            return
+        current_level = self._current_level_filter()
+        current_query = self._current_query()
+        matching_idx = -1
+        custom_idx = -1
+        for i in range(self.preset_combo.count()):
+            data = self.preset_combo.itemData(i)
+            if not isinstance(data, tuple) or len(data) != 2:
+                continue
+            level, query = str(data[0]), str(data[1])
+            if level == "CUSTOM":
+                custom_idx = i
+                continue
+            if level == current_level and query == current_query:
+                matching_idx = i
+                break
+        target_idx = matching_idx if matching_idx >= 0 else custom_idx
+        if target_idx >= 0 and self.preset_combo.currentIndex() != target_idx:
+            self._applying_preset = True
+            try:
+                self.preset_combo.setCurrentIndex(target_idx)
+            finally:
+                self._applying_preset = False
 
     def _entry_matches_current_filters(self, entry: LogEntry) -> bool:
         return matches_log_filters(
@@ -135,6 +207,44 @@ class LogsTabWidget(QWidget):
     def _clear_live_buffer(self) -> None:
         self._entries.clear()
         self.logs_edit.clear()
+
+    def load_file_tail(self, *, max_lines: int = 400, clear_existing: bool = False) -> int:
+        """Charge les dernières lignes du fichier log projet dans le tampon visible."""
+        if max_lines <= 0:
+            return 0
+        if self._get_log_path is None:
+            return 0
+        path = self._get_log_path()
+        if not path or not path.exists():
+            return 0
+        tail: deque[str] = deque(maxlen=max_lines)
+        try:
+            with path.open("r", encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    tail.append(line.rstrip("\n"))
+        except OSError:
+            return 0
+        if clear_existing:
+            self._entries.clear()
+        added = 0
+        for line in tail:
+            if not line.strip():
+                continue
+            self._entries.append(parse_formatted_log_line(line))
+            added += 1
+        self._refresh_view()
+        return added
+
+    def _load_file_tail_from_button(self) -> None:
+        added = self.load_file_tail(max_lines=500, clear_existing=False)
+        if added > 0:
+            return
+        warn_precondition(
+            self,
+            "Logs",
+            "Aucune ligne chargée depuis le fichier log.",
+            next_step="Ouvrez un projet puis exécutez au moins une action pour générer des logs.",
+        )
 
     def _selected_log_text(self) -> str:
         cursor = self.logs_edit.textCursor()

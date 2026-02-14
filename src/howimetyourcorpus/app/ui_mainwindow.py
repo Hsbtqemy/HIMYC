@@ -579,24 +579,32 @@ class MainWindow(QMainWindow):
             self.inspector_tab.set_episode_and_load(episode_id)
 
     def _build_tab_logs(self):
-        w = LogsTabWidget(
+        self.logs_tab = LogsTabWidget(
             on_open_log=self._open_log_file,
             on_open_inspector=self._kwic_open_inspector_impl,
+            get_log_path=self._current_log_path,
         )
-        self.tabs.addTab(w, "Logs")
+        self.tabs.addTab(self.logs_tab, "Logs")
         # Réduit la surcharge visuelle: logs accessibles via menu Outils.
         self.tabs.setTabVisible(TAB_LOGS, False)
+
+    def _current_log_path(self) -> Path | None:
+        if not self._config:
+            return None
+        return get_log_file_for_project(self._config.root_dir)
 
     def _open_logs_panel(self) -> None:
         """Affiche l'onglet logs (masqué par défaut) et le sélectionne."""
         self.tabs.setTabVisible(TAB_LOGS, True)
         self.tabs.setCurrentIndex(TAB_LOGS)
+        if hasattr(self, "logs_tab") and self.logs_tab:
+            self.logs_tab.load_file_tail(max_lines=500, clear_existing=True)
 
     def _open_log_file(self):
-        if not self._config:
+        log_path = self._current_log_path()
+        if not log_path:
             QMessageBox.information(self, "Logs", "Ouvrez un projet pour avoir un fichier log.")
             return
-        log_path = get_log_file_for_project(self._config.root_dir)
         if not log_path.exists():
             QMessageBox.information(self, "Logs", "Aucun fichier log pour l'instant.")
             return
