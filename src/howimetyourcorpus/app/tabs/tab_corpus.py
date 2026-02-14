@@ -70,6 +70,7 @@ from howimetyourcorpus.app.workflow_status import (
     load_episode_status_map,
 )
 from howimetyourcorpus.app.corpus_scope import (
+    build_profile_by_episode,
     build_episode_scope_capabilities,
     build_episode_url_by_id,
     filter_ids_with_clean,
@@ -1325,19 +1326,15 @@ class CorpusTabWidget(QWidget):
         episode_ids: list[str],
         batch_profile: str,
     ) -> dict[str, str]:
-        ref_by_id = {e.episode_id: e for e in episode_refs}
         episode_preferred = store.load_episode_preferred_profiles()
         source_defaults = store.load_source_profile_defaults()
-        profile_by_episode: dict[str, str] = {}
-        for eid in episode_ids:
-            ref = ref_by_id.get(eid)
-            profile = (
-                episode_preferred.get(eid)
-                or (source_defaults.get(ref.source_id or "") if ref else None)
-                or batch_profile
-            )
-            profile_by_episode[eid] = profile
-        return profile_by_episode
+        return build_profile_by_episode(
+            episode_refs=episode_refs,
+            episode_ids=episode_ids,
+            batch_profile=batch_profile,
+            episode_preferred_profiles=episode_preferred,
+            source_profile_defaults=source_defaults,
+        )
 
     @staticmethod
     def _resolve_lang_hint(context: dict[str, Any]) -> str:

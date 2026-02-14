@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Callable
 
-from howimetyourcorpus.core.models import SeriesIndex
+from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 
 
 ScopeCapabilities = dict[str, tuple[bool, bool, bool, bool]]
@@ -109,7 +109,7 @@ def resolve_episode_scope_capabilities_cache(
     has_episode_raw: Callable[[str], bool],
     has_episode_clean: Callable[[str], bool],
     log: logging.Logger | None = None,
-) -> ScopeCapabilities:
+    ) -> ScopeCapabilities:
     expected_ids = [e.episode_id for e in index.episodes]
     if len(cache) != len(expected_ids) or any(eid not in cache for eid in expected_ids):
         return build_episode_scope_capabilities(
@@ -119,3 +119,24 @@ def resolve_episode_scope_capabilities_cache(
             log=log,
         )
     return cache
+
+
+def build_profile_by_episode(
+    *,
+    episode_refs: list[EpisodeRef],
+    episode_ids: list[str],
+    batch_profile: str,
+    episode_preferred_profiles: dict[str, str],
+    source_profile_defaults: dict[str, str],
+) -> dict[str, str]:
+    ref_by_id = {e.episode_id: e for e in episode_refs}
+    profile_by_episode: dict[str, str] = {}
+    for eid in episode_ids:
+        ref = ref_by_id.get(eid)
+        profile = (
+            episode_preferred_profiles.get(eid)
+            or (source_profile_defaults.get(ref.source_id or "") if ref else None)
+            or batch_profile
+        )
+        profile_by_episode[eid] = profile
+    return profile_by_episode

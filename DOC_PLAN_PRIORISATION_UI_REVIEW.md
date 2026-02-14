@@ -325,6 +325,7 @@ Etat 2026-02-14:
 - Phase A demarree: fonctions pures de scope extraites vers `app/corpus_scope.py`.
 - `tab_corpus.py` recable sur ces fonctions (URL/source/raw/clean/runnable + cache capabilities).
 - Resolution scope mode/ids (`current/selection/season/all`) extraite en fonction pure.
+- Resolution profile par episode (priorite episode > source > batch) extraite en fonction pure.
 - Couverture dediee ajoutee: `tests/test_corpus_scope.py`.
 
 ### Acceptance criteria

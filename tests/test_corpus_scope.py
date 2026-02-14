@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from howimetyourcorpus.app.corpus_scope import (
+    build_profile_by_episode,
     build_episode_scope_capabilities,
     build_episode_url_by_id,
     filter_ids_with_clean,
@@ -140,3 +141,23 @@ def test_resolve_scope_capabilities_cache_reuses_or_rebuilds() -> None:
         has_episode_clean=lambda _eid: False,
     )
     assert "S01E04" in rebuilt
+
+
+def test_build_profile_by_episode_priority_order() -> None:
+    refs = [
+        EpisodeRef("S01E01", 1, 1, "Pilot", "u", source_id="subslikescript"),
+        EpisodeRef("S01E02", 1, 2, "Purple", "u", source_id="alt_source"),
+        EpisodeRef("S01E03", 1, 3, "Liberty", "u", source_id=None),
+    ]
+    profiles = build_profile_by_episode(
+        episode_refs=refs,
+        episode_ids=["S01E01", "S01E02", "S01E03"],
+        batch_profile="default_en_v1",
+        episode_preferred_profiles={"S01E01": "episode_pref_v2"},
+        source_profile_defaults={"subslikescript": "source_default_v1", "alt_source": "source_alt_v1"},
+    )
+    assert profiles == {
+        "S01E01": "episode_pref_v2",
+        "S01E02": "source_alt_v1",
+        "S01E03": "default_en_v1",
+    }
