@@ -258,6 +258,11 @@ class CorpusTabWidget(QWidget):
             "Bloc 2 — Indexe en base selon le scope sélectionné (épisodes ayant CLEAN)."
         )
         self.index_btn.clicked.connect(self._index_db)
+        self._fetch_btn_tooltip_default = self.fetch_btn.toolTip()
+        self._norm_btn_tooltip_default = self.norm_btn.toolTip()
+        self._segment_btn_tooltip_default = self.segment_btn.toolTip()
+        self._all_in_one_btn_tooltip_default = self.all_in_one_btn.toolTip()
+        self._index_btn_tooltip_default = self.index_btn.toolTip()
         self.export_corpus_btn = QPushButton("Exporter corpus")
         self.export_corpus_btn.clicked.connect(self._export_corpus)
         self.cancel_job_btn = QPushButton("Annuler")
@@ -367,6 +372,21 @@ class CorpusTabWidget(QWidget):
         self.all_in_one_btn.setEnabled(run_all)
         self.index_btn.setEnabled(index)
 
+    def _set_scope_action_tooltips(
+        self,
+        *,
+        fetch_reason: str | None,
+        normalize_reason: str | None,
+        segment_reason: str | None,
+        run_all_reason: str | None,
+        index_reason: str | None,
+    ) -> None:
+        self.fetch_btn.setToolTip(fetch_reason or self._fetch_btn_tooltip_default)
+        self.norm_btn.setToolTip(normalize_reason or self._norm_btn_tooltip_default)
+        self.segment_btn.setToolTip(segment_reason or self._segment_btn_tooltip_default)
+        self.all_in_one_btn.setToolTip(run_all_reason or self._all_in_one_btn_tooltip_default)
+        self.index_btn.setToolTip(index_reason or self._index_btn_tooltip_default)
+
     def set_workflow_busy(self, busy: bool) -> None:
         """Active/désactive les contrôles de pilotage pendant l'exécution d'un job."""
         self._workflow_busy = busy
@@ -440,6 +460,13 @@ class CorpusTabWidget(QWidget):
             segment=False,
             run_all=False,
             index=False,
+        )
+        self._set_scope_action_tooltips(
+            fetch_reason="Action indisponible: initialisez d'abord le corpus.",
+            normalize_reason="Action indisponible: initialisez d'abord le corpus.",
+            segment_reason="Action indisponible: initialisez d'abord le corpus.",
+            run_all_reason="Action indisponible: initialisez d'abord le corpus.",
+            index_reason="Action indisponible: initialisez d'abord le corpus.",
         )
         self._refresh_error_panel(index=None, error_ids=[])
         self._set_primary_action(primary_label, primary_action)
@@ -861,6 +888,13 @@ class CorpusTabWidget(QWidget):
                 run_all=False,
                 index=False,
             )
+            self._set_scope_action_tooltips(
+                fetch_reason="Action indisponible: aucun épisode dans le corpus.",
+                normalize_reason="Action indisponible: aucun épisode dans le corpus.",
+                segment_reason="Action indisponible: aucun épisode dans le corpus.",
+                run_all_reason="Action indisponible: aucun épisode dans le corpus.",
+                index_reason="Action indisponible: aucun épisode dans le corpus.",
+            )
             return
 
         store = self._get_store()
@@ -872,6 +906,13 @@ class CorpusTabWidget(QWidget):
                 run_all=False,
                 index=False,
             )
+            self._set_scope_action_tooltips(
+                fetch_reason="Action indisponible: ouvrez un projet d'abord.",
+                normalize_reason="Action indisponible: ouvrez un projet d'abord.",
+                segment_reason="Action indisponible: ouvrez un projet d'abord.",
+                run_all_reason="Action indisponible: ouvrez un projet d'abord.",
+                index_reason="Action indisponible: ouvrez un projet d'abord.",
+            )
             return
 
         ids = self._resolve_scope_ids_silent(index)
@@ -882,6 +923,13 @@ class CorpusTabWidget(QWidget):
                 segment=False,
                 run_all=False,
                 index=False,
+            )
+            self._set_scope_action_tooltips(
+                fetch_reason="Action indisponible: aucun épisode dans le scope courant.",
+                normalize_reason="Action indisponible: aucun épisode dans le scope courant.",
+                segment_reason="Action indisponible: aucun épisode dans le scope courant.",
+                run_all_reason="Action indisponible: aucun épisode dans le scope courant.",
+                index_reason="Action indisponible: aucun épisode dans le scope courant.",
             )
             return
 
@@ -904,6 +952,33 @@ class CorpusTabWidget(QWidget):
             segment=bool(ids_with_clean),
             run_all=bool(runnable_ids),
             index=bool(ids_with_clean),
+        )
+        self._set_scope_action_tooltips(
+            fetch_reason=(
+                None
+                if fetchable_ids
+                else "Action indisponible: aucune URL source disponible dans le scope."
+            ),
+            normalize_reason=(
+                None
+                if ids_with_raw
+                else "Action indisponible: aucun transcript RAW dans le scope."
+            ),
+            segment_reason=(
+                None
+                if ids_with_clean
+                else "Action indisponible: aucun fichier CLEAN dans le scope."
+            ),
+            run_all_reason=(
+                None
+                if runnable_ids
+                else "Action indisponible: aucun épisode exécutable (URL source, RAW ou CLEAN) dans le scope."
+            ),
+            index_reason=(
+                None
+                if ids_with_clean
+                else "Action indisponible: aucun fichier CLEAN dans le scope."
+            ),
         )
 
     def _resolve_scope_and_ids(
