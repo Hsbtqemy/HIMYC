@@ -34,6 +34,7 @@ class PersonnagesTabWidget(QWidget):
         self._get_store = get_store
         self._get_db = get_db
         self._show_status = show_status
+        self._job_busy = False
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(
@@ -94,6 +95,7 @@ class PersonnagesTabWidget(QWidget):
         )
         self.personnages_propagate_btn.clicked.connect(self._propagate)
         layout.addWidget(self.personnages_propagate_btn)
+        self._apply_controls_enabled()
 
     def refresh(self) -> None:
         """Charge la liste des personnages et le combo épisodes (appelé après ouverture projet)."""
@@ -101,6 +103,7 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_episode_combo.clear()
         store = self._get_store()
         if not store:
+            self._apply_controls_enabled()
             return
         langs = store.load_project_languages()
         self.personnages_table.setColumnCount(2 + len(langs))
@@ -128,6 +131,31 @@ class PersonnagesTabWidget(QWidget):
                 self.personnages_episode_combo.addItem(
                     f"{e.episode_id} - {e.title}", e.episode_id
                 )
+        self._apply_controls_enabled()
+
+    def _apply_controls_enabled(self) -> None:
+        has_project = bool(self._get_store() and self._get_db())
+        controls_enabled = has_project and not self._job_busy
+        controls = (
+            self.personnages_table,
+            self.personnages_add_btn,
+            self.personnages_remove_btn,
+            self.personnages_save_btn,
+            self.personnages_import_speakers_btn,
+            self.personnages_episode_combo,
+            self.personnages_source_combo,
+            self.personnages_load_assign_btn,
+            self.personnages_assign_table,
+            self.personnages_save_assign_btn,
+            self.personnages_propagate_btn,
+        )
+        for widget in controls:
+            widget.setEnabled(controls_enabled)
+
+    def set_job_busy(self, busy: bool) -> None:
+        """Désactive les actions d'annotation pendant un job pipeline."""
+        self._job_busy = busy
+        self._apply_controls_enabled()
 
     def _add_row(self) -> None:
         row = self.personnages_table.rowCount()

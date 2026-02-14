@@ -59,3 +59,10 @@ class ValidationAnnotationTabWidget(QWidget):
     def save_state(self) -> None:
         settings = QSettings()
         settings.setValue("validation_annotation/splitter", self._splitter.sizes())
+
+    def set_job_busy(self, busy: bool) -> None:
+        """Propage l'état busy aux sous-sections Alignement et Personnages."""
+        if hasattr(self._alignment_widget, "set_job_busy"):
+            self._alignment_widget.set_job_busy(busy)
+        if hasattr(self._characters_widget, "set_job_busy"):
+            self._characters_widget.set_job_busy(busy)

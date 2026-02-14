@@ -136,6 +136,7 @@ class AlignmentTabWidget(QWidget):
         self._get_store = get_store
         self._get_db = get_db
         self._run_job = run_job
+        self._job_busy = False
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -281,8 +282,9 @@ class AlignmentTabWidget(QWidget):
             idx = langs.index(current)
             self.align_target_lang_combo.setCurrentIndex(idx)
         has_target = self.align_target_lang_combo.count() > 0
-        self.align_target_lang_combo.setEnabled(has_target)
-        self.align_run_btn.setEnabled(has_target and bool(episode_id))
+        controls_enabled = not self._job_busy
+        self.align_target_lang_combo.setEnabled(has_target and controls_enabled)
+        self.align_run_btn.setEnabled(has_target and bool(episode_id) and controls_enabled)
         if not has_target:
             self.align_target_lang_combo.setToolTip(
                 "Aucune piste cible disponible pour cet épisode. Importez d'abord un SRT/VTT non-EN."
@@ -314,11 +316,12 @@ class AlignmentTabWidget(QWidget):
         self._fill_links()
 
     def _set_run_actions_enabled(self, enabled: bool) -> None:
-        self.align_delete_run_btn.setEnabled(enabled)
-        self.export_align_btn.setEnabled(enabled)
-        self.export_parallel_btn.setEnabled(enabled)
-        self.align_report_btn.setEnabled(enabled)
-        self.align_stats_btn.setEnabled(enabled)
+        controls_enabled = enabled and not self._job_busy
+        self.align_delete_run_btn.setEnabled(controls_enabled)
+        self.export_align_btn.setEnabled(controls_enabled)
+        self.export_parallel_btn.setEnabled(controls_enabled)
+        self.align_report_btn.setEnabled(controls_enabled)
+        self.align_stats_btn.setEnabled(controls_enabled)
         if enabled:
             self.export_align_btn.setToolTip("")
             self.export_parallel_btn.setToolTip("")
@@ -330,6 +333,37 @@ class AlignmentTabWidget(QWidget):
             self.export_parallel_btn.setToolTip(hint)
             self.align_report_btn.setToolTip(hint)
             self.align_stats_btn.setToolTip(hint)
+
+    def set_job_busy(self, busy: bool) -> None:
+        """Désactive les actions interactives pendant un job en cours."""
+        self._job_busy = busy
+        controls = (
+            self.align_episode_combo,
+            self.align_run_combo,
+            self.align_target_lang_combo,
+            self.align_run_btn,
+            self.align_delete_run_btn,
+            self.align_by_similarity_cb,
+            self.export_align_btn,
+            self.export_parallel_btn,
+            self.align_report_btn,
+            self.align_stats_btn,
+            self.align_accepted_only_cb,
+            self.align_table,
+        )
+        for widget in controls:
+            widget.setEnabled(not busy)
+        if busy:
+            return
+        # Restaurer l'état normal selon les données courantes.
+        eid = self._current_episode_id()
+        self._refresh_target_lang_combo(eid if eid else None)
+        self._set_run_actions_enabled(bool(self._current_run_id()))
+        self.align_episode_combo.setEnabled(True)
+        self.align_run_combo.setEnabled(True)
+        self.align_by_similarity_cb.setEnabled(True)
+        self.align_accepted_only_cb.setEnabled(True)
+        self.align_table.setEnabled(True)
 
     def _delete_current_run(self) -> None:
         run_id = self.align_run_combo.currentData()
