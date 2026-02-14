@@ -30,6 +30,7 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_tsv,
     export_segments_docx,
 )
+from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.core.workflow import (
@@ -312,10 +313,20 @@ class InspectorTabWidget(QWidget):
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
         if not eid or not store:
-            QMessageBox.warning(self, "Normalisation", "Sélectionnez un épisode et ouvrez un projet.")
+            warn_precondition(
+                self,
+                "Normalisation",
+                "Sélectionnez un épisode et ouvrez un projet.",
+                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
+            )
             return
         if not store.has_episode_raw(eid):
-            QMessageBox.warning(self, "Normalisation", "L'épisode doit d'abord être téléchargé (RAW).")
+            warn_precondition(
+                self,
+                "Normalisation",
+                "L'épisode doit d'abord être téléchargé (RAW).",
+                next_step="Pilotage > Corpus: lancez « Télécharger » sur cet épisode.",
+            )
             return
         profile = self.inspect_profile_combo.currentText() or "default_en_v1"
         steps = self._build_single_episode_steps(
@@ -335,7 +346,12 @@ class InspectorTabWidget(QWidget):
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
         if not eid or not store:
-            QMessageBox.warning(self, "Profil préféré", "Sélectionnez un épisode et ouvrez un projet.")
+            warn_precondition(
+                self,
+                "Profil préféré",
+                "Sélectionnez un épisode et ouvrez un projet.",
+                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
+            )
             return
         profile = self.inspect_profile_combo.currentText() or "default_en_v1"
         preferred = store.load_episode_preferred_profiles()
@@ -348,10 +364,20 @@ class InspectorTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not eid or not store or not db:
-            QMessageBox.warning(self, "Segmentation", "Sélectionnez un épisode et ouvrez un projet.")
+            warn_precondition(
+                self,
+                "Segmentation",
+                "Sélectionnez un épisode et ouvrez un projet.",
+                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
+            )
             return
         if not store.has_episode_clean(eid):
-            QMessageBox.warning(self, "Segmentation", "L'épisode doit d'abord être normalisé (clean.txt).")
+            warn_precondition(
+                self,
+                "Segmentation",
+                "L'épisode doit d'abord être normalisé (clean.txt).",
+                next_step="Inspecteur: cliquez sur « Normaliser cet épisode ».",
+            )
             return
         steps = self._build_single_episode_steps(
             WorkflowActionId.SEGMENT_EPISODES,
@@ -367,14 +393,20 @@ class InspectorTabWidget(QWidget):
         eid = self.inspect_episode_combo.currentData()
         db = self._get_db()
         if not eid or not db:
-            QMessageBox.warning(self, "Export segments", "Sélectionnez un épisode et ouvrez un projet.")
+            warn_precondition(
+                self,
+                "Export segments",
+                "Sélectionnez un épisode et ouvrez un projet.",
+                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
+            )
             return
         segments = db.get_segments_for_episode(eid)
         if not segments:
-            QMessageBox.warning(
+            warn_precondition(
                 self,
                 "Export segments",
                 "Aucun segment pour cet épisode. Lancez d'abord « Segmente l'épisode ».",
+                next_step="Inspecteur: cliquez sur « Segmente l'épisode ».",
             )
             return
         path, selected_filter = QFileDialog.getSaveFileName(
@@ -422,7 +454,7 @@ class InspectorTabWidget(QWidget):
             )
         except Exception as e:
             logger.exception("Export segments Inspecteur")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Export segments")
 
     def _build_single_episode_steps(
         self,
@@ -434,7 +466,12 @@ class InspectorTabWidget(QWidget):
     ) -> list[Any] | None:
         store = self._get_store()
         if not store:
-            QMessageBox.warning(self, title, "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                title,
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage: ouvrez un projet puis revenez dans l'Inspecteur.",
+            )
             return None
         index = store.load_series_index()
         refs = index.episodes if index else []
@@ -452,6 +489,6 @@ class InspectorTabWidget(QWidget):
                 options=options or {},
             )
         except (WorkflowScopeError, WorkflowActionError) as exc:
-            QMessageBox.warning(self, title, str(exc))
+            warn_precondition(self, title, str(exc))
             return None
         return list(plan.steps)

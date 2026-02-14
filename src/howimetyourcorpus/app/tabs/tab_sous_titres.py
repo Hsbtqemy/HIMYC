@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from howimetyourcorpus.core.pipeline.tasks import DownloadOpenSubtitlesStep, ImportSubtitlesStep
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
+from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path
 from howimetyourcorpus.app.dialogs import OpenSubtitlesDownloadDialog, SubtitleBatchImportDialog
 
@@ -336,14 +337,19 @@ class SubtitleTabWidget(QWidget):
             self._show_status(f"SRT final exporté : {path.name}", 4000)
         except Exception as e:
             logger.exception("Export SRT final")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Export SRT final")
 
     def _import_file(self) -> None:
         eid = self.subs_episode_combo.currentData()
         store = self._get_store()
         db = self._get_db()
         if not eid or not store or not db:
-            QMessageBox.warning(self, "Sous-titres", "Sélectionnez un épisode et ouvrez un projet.")
+            warn_precondition(
+                self,
+                "Sous-titres",
+                "Sélectionnez un épisode et ouvrez un projet.",
+                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
+            )
             return
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -361,11 +367,21 @@ class SubtitleTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not store or not db:
-            QMessageBox.warning(self, "Sous-titres", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Sous-titres",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage: ouvrez/créez un projet puis revenez dans l'Inspecteur.",
+            )
             return
         index = store.load_series_index()
         if not index or not index.episodes:
-            QMessageBox.warning(self, "Sous-titres", "Découvrez d'abord les épisodes (onglet Corpus).")
+            warn_precondition(
+                self,
+                "Sous-titres",
+                "Découvrez d'abord les épisodes.",
+                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+            )
             return
         folder = QFileDialog.getExistingDirectory(self, "Choisir un dossier contenant des SRT/VTT")
         if not folder:
@@ -395,11 +411,21 @@ class SubtitleTabWidget(QWidget):
     def _import_opensubtitles(self) -> None:
         store = self._get_store()
         if not store:
-            QMessageBox.warning(self, "Sous-titres", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Sous-titres",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage: ouvrez/créez un projet puis revenez dans l'Inspecteur.",
+            )
             return
         index = store.load_series_index()
         if not index or not index.episodes:
-            QMessageBox.warning(self, "Sous-titres", "Découvrez d'abord les épisodes (onglet Corpus).")
+            warn_precondition(
+                self,
+                "Sous-titres",
+                "Découvrez d'abord les épisodes.",
+                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+            )
             return
         config_extra = store.load_config_extra()
         api_key = config_extra.get("opensubtitles_api_key") or ""
@@ -447,4 +473,4 @@ class SubtitleTabWidget(QWidget):
             self.refresh()
         except Exception as e:
             logger.exception("Sauvegarde SRT/VTT")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Sauvegarde sous-titres")

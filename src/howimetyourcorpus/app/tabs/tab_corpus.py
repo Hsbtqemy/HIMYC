@@ -57,6 +57,7 @@ from howimetyourcorpus.core.workflow import (
     WorkflowScopeError,
     WorkflowService,
 )
+from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import (
     EpisodesTreeModel,
@@ -741,38 +742,43 @@ class CorpusTabWidget(QWidget):
         if mode == "current":
             eid = self._resolve_current_episode_id()
             if not eid:
-                QMessageBox.warning(
+                warn_precondition(
                     self,
                     "Corpus",
                     "Scope « Épisode courant »: sélectionnez une ligne (ou cochez un épisode).",
+                    next_step="Sélectionnez un épisode dans la liste ou cochez sa case.",
                 )
                 return None
             return WorkflowScope.current(eid), [eid]
         if mode == "selection":
             ids = self._resolve_selected_episode_ids()
             if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Scope « Sélection »: cochez au moins un épisode ou sélectionnez des lignes."
+                warn_precondition(
+                    self,
+                    "Corpus",
+                    "Scope « Sélection »: cochez au moins un épisode ou sélectionnez des lignes.",
+                    next_step="Utilisez « Tout cocher » ou choisissez des épisodes manuellement.",
                 )
                 return None
             return WorkflowScope.selection(ids), ids
         if mode == "season":
             season = self.season_filter_combo.currentData()
             if season is None:
-                QMessageBox.warning(
+                warn_precondition(
                     self,
                     "Corpus",
                     "Scope « Saison filtrée »: choisissez d'abord une saison (pas « Toutes les saisons »).",
+                    next_step="Choisissez une saison dans le filtre « Saison ».",
                 )
                 return None
             ids = self.episodes_tree_model.get_episode_ids_for_season(season)
             if not ids:
-                QMessageBox.warning(self, "Corpus", f"Aucun épisode trouvé pour la saison {season}.")
+                warn_precondition(self, "Corpus", f"Aucun épisode trouvé pour la saison {season}.")
                 return None
             return WorkflowScope.season_scope(int(season)), ids
         if mode == "all":
             return WorkflowScope.all(), [e.episode_id for e in index.episodes]
-        QMessageBox.warning(self, "Corpus", f"Scope inconnu: {mode}")
+        warn_precondition(self, "Corpus", f"Scope inconnu: {mode}")
         return None
 
     def _build_profile_by_episode(
@@ -827,7 +833,7 @@ class CorpusTabWidget(QWidget):
                 options=options,
             )
         except (WorkflowActionError, WorkflowScopeError, WorkflowOptionError) as exc:
-            QMessageBox.warning(self, "Corpus", str(exc))
+            warn_precondition(self, "Corpus", str(exc))
             return None
 
     def _resolve_project_context(
@@ -839,14 +845,24 @@ class CorpusTabWidget(QWidget):
         db = self._get_db()
         context = self._get_context()
         if not context.get("config") or not store or (require_db and not db):
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return None
         return store, db, context
 
     def _load_index_or_warn(self, store: Any) -> SeriesIndex | None:
         index = store.load_series_index()
         if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Découvrez d'abord les épisodes.",
+                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+            )
             return None
         return index
 
@@ -1299,4 +1315,4 @@ class CorpusTabWidget(QWidget):
             )
         except Exception as e:
             logger.exception("Export corpus")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Export corpus")

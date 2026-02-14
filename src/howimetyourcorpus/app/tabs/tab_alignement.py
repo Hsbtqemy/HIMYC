@@ -37,6 +37,7 @@ from howimetyourcorpus.core.export_utils import (
     export_parallel_concordance_html,
     export_align_report_html,
 )
+from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
 
@@ -219,7 +220,12 @@ class AlignmentTabWidget(QWidget):
         run_id = self._current_run_id()
         db = self._get_db()
         if not episode_id or not run_id or not db:
-            QMessageBox.warning(self, title, message)
+            warn_precondition(
+                self,
+                title,
+                message,
+                next_step="Sélectionnez un épisode puis un run d'alignement.",
+            )
             return None
         return episode_id, run_id, db
 
@@ -368,18 +374,28 @@ class AlignmentTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not eid or not store or not db:
-            QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode et ouvrez un projet.")
+            warn_precondition(
+                self,
+                "Alignement",
+                "Sélectionnez un épisode et ouvrez un projet.",
+                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode ici.",
+            )
             return
         if self.align_target_lang_combo.count() == 0:
-            QMessageBox.warning(
+            warn_precondition(
                 self,
                 "Alignement",
                 "Aucune langue cible disponible pour cet épisode. Importez un SRT/VTT cible dans l'Inspecteur.",
+                next_step="Inspecteur > Sous-titres: importez une piste non-EN pour cet épisode.",
             )
             return
         target_lang = (self.align_target_lang_combo.currentData() or "fr").lower()
         if target_lang == "en":
-            QMessageBox.warning(self, "Alignement", "La langue cible doit être différente de EN (pivot).")
+            warn_precondition(
+                self,
+                "Alignement",
+                "La langue cible doit être différente de EN (pivot).",
+            )
             return
         use_similarity = self.align_by_similarity_cb.isChecked()
         self._run_job([
@@ -444,7 +460,7 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.information(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
         except Exception as e:
             logger.exception("Export alignement")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Export alignement")
 
     def _export_parallel_concordance(self) -> None:
         state = self._require_episode_run_and_db(
@@ -507,7 +523,7 @@ class AlignmentTabWidget(QWidget):
             )
         except Exception as e:
             logger.exception("Export concordancier parallèle")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Export concordancier parallèle")
 
     def _export_align_report(self) -> None:
         state = self._require_episode_run_and_db(
@@ -536,7 +552,7 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.information(self, "Rapport", f"Rapport enregistré : {path.name}")
         except Exception as e:
             logger.exception("Rapport alignement")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Rapport alignement")
 
     def _show_align_stats(self) -> None:
         state = self._require_episode_run_and_db(
@@ -562,4 +578,4 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.information(self, "Statistiques alignement", msg)
         except Exception as e:
             logger.exception("Stats alignement")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Statistiques alignement")

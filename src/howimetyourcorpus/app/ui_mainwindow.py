@@ -25,6 +25,7 @@ from howimetyourcorpus.core.pipeline.context import PipelineContext
 from howimetyourcorpus.core.storage.project_store import ProjectStore
 from howimetyourcorpus.core.storage.db import CorpusDB
 from howimetyourcorpus.core.utils.logging import get_log_file_for_project
+from howimetyourcorpus.app.feedback import show_error
 from howimetyourcorpus.app.dialogs import ProfilesDialog
 from howimetyourcorpus.app.tabs import (
     AlignmentTabWidget,
@@ -451,13 +452,7 @@ class MainWindow(QMainWindow):
     def _on_job_error(self, step_name: str, exc: object):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_cancel_btn_enabled(False)
-        try:
-            msg = str(exc) if exc is not None else "Erreur inconnue"
-        except Exception:
-            msg = "Erreur inconnue"
-        if len(msg) > 500:
-            msg = msg[:497] + "..."
-        QMessageBox.critical(self, "Erreur", f"{step_name}: {msg}")
+        show_error(self, exc=exc, context=step_name)
 
     def _cancel_job(self):
         if self._job_runner:
