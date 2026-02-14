@@ -22,6 +22,7 @@ class _FakeDb:
         self._indexed = set(indexed or [])
         self.get_indexed_calls = 0
         self.index_calls: list[str] = []
+        self.batch_calls = 0
 
     def get_episode_ids_indexed(self) -> list[str]:
         self.get_indexed_calls += 1
@@ -30,6 +31,12 @@ class _FakeDb:
     def index_episode_text(self, episode_id: str, clean_text: str) -> None:
         self._indexed.add(episode_id)
         self.index_calls.append(episode_id)
+
+    def index_episodes_text(self, entries: list[tuple[str, str]]) -> int:
+        self.batch_calls += 1
+        for episode_id, clean_text in entries:
+            self.index_episode_text(episode_id, clean_text)
+        return len(entries)
 
 
 def test_build_db_index_prefetches_indexed_ids_once() -> None:
@@ -46,6 +53,7 @@ def test_build_db_index_prefetches_indexed_ids_once() -> None:
 
     assert result.success
     assert db.get_indexed_calls == 1
+    assert db.batch_calls == 1
     assert db.index_calls == ["S01E02", "S01E03"]
 
 
@@ -57,4 +65,5 @@ def test_build_db_index_force_does_not_read_indexed_ids() -> None:
 
     assert result.success
     assert db.get_indexed_calls == 0
+    assert db.batch_calls == 1
     assert db.index_calls == ["S01E01"]

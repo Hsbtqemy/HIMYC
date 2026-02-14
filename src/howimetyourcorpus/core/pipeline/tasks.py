@@ -339,6 +339,7 @@ class BuildDbIndexStep(Step):
         indexed_ids: set[str] = set()
         if not force:
             indexed_ids = set(db.get_episode_ids_indexed())
+        pending_rows: list[tuple[str, str]] = []
         for i, eid in enumerate(to_index):
             if is_cancelled and is_cancelled():
                 return StepResult(False, "Cancelled")
@@ -347,17 +348,37 @@ class BuildDbIndexStep(Step):
             try:
                 clean = store.load_episode_text(eid, kind="clean")
                 if clean:
-                    db.index_episode_text(eid, clean)
+                    pending_rows.append((eid, clean))
                     indexed_ids.add(eid)
             except Exception as e:
                 _mark_episode_error(db, eid)
                 logger.exception("Build DB index failed for %s", eid)
                 return StepResult(False, f"Indexing failed for {eid}: {e}")
             if on_progress and n:
-                on_progress(self.name, (i + 1) / n, f"Indexed {eid}")
+                on_progress(self.name, (i + 1) / n, f"Prepared {eid}")
+        if pending_rows:
+            if hasattr(db, "index_episodes_text"):
+                try:
+                    db.index_episodes_text(pending_rows)
+                except Exception as e:
+                    for eid, _ in pending_rows:
+                        _mark_episode_error(db, eid)
+                    logger.exception("Build DB index batch failed")
+                    if len(pending_rows) == 1:
+                        return StepResult(False, f"Indexing failed for {pending_rows[0][0]}: {e}")
+                    return StepResult(False, f"Indexing batch failed for {len(pending_rows)} episodes: {e}")
+            else:
+                for eid, clean_text in pending_rows:
+                    try:
+                        db.index_episode_text(eid, clean_text)
+                    except Exception as e:
+                        _mark_episode_error(db, eid)
+                        logger.exception("Build DB index failed for %s", eid)
+                        return StepResult(False, f"Indexing failed for {eid}: {e}")
+        indexed_count = len(pending_rows)
         if on_progress:
-            on_progress(self.name, 1.0, f"Indexed {len(to_index)} episodes")
-        return StepResult(True, f"Indexed {len(to_index)} episodes")
+            on_progress(self.name, 1.0, f"Indexed {indexed_count} episodes")
+        return StepResult(True, f"Indexed {indexed_count} episodes")
 
 
 class SegmentEpisodeStep(Step):
@@ -432,9 +453,17 @@ class SegmentEpisodeStep(Step):
                     }
                     f.write(json.dumps(obj, ensure_ascii=False) + "\n")
             if db:
-                db.upsert_segments(self.episode_id, "sentence", sentences)
-                db.upsert_segments(self.episode_id, "utterance", utterances)
-                db.delete_align_runs_for_episode(self.episode_id)
+                if hasattr(db, "replace_episode_segments"):
+                    db.replace_episode_segments(
+                        self.episode_id,
+                        sentences,
+                        utterances,
+                        reset_align=True,
+                    )
+                else:
+                    db.upsert_segments(self.episode_id, "sentence", sentences)
+                    db.upsert_segments(self.episode_id, "utterance", utterances)
+                    db.delete_align_runs_for_episode(self.episode_id)
         except Exception as e:
             _mark_episode_error(db, self.episode_id)
             logger.exception("Segment episode failed")
@@ -541,16 +570,28 @@ class ImportSubtitlesStep(Step):
         store.save_episode_subtitles(self.episode_id, self.lang, content, fmt, cues_audit)
         if db:
             imported_at = datetime.datetime.utcnow().isoformat() + "Z"
-            db.add_track(
-                track_id=track_id,
-                episode_id=self.episode_id,
-                lang=self.lang,
-                fmt=fmt,
-                source_path=str(self.file_path),
-                imported_at=imported_at,
-                meta_json=json.dumps({"source": self.file_path.name}),
-            )
-            db.upsert_cues(track_id, self.episode_id, self.lang, cues)
+            if hasattr(db, "replace_track_with_cues"):
+                db.replace_track_with_cues(
+                    track_id=track_id,
+                    episode_id=self.episode_id,
+                    lang=self.lang,
+                    fmt=fmt,
+                    cues=cues,
+                    source_path=str(self.file_path),
+                    imported_at=imported_at,
+                    meta_json=json.dumps({"source": self.file_path.name}),
+                )
+            else:
+                db.add_track(
+                    track_id=track_id,
+                    episode_id=self.episode_id,
+                    lang=self.lang,
+                    fmt=fmt,
+                    source_path=str(self.file_path),
+                    imported_at=imported_at,
+                    meta_json=json.dumps({"source": self.file_path.name}),
+                )
+                db.upsert_cues(track_id, self.episode_id, self.lang, cues)
         if on_progress:
             on_progress(self.name, 1.0, f"Imported {len(cues)} cues for {self.episode_id} ({self.lang})")
         return StepResult(True, f"Imported {len(cues)} cues", {"cues_count": len(cues), "format": fmt})
@@ -630,16 +671,28 @@ class DownloadOpenSubtitlesStep(Step):
         store.save_episode_subtitles(self.episode_id, self.lang, content, "srt", cues_audit)
         if db:
             imported_at = datetime.datetime.utcnow().isoformat() + "Z"
-            db.add_track(
-                track_id=track_id,
-                episode_id=self.episode_id,
-                lang=self.lang,
-                fmt="srt",
-                source_path=str(path),
-                imported_at=imported_at,
-                meta_json=json.dumps({"source": "OpenSubtitles"}),
-            )
-            db.upsert_cues(track_id, self.episode_id, self.lang, cues)
+            if hasattr(db, "replace_track_with_cues"):
+                db.replace_track_with_cues(
+                    track_id=track_id,
+                    episode_id=self.episode_id,
+                    lang=self.lang,
+                    fmt="srt",
+                    cues=cues,
+                    source_path=str(path),
+                    imported_at=imported_at,
+                    meta_json=json.dumps({"source": "OpenSubtitles"}),
+                )
+            else:
+                db.add_track(
+                    track_id=track_id,
+                    episode_id=self.episode_id,
+                    lang=self.lang,
+                    fmt="srt",
+                    source_path=str(path),
+                    imported_at=imported_at,
+                    meta_json=json.dumps({"source": "OpenSubtitles"}),
+                )
+                db.upsert_cues(track_id, self.episode_id, self.lang, cues)
         if on_progress:
             on_progress(self.name, 1.0, f"Downloaded {len(cues)} cues for {self.episode_id} ({self.lang})")
         return StepResult(True, f"Downloaded {len(cues)} cues", {"cues_count": len(cues)})

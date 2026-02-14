@@ -86,6 +86,7 @@ class ProjectStore:
             "series_url": config.series_url,
             "rate_limit_s": config.rate_limit_s,
             "user_agent": config.user_agent,
+            "acquisition_profile_id": config.acquisition_profile_id,
             "normalize_profile": config.normalize_profile,
         }
         _write_toml(root / "config.toml", data)
@@ -112,6 +113,7 @@ class ProjectStore:
         series_url: str = "",
         source_id: str | None = None,
         rate_limit_s: float | None = None,
+        acquisition_profile_id: str | None = None,
         normalize_profile: str | None = None,
         project_name: str | None = None,
     ) -> None:
@@ -126,6 +128,8 @@ class ProjectStore:
             data["source_id"] = source_id
         if rate_limit_s is not None:
             data["rate_limit_s"] = rate_limit_s
+        if acquisition_profile_id is not None:
+            data["acquisition_profile_id"] = acquisition_profile_id
         if normalize_profile is not None:
             data["normalize_profile"] = normalize_profile
         if project_name is not None:
@@ -555,14 +559,21 @@ class ProjectStore:
         cues = db.get_cues_for_episode_lang(episode_id, lang)
         if not cues:
             return 0
-        nb = 0
+        updates: list[tuple[str, str]] = []
         for cue in cues:
             raw = (cue.get("text_raw") or "").strip()
             clean_text, _, _ = profile.apply(raw)
             cue_id = cue.get("cue_id")
             if cue_id:
+                updates.append((cue_id, clean_text))
+        if not updates:
+            return 0
+        if hasattr(db, "update_cues_text_clean_bulk"):
+            nb = int(db.update_cues_text_clean_bulk(updates))
+        else:
+            for cue_id, clean_text in updates:
                 db.update_cue_text_clean(cue_id, clean_text)
-                nb += 1
+            nb = len(updates)
         if rewrite_srt and nb > 0:
             cues = db.get_cues_for_episode_lang(episode_id, lang)
             if cues:

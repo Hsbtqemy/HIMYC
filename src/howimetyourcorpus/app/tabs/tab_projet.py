@@ -29,6 +29,10 @@ from PySide6.QtWidgets import (
 
 from howimetyourcorpus.app.feedback import warn_precondition
 
+from howimetyourcorpus.core.acquisition.profiles import (
+    DEFAULT_ACQUISITION_PROFILE_ID,
+    PROFILES as ACQUISITION_PROFILES,
+)
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 
@@ -100,6 +104,12 @@ class ProjectTabWidget(QWidget):
         self.source_id_combo = QComboBox()
         self.source_id_combo.addItems(AdapterRegistry.list_ids() or ["subslikescript"])
         form_source.addRow("Source:", self.source_id_combo)
+        self.acquisition_profile_combo = QComboBox()
+        self.acquisition_profile_combo.addItems(list(ACQUISITION_PROFILES.keys()))
+        self.acquisition_profile_combo.setToolTip(
+            "Profil d'acquisition (scraping): politique de débit/tolérance HTTP."
+        )
+        form_source.addRow("Profil acquisition:", self.acquisition_profile_combo)
         self.series_url_edit = QLineEdit()
         self.series_url_edit.setPlaceholderText("https://subslikescript.com/series/...")
         form_source.addRow("URL série:", self.series_url_edit)
@@ -202,6 +212,9 @@ class ProjectTabWidget(QWidget):
         if not series_url:
             series_url = ""
         rate_limit = self.rate_limit_spin.value()
+        acquisition_profile_id = (
+            self.acquisition_profile_combo.currentText() or DEFAULT_ACQUISITION_PROFILE_ID
+        )
         normalize_profile = self.normalize_profile_combo.currentText() or "default_en_v1"
         return {
             "root": root,
@@ -209,6 +222,7 @@ class ProjectTabWidget(QWidget):
             "series_url": series_url,
             "srt_only": srt_only,
             "rate_limit": rate_limit,
+            "acquisition_profile_id": acquisition_profile_id,
             "normalize_profile": normalize_profile,
         }
 
@@ -226,6 +240,11 @@ class ProjectTabWidget(QWidget):
             self.normalize_profile_combo.setCurrentText(config.normalize_profile)
         elif self.normalize_profile_combo.count() > 0:
             self.normalize_profile_combo.setCurrentIndex(0)
+        acq_profile_id = getattr(config, "acquisition_profile_id", DEFAULT_ACQUISITION_PROFILE_ID)
+        if self.acquisition_profile_combo.findText(acq_profile_id) >= 0:
+            self.acquisition_profile_combo.setCurrentText(acq_profile_id)
+        elif self.acquisition_profile_combo.count() > 0:
+            self.acquisition_profile_combo.setCurrentIndex(0)
         self.rate_limit_spin.setValue(int(config.rate_limit_s))
         self.source_id_combo.setCurrentText(config.source_id)
 

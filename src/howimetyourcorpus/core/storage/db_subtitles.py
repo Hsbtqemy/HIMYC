@@ -89,6 +89,20 @@ def update_cue_text_clean(conn: sqlite3.Connection, cue_id: str, text_clean: str
     )
 
 
+def update_cues_text_clean_bulk(conn: sqlite3.Connection, updates: list[tuple[str, str]]) -> int:
+    """Met à jour text_clean en batch. updates = [(cue_id, text_clean), ...]."""
+    if not updates:
+        return 0
+    rows = [(text_clean, cue_id) for cue_id, text_clean in updates if cue_id]
+    if not rows:
+        return 0
+    conn.executemany(
+        "UPDATE subtitle_cues SET text_clean = ? WHERE cue_id = ?",
+        rows,
+    )
+    return len(rows)
+
+
 def get_tracks_for_episode(conn: sqlite3.Connection, episode_id: str) -> list[dict]:
     """Retourne les pistes sous-titres d'un épisode avec nb_cues (pour l'UI)."""
     conn.row_factory = sqlite3.Row

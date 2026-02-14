@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from howimetyourcorpus.core.models import ProjectConfig, TransformStats
-from howimetyourcorpus.core.storage.project_store import ProjectStore
+from howimetyourcorpus.core.storage.project_store import ProjectStore, load_project_config
 
 
 def _init_store(tmp_path: Path) -> ProjectStore:
@@ -125,3 +125,25 @@ def test_save_episode_clean_persists_profile_traceability(tmp_path: Path) -> Non
     assert meta is not None
     assert meta.get("profile_id") == "default_en_v1"
     assert str(meta.get("normalized_at_utc") or "").endswith("+00:00")
+
+
+def test_init_project_persists_acquisition_profile_id(tmp_path: Path) -> None:
+    config = ProjectConfig(
+        project_name="t",
+        root_dir=tmp_path,
+        source_id="subslikescript",
+        series_url="",
+        acquisition_profile_id="safe_v1",
+    )
+    ProjectStore.init_project(config)
+
+    cfg = load_project_config(tmp_path / "config.toml")
+    assert cfg.get("acquisition_profile_id") == "safe_v1"
+
+
+def test_save_config_main_updates_acquisition_profile_id(tmp_path: Path) -> None:
+    store = _init_store(tmp_path)
+    store.save_config_main(acquisition_profile_id="fast_v1")
+
+    cfg = load_project_config(tmp_path / "config.toml")
+    assert cfg.get("acquisition_profile_id") == "fast_v1"

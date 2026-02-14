@@ -24,6 +24,8 @@ class ProjectConfig:
     """Délai minimal entre requêtes HTTP (secondes)."""
     user_agent: str = "HowIMetYourCorpus/0.1 (research)"
     """User-Agent pour les requêtes HTTP."""
+    acquisition_profile_id: str = "balanced_v1"
+    """Profil d'acquisition (politique de scraping: débit/réglages HTTP)."""
     normalize_profile: str = "default_en_v1"
     """Profil de normalisation à appliquer."""
 

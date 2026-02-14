@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QIcon
 
+from howimetyourcorpus.core.acquisition.profiles import DEFAULT_ACQUISITION_PROFILE_ID
 from howimetyourcorpus.core.models import ProjectConfig
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.pipeline.context import PipelineContext
@@ -164,6 +165,7 @@ class MainWindow(QMainWindow):
             series_url=data.get("series_url", ""),
             source_id=data.get("source_id"),
             rate_limit_s=float(data.get("rate_limit", 2)),
+            acquisition_profile_id=data.get("acquisition_profile_id", DEFAULT_ACQUISITION_PROFILE_ID),
             normalize_profile=data.get("normalize_profile"),
         )
         self._config = ProjectConfig(
@@ -173,6 +175,7 @@ class MainWindow(QMainWindow):
             series_url=data.get("series_url", self._config.series_url),
             rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
             user_agent=self._config.user_agent,
+            acquisition_profile_id=data.get("acquisition_profile_id", self._config.acquisition_profile_id),
             normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
         )
         return True
@@ -217,6 +220,7 @@ class MainWindow(QMainWindow):
                 series_url=data["series_url"],
                 rate_limit_s=float(data["rate_limit"]),
                 user_agent="HowIMetYourCorpus/0.1 (research)",
+                acquisition_profile_id=data.get("acquisition_profile_id", DEFAULT_ACQUISITION_PROFILE_ID),
                 normalize_profile=data["normalize_profile"],
             )
             ProjectStore.init_project(config)
@@ -249,6 +253,7 @@ class MainWindow(QMainWindow):
             series_url=data.get("series_url", ""),
             rate_limit_s=float(data.get("rate_limit_s", 2)),
             user_agent=data.get("user_agent", "HowIMetYourCorpus/0.1 (research)"),
+            acquisition_profile_id=data.get("acquisition_profile_id", DEFAULT_ACQUISITION_PROFILE_ID),
             normalize_profile=data.get("normalize_profile", "default_en_v1"),
         )
         self._config = config

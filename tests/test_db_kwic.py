@@ -44,6 +44,40 @@ def test_upsert_episode_and_index(db):
     assert "S01E01" in ids
 
 
+def test_index_episodes_text_batch_updates_statuses(db):
+    ref_a = EpisodeRef(
+        episode_id="S01E01A",
+        season=1,
+        episode=1,
+        title="Pilot A",
+        url="https://example.com/s01e01a",
+    )
+    ref_b = EpisodeRef(
+        episode_id="S01E01B",
+        season=1,
+        episode=2,
+        title="Pilot B",
+        url="https://example.com/s01e01b",
+    )
+    db.upsert_episode(ref_a)
+    db.upsert_episode(ref_b)
+
+    nb = db.index_episodes_text(
+        [
+            ("S01E01A", "Alpha text"),
+            ("S01E01B", "Beta text"),
+        ]
+    )
+
+    assert nb == 2
+    indexed_ids = db.get_episode_ids_indexed()
+    assert "S01E01A" in indexed_ids
+    assert "S01E01B" in indexed_ids
+    statuses = db.get_episode_statuses(["S01E01A", "S01E01B"])
+    assert statuses["S01E01A"] == EpisodeStatus.INDEXED.value
+    assert statuses["S01E01B"] == EpisodeStatus.INDEXED.value
+
+
 def test_get_episode_statuses_returns_db_status_map(db):
     ref = EpisodeRef(
         episode_id="S09E09",
@@ -212,6 +246,46 @@ Legendary word.
     assert hits[0].episode_id == "S01E05"
     assert hits[0].cue_id is not None
     assert hits[0].lang == "en"
+
+
+def test_replace_track_with_cues_and_bulk_clean_update(db):
+    """Batch sous-titres: track+cues en une transaction puis update text_clean en bulk."""
+    ref = EpisodeRef(
+        episode_id="S01E05B",
+        season=1,
+        episode=6,
+        title="Batch cues",
+        url="https://example.com/s01e05b",
+    )
+    db.upsert_episode(ref)
+    from howimetyourcorpus.core.subtitles import Cue
+
+    cues = [
+        Cue(episode_id="S01E05B", lang="en", n=0, start_ms=0, end_ms=1000, text_raw="A raw", text_clean="A raw"),
+        Cue(episode_id="S01E05B", lang="en", n=1, start_ms=1000, end_ms=2000, text_raw="B raw", text_clean="B raw"),
+    ]
+    db.replace_track_with_cues(
+        track_id="S01E05B:en",
+        episode_id="S01E05B",
+        lang="en",
+        fmt="srt",
+        cues=cues,
+        source_path="x.srt",
+    )
+    rows = db.get_cues_for_episode_lang("S01E05B", "en")
+    assert len(rows) == 2
+
+    nb = db.update_cues_text_clean_bulk(
+        [
+            ("S01E05B:en:0", "A clean"),
+            ("S01E05B:en:1", "B clean"),
+        ]
+    )
+    assert nb == 2
+    rows_after = db.get_cues_for_episode_lang("S01E05B", "en")
+    clean_by_id = {r["cue_id"]: r["text_clean"] for r in rows_after}
+    assert clean_by_id["S01E05B:en:0"] == "A clean"
+    assert clean_by_id["S01E05B:en:1"] == "B clean"
 
 
 def test_align_run_and_links(db):

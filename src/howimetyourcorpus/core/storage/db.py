@@ -164,17 +164,24 @@ class CorpusDB:
 
     def index_episode_text(self, episode_id: str, clean_text: str) -> None:
         """Indexe le texte normalisé d'un épisode (documents + FTS)."""
+        self.index_episodes_text([(episode_id, clean_text)])
+
+    def index_episodes_text(self, entries: list[tuple[str, str]]) -> int:
+        """Indexe plusieurs épisodes dans une seule transaction. entries=[(episode_id, clean_text), ...]."""
+        if not entries:
+            return 0
         conn = self._conn()
         try:
-            conn.execute(
+            conn.executemany(
                 "INSERT OR REPLACE INTO documents (episode_id, clean_text) VALUES (?, ?)",
-                (episode_id, clean_text),
+                entries,
             )
-            conn.execute(
+            conn.executemany(
                 "UPDATE episodes SET status=? WHERE episode_id=?",
-                (EpisodeStatus.INDEXED.value, episode_id),
+                [(EpisodeStatus.INDEXED.value, episode_id) for episode_id, _ in entries],
             )
             conn.commit()
+            return len(entries)
         finally:
             conn.close()
 
@@ -231,6 +238,25 @@ class CorpusDB:
         conn = self._conn()
         try:
             db_segments.upsert_segments(conn, episode_id, kind, segments)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def replace_episode_segments(
+        self,
+        episode_id: str,
+        sentences: list,
+        utterances: list,
+        *,
+        reset_align: bool = True,
+    ) -> None:
+        """Remplace les segments sentence+utterance d'un épisode en une transaction (optionnel: purge runs alignement)."""
+        conn = self._conn()
+        try:
+            db_segments.upsert_segments(conn, episode_id, "sentence", sentences)
+            db_segments.upsert_segments(conn, episode_id, "utterance", utterances)
+            if reset_align:
+                db_align.delete_align_runs_for_episode(conn, episode_id)
             conn.commit()
         finally:
             conn.close()
@@ -310,6 +336,26 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def replace_track_with_cues(
+        self,
+        track_id: str,
+        episode_id: str,
+        lang: str,
+        fmt: str,
+        cues: list,
+        source_path: str | None = None,
+        imported_at: str | None = None,
+        meta_json: str | None = None,
+    ) -> None:
+        """Upsert track + remplacement des cues dans une seule transaction."""
+        conn = self._conn()
+        try:
+            db_subtitles.add_track(conn, track_id, episode_id, lang, fmt, source_path, imported_at, meta_json)
+            db_subtitles.upsert_cues(conn, track_id, episode_id, lang, cues)
+            conn.commit()
+        finally:
+            conn.close()
+
     def upsert_cues(self, track_id: str, episode_id: str, lang: str, cues: list) -> None:
         """Remplace les cues d'une piste (supprime anciennes, insère les nouvelles)."""
         conn = self._conn()
@@ -325,6 +371,18 @@ class CorpusDB:
         try:
             db_subtitles.update_cue_text_clean(conn, cue_id, text_clean)
             conn.commit()
+        finally:
+            conn.close()
+
+    def update_cues_text_clean_bulk(self, updates: list[tuple[str, str]]) -> int:
+        """Met à jour text_clean pour plusieurs cues en une transaction."""
+        if not updates:
+            return 0
+        conn = self._conn()
+        try:
+            nb = db_subtitles.update_cues_text_clean_bulk(conn, updates)
+            conn.commit()
+            return nb
         finally:
             conn.close()
 
