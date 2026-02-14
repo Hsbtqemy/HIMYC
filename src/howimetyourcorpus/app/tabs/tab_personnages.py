@@ -112,10 +112,17 @@ class PersonnagesTabWidget(QWidget):
 
     def refresh(self) -> None:
         """Charge la liste des personnages et le combo épisodes (appelé après ouverture projet)."""
+        current_episode = self.personnages_episode_combo.currentData()
+        current_source = self.personnages_source_combo.currentData()
+        self.personnages_episode_combo.blockSignals(True)
+        self.personnages_source_combo.blockSignals(True)
         self.personnages_table.setRowCount(0)
+        self.personnages_assign_table.setRowCount(0)
         self.personnages_episode_combo.clear()
         store = self._get_store()
         if not store:
+            self.personnages_episode_combo.blockSignals(False)
+            self.personnages_source_combo.blockSignals(False)
             self._apply_controls_enabled()
             return
         langs = store.load_project_languages()
@@ -127,6 +134,9 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_source_combo.addItem("Segments", "segments")
         for lang in langs:
             self.personnages_source_combo.addItem(f"Cues {lang.upper()}", f"cues_{lang}")
+        source_idx = self.personnages_source_combo.findData(current_source)
+        if source_idx >= 0:
+            self.personnages_source_combo.setCurrentIndex(source_idx)
         characters = store.load_character_names()
         for ch in characters:
             row = self.personnages_table.rowCount()
@@ -144,6 +154,11 @@ class PersonnagesTabWidget(QWidget):
                 self.personnages_episode_combo.addItem(
                     f"{e.episode_id} - {e.title}", e.episode_id
                 )
+        episode_idx = self.personnages_episode_combo.findData(current_episode)
+        if episode_idx >= 0:
+            self.personnages_episode_combo.setCurrentIndex(episode_idx)
+        self.personnages_episode_combo.blockSignals(False)
+        self.personnages_source_combo.blockSignals(False)
         self._apply_controls_enabled()
 
     def _apply_controls_enabled(self, *_args) -> None:
