@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from PySide6.QtWidgets import QMessageBox, QWidget
 
@@ -48,3 +48,41 @@ def show_error(
 ) -> None:
     """Affiche une erreur critique avec formatage homogène."""
     QMessageBox.critical(parent, title, format_error(exc, context=context, max_len=max_len))
+
+
+def show_info(
+    parent: QWidget | None,
+    title: str,
+    message: str,
+    *,
+    status_callback: Callable[[str, int], None] | None = None,
+    timeout: int = 4000,
+    force_dialog: bool = False,
+) -> None:
+    """
+    Affiche un feedback de succès.
+
+    Par défaut, privilégie un feedback non bloquant (status bar) puis fallback popup.
+    """
+    status_msg = f"{title}: {message}"
+    if status_callback is not None:
+        status_callback(status_msg, timeout)
+        if not force_dialog:
+            return
+
+    try:
+        window_getter = getattr(parent, "window", None)
+        if callable(window_getter):
+            window = window_getter()
+            status_bar_getter = getattr(window, "statusBar", None)
+            if callable(status_bar_getter):
+                status_bar = status_bar_getter()
+                if status_bar is not None:
+                    status_bar.showMessage(status_msg, timeout)
+                    if not force_dialog:
+                        return
+    except Exception:
+        # Ne jamais casser le flux utilisateur pour un feedback de succès.
+        pass
+
+    QMessageBox.information(parent, title, message)

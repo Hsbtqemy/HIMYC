@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
-    QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -57,7 +56,7 @@ from howimetyourcorpus.core.workflow import (
     WorkflowScopeError,
     WorkflowService,
 )
-from howimetyourcorpus.app.feedback import show_error, warn_precondition
+from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.workflow_advice import build_workflow_advice
 from howimetyourcorpus.app.workflow_status import (
@@ -1729,8 +1728,11 @@ class CorpusTabWidget(QWidget):
                         "Format non reconnu. Utilisez .txt, .csv, .json, .jsonl ou .docx.",
                     )
                     return
-            QMessageBox.information(
-                self, "Export", f"Corpus exporté : {len(episodes_data)} épisode(s)."
+            show_info(
+                self,
+                "Export",
+                f"Corpus exporté : {len(episodes_data)} épisode(s).",
+                status_callback=self._show_status,
             )
         except Exception as e:
             logger.exception("Export corpus")

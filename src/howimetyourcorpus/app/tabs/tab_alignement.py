@@ -37,7 +37,7 @@ from howimetyourcorpus.core.export_utils import (
     export_parallel_concordance_html,
     export_align_report_html,
 )
-from howimetyourcorpus.app.feedback import show_error, warn_precondition
+from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
@@ -708,7 +708,7 @@ class AlignmentTabWidget(QWidget):
                             row.get("cue_id_target"), row.get("lang"), row.get("role"),
                             row.get("confidence"), row.get("status"), meta_str,
                         ])
-            QMessageBox.information(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
+            show_info(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
         except Exception as e:
             logger.exception("Export alignement")
             show_error(self, exc=e, context="Export alignement")
@@ -777,9 +777,7 @@ class AlignmentTabWidget(QWidget):
                 export_parallel_concordance_docx(rows, path)
             else:
                 export_parallel_concordance_csv(rows, path)
-            QMessageBox.information(
-                self, "Export", f"Concordancier parallèle exporté : {len(rows)} ligne(s)."
-            )
+            show_info(self, "Export", f"Concordancier parallèle exporté : {len(rows)} ligne(s).")
         except Exception as e:
             logger.exception("Export concordancier parallèle")
             show_error(self, exc=e, context="Export concordancier parallèle")
@@ -808,7 +806,7 @@ class AlignmentTabWidget(QWidget):
             stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
             sample = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
             export_align_report_html(stats, sample, eid, run_id, path)
-            QMessageBox.information(self, "Rapport", f"Rapport enregistré : {path.name}")
+            show_info(self, "Rapport", f"Rapport enregistré : {path.name}")
         except Exception as e:
             logger.exception("Rapport alignement")
             show_error(self, exc=e, context="Rapport alignement")

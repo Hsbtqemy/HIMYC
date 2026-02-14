@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSplitter,
@@ -34,7 +33,7 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_tsv,
     export_segments_docx,
 )
-from howimetyourcorpus.app.feedback import show_error, warn_precondition
+from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 from howimetyourcorpus.core.workflow import (
@@ -544,8 +543,11 @@ class InspectorTabWidget(QWidget):
                 export_segments_docx(segments, path)
             else:
                 export_segments_csv(segments, path)
-            QMessageBox.information(
-                self, "Export", f"Segments exportés : {len(segments)} segment(s)."
+            show_info(
+                self,
+                "Export",
+                f"Segments exportés : {len(segments)} segment(s).",
+                status_callback=self._show_status,
             )
         except Exception as e:
             logger.exception("Export segments Inspecteur")

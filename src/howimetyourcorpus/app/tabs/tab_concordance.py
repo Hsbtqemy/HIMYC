@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QSpinBox,
     QTableView,
@@ -28,7 +27,7 @@ from howimetyourcorpus.core.export_utils import (
     export_kwic_tsv,
     export_kwic_docx,
 )
-from howimetyourcorpus.app.feedback import show_error, warn_precondition
+from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import KwicTableModel
 
@@ -312,7 +311,7 @@ class ConcordanceTabWidget(QWidget):
                     "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx",
                 )
                 return
-            QMessageBox.information(self, "Export", f"Résultats exportés : {len(hits)} occurrence(s).")
+            show_info(self, "Export", f"Résultats exportés : {len(hits)} occurrence(s).")
         except Exception as e:
             logger.exception("Export KWIC")
             show_error(self, exc=e, context="Export KWIC")
