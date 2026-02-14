@@ -50,6 +50,8 @@ from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 
 logger = logging.getLogger(__name__)
 
+_INSPECTOR_FORCE_REPROCESS_KEY = "inspecteur/forceReprocess"
+
 
 class InspectorTabWidget(QWidget):
     """Widget de l'onglet Inspecteur : épisode, RAW/CLEAN, segments, normaliser, segmenter, export, notes."""
@@ -123,6 +125,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_force_reprocess_check.setToolTip(
             "Ignore les skips idempotents pour cet épisode (normalisation/segmentation) même si les artefacts existent."
         )
+        self.inspect_force_reprocess_check.toggled.connect(self._save_force_reprocess_state)
         row.addWidget(self.inspect_force_reprocess_check)
         self._inspect_norm_tooltip_default = self.inspect_norm_btn.toolTip()
         self._inspect_segment_tooltip_default = self.inspect_segment_btn.toolTip()
@@ -173,6 +176,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_notes_edit.setMaximumHeight(100)
         layout.addWidget(self.inspect_notes_edit)
         self.inspect_segments_list.setVisible(False)
+        self._restore_force_reprocess_state()
         self._refresh_action_buttons(episode_id=None, store=None)
 
     def _restore_splitter_sizes(self) -> None:
@@ -204,12 +208,22 @@ class InspectorTabWidget(QWidget):
         settings = QSettings()
         settings.setValue("inspecteur/mainSplitter", self.inspect_main_split.sizes())
         settings.setValue("inspecteur/rightSplitter", self.inspect_right_split.sizes())
+        settings.setValue(_INSPECTOR_FORCE_REPROCESS_KEY, self.inspect_force_reprocess_check.isChecked())
         store = self._get_store()
         if self._current_episode_id and store:
             store.save_episode_notes(
                 self._current_episode_id,
                 self.inspect_notes_edit.toPlainText(),
             )
+
+    def _save_force_reprocess_state(self, checked: bool) -> None:
+        settings = QSettings()
+        settings.setValue(_INSPECTOR_FORCE_REPROCESS_KEY, bool(checked))
+
+    def _restore_force_reprocess_state(self) -> None:
+        settings = QSettings()
+        checked = bool(settings.value(_INSPECTOR_FORCE_REPROCESS_KEY, False))
+        self.inspect_force_reprocess_check.setChecked(checked)
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et l'épisode courant."""

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QModelIndex
+from PySide6.QtCore import QModelIndex, QSettings
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -74,6 +74,8 @@ from howimetyourcorpus.app.models_qt import (
 )
 
 logger = logging.getLogger(__name__)
+
+_CORPUS_FORCE_REPROCESS_KEY = "corpus/forceReprocess"
 
 
 class CorpusTabWidget(QWidget):
@@ -245,6 +247,7 @@ class CorpusTabWidget(QWidget):
         self.force_reprocess_check.setToolTip(
             "Relance les étapes idempotentes même si les artefacts existent déjà (CLEAN, segments, index DB)."
         )
+        self.force_reprocess_check.toggled.connect(self._save_force_reprocess_state)
         btn_row2.addWidget(self.force_reprocess_check)
         self.norm_btn = QPushButton("Normaliser")
         self.norm_btn.setToolTip(
@@ -359,6 +362,16 @@ class CorpusTabWidget(QWidget):
         scope_label.setStyleSheet("color: gray; font-size: 0.9em;")
         scope_label.setWordWrap(True)
         layout.addWidget(scope_label)
+        self._restore_force_reprocess_state()
+
+    def _save_force_reprocess_state(self, checked: bool) -> None:
+        settings = QSettings()
+        settings.setValue(_CORPUS_FORCE_REPROCESS_KEY, bool(checked))
+
+    def _restore_force_reprocess_state(self) -> None:
+        settings = QSettings()
+        checked = bool(settings.value(_CORPUS_FORCE_REPROCESS_KEY, False))
+        self.force_reprocess_check.setChecked(checked)
 
     def set_progress(self, value: int) -> None:
         self.corpus_progress.setValue(value)
