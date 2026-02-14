@@ -1097,14 +1097,23 @@ class CorpusTabWidget(QWidget):
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
         if resolved is None:
             return
-        _store, _db, context, index, scope, _ids = resolved
+        _store, _db, context, index, scope, ids = resolved
+        episode_url_by_id = {ref.episode_id: ref.url for ref in index.episodes}
+        skipped = sum(
+            1 for eid in ids if not (episode_url_by_id.get(eid) or "").strip()
+        )
+        if skipped > 0:
+            self._show_status(
+                f"Téléchargement: {skipped} épisode(s) ignoré(s) (URL source absente).",
+                5000,
+            )
         self._run_action_for_scope(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
             options={
-                "episode_url_by_id": {ref.episode_id: ref.url for ref in index.episodes}
+                "episode_url_by_id": episode_url_by_id
             },
             empty_message="Aucun épisode à télécharger.",
         )
