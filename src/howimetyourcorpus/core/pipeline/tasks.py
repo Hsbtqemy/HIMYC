@@ -372,9 +372,27 @@ class SegmentEpisodeStep(Step):
         ep_dir = store.root_dir / "episodes" / self.episode_id
         segments_path = ep_dir / "segments.jsonl"
         if not force and segments_path.exists():
-            if on_progress:
-                on_progress(self.name, 1.0, f"Skip (already segmented): {self.episode_id}")
-            return StepResult(True, f"Already segmented: {self.episode_id}")
+            should_skip = True
+            if db is not None:
+                try:
+                    has_sentence = bool(db.get_segments_for_episode(self.episode_id, kind="sentence"))
+                    has_utterance = bool(db.get_segments_for_episode(self.episode_id, kind="utterance"))
+                    should_skip = has_sentence and has_utterance
+                    if not should_skip:
+                        logger.info(
+                            "segments.jsonl exists but DB is incomplete for %s; rebuilding segments",
+                            self.episode_id,
+                        )
+                except Exception:
+                    should_skip = False
+                    logger.exception(
+                        "Failed to inspect existing segments for %s; rebuilding segments",
+                        self.episode_id,
+                    )
+            if should_skip:
+                if on_progress:
+                    on_progress(self.name, 1.0, f"Skip (already segmented): {self.episode_id}")
+                return StepResult(True, f"Already segmented: {self.episode_id}")
         clean = store.load_episode_text(self.episode_id, kind="clean")
         if not clean.strip():
             _mark_episode_error(db, self.episode_id)
