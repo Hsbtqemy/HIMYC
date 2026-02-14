@@ -297,6 +297,7 @@ Etat 2026-02-14:
   - `Ctrl/Cmd+F`: focus recherche (Concordance par defaut, Logs si onglet Logs actif).
   - `Ctrl/Cmd+L`: ouverture directe du panneau Logs.
 - Methodes de focus dediees ajoutees dans `tab_concordance.py` et `tab_logs.py`.
+- Checklist accessibilite testable ajoutee: `CHECKLIST_ACCESSIBILITE_UI.md`.
 
 ### Acceptance criteria
 - Parcours complet possible au clavier sur flux critique.
