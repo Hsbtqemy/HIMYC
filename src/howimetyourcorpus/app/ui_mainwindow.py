@@ -579,7 +579,10 @@ class MainWindow(QMainWindow):
             self.inspector_tab.set_episode_and_load(episode_id)
 
     def _build_tab_logs(self):
-        w = LogsTabWidget(on_open_log=self._open_log_file)
+        w = LogsTabWidget(
+            on_open_log=self._open_log_file,
+            on_open_inspector=self._kwic_open_inspector_impl,
+        )
         self.tabs.addTab(w, "Logs")
         # Réduit la surcharge visuelle: logs accessibles via menu Outils.
         self.tabs.setTabVisible(TAB_LOGS, False)

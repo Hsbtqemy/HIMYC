@@ -1,53 +1,182 @@
-"""Onglet Logs : affichage des logs applicatifs + bouton ouvrir fichier log."""
+"""Onglet Logs : affichage des logs applicatifs avec filtres et raccourcis diagnostic."""
 
 from __future__ import annotations
 
+from collections import deque
 import logging
 from typing import Callable
 
-from PySide6.QtWidgets import QHBoxLayout, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from howimetyourcorpus.app.feedback import warn_precondition
+from howimetyourcorpus.app.logs_utils import LogEntry, extract_episode_id, matches_log_filters
+
+
+class _LogSignalBridge(QObject):
+    log_emitted = Signal(str, str, str)  # level, message, formatted_line
 
 
 class TextEditHandler(logging.Handler):
-    """Redirige les logs vers un QPlainTextEdit."""
+    """Redirige les logs vers le panneau via signal Qt (thread-safe)."""
 
-    def __init__(self, widget: QPlainTextEdit):
+    def __init__(self, emit_entry: Callable[[str, str, str], None]):
         super().__init__()
-        self.widget = widget
+        self._emit_entry = emit_entry
 
     def emit(self, record):
         try:
-            msg = self.format(record)
-            self.widget.appendPlainText(msg)
+            formatted_line = self.format(record)
+            level = str(getattr(record, "levelname", "") or "").upper()
+            message = record.getMessage()
+            self._emit_entry(level, message, formatted_line)
         except Exception:
-            logging.getLogger(__name__).exception("TextEditHandler.emit")
+            # Les logs ne doivent jamais provoquer de récursion ou bloquer l'UI.
+            return
 
 
 class LogsTabWidget(QWidget):
-    """Widget de l'onglet Logs : zone lecture seule + bouton pour ouvrir le fichier log du projet."""
+    """Widget logs live avec filtres (niveau/texte) et raccourci vers l'Inspecteur."""
 
     def __init__(
         self,
         on_open_log: Callable[[], None] | None = None,
+        on_open_inspector: Callable[[str], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         layout = QVBoxLayout(self)
+
+        self._on_open_inspector = on_open_inspector
+        self._entries: deque[LogEntry] = deque(maxlen=5000)
+
+        controls = QHBoxLayout()
+        controls.addWidget(QLabel("Niveau:"))
+        self.level_filter_combo = QComboBox()
+        self.level_filter_combo.addItem("Tous", "ALL")
+        self.level_filter_combo.addItem("INFO+", "INFO")
+        self.level_filter_combo.addItem("WARNING+", "WARNING")
+        self.level_filter_combo.addItem("ERROR+", "ERROR")
+        self.level_filter_combo.currentIndexChanged.connect(self._refresh_view)
+        controls.addWidget(self.level_filter_combo)
+        controls.addWidget(QLabel("Recherche:"))
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("Filtrer (texte, épisode, étape, erreur...)")
+        self.search_edit.textChanged.connect(self._refresh_view)
+        controls.addWidget(self.search_edit)
+        self.clear_btn = QPushButton("Effacer tampon live")
+        self.clear_btn.setToolTip("Vide le tampon des logs affichés dans cette session.")
+        self.clear_btn.clicked.connect(self._clear_live_buffer)
+        controls.addWidget(self.clear_btn)
+        controls.addStretch()
+        layout.addLayout(controls)
+
         self.logs_edit = QPlainTextEdit()
         self.logs_edit.setReadOnly(True)
         # Empêche une croissance mémoire infinie pendant les longues sessions.
         self.logs_edit.document().setMaximumBlockCount(5000)
         layout.addWidget(self.logs_edit)
+
         row = QHBoxLayout()
+        open_episode_btn = QPushButton("Ouvrir épisode depuis la ligne")
+        open_episode_btn.setToolTip(
+            "Extrait SxxExx depuis la ligne sélectionnée et ouvre directement l'Inspecteur."
+        )
+        open_episode_btn.clicked.connect(self._open_episode_from_selected_log)
+        row.addWidget(open_episode_btn)
         open_log_btn = QPushButton("Ouvrir fichier log")
         open_log_btn.clicked.connect(on_open_log or (lambda: None))
         row.addWidget(open_log_btn)
+        row.addStretch()
         layout.addLayout(row)
+
         # Connect app logger to this widget
+        self._bridge = _LogSignalBridge(self)
+        self._bridge.log_emitted.connect(self._on_log_emitted)
         self._logger = logging.getLogger("howimetyourcorpus")
-        self._handler: logging.Handler | None = TextEditHandler(self.logs_edit)
+        self._handler: logging.Handler | None = TextEditHandler(self._bridge.log_emitted.emit)
         self._handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
         self._logger.addHandler(self._handler)
+
+    def _current_level_filter(self) -> str:
+        return str(self.level_filter_combo.currentData() or "ALL")
+
+    def _current_query(self) -> str:
+        return self.search_edit.text().strip()
+
+    def _entry_matches_current_filters(self, entry: LogEntry) -> bool:
+        return matches_log_filters(
+            entry,
+            level_min=self._current_level_filter(),
+            query=self._current_query(),
+        )
+
+    def _on_log_emitted(self, level: str, message: str, formatted_line: str) -> None:
+        entry = LogEntry(level=level, message=message, formatted_line=formatted_line)
+        self._entries.append(entry)
+        if self._entry_matches_current_filters(entry):
+            self.logs_edit.appendPlainText(formatted_line)
+
+    def _refresh_view(self, *_args) -> None:
+        self.logs_edit.clear()
+        for entry in self._entries:
+            if self._entry_matches_current_filters(entry):
+                self.logs_edit.appendPlainText(entry.formatted_line)
+
+    def _clear_live_buffer(self) -> None:
+        self._entries.clear()
+        self.logs_edit.clear()
+
+    def _selected_log_text(self) -> str:
+        cursor = self.logs_edit.textCursor()
+        selected = (cursor.selectedText() or "").strip().replace("\u2029", "\n")
+        if selected:
+            return selected
+        line = (cursor.block().text() or "").strip()
+        if line:
+            return line
+        all_text = (self.logs_edit.toPlainText() or "").strip()
+        if not all_text:
+            return ""
+        return all_text.splitlines()[-1].strip()
+
+    def _open_episode_from_selected_log(self) -> None:
+        if not self._on_open_inspector:
+            warn_precondition(
+                self,
+                "Logs",
+                "Navigation Inspecteur indisponible.",
+                next_step="Utilisez l'onglet Inspecteur manuellement.",
+            )
+            return
+        text = self._selected_log_text()
+        if not text:
+            warn_precondition(
+                self,
+                "Logs",
+                "Aucune ligne de log disponible.",
+                next_step="Lancez une action workflow puis réessayez.",
+            )
+            return
+        episode_id = extract_episode_id(text)
+        if not episode_id:
+            warn_precondition(
+                self,
+                "Logs",
+                "Aucun episode_id trouvé dans la ligne sélectionnée.",
+                next_step="Sélectionnez une ligne contenant un identifiant du type S01E01.",
+            )
+            return
+        self._on_open_inspector(episode_id)
 
     def closeEvent(self, event) -> None:
         if self._handler is not None:
