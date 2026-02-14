@@ -130,3 +130,48 @@ def test_propagate_character_names_uses_bulk_updates_and_cached_cues(tmp_path: P
     assert db.get_cues_calls_by_lang.get("fr") == 1
     assert db._cues_by_lang["en"][0]["text_clean"].startswith("Ted: ")
     assert db._cues_by_lang["fr"][0]["text_clean"].startswith("Ted (FR): ")
+
+
+def test_character_files_roundtrip_names_and_assignments(tmp_path: Path) -> None:
+    store = _init_store(tmp_path)
+    characters = [
+        {
+            "id": "marshall",
+            "canonical": "Marshall",
+            "names_by_lang": {"en": "Marshall", "fr": "Marshall"},
+        },
+        {
+            "id": "lily",
+            "canonical": "Lily",
+            "names_by_lang": {"en": "Lily", "fr": "Lily"},
+        },
+    ]
+    assignments = [
+        {
+            "episode_id": "S01E01",
+            "source_type": "segment",
+            "source_id": "S01E01:sentence:12",
+            "character_id": "marshall",
+        },
+        {
+            "episode_id": "S01E01",
+            "source_type": "cue",
+            "source_id": "S01E01:fr:99",
+            "character_id": "lily",
+        },
+    ]
+
+    store.save_character_names(characters)
+    store.save_character_assignments(assignments)
+
+    assert store.load_character_names() == characters
+    assert store.load_character_assignments() == assignments
+
+
+def test_character_files_load_returns_empty_list_on_invalid_payload(tmp_path: Path) -> None:
+    store = _init_store(tmp_path)
+    (tmp_path / store.CHARACTER_NAMES_JSON).write_text('{"characters":{"bad":"shape"}}', encoding="utf-8")
+    (tmp_path / store.CHARACTER_ASSIGNMENTS_JSON).write_text("{invalid json", encoding="utf-8")
+
+    assert store.load_character_names() == []
+    assert store.load_character_assignments() == []

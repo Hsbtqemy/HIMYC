@@ -266,6 +266,7 @@ Etat 2026-02-14:
 - Etape 1 livree: grille Personnages migree vers `QTableView + CharacterNamesTableModel` (edition/add/remove/save).
 - Table d'assignation conservee en `QTableWidget` volontairement (risque faible, migration incrementale).
 - Tests de base model/view ajoutes dans `tests/test_tab_personnages.py`.
+- Parite I/O JSON (noms + assignations) verrouillee via `tests/test_project_store_propagation.py`.
 
 ### Acceptance criteria
 - Parite fonctionnelle charge/edit/save/propager.
