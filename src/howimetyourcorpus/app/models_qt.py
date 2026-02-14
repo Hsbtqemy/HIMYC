@@ -127,11 +127,18 @@ class EpisodesTreeModel(QAbstractItemModel):
             self._status_map[ref.episode_id] = s
             if self._db:
                 tracks = tracks_by_ep.get(ref.episode_id, [])
-                langs = sorted({
-                    t.get("lang", "")
-                    for t in tracks
-                    if t.get("lang") and int(t.get("nb_cues") or 0) > 0
-                })
+                langs_set: set[str] = set()
+                for t in tracks:
+                    lang = t.get("lang", "")
+                    if not lang:
+                        continue
+                    try:
+                        nb_cues = int(t.get("nb_cues") or 0)
+                    except Exception:
+                        nb_cues = 0
+                    if nb_cues > 0:
+                        langs_set.add(lang)
+                langs = sorted(langs_set)
                 self._srt_map[ref.episode_id] = ", ".join(langs) if langs else "—"
                 runs = runs_by_ep.get(ref.episode_id, [])
                 self._align_map[ref.episode_id] = "oui" if runs else "—"
