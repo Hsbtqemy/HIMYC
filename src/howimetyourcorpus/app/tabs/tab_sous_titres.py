@@ -299,6 +299,47 @@ class SubtitleTabWidget(QWidget):
         self._refresh_episodes()
         self._show_status(f"Piste {lang} supprimée.", 3000)
 
+    def _resolve_store_db_or_warn(self, *, title: str = "Sous-titres") -> tuple[object, object] | None:
+        store = self._get_store()
+        db = self._get_db()
+        if not store or not db:
+            warn_precondition(
+                self,
+                title,
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage: ouvrez/créez un projet puis revenez dans l'Inspecteur.",
+            )
+            return None
+        return store, db
+
+    def _resolve_index_or_warn(self, store: object, *, title: str = "Sous-titres"):
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            warn_precondition(
+                self,
+                title,
+                "Découvrez d'abord les épisodes.",
+                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+            )
+            return None
+        return index
+
+    def _resolve_episode_context_or_warn(self, *, title: str = "Sous-titres") -> tuple[str, object, object] | None:
+        resolved = self._resolve_store_db_or_warn(title=title)
+        if resolved is None:
+            return None
+        store, db = resolved
+        eid = self.subs_episode_combo.currentData()
+        if not eid:
+            warn_precondition(
+                self,
+                title,
+                "Sélectionnez un épisode.",
+                next_step="Inspecteur: choisissez un épisode dans le sélecteur.",
+            )
+            return None
+        return str(eid), store, db
+
     def _normalize_track(self) -> None:
         """§11 — Applique le profil de normalisation aux cues de la piste sélectionnée."""
         current = self.subs_tracks_list.currentItem()
@@ -364,17 +405,10 @@ class SubtitleTabWidget(QWidget):
             show_error(self, exc=e, context="Export SRT final")
 
     def _import_file(self) -> None:
-        eid = self.subs_episode_combo.currentData()
-        store = self._get_store()
-        db = self._get_db()
-        if not eid or not store or not db:
-            warn_precondition(
-                self,
-                "Sous-titres",
-                "Sélectionnez un épisode et ouvrez un projet.",
-                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
-            )
+        resolved = self._resolve_episode_context_or_warn()
+        if resolved is None:
             return
+        eid, _store, _db = resolved
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Importer sous-titres SRT/VTT",
@@ -388,24 +422,12 @@ class SubtitleTabWidget(QWidget):
         self.refresh()
 
     def _import_batch(self) -> None:
-        store = self._get_store()
-        db = self._get_db()
-        if not store or not db:
-            warn_precondition(
-                self,
-                "Sous-titres",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage: ouvrez/créez un projet puis revenez dans l'Inspecteur.",
-            )
+        resolved = self._resolve_store_db_or_warn()
+        if resolved is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            warn_precondition(
-                self,
-                "Sous-titres",
-                "Découvrez d'abord les épisodes.",
-                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
-            )
+        store, _db = resolved
+        index = self._resolve_index_or_warn(store)
+        if index is None:
             return
         folder = QFileDialog.getExistingDirectory(self, "Choisir un dossier contenant des SRT/VTT")
         if not folder:
@@ -433,23 +455,12 @@ class SubtitleTabWidget(QWidget):
         self._show_status(f"Import en masse lancé : {len(steps)} fichier(s).", 5000)
 
     def _import_opensubtitles(self) -> None:
-        store = self._get_store()
-        if not store:
-            warn_precondition(
-                self,
-                "Sous-titres",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage: ouvrez/créez un projet puis revenez dans l'Inspecteur.",
-            )
+        resolved = self._resolve_store_db_or_warn()
+        if resolved is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            warn_precondition(
-                self,
-                "Sous-titres",
-                "Découvrez d'abord les épisodes.",
-                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
-            )
+        store, _db = resolved
+        index = self._resolve_index_or_warn(store)
+        if index is None:
             return
         config_extra = store.load_config_extra()
         api_key = config_extra.get("opensubtitles_api_key") or ""
