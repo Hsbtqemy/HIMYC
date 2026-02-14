@@ -103,19 +103,25 @@ class InspecteurEtSousTitresTabWidget(QWidget):
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et synchronise les deux panneaux."""
+        current_episode = self.episode_combo.currentData()
         self.episode_combo.blockSignals(True)
         self.episode_combo.clear()
+        target_index = -1
         store = self._get_store()
         if store:
             index = store.load_series_index()
             if index and index.episodes:
-                for e in index.episodes:
+                for idx, e in enumerate(index.episodes):
                     self.episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+                    if current_episode and e.episode_id == current_episode:
+                        target_index = idx
+        if target_index >= 0:
+            self.episode_combo.setCurrentIndex(target_index)
         self.episode_combo.blockSignals(False)
         self.inspector_tab.refresh()
         self.subtitles_tab.refresh()
         # Synchroniser le combo du haut avec l'épisode chargé (sans déclencher _on_episode_changed)
-        current_inspect = self.inspector_tab.inspect_episode_combo.currentData()
+        current_inspect = self.inspector_tab.inspect_episode_combo.currentData() or current_episode
         if current_inspect:
             self.episode_combo.blockSignals(True)
             for i in range(self.episode_combo.count()):

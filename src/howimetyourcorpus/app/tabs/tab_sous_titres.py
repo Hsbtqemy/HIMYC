@@ -173,20 +173,33 @@ class SubtitleTabWidget(QWidget):
         """§15.4 — Sélectionne l'épisode donné et charge ses pistes (synchro avec Inspecteur)."""
         for i in range(self.subs_episode_combo.count()):
             if self.subs_episode_combo.itemData(i) == episode_id:
-                self.subs_episode_combo.setCurrentIndex(i)
-                break
+                if self.subs_episode_combo.currentIndex() != i:
+                    self.subs_episode_combo.setCurrentIndex(i)
+                else:
+                    self._on_episode_changed()
+                return
+        self._on_episode_changed()
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et les pistes (appelé après ouverture projet / import)."""
+        current_episode = self.subs_episode_combo.currentData()
+        self.subs_episode_combo.blockSignals(True)
         self.subs_episode_combo.clear()
+        target_index = -1
         store = self._get_store()
         if not store:
+            self.subs_episode_combo.blockSignals(False)
             self._refresh_action_buttons()
             return
         index = store.load_series_index()
         if index and index.episodes:
-            for e in index.episodes:
+            for idx, e in enumerate(index.episodes):
                 self.subs_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+                if current_episode and e.episode_id == current_episode:
+                    target_index = idx
+        if target_index >= 0:
+            self.subs_episode_combo.setCurrentIndex(target_index)
+        self.subs_episode_combo.blockSignals(False)
         self._on_episode_changed()
 
     def _on_episode_changed(self) -> None:
