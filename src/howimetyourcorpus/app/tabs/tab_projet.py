@@ -214,7 +214,10 @@ class ProjectTabWidget(QWidget):
         self.proj_root_edit.setText(str(root_path))
         self.series_url_edit.setText(config.series_url)
         self.srt_only_cb.setChecked(not (config.series_url or "").strip())
-        self.normalize_profile_combo.setCurrentText(config.normalize_profile)
+        if self.normalize_profile_combo.findText(config.normalize_profile) >= 0:
+            self.normalize_profile_combo.setCurrentText(config.normalize_profile)
+        elif self.normalize_profile_combo.count() > 0:
+            self.normalize_profile_combo.setCurrentIndex(0)
         self.rate_limit_spin.setValue(int(config.rate_limit_s))
         self.source_id_combo.setCurrentText(config.source_id)
 
