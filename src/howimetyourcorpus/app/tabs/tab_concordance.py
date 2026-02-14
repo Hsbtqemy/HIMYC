@@ -67,18 +67,21 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_scope_combo.addItem("Épisodes (texte)", "episodes")
         self.kwic_scope_combo.addItem("Segments", "segments")
         self.kwic_scope_combo.addItem("Cues (sous-titres)", "cues")
+        self.kwic_scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         row.addWidget(self.kwic_scope_combo)
         row.addWidget(QLabel("Kind:"))
         self.kwic_kind_combo = QComboBox()
         self.kwic_kind_combo.addItem("—", "")
         self.kwic_kind_combo.addItem("Phrases", "sentence")
         self.kwic_kind_combo.addItem("Tours", "utterance")
+        self.kwic_kind_combo.setToolTip("Filtre applicable uniquement au scope « Segments ».")
         row.addWidget(self.kwic_kind_combo)
         row.addWidget(QLabel("Langue:"))
         self.kwic_lang_combo = QComboBox()
         self.kwic_lang_combo.addItem("—", "")
         for lang in ["en", "fr", "it"]:
             self.kwic_lang_combo.addItem(lang, lang)
+        self.kwic_lang_combo.setToolTip("Filtre applicable uniquement au scope « Cues ».")
         row.addWidget(self.kwic_lang_combo)
         row.addWidget(QLabel("Saison:"))
         self.kwic_season_spin = QSpinBox()
@@ -103,20 +106,42 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_search_edit.textChanged.connect(lambda _text: self._apply_controls_enabled())
         self._kwic_go_tooltip_default = self.kwic_go_btn.toolTip()
         self._kwic_export_tooltip_default = self.export_kwic_btn.toolTip()
+        self._kwic_kind_tooltip_default = self.kwic_kind_combo.toolTip()
+        self._kwic_lang_tooltip_default = self.kwic_lang_combo.toolTip()
         self._apply_controls_enabled()
+
+    def _on_scope_changed(self, *_args) -> None:
+        self._apply_controls_enabled()
+
+    def _apply_scope_filter_states(self, *, controls_enabled: bool) -> None:
+        scope = self.kwic_scope_combo.currentData() or "episodes"
+        kind_enabled = controls_enabled and scope == "segments"
+        lang_enabled = controls_enabled and scope == "cues"
+        self.kwic_kind_combo.setEnabled(kind_enabled)
+        self.kwic_lang_combo.setEnabled(lang_enabled)
+        if not controls_enabled:
+            hint = "Filtre indisponible pendant un job."
+            self.kwic_kind_combo.setToolTip(hint)
+            self.kwic_lang_combo.setToolTip(hint)
+            return
+        self.kwic_kind_combo.setToolTip(
+            self._kwic_kind_tooltip_default if kind_enabled else "Filtre disponible uniquement pour le scope « Segments »."
+        )
+        self.kwic_lang_combo.setToolTip(
+            self._kwic_lang_tooltip_default if lang_enabled else "Filtre disponible uniquement pour le scope « Cues »."
+        )
 
     def _apply_controls_enabled(self) -> None:
         enabled = not self._job_busy
         controls = (
             self.kwic_search_edit,
             self.kwic_scope_combo,
-            self.kwic_kind_combo,
-            self.kwic_lang_combo,
             self.kwic_season_spin,
             self.kwic_episode_spin,
         )
         for widget in controls:
             widget.setEnabled(enabled)
+        self._apply_scope_filter_states(controls_enabled=enabled)
         has_db = self._get_db() is not None
         has_term = bool(self.kwic_search_edit.text().strip())
         has_hits = bool(self.kwic_model.get_all_hits())
