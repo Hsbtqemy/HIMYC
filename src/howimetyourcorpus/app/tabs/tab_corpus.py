@@ -1269,8 +1269,11 @@ class CorpusTabWidget(QWidget):
         context: dict[str, Any],
     ) -> None:
         if not ids:
-            QMessageBox.warning(
-                self, "Corpus", "Aucun épisode résolu pour le scope choisi."
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode résolu pour le scope choisi.",
+                next_step="Ajustez le scope ou sélectionnez/cochez au moins un épisode.",
             )
             return
         episode_url_by_id = self._build_episode_url_by_id(index)
@@ -1416,9 +1419,11 @@ class CorpusTabWidget(QWidget):
         store, _db, context, index, _scope, ids = resolved
         eids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
         if not eids_with_clean:
-            QMessageBox.warning(
-                self, "Corpus",
-                "Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope."
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope.",
+                next_step="Lancez « Normaliser » sur ce scope puis relancez la segmentation.",
             )
             return
         self._run_action_for_scope(
@@ -1448,10 +1453,20 @@ class CorpusTabWidget(QWidget):
             return
         eid = self._selected_error_episode_id()
         if not eid:
-            QMessageBox.information(self, "Corpus", "Sélectionnez un épisode en erreur à relancer.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Sélectionnez un épisode en erreur à relancer.",
+                next_step="Choisissez une ligne dans la liste « Reprise — Erreurs ».",
+            )
             return
         if eid not in {e.episode_id for e in index.episodes}:
-            QMessageBox.warning(self, "Corpus", f"Épisode introuvable dans l'index: {eid}")
+            warn_precondition(
+                self,
+                "Corpus",
+                f"Épisode introuvable dans l'index: {eid}",
+                next_step="Rafraîchissez la liste des erreurs puis réessayez.",
+            )
             return
         self._run_all_for_episode_ids(
             ids=[eid],
@@ -1511,7 +1526,12 @@ class CorpusTabWidget(QWidget):
         store, _db, context, index, _scope, ids = resolved
         ids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
         if not ids_with_clean:
-            QMessageBox.warning(self, "Corpus", "Aucun épisode CLEAN à segmenter/indexer pour ce scope.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode CLEAN à segmenter/indexer pour ce scope.",
+                next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
+            )
             return
         scope = WorkflowScope.selection(ids_with_clean)
         segment_steps = self._build_action_steps_or_warn(
@@ -1629,7 +1649,7 @@ class CorpusTabWidget(QWidget):
                     # JSONL direct sans variante explicite: valeur par défaut = utterances.
                     export_corpus_utterances_jsonl(episodes_data, path)
                 else:
-                    QMessageBox.warning(
+                    warn_precondition(
                         self,
                         "Export",
                         "Format non reconnu. Utilisez .txt, .csv, .json, .jsonl ou .docx.",
