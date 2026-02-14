@@ -174,18 +174,43 @@ class PersonnagesTabWidget(QWidget):
             self.personnages_table.removeRow(row)
         self._apply_controls_enabled()
 
-    def _import_speakers_from_segments(self) -> None:
-        """Récupère les noms de locuteurs des segments (Inspecteur) et les ajoute à la grille des personnages."""
+    def _resolve_store_db_or_warn(
+        self,
+        *,
+        title: str = "Personnages",
+        message: str = "Ouvrez un projet d'abord.",
+        next_step: str = "Pilotage > Projet: ouvrez ou initialisez un projet.",
+    ) -> tuple[object, object] | None:
         store = self._get_store()
         db = self._get_db()
         if not store or not db:
-            warn_precondition(
-                self,
-                "Personnages",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
-            )
+            warn_precondition(self, title, message, next_step=next_step)
+            return None
+        return store, db
+
+    def _resolve_episode_store_db_or_warn(
+        self,
+        *,
+        title: str = "Personnages",
+        message: str = "Ouvrez un projet et sélectionnez un épisode.",
+        next_step: str = "Choisissez un épisode dans la section Assignation.",
+    ) -> tuple[str, object, object] | None:
+        resolved = self._resolve_store_db_or_warn(title=title, message=message, next_step=next_step)
+        if resolved is None:
+            return None
+        store, db = resolved
+        eid = self.personnages_episode_combo.currentData()
+        if not eid:
+            warn_precondition(self, title, "Sélectionnez un épisode.", next_step=next_step)
+            return None
+        return str(eid), store, db
+
+    def _import_speakers_from_segments(self) -> None:
+        """Récupère les noms de locuteurs des segments (Inspecteur) et les ajoute à la grille des personnages."""
+        resolved = self._resolve_store_db_or_warn()
+        if resolved is None:
             return
+        store, db = resolved
         index = store.load_series_index()
         if not index or not index.episodes:
             warn_precondition(
@@ -235,15 +260,10 @@ class PersonnagesTabWidget(QWidget):
             )
 
     def _save(self) -> None:
-        store = self._get_store()
-        if not store:
-            warn_precondition(
-                self,
-                "Personnages",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
-            )
+        resolved = self._resolve_store_db_or_warn()
+        if resolved is None:
             return
+        store, _db = resolved
         langs = store.load_project_languages()
         characters = []
         for row in range(self.personnages_table.rowCount()):
@@ -269,18 +289,11 @@ class PersonnagesTabWidget(QWidget):
         self._apply_controls_enabled()
 
     def _load_assignments(self) -> None:
-        eid = self.personnages_episode_combo.currentData()
-        source_key = self.personnages_source_combo.currentData() or "segments"
-        store = self._get_store()
-        db = self._get_db()
-        if not eid or not db or not store:
-            warn_precondition(
-                self,
-                "Personnages",
-                "Ouvrez un projet et sélectionnez un épisode.",
-                next_step="Choisissez un épisode dans la section Assignation.",
-            )
+        resolved = self._resolve_episode_store_db_or_warn()
+        if resolved is None:
             return
+        eid, store, db = resolved
+        source_key = self.personnages_source_combo.currentData() or "segments"
         character_ids = [
             ch.get("id") or ch.get("canonical", "")
             for ch in store.load_character_names()
@@ -336,17 +349,11 @@ class PersonnagesTabWidget(QWidget):
         self._apply_controls_enabled()
 
     def _save_assignments(self) -> None:
-        eid = self.personnages_episode_combo.currentData()
-        source_key = self.personnages_source_combo.currentData() or "segments"
-        store = self._get_store()
-        if not eid or not store:
-            warn_precondition(
-                self,
-                "Personnages",
-                "Ouvrez un projet et sélectionnez un épisode.",
-                next_step="Choisissez un épisode dans la section Assignation.",
-            )
+        resolved = self._resolve_episode_store_db_or_warn()
+        if resolved is None:
             return
+        eid, store, _db = resolved
+        source_key = self.personnages_source_combo.currentData() or "segments"
         source_type = "segment" if source_key == "segments" else "cue"
         new_assignments = []
         for row in range(self.personnages_assign_table.rowCount()):
@@ -375,24 +382,13 @@ class PersonnagesTabWidget(QWidget):
         self._apply_controls_enabled()
 
     def _propagate(self) -> None:
-        store = self._get_store()
-        db = self._get_db()
-        if not store or not db:
-            warn_precondition(
-                self,
-                "Personnages",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
-            )
+        resolved = self._resolve_episode_store_db_or_warn(
+            message="Ouvrez un projet et sélectionnez un épisode (section Assignation).",
+            next_step="Choisissez un épisode dans la section Assignation.",
+        )
+        if resolved is None:
             return
-        eid = self.personnages_episode_combo.currentData()
-        if not eid:
-            warn_precondition(
-                self,
-                "Personnages",
-                "Sélectionnez un épisode (section Assignation).",
-            )
-            return
+        eid, store, db = resolved
         assignments = store.load_character_assignments()
         episode_assignments = [a for a in assignments if a.get("episode_id") == eid]
         if not episode_assignments:
