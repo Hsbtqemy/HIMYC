@@ -462,6 +462,8 @@ class MainWindow(QMainWindow):
             self.inspector_tab.set_job_busy(busy)
         if hasattr(self, "validation_tab") and self.validation_tab:
             self.validation_tab.set_job_busy(busy)
+        if hasattr(self, "concordance_tab") and self.concordance_tab:
+            self.concordance_tab.set_job_busy(busy)
 
     def _on_tab_changed(self, index: int) -> None:
         """Remplit le Corpus au passage sur Pilotage (évite segfault Qt/macOS au chargement du projet)."""

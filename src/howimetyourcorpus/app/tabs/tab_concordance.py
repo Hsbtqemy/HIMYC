@@ -47,6 +47,7 @@ class ConcordanceTabWidget(QWidget):
         super().__init__(parent)
         self._get_db = get_db
         self._on_open_inspector = on_open_inspector
+        self._job_busy = False
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
         row.addWidget(QLabel("Recherche:"))
@@ -97,6 +98,27 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.kwic_table)
         self.kwic_search_edit.returnPressed.connect(self._run_kwic)
+        self._apply_controls_enabled()
+
+    def _apply_controls_enabled(self) -> None:
+        enabled = not self._job_busy
+        controls = (
+            self.kwic_search_edit,
+            self.kwic_go_btn,
+            self.export_kwic_btn,
+            self.kwic_scope_combo,
+            self.kwic_kind_combo,
+            self.kwic_lang_combo,
+            self.kwic_season_spin,
+            self.kwic_episode_spin,
+        )
+        for widget in controls:
+            widget.setEnabled(enabled)
+
+    def set_job_busy(self, busy: bool) -> None:
+        """Désactive les actions de recherche/export pendant un job pipeline."""
+        self._job_busy = busy
+        self._apply_controls_enabled()
 
     def set_languages(self, langs: list[str]) -> None:
         """Met à jour la liste des langues (projet). Appelé par la fenêtre principale."""
@@ -106,6 +128,8 @@ class ConcordanceTabWidget(QWidget):
             self.kwic_lang_combo.addItem(lang, lang)
 
     def _run_kwic(self) -> None:
+        if self._job_busy:
+            return
         term = self.kwic_search_edit.text().strip()
         db = self._get_db()
         if not term or not db:
@@ -124,6 +148,8 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_model.set_hits(hits)
 
     def _export_kwic(self) -> None:
+        if self._job_busy:
+            return
         from PySide6.QtWidgets import QFileDialog
 
         hits = self.kwic_model.get_all_hits()
