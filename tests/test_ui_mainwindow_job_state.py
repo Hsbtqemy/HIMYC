@@ -24,3 +24,10 @@ def test_normalize_job_state_fallbacks_to_idle() -> None:
     assert normalize(" cancelling ") == mw._JOB_STATE_CANCELLING
     assert normalize("unknown-state") == mw._JOB_STATE_IDLE
     assert normalize("") == mw._JOB_STATE_IDLE
+
+
+def test_resolve_search_focus_tab_prefers_logs_only_when_active() -> None:
+    resolve = mw.MainWindow._resolve_search_focus_tab
+    assert resolve(mw.TAB_LOGS) == mw.TAB_LOGS
+    assert resolve(mw.TAB_CONCORDANCE) == mw.TAB_CONCORDANCE
+    assert resolve(mw.TAB_PILOTAGE) == mw.TAB_CONCORDANCE

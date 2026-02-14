@@ -347,6 +347,11 @@ class ConcordanceTabWidget(QWidget):
         for lang in langs:
             self.kwic_lang_combo.addItem(lang, lang)
 
+    def focus_search(self) -> None:
+        """Donne le focus à la recherche KWIC (raccourci global)."""
+        self.kwic_search_edit.setFocus()
+        self.kwic_search_edit.selectAll()
+
     def _run_kwic(self) -> None:
         self._start_kwic_query(append=False)
 

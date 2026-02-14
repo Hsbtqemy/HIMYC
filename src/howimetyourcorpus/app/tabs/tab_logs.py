@@ -179,6 +179,11 @@ class LogsTabWidget(QWidget):
     def _current_query(self) -> str:
         return self.search_edit.text().strip()
 
+    def focus_search(self) -> None:
+        """Donne le focus au champ de filtre texte."""
+        self.search_edit.setFocus()
+        self.search_edit.selectAll()
+
     def _rebuild_preset_combo(self, *, selected_label: str | None = None) -> None:
         if selected_label is None:
             selected_label = (self.preset_combo.currentText() or "").strip()

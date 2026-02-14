@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QMenuBar,
 )
 from PySide6.QtCore import QSettings, QTimer, QUrl
-from PySide6.QtGui import QAction, QDesktopServices, QIcon
+from PySide6.QtGui import QAction, QDesktopServices, QIcon, QKeySequence
 
 from howimetyourcorpus.core.acquisition.profiles import (
     DEFAULT_ACQUISITION_PROFILE_ID,
@@ -249,8 +249,10 @@ class MainWindow(QMainWindow):
         logs_menu = tools_menu.addMenu("Journaux")
         logs_panel_act = QAction("Journal d'exécution (live)", self)
         logs_panel_act.setToolTip("Afficher le panneau des logs applicatifs sans surcharger les onglets.")
+        logs_panel_act.setShortcuts([QKeySequence("Ctrl+L"), QKeySequence("Meta+L")])
         logs_panel_act.triggered.connect(self._open_logs_panel)
         logs_menu.addAction(logs_panel_act)
+        self._logs_shortcut_action = logs_panel_act
         logs_file_act = QAction("Ouvrir fichier journal", self)
         logs_file_act.setToolTip("Ouvrir le fichier log du projet courant.")
         logs_file_act.triggered.connect(self._open_log_file)
@@ -270,6 +272,16 @@ class MainWindow(QMainWindow):
         )
         reset_pilotage_layout_act.triggered.connect(self._reset_pilotage_layout)
         tools_menu.addAction(reset_pilotage_layout_act)
+        search_focus_act = QAction("Focus recherche", self)
+        search_focus_act.setToolTip(
+            "Concordance/Logs: place le curseur dans le champ de recherche."
+        )
+        search_focus_act.setShortcuts(
+            [QKeySequence.StandardKey.Find, QKeySequence("Ctrl+F"), QKeySequence("Meta+F")]
+        )
+        search_focus_act.triggered.connect(self._focus_search_shortcut)
+        tools_menu.addAction(search_focus_act)
+        self._search_focus_action = search_focus_act
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
         about_act.triggered.connect(self._show_about)
@@ -880,6 +892,22 @@ class MainWindow(QMainWindow):
         if not self._config:
             return None
         return get_log_file_for_project(self._config.root_dir)
+
+    @staticmethod
+    def _resolve_search_focus_tab(current_tab_index: int) -> int:
+        return TAB_LOGS if current_tab_index == TAB_LOGS else TAB_CONCORDANCE
+
+    def _focus_search_shortcut(self) -> None:
+        """Raccourci global Ctrl/Cmd+F vers la recherche active."""
+        target_tab = self._resolve_search_focus_tab(self.tabs.currentIndex())
+        if target_tab == TAB_LOGS:
+            self._open_logs_panel()
+            if hasattr(self, "logs_tab") and self.logs_tab and hasattr(self.logs_tab, "focus_search"):
+                self.logs_tab.focus_search()
+            return
+        self.tabs.setCurrentIndex(TAB_CONCORDANCE)
+        if hasattr(self, "concordance_tab") and self.concordance_tab and hasattr(self.concordance_tab, "focus_search"):
+            self.concordance_tab.focus_search()
 
     def _open_logs_panel(self) -> None:
         """Affiche l'onglet logs (masqué par défaut) et le sélectionne."""

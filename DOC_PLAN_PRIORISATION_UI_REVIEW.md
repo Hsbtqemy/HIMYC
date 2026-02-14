@@ -262,6 +262,11 @@ Etat 2026-02-14:
 2. Snapshot comparatif avant/apres sur jeu de donnees de reference.
 3. Validation propagation inchangee (hors run explicite Lot 1).
 
+Etat 2026-02-14:
+- Etape 1 livree: grille Personnages migree vers `QTableView + CharacterNamesTableModel` (edition/add/remove/save).
+- Table d'assignation conservee en `QTableWidget` volontairement (risque faible, migration incrementale).
+- Tests de base model/view ajoutes dans `tests/test_tab_personnages.py`.
+
 ### Acceptance criteria
 - Parite fonctionnelle charge/edit/save/propager.
 - Pas de regression sur payloads sauvegardes.
@@ -284,6 +289,12 @@ Etat 2026-02-14:
 2. Focus order explicite sur ecrans principaux.
 3. Validation HDPI Windows (125/150/200%).
 4. Checklist contraste/etats des controles.
+
+Etat 2026-02-14:
+- Raccourcis globaux implementes:
+  - `Ctrl/Cmd+F`: focus recherche (Concordance par defaut, Logs si onglet Logs actif).
+  - `Ctrl/Cmd+L`: ouverture directe du panneau Logs.
+- Methodes de focus dediees ajoutees dans `tab_concordance.py` et `tab_logs.py`.
 
 ### Acceptance criteria
 - Parcours complet possible au clavier sur flux critique.
@@ -322,8 +333,8 @@ Etat 2026-02-14:
 | Lot 1 | TBD | TBD | TBD | A faire |
 | Lot 2 | TBD | TBD | TBD | A faire |
 | Lot 3 | TBD | TBD | TBD | A faire |
-| Lot 4 | TBD | TBD | TBD | A faire |
-| Lot 5 | TBD | TBD | TBD | A faire |
+| Lot 4 | TBD | TBD | TBD | En cours |
+| Lot 5 | TBD | TBD | TBD | En cours |
 | Lot 6 | TBD | TBD | TBD | A faire |
 
 ## 6) KPI instrumentes (definitifs)
