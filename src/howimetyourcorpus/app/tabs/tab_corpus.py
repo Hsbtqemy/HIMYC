@@ -782,22 +782,24 @@ class CorpusTabWidget(QWidget):
                 next_step="Saisissez un identifiant par ligne, ex. S01E01.",
             )
             return
-        new_refs = []
+        new_refs_by_id: dict[str, EpisodeRef] = {}
+        invalid_count = 0
         for ln in lines:
-            mm = re.match(r"S(\d+)E(\d+)", ln, re.IGNORECASE)
+            mm = re.fullmatch(r"S(\d+)E(\d+)", ln, re.IGNORECASE)
             if not mm:
+                invalid_count += 1
                 continue
             ep_id = f"S{int(mm.group(1)):02d}E{int(mm.group(2)):02d}"
-            new_refs.append(
-                EpisodeRef(
-                    episode_id=ep_id,
-                    season=int(mm.group(1)),
-                    episode=int(mm.group(2)),
-                    title="",
-                    url="",
-                )
+            if ep_id in new_refs_by_id:
+                continue
+            new_refs_by_id[ep_id] = EpisodeRef(
+                episode_id=ep_id,
+                season=int(mm.group(1)),
+                episode=int(mm.group(2)),
+                title="",
+                url="",
             )
-        if not new_refs:
+        if not new_refs_by_id:
             warn_precondition(
                 self,
                 "Corpus",
@@ -808,10 +810,23 @@ class CorpusTabWidget(QWidget):
         index = store.load_series_index()
         existing_ids = {e.episode_id for e in (index.episodes or [])} if index else set()
         episodes = list(index.episodes or []) if index else []
-        for ref in new_refs:
+        added_count = 0
+        skipped_existing = 0
+        for ref in new_refs_by_id.values():
             if ref.episode_id not in existing_ids:
                 episodes.append(ref)
                 existing_ids.add(ref.episode_id)
+                added_count += 1
+            else:
+                skipped_existing += 1
+        if added_count <= 0:
+            warn_precondition(
+                self,
+                "Corpus",
+                "Tous les épisodes saisis existent déjà.",
+                next_step="Saisissez de nouveaux IDs (format S01E01).",
+            )
+            return
         store.save_series_index(
             SeriesIndex(
                 series_title=index.series_title if index else "",
@@ -821,7 +836,12 @@ class CorpusTabWidget(QWidget):
         )
         self.refresh()
         self._refresh_after_episodes_added()
-        self._show_status(f"{len(new_refs)} épisode(s) ajouté(s).", 3000)
+        parts = [f"{added_count} épisode(s) ajouté(s)"]
+        if skipped_existing > 0:
+            parts.append(f"{skipped_existing} déjà présent(s)")
+        if invalid_count > 0:
+            parts.append(f"{invalid_count} ignoré(s) (format invalide)")
+        self._show_status("Ajout manuel: " + ", ".join(parts) + ".", 5000)
 
     def _resolve_selected_episode_ids(self) -> list[str]:
         """Résout les episode_id via cases cochées puis sélection de lignes."""
