@@ -393,6 +393,22 @@ class PersonnagesTabWidget(QWidget):
         except Exception as e:
             show_error(self, title="Assignation", exc=e, context="Chargement assignations personnages")
             return
+        if self.personnages_assign_table.rowCount() == 0:
+            if source_key == "segments":
+                warn_precondition(
+                    self,
+                    "Assignation",
+                    "Aucun segment disponible pour cet épisode.",
+                    next_step="Inspecteur: segmentez l'épisode puis cliquez sur « Charger ».",
+                )
+            else:
+                lang = source_key.replace("cues_", "").upper()
+                warn_precondition(
+                    self,
+                    "Assignation",
+                    f"Aucune cue {lang} disponible pour cet épisode.",
+                    next_step=f"Inspecteur > Sous-titres: importez une piste {lang} puis cliquez sur « Charger ».",
+                )
         self._apply_controls_enabled()
 
     def _save_assignments(self) -> None:
@@ -446,7 +462,11 @@ class PersonnagesTabWidget(QWidget):
                 next_step="Chargez une source, assignez des personnages puis cliquez sur « Enregistrer assignations ».",
             )
             return
-        runs = db.get_align_runs_for_episode(eid)
+        try:
+            runs = db.get_align_runs_for_episode(eid)
+        except Exception as e:
+            show_error(self, title="Propagation", exc=e, context="Chargement runs d'alignement")
+            return
         if not runs:
             warn_precondition(
                 self,
