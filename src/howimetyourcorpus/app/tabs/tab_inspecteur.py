@@ -9,6 +9,7 @@ from typing import Any, Callable
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
@@ -54,7 +55,7 @@ class InspectorTabWidget(QWidget):
         get_store: Callable[[], object],
         get_db: Callable[[], object],
         get_config: Callable[[], object],
-        run_job: Callable[[list], None],
+        run_job: Callable[..., None],
         show_status: Callable[[str, int], None],
         on_open_pilotage: Callable[[], None] | None = None,
         parent: QWidget | None = None,
@@ -114,6 +115,11 @@ class InspectorTabWidget(QWidget):
         )
         self.inspect_export_segments_btn.clicked.connect(self._export_segments)
         row.addWidget(self.inspect_export_segments_btn)
+        self.inspect_force_reprocess_check = QCheckBox("Forcer re-traitement")
+        self.inspect_force_reprocess_check.setToolTip(
+            "Ignore les skips idempotents pour cet épisode (normalisation/segmentation) même si les artefacts existent."
+        )
+        row.addWidget(self.inspect_force_reprocess_check)
         self._inspect_norm_tooltip_default = self.inspect_norm_btn.toolTip()
         self._inspect_segment_tooltip_default = self.inspect_segment_btn.toolTip()
         self._inspect_export_segments_tooltip_default = self.inspect_export_segments_btn.toolTip()
@@ -330,6 +336,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_export_segments_btn.setEnabled(has_segments and bool(db) and controls_enabled)
         self.inspect_profile_combo.setEnabled(has_episode and controls_enabled)
         self.inspect_view_combo.setEnabled(has_episode and controls_enabled)
+        self.inspect_force_reprocess_check.setEnabled(has_episode and controls_enabled)
         if not controls_enabled:
             self.inspect_norm_btn.setToolTip("Action indisponible pendant un job.")
             self.inspect_segment_btn.setToolTip("Action indisponible pendant un job.")
@@ -433,6 +440,13 @@ class InspectorTabWidget(QWidget):
             return
         self._on_open_pilotage()
 
+    def _run_job_with_force(self, steps: list[Any], *, force: bool | None = None) -> None:
+        force_flag = self.inspect_force_reprocess_check.isChecked() if force is None else bool(force)
+        try:
+            self._run_job(steps, force=force_flag)
+        except TypeError:
+            self._run_job(steps)
+
     def _resolve_episode_store_db_or_warn(self, *, title: str) -> tuple[str, object, object] | None:
         resolved = self._resolve_episode_store_or_warn(title=title)
         if resolved is None:
@@ -474,7 +488,7 @@ class InspectorTabWidget(QWidget):
         )
         if steps is None:
             return
-        self._run_job(steps)
+        self._run_job_with_force(steps)
 
     def _set_episode_preferred_profile(self) -> None:
         resolved = self._resolve_episode_store_or_warn(title="Profil préféré")
@@ -513,7 +527,7 @@ class InspectorTabWidget(QWidget):
         )
         if steps is None:
             return
-        self._run_job(steps)
+        self._run_job_with_force(steps)
 
     def _export_segments(self) -> None:
         resolved = self._resolve_episode_store_db_or_warn(title="Export segments")

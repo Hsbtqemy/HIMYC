@@ -352,7 +352,7 @@ class MainWindow(QMainWindow):
             "custom_profiles": custom_profiles,
         }
 
-    def _run_job(self, steps: list):
+    def _run_job(self, steps: list, *, force: bool = False):
         if not steps:
             self.statusBar().showMessage("Aucune opération à exécuter.", 3000)
             return
@@ -367,13 +367,15 @@ class MainWindow(QMainWindow):
         context = self._get_context()
         if not context.get("config"):
             return
-        self._job_runner = JobRunner(steps, context, force=False)
+        self._job_runner = JobRunner(steps, context, force=force)
         self._job_runner.progress.connect(self._on_job_progress)
         self._job_runner.log.connect(self._on_job_log)
         self._job_runner.error.connect(self._on_job_error)
         self._job_runner.finished.connect(self._on_job_finished)
         self._job_runner.cancelled.connect(self._on_job_cancelled)
         self._set_job_ui_busy(True)
+        if force:
+            self.statusBar().showMessage("Traitement lancé en mode force (re-traitement explicite).", 4000)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_progress(0)
         self._job_runner.run_async()

@@ -11,6 +11,7 @@ from typing import Any, Callable
 from PySide6.QtCore import QModelIndex
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -79,7 +80,7 @@ class CorpusTabWidget(QWidget):
         get_store: Callable[[], Any],
         get_db: Callable[[], Any],
         get_context: Callable[[], Any],
-        run_job: Callable[[list], None],
+        run_job: Callable[..., None],
         show_status: Callable[[str, int], None],
         refresh_after_episodes_added: Callable[[], None],
         on_cancel_job: Callable[[], None],
@@ -236,6 +237,11 @@ class CorpusTabWidget(QWidget):
             "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce profil."
         )
         btn_row2.addWidget(self.norm_batch_profile_combo)
+        self.force_reprocess_check = QCheckBox("Forcer re-traitement")
+        self.force_reprocess_check.setToolTip(
+            "Relance les étapes idempotentes même si les artefacts existent déjà (CLEAN, segments, index DB)."
+        )
+        btn_row2.addWidget(self.force_reprocess_check)
         self.norm_btn = QPushButton("Normaliser")
         self.norm_btn.setToolTip(
             "Bloc 2 — Normalise selon le scope sélectionné. Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
@@ -343,7 +349,8 @@ class CorpusTabWidget(QWidget):
         scope_label = QLabel(
             "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (panneau Sous-titres dans Inspecteur). "
             "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
-            "Périmètre via « Scope action » : épisode courant, sélection, saison filtrée ou tout le corpus."
+            "Périmètre via « Scope action » : épisode courant, sélection, saison filtrée ou tout le corpus. "
+            "Option « Forcer re-traitement » : rejoue les étapes même si des artefacts existent."
         )
         scope_label.setStyleSheet("color: gray; font-size: 0.9em;")
         scope_label.setWordWrap(True)
@@ -417,6 +424,7 @@ class CorpusTabWidget(QWidget):
             self.discover_merge_btn,
             self.fetch_btn,
             self.norm_batch_profile_combo,
+            self.force_reprocess_check,
             self.norm_btn,
             self.segment_btn,
             self.all_in_one_btn,
@@ -436,6 +444,14 @@ class CorpusTabWidget(QWidget):
 
     def _emit_cancel_job(self) -> None:
         self._on_cancel_job()
+
+    def _run_job_with_force(self, steps: list[Any], *, force: bool | None = None) -> None:
+        """Exécute le job en propageant le mode force si le callback le supporte."""
+        force_flag = self.force_reprocess_check.isChecked() if force is None else bool(force)
+        try:
+            self._run_job(steps, force=force_flag)
+        except TypeError:
+            self._run_job(steps)
 
     def _set_primary_action(self, label: str, action: Callable[[], None] | None) -> None:
         self.primary_action_btn.setText(label)
@@ -706,7 +722,7 @@ class CorpusTabWidget(QWidget):
         _store, _db, context = resolved
         config = context["config"]
         step = FetchSeriesIndexStep(config.series_url, config.user_agent)
-        self._run_job([step])
+        self._run_job_with_force([step], force=False)
 
     def _discover_merge(self) -> None:
         resolved = self._resolve_project_context(require_db=True)
@@ -742,7 +758,7 @@ class CorpusTabWidget(QWidget):
             return
         source_id = source_combo.currentText() or "subslikescript"
         step = FetchAndMergeSeriesIndexStep(url, source_id, config.user_agent)
-        self._run_job([step])
+        self._run_job_with_force([step], force=False)
 
     def _add_episodes_manually(self) -> None:
         store = self._get_store()
@@ -1203,7 +1219,7 @@ class CorpusTabWidget(QWidget):
         if not steps:
             warn_precondition(self, "Corpus", empty_message, next_step=empty_next_step)
             return False
-        self._run_job(steps)
+        self._run_job_with_force(steps)
         return True
 
     def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
@@ -1361,7 +1377,7 @@ class CorpusTabWidget(QWidget):
                 next_step="Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
             )
             return
-        self._run_job(steps)
+        self._run_job_with_force(steps)
 
     def _fetch_episodes(self, scope_mode: str | None = None) -> None:
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
@@ -1627,7 +1643,7 @@ class CorpusTabWidget(QWidget):
                 next_step="Préparez d'abord des épisodes CLEAN dans le scope courant.",
             )
             return
-        self._run_job(steps)
+        self._run_job_with_force(steps)
 
     def _export_corpus(self) -> None:
         store = self._get_store()
