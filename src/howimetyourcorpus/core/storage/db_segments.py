@@ -63,6 +63,23 @@ def get_segments_for_episode(
     return [dict(r) for r in rows]
 
 
+def get_episode_ids_with_segments(
+    conn: sqlite3.Connection,
+    kind: str | None = None,
+) -> list[str]:
+    """Liste des épisodes ayant au moins un segment (filtre optionnel sur le kind)."""
+    if kind:
+        rows = conn.execute(
+            "SELECT DISTINCT episode_id FROM segments WHERE kind = ? ORDER BY episode_id",
+            (kind,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT DISTINCT episode_id FROM segments ORDER BY episode_id"
+        ).fetchall()
+    return [str(r[0]) for r in rows if r and r[0]]
+
+
 def update_segment_speaker(
     conn: sqlite3.Connection,
     segment_id: str,

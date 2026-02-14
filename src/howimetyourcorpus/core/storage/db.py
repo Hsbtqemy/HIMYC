@@ -265,6 +265,14 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def get_episode_ids_with_segments(self, kind: str | None = None) -> list[str]:
+        """Liste des episode_id ayant au moins un segment (filtre optionnel par kind)."""
+        conn = self._conn()
+        try:
+            return db_segments.get_episode_ids_with_segments(conn, kind)
+        finally:
+            conn.close()
+
     def update_segment_speaker(self, segment_id: str, speaker_explicit: str | None) -> None:
         """Met à jour le champ speaker_explicit d'un segment (propagation §8)."""
         conn = self._conn()

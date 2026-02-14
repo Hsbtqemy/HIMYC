@@ -109,6 +109,48 @@ def test_upsert_segments_and_query_kwic_segments(db):
         assert h.match.lower() == "legendary"
 
 
+def test_get_episode_ids_with_segments(db):
+    """Retourne les épisodes réellement segmentés (filtrables par kind)."""
+    from howimetyourcorpus.core.segment import Segment
+
+    ref1 = EpisodeRef(
+        episode_id="S01E03A",
+        season=1,
+        episode=30,
+        title="Seg A",
+        url="https://example.com/s01e03a",
+    )
+    ref2 = EpisodeRef(
+        episode_id="S01E03B",
+        season=1,
+        episode=31,
+        title="Seg B",
+        url="https://example.com/s01e03b",
+    )
+    db.upsert_episode(ref1)
+    db.upsert_episode(ref2)
+
+    db.upsert_segments(
+        "S01E03A",
+        "sentence",
+        [Segment(episode_id="S01E03A", kind="sentence", n=0, start_char=0, end_char=5, text="Hello")],
+    )
+    db.upsert_segments(
+        "S01E03A",
+        "utterance",
+        [Segment(episode_id="S01E03A", kind="utterance", n=0, start_char=0, end_char=5, text="Hello")],
+    )
+    db.upsert_segments(
+        "S01E03B",
+        "utterance",
+        [Segment(episode_id="S01E03B", kind="utterance", n=0, start_char=0, end_char=7, text="General")],
+    )
+
+    assert db.get_episode_ids_with_segments(kind="sentence") == ["S01E03A"]
+    assert db.get_episode_ids_with_segments(kind="utterance") == ["S01E03A", "S01E03B"]
+    assert db.get_episode_ids_with_segments() == ["S01E03A", "S01E03B"]
+
+
 def test_upsert_cues_and_query_kwic_cues(db):
     """Phase 3 : add_track, upsert_cues, query_kwic_cues (cue_id, lang)."""
     ref = EpisodeRef(

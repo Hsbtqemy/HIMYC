@@ -404,9 +404,12 @@ class CorpusTabWidget(QWidget):
         episode_ids = [e.episode_id for e in index.episodes]
         n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
         n_norm = sum(1 for e in index.episodes if store.has_episode_clean(e.episode_id))
+        n_segmented = 0
         n_indexed = 0
         if db and episode_ids:
+            segmented_ids = set(db.get_episode_ids_with_segments(kind="sentence"))
             indexed_ids = set(db.get_episode_ids_indexed())
+            n_segmented = len(set(episode_ids) & segmented_ids)
             n_indexed = len(set(episode_ids) & indexed_ids)
         error_ids = self._get_error_episode_ids(index)
         n_error = len(error_ids)
@@ -418,7 +421,7 @@ class CorpusTabWidget(QWidget):
             n_with_srt = sum(1 for e in index.episodes if tracks_by_ep.get(e.episode_id))
             n_aligned = sum(1 for e in index.episodes if runs_by_ep.get(e.episode_id))
         self.corpus_status_label.setText(
-            f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | Erreurs {n_error} | SRT {n_with_srt} | Alignés {n_aligned}"
+            f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_segmented} | Indexés {n_indexed} | Erreurs {n_error} | SRT {n_with_srt} | Alignés {n_aligned}"
         )
         if n_error > 0:
             self.corpus_next_step_label.setText(
@@ -441,13 +444,21 @@ class CorpusTabWidget(QWidget):
                 "Normaliser tout",
                 lambda: self._run_action_with_scope("all", self._normalize_episodes),
             )
-        elif n_indexed < n_norm:
+        elif n_segmented < n_norm:
             self.corpus_next_step_label.setText(
                 "Prochaine action: segmenter et indexer les épisodes NORMALIZED (boutons Segmenter / Indexer DB)."
             )
             self._set_primary_action(
                 "Segmenter + Indexer",
                 lambda: self._run_action_with_scope("all", self._segment_and_index_scope),
+            )
+        elif n_indexed < n_segmented:
+            self.corpus_next_step_label.setText(
+                "Prochaine action: indexer les épisodes déjà segmentés avec « Indexer DB » (scope « Tout le corpus »)."
+            )
+            self._set_primary_action(
+                "Indexer tout",
+                lambda: self._run_action_with_scope("all", self._index_db),
             )
         elif n_with_srt == 0:
             self.corpus_next_step_label.setText(
