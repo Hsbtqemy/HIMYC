@@ -405,6 +405,43 @@ class CorpusTabWidget(QWidget):
         self._set_scope_mode(mode)
         action(scope_mode=mode)
 
+    def _apply_workflow_advice(self, action_id: str, label: str) -> None:
+        if action_id == "retry_errors":
+            self._set_primary_action(label, self._retry_error_episodes)
+            return
+        if action_id == "open_concordance_cues":
+            if self._on_open_concordance:
+                self._set_primary_action(label, self._open_concordance_tab)
+            else:
+                self._set_primary_action("Concordance (Cues)", None)
+            return
+        scope_actions: dict[str, Callable[[str | None], None]] = {
+            "fetch_all": self._fetch_episodes,
+            "normalize_all": self._normalize_episodes,
+            "segment_and_index": self._segment_and_index_scope,
+            "index_all": self._index_db,
+        }
+        scoped_action = scope_actions.get(action_id)
+        if scoped_action is not None:
+            self._set_primary_action(
+                label,
+                lambda: self._run_action_with_scope("all", scoped_action),
+            )
+            return
+        if action_id == "open_inspector_srt":
+            if self._on_open_inspector:
+                self._set_primary_action(label, self._open_selected_or_first_episode_in_inspector)
+            else:
+                self._set_primary_action("Importer SRT (Inspecteur)", None)
+            return
+        if action_id == "open_validation_alignment":
+            if self._on_open_alignment:
+                self._set_primary_action(label, self._open_alignment_tab)
+            else:
+                self._set_primary_action("Passer à Validation", None)
+            return
+        self._set_primary_action(label, None)
+
     def refresh(self) -> None:
         """Recharge l'arbre et le statut depuis le store (appelé après ouverture projet / fin de job)."""
         store = self._get_store()
@@ -458,45 +495,7 @@ class CorpusTabWidget(QWidget):
         )
         advice = build_workflow_advice(counts)
         self.corpus_next_step_label.setText(advice.message)
-        if advice.action_id == "retry_errors":
-            self._set_primary_action(advice.label, self._retry_error_episodes)
-        elif advice.action_id == "open_concordance_cues":
-            if self._on_open_concordance:
-                self._set_primary_action(advice.label, self._open_concordance_tab)
-            else:
-                self._set_primary_action("Concordance (Cues)", None)
-        elif advice.action_id == "fetch_all":
-            self._set_primary_action(
-                advice.label,
-                lambda: self._run_action_with_scope("all", self._fetch_episodes),
-            )
-        elif advice.action_id == "normalize_all":
-            self._set_primary_action(
-                advice.label,
-                lambda: self._run_action_with_scope("all", self._normalize_episodes),
-            )
-        elif advice.action_id == "segment_and_index":
-            self._set_primary_action(
-                advice.label,
-                lambda: self._run_action_with_scope("all", self._segment_and_index_scope),
-            )
-        elif advice.action_id == "index_all":
-            self._set_primary_action(
-                advice.label,
-                lambda: self._run_action_with_scope("all", self._index_db),
-            )
-        elif advice.action_id == "open_inspector_srt":
-            if self._on_open_inspector:
-                self._set_primary_action(advice.label, self._open_selected_or_first_episode_in_inspector)
-            else:
-                self._set_primary_action("Importer SRT (Inspecteur)", None)
-        elif advice.action_id == "open_validation_alignment":
-            if self._on_open_alignment:
-                self._set_primary_action(advice.label, self._open_alignment_tab)
-            else:
-                self._set_primary_action("Passer à Validation", None)
-        else:
-            self._set_primary_action(advice.label, None)
+        self._apply_workflow_advice(advice.action_id, advice.label)
         self.fetch_btn.setEnabled(counts.n_total > 0)
         self.norm_btn.setEnabled(counts.n_fetched > 0)
         self.segment_btn.setEnabled(counts.n_norm > 0)
