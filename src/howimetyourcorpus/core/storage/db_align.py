@@ -219,14 +219,17 @@ def get_parallel_concordance(
     status_filter: str | None = None,
 ) -> list[dict]:
     """
-    Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues FR/IT
+    Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues cibles
     à partir des liens d'alignement.
     """
     links = query_alignment_for_episode(conn, episode_id, run_id=run_id, status_filter=status_filter)
     segments = db_segments.get_segments_for_episode(conn, episode_id, kind="sentence")
     cues_en = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "en")
-    cues_fr = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "fr")
-    cues_it = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "it")
+    target_langs = sorted({
+        (lnk.get("lang") or "").lower()
+        for lnk in links
+        if lnk.get("role") == "target" and (lnk.get("lang") or "").lower() not in ("", "en")
+    })
 
     seg_by_id = {s["segment_id"]: (s.get("text") or "").strip() for s in segments}
 
@@ -234,8 +237,10 @@ def get_parallel_concordance(
         return (c.get("text_clean") or c.get("text_raw") or "").strip()
 
     cue_en_by_id = {c["cue_id"]: cue_text(c) for c in cues_en}
-    cue_fr_by_id = {c["cue_id"]: cue_text(c) for c in cues_fr}
-    cue_it_by_id = {c["cue_id"]: cue_text(c) for c in cues_it}
+    cue_by_lang_by_id: dict[str, dict[str, str]] = {}
+    for lang in target_langs:
+        cues = db_subtitles.get_cues_for_episode_lang(conn, episode_id, lang)
+        cue_by_lang_by_id[lang] = {c["cue_id"]: cue_text(c) for c in cues}
 
     pivot_links = [lnk for lnk in links if lnk.get("role") == "pivot"]
     target_by_cue_en: dict[str, list[dict]] = {}
@@ -252,27 +257,20 @@ def get_parallel_concordance(
         text_seg = seg_by_id.get(seg_id, "")
         text_en = cue_en_by_id.get(cue_id_en or "", "")
         conf_pivot = pl.get("confidence")
-        text_fr = ""
-        conf_fr = None
-        text_it = ""
-        conf_it = None
-        for tl in target_by_cue_en.get(cue_id_en or "", []):
-            lang = (tl.get("lang") or "").lower()
-            cid_t = tl.get("cue_id_target")
-            if lang == "fr" and cid_t:
-                text_fr = cue_fr_by_id.get(cid_t, "")
-                conf_fr = tl.get("confidence")
-            elif lang == "it" and cid_t:
-                text_it = cue_it_by_id.get(cid_t, "")
-                conf_it = tl.get("confidence")
-        result.append({
+        row = {
             "segment_id": seg_id,
             "text_segment": text_seg,
             "text_en": text_en,
             "confidence_pivot": conf_pivot,
-            "text_fr": text_fr,
-            "confidence_fr": conf_fr,
-            "text_it": text_it,
-            "confidence_it": conf_it,
-        })
+        }
+        for lang in target_langs:
+            row[f"text_{lang}"] = ""
+            row[f"confidence_{lang}"] = None
+        for tl in target_by_cue_en.get(cue_id_en or "", []):
+            lang = (tl.get("lang") or "").lower()
+            cid_t = tl.get("cue_id_target")
+            if lang in cue_by_lang_by_id and cid_t:
+                row[f"text_{lang}"] = cue_by_lang_by_id[lang].get(cid_t, "")
+                row[f"confidence_{lang}"] = tl.get("confidence")
+        result.append(row)
     return result

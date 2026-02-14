@@ -117,12 +117,12 @@ class ProjectTabWidget(QWidget):
         # —— 3. Workflow corpus (§refonte) ——
         group_acquisition = QGroupBox("Workflow corpus")
         group_acquisition.setToolTip(
-            "Les opérations de workflow (découvrir, télécharger, normaliser, segmenter, indexer) sont centralisées dans l'onglet Corpus."
+            "Les opérations de workflow (découvrir, télécharger, normaliser, segmenter, indexer) sont centralisées dans l'onglet Pilotage."
         )
         acq_row = QHBoxLayout(group_acquisition)
-        self.open_corpus_btn = QPushButton("Ouvrir le pilotage Corpus")
+        self.open_corpus_btn = QPushButton("Aller à la section Corpus")
         self.open_corpus_btn.setToolTip(
-            "Aller à l'onglet Corpus pour exécuter les opérations Import/Transformer/Indexer."
+            "Aller à la section Corpus du Pilotage pour exécuter les opérations Import/Transformer/Indexer."
         )
         self.open_corpus_btn.clicked.connect(self._on_open_corpus_clicked)
         acq_row.addWidget(self.open_corpus_btn)
@@ -172,14 +172,14 @@ class ProjectTabWidget(QWidget):
         self,
         on_open_corpus: Callable[[], None] | None,
     ) -> None:
-        """Connecte le bouton Projet -> ouverture du pilotage dans l'onglet Corpus."""
+        """Connecte le bouton Projet -> ouverture de la section Corpus dans Pilotage."""
         self._on_open_corpus = on_open_corpus
 
     def _on_open_corpus_clicked(self) -> None:
         if self._on_open_corpus:
             self._on_open_corpus()
         else:
-            self._show_status("Ouvrez un projet puis utilisez l'onglet Corpus pour le workflow.", 4000)
+            self._show_status("Ouvrez un projet puis utilisez la section Corpus dans Pilotage.", 4000)
 
     def get_form_data(self) -> dict[str, Any]:
         """Retourne les données du formulaire pour init/charger le projet."""

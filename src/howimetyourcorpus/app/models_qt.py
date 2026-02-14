@@ -651,7 +651,7 @@ class AlignLinksTableModel(QAbstractTableModel):
         if db and episode_id and links:
             segments_by_id = {s["segment_id"]: (s.get("text") or "") for s in db.get_segments_for_episode(episode_id)}
             cues_en = {c["cue_id"]: (c.get("text_clean") or c.get("text_raw") or "") for c in db.get_cues_for_episode_lang(episode_id, "en")}
-            langs_seen = {((lnk.get("lang") or "fr") or "fr").lower() for lnk in links}
+            langs_seen = {((lnk.get("lang") or "") or "").lower() for lnk in links}
             cues_by_lang: dict[str, dict[str, str]] = {"en": cues_en}
             for lang in langs_seen:
                 if lang != "en":
@@ -660,7 +660,7 @@ class AlignLinksTableModel(QAbstractTableModel):
                 seg_id = lnk.get("segment_id")
                 cue_id = lnk.get("cue_id")
                 cue_tid = lnk.get("cue_id_target")
-                lang = ((lnk.get("lang") or "fr") or "fr").lower()
+                lang = ((lnk.get("lang") or "") or "").lower()
                 lnk["_segment_text"] = _truncate(segments_by_id.get(seg_id, "")) if seg_id else ""
                 lnk["_cue_text"] = _truncate(cues_en.get(cue_id, "")) if cue_id else ""
                 cues_t = cues_by_lang.get(lang, {})

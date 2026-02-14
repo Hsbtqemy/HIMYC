@@ -492,7 +492,7 @@ class CorpusDB:
         status_filter: str | None = None,
     ) -> list[dict]:
         """
-        Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues FR/IT
+        Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues cibles
         à partir des liens d'alignement.
         """
         conn = self._conn()

@@ -10,6 +10,7 @@ from howimetyourcorpus.core.export_utils import (
     export_parallel_concordance_jsonl,
     export_align_report_html,
     PARALLEL_CONCORDANCE_COLUMNS,
+    resolve_parallel_concordance_columns,
 )
 
 
@@ -102,3 +103,21 @@ def test_parallel_concordance_columns():
     assert "text_en" in PARALLEL_CONCORDANCE_COLUMNS
     assert "text_fr" in PARALLEL_CONCORDANCE_COLUMNS
     assert "text_it" in PARALLEL_CONCORDANCE_COLUMNS
+
+
+def test_resolve_parallel_columns_dynamic_target_lang():
+    rows = [
+        {
+            "segment_id": "S01E01:sentence:0",
+            "text_segment": "Hello world",
+            "text_en": "Hello world",
+            "confidence_pivot": 0.9,
+            "text_es": "Hola mundo",
+            "confidence_es": 0.91,
+        },
+    ]
+    cols = resolve_parallel_concordance_columns(rows)
+    assert cols[:4] == ["segment_id", "text_segment", "text_en", "confidence_pivot"]
+    assert "text_es" in cols
+    assert "confidence_es" in cols
+    assert "text_fr" not in cols

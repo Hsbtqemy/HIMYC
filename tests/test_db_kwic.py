@@ -214,6 +214,45 @@ def test_align_stats_and_parallel_concordance(db):
     assert rows[0]["confidence_fr"] == 1.0
 
 
+def test_parallel_concordance_uses_actual_target_lang(db):
+    """Le concordancier parallèle expose les colonnes de la langue cible réellement alignée."""
+    from howimetyourcorpus.core.segment import Segment
+    from howimetyourcorpus.core.subtitles import Cue
+
+    ref = EpisodeRef(
+        episode_id="S01E08",
+        season=1,
+        episode=8,
+        title="The Duel",
+        url="https://example.com/s01e08",
+    )
+    db.upsert_episode(ref)
+    run_id = "S01E08:align:20250212T131500Z"
+    db.create_align_run(run_id, "S01E08", "en", None, "2025-02-12T13:15:00Z", "{}")
+
+    seg = Segment(episode_id="S01E08", kind="sentence", n=0, start_char=0, end_char=7, text="Hi all")
+    db.upsert_segments("S01E08", "sentence", [seg])
+
+    db.add_track("S01E08:en", "S01E08", "en", "srt")
+    db.add_track("S01E08:it", "S01E08", "it", "srt")
+    cue_en = Cue(episode_id="S01E08", lang="en", n=0, start_ms=0, end_ms=2000, text_raw="Hi all", text_clean="Hi all")
+    cue_it = Cue(episode_id="S01E08", lang="it", n=0, start_ms=0, end_ms=2000, text_raw="Ciao a tutti", text_clean="Ciao a tutti")
+    db.upsert_cues("S01E08:en", "S01E08", "en", [cue_en])
+    db.upsert_cues("S01E08:it", "S01E08", "it", [cue_it])
+
+    links = [
+        {"segment_id": "S01E08:sentence:0", "cue_id": "S01E08:en:0", "lang": "en", "role": "pivot", "confidence": 0.8, "status": "auto", "meta": {}},
+        {"cue_id": "S01E08:en:0", "cue_id_target": "S01E08:it:0", "lang": "it", "role": "target", "confidence": 0.95, "status": "auto", "meta": {}},
+    ]
+    db.upsert_align_links(run_id, "S01E08", links)
+
+    rows = db.get_parallel_concordance("S01E08", run_id)
+    assert len(rows) == 1
+    assert rows[0]["text_it"] == "Ciao a tutti"
+    assert rows[0]["confidence_it"] == 0.95
+    assert rows[0].get("text_fr", "") == ""
+
+
 def test_align_stats_avg_confidence_aggregates_per_row(db):
     """Moyenne de confiance exacte même quand plusieurs liens partagent role+status."""
     ref = EpisodeRef(

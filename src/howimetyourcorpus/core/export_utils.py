@@ -375,10 +375,48 @@ def export_corpus_phrases_csv(
 
 # --- Phase 5 : concordancier parallèle et rapports ---
 
-PARALLEL_CONCORDANCE_COLUMNS = [
-    "segment_id", "text_segment", "text_en", "confidence_pivot",
-    "text_fr", "confidence_fr", "text_it", "confidence_it",
+PARALLEL_CONCORDANCE_BASE_COLUMNS = [
+    "segment_id",
+    "text_segment",
+    "text_en",
+    "confidence_pivot",
 ]
+
+# Rétro-compatibilité (tests et appels existants) :
+# colonnes par défaut utilisées quand aucune langue cible n'est inférée.
+PARALLEL_CONCORDANCE_COLUMNS = [
+    *PARALLEL_CONCORDANCE_BASE_COLUMNS,
+    "text_fr",
+    "confidence_fr",
+    "text_it",
+    "confidence_it",
+]
+
+
+def resolve_parallel_concordance_columns(rows: list[dict]) -> list[str]:
+    """Déduit les colonnes exportables à partir des langues présentes dans les lignes."""
+    langs_seen: set[str] = set()
+    for row in rows:
+        for key in row.keys():
+            if not key.startswith("text_"):
+                continue
+            lang = key[5:].lower()
+            if not lang or lang in {"segment", "en"}:
+                continue
+            langs_seen.add(lang)
+    if not langs_seen:
+        return list(PARALLEL_CONCORDANCE_COLUMNS)
+    ordered_langs: list[str] = []
+    for preferred in ("fr", "it"):
+        if preferred in langs_seen:
+            ordered_langs.append(preferred)
+            langs_seen.remove(preferred)
+    ordered_langs.extend(sorted(langs_seen))
+    cols = list(PARALLEL_CONCORDANCE_BASE_COLUMNS)
+    for lang in ordered_langs:
+        cols.append(f"text_{lang}")
+        cols.append(f"confidence_{lang}")
+    return cols
 
 
 def _parallel_cell(row: dict, key: str):
@@ -388,22 +426,24 @@ def _parallel_cell(row: dict, key: str):
 
 
 def export_parallel_concordance_csv(rows: list[dict], path: Path) -> None:
-    """Exporte le concordancier parallèle en CSV (segment, EN, FR + confiances)."""
+    """Exporte le concordancier parallèle en CSV (segment, EN, langues cibles + confiances)."""
+    columns = resolve_parallel_concordance_columns(rows)
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
-        w.writerow(PARALLEL_CONCORDANCE_COLUMNS)
+        w.writerow(columns)
         for r in rows:
-            w.writerow([_parallel_cell(r, k) for k in PARALLEL_CONCORDANCE_COLUMNS])
+            w.writerow([_parallel_cell(r, k) for k in columns])
     return None
 
 
 def export_parallel_concordance_tsv(rows: list[dict], path: Path) -> None:
     """Exporte le concordancier parallèle en TSV."""
+    columns = resolve_parallel_concordance_columns(rows)
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(PARALLEL_CONCORDANCE_COLUMNS)
+        w.writerow(columns)
         for r in rows:
-            w.writerow([_parallel_cell(r, k) for k in PARALLEL_CONCORDANCE_COLUMNS])
+            w.writerow([_parallel_cell(r, k) for k in columns])
     return None
 
 
@@ -416,19 +456,20 @@ def export_parallel_concordance_jsonl(rows: list[dict], path: Path) -> None:
 
 
 def export_parallel_concordance_docx(rows: list[dict], path: Path) -> None:
-    """Exporte le concordancier parallèle en Word (.docx) : tableau segment, EN, FR, IT + confiances."""
+    """Exporte le concordancier parallèle en Word (.docx) : tableau segment, EN, cibles + confiances."""
     doc = Document()
     doc.add_heading("Concordancier parallèle", 0)
     if not rows:
         doc.add_paragraph("Aucune ligne.")
         doc.save(str(path))
         return None
-    table = doc.add_table(rows=1 + len(rows), cols=len(PARALLEL_CONCORDANCE_COLUMNS))
+    columns = resolve_parallel_concordance_columns(rows)
+    table = doc.add_table(rows=1 + len(rows), cols=len(columns))
     table.style = "Table Grid"
-    for j, col in enumerate(PARALLEL_CONCORDANCE_COLUMNS):
+    for j, col in enumerate(columns):
         table.rows[0].cells[j].text = col
     for i, r in enumerate(rows):
-        for j, col in enumerate(PARALLEL_CONCORDANCE_COLUMNS):
+        for j, col in enumerate(columns):
             val = r.get(col)
             table.rows[i + 1].cells[j].text = "" if val is None else str(val)
     doc.save(str(path))
@@ -436,17 +477,19 @@ def export_parallel_concordance_docx(rows: list[dict], path: Path) -> None:
 
 
 def export_parallel_concordance_txt(rows: list[dict], path: Path) -> None:
-    """§15.1 — Exporte la comparaison de traductions en TXT : une ligne par alignement, colonnes séparées par tab (segment | EN | FR | IT)."""
+    """§15.1 — Exporte la comparaison de traductions en TXT : une ligne par alignement, colonnes séparées par tab."""
+    columns = resolve_parallel_concordance_columns(rows)
     with path.open("w", encoding="utf-8") as f:
         for r in rows:
-            cells = [_parallel_cell(r, k) for k in PARALLEL_CONCORDANCE_COLUMNS]
+            cells = [str(_parallel_cell(r, k)) for k in columns]
             f.write("\t".join(cells).replace("\n", " ").replace("\r", ""))
             f.write("\n")
     return None
 
 
 def export_parallel_concordance_html(rows: list[dict], path: Path, title: str | None = None) -> None:
-    """§15.1 — Exporte la comparaison de traductions en HTML : tableau segment | EN | FR | IT (sans stats)."""
+    """§15.1 — Exporte la comparaison de traductions en HTML : tableau segment | EN | cibles (sans stats)."""
+    columns = resolve_parallel_concordance_columns(rows)
     t = title or "Comparaison de traductions"
     lines = [
         "<!DOCTYPE html>",
@@ -456,12 +499,12 @@ def export_parallel_concordance_html(rows: list[dict], path: Path, title: str | 
         "<h1>" + _escape(t) + "</h1>",
         "<table><thead><tr>",
     ]
-    for col in PARALLEL_CONCORDANCE_COLUMNS:
+    for col in columns:
         lines.append("<th>" + _escape(col) + "</th>")
     lines.append("</tr></thead><tbody>")
     for r in rows:
         lines.append("<tr>")
-        for col in PARALLEL_CONCORDANCE_COLUMNS:
+        for col in columns:
             val = r.get(col)
             cell = "" if val is None else str(val)
             lines.append("<td>" + _escape(cell) + "</td>")
@@ -495,32 +538,54 @@ def export_align_report_html(
         "<ul>",
         "<li>Liens totaux: " + str(stats.get("nb_links", 0)) + "</li>",
         "<li>Liens pivot (segment↔EN): " + str(stats.get("nb_pivot", 0)) + "</li>",
-        "<li>Liens target (EN↔FR): " + str(stats.get("nb_target", 0)) + "</li>",
+        "<li>Liens target (EN↔cible): " + str(stats.get("nb_target", 0)) + "</li>",
         "<li>Confiance moyenne: " + (str(stats.get("avg_confidence")) if stats.get("avg_confidence") is not None else "—") + "</li>",
         "<li>Par statut: " + ", ".join(f"{k}={v}" for k, v in sorted(by_status.items())) + "</li>",
         "</ul>",
         "<h2>Échantillon concordancier parallèle</h2>",
         "<table border='1' cellpadding='4' style='border-collapse: collapse;'>",
-        "<thead><tr><th>segment_id</th><th>Segment (transcript)</th><th>EN</th><th>conf.</th><th>FR</th><th>conf.</th><th>IT</th><th>conf.</th></tr></thead>",
-        "<tbody>",
     ]
+    columns = resolve_parallel_concordance_columns(sample_rows)
+    target_langs = [
+        col[5:]
+        for col in columns
+        if col.startswith("text_") and col not in ("text_segment", "text_en")
+    ]
+    header = [
+        "<th>segment_id</th>",
+        "<th>Segment (transcript)</th>",
+        "<th>EN</th>",
+        "<th>conf.</th>",
+    ]
+    for lang in target_langs:
+        header.append(f"<th>{_escape(lang.upper())}</th>")
+        header.append("<th>conf.</th>")
+    lines.extend([
+        "<thead><tr>" + "".join(header) + "</tr></thead>",
+        "<tbody>",
+    ])
     for r in sample_rows[:100]:
         t_seg = str(r.get("text_segment", ""))
         t_en = str(r.get("text_en", ""))
-        t_fr = str(r.get("text_fr", ""))
-        t_it = str(r.get("text_it", ""))
-        lines.append(
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
-                _escape(str(r.get("segment_id", ""))),
-                _escape((t_seg[:80] + "…") if len(t_seg) > 80 else t_seg),
-                _escape((t_en[:60] + "…") if len(t_en) > 60 else t_en),
-                _escape(str(r.get("confidence_pivot") if r.get("confidence_pivot") is not None else "")),
-                _escape((t_fr[:60] + "…") if len(t_fr) > 60 else t_fr),
-                _escape(str(r.get("confidence_fr") if r.get("confidence_fr") is not None else "")),
-                _escape((t_it[:60] + "…") if len(t_it) > 60 else t_it),
-                _escape(str(r.get("confidence_it") if r.get("confidence_it") is not None else "")),
+        row_cells = [
+            "<td>{}</td>".format(_escape(str(r.get("segment_id", "")))),
+            "<td>{}</td>".format(_escape((t_seg[:80] + "…") if len(t_seg) > 80 else t_seg)),
+            "<td>{}</td>".format(_escape((t_en[:60] + "…") if len(t_en) > 60 else t_en)),
+            "<td>{}</td>".format(
+                _escape(str(r.get("confidence_pivot") if r.get("confidence_pivot") is not None else ""))
+            ),
+        ]
+        for lang in target_langs:
+            t_lang = str(r.get(f"text_{lang}", ""))
+            row_cells.append(
+                "<td>{}</td>".format(_escape((t_lang[:60] + "…") if len(t_lang) > 60 else t_lang))
             )
-        )
+            row_cells.append(
+                "<td>{}</td>".format(
+                    _escape(str(r.get(f"confidence_{lang}") if r.get(f"confidence_{lang}") is not None else ""))
+                )
+            )
+        lines.append("<tr>" + "".join(row_cells) + "</tr>")
     lines.extend(["</tbody></table>", "</body></html>"])
     path.write_text("\n".join(lines), encoding="utf-8")
     return None

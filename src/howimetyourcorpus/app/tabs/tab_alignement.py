@@ -470,7 +470,7 @@ class AlignmentTabWidget(QWidget):
                 f"Run: {stats.get('run_id', '')}\n\n"
                 f"Liens totaux: {stats.get('nb_links', 0)}\n"
                 f"Liens pivot (segment↔EN): {stats.get('nb_pivot', 0)}\n"
-                f"Liens target (EN↔FR): {stats.get('nb_target', 0)}\n"
+                f"Liens target (EN↔cible): {stats.get('nb_target', 0)}\n"
                 f"Confiance moyenne: {stats.get('avg_confidence', '—')}\n"
                 f"Par statut: {', '.join(f'{k}={v}' for k, v in sorted(by_status.items()))}"
             )

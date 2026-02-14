@@ -1,4 +1,4 @@
-"""Fenêtre principale : onglets Projet, Corpus, Inspecteur, Concordance, Logs."""
+"""Fenêtre principale : onglets Pilotage, Inspecteur, Alignement, Concordance, Personnages, Logs."""
 
 from __future__ import annotations
 
@@ -61,6 +61,7 @@ from howimetyourcorpus.app.tabs import (
     CorpusTabWidget,
     InspecteurEtSousTitresTabWidget,
     LogsTabWidget,
+    PilotageTabWidget,
     PersonnagesTabWidget,
     ProjectTabWidget,
 )
@@ -70,14 +71,17 @@ from howimetyourcorpus import __version__
 
 logger = logging.getLogger(__name__)
 
-# Index des onglets (§15.4 : Inspecteur + Sous-titres fusionnés → 7 onglets)
-TAB_PROJET = 0
-TAB_CORPUS = 1
-TAB_INSPECTEUR = 2
-TAB_ALIGNEMENT = 3
-TAB_CONCORDANCE = 4
-TAB_PERSONNAGES = 5
-TAB_LOGS = 6
+# Index des onglets (Pilotage fusionne Projet + Corpus)
+TAB_PILOTAGE = 0
+TAB_INSPECTEUR = 1
+TAB_ALIGNEMENT = 2
+TAB_CONCORDANCE = 3
+TAB_PERSONNAGES = 4
+TAB_LOGS = 5
+
+# Aliases de compatibilité interne.
+TAB_PROJET = TAB_PILOTAGE
+TAB_CORPUS = TAB_PILOTAGE
 
 
 class MainWindow(QMainWindow):
@@ -113,14 +117,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.tabs)
 
         self._build_menu_bar()
-        self._build_tab_projet()
-        self._build_tab_corpus()
+        self._build_tab_pilotage()
         self._build_tab_inspecteur()
         self._build_tab_alignement()
         self._build_tab_concordance()
         self._build_tab_personnages()
         self._build_tab_logs()
-        self.tabs.setCurrentIndex(TAB_PROJET)
+        self.tabs.setCurrentIndex(TAB_PILOTAGE)
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
     def _build_menu_bar(self):
@@ -163,7 +166,6 @@ class MainWindow(QMainWindow):
             on_refresh_language_combos=self._refresh_language_combos,
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
         )
-        self.tabs.addTab(self.project_tab, "Projet")
 
     def _save_project_config(self) -> None:
         """Enregistre la configuration de l'onglet Projet dans config.toml (source, URL, etc.)."""
@@ -246,10 +248,14 @@ class MainWindow(QMainWindow):
             self.project_tab.refresh_languages_list()
             self._refresh_profile_combos()
             self._refresh_language_combos()
-            self._refresh_inspecteur_episodes()
-            self._refresh_subs_tracks()
-            self._refresh_align_runs()
-            self._refresh_personnages()
+            def _deferred_refresh_after_init() -> None:
+                self._refresh_episodes_from_store()
+                self._refresh_inspecteur_episodes()
+                self._refresh_subs_tracks()
+                self._refresh_align_runs()
+                self._refresh_personnages()
+
+            QTimer.singleShot(0, _deferred_refresh_after_init)
             QMessageBox.information(self, "Projet", "Projet initialisé.")
         except Exception as e:
             logger.exception("Init project failed")
@@ -281,8 +287,9 @@ class MainWindow(QMainWindow):
         self._refresh_profile_combos()
         self._refresh_language_combos()
         QMessageBox.information(self, "Projet", "Projet ouvert.")
-        # Ne pas remplir le Corpus ici : provoque segfault Qt/macOS. Le Corpus se remplit au clic sur l'onglet.
+        # Refresh différé pour éviter les crashes Qt/macOS observés sur certains chargements.
         def _deferred_refresh() -> None:
+            self._refresh_episodes_from_store()
             self._refresh_inspecteur_episodes()
             self._refresh_subs_tracks()
             self._refresh_align_runs()
@@ -318,9 +325,29 @@ class MainWindow(QMainWindow):
             on_open_inspector=self._kwic_open_inspector_impl,
             on_open_alignment=lambda: self.tabs.setCurrentIndex(TAB_ALIGNEMENT),
         )
-        self.tabs.addTab(self.corpus_tab, "Corpus")
-        self.tabs.setTabToolTip(TAB_CORPUS, "Workflow §14 — Bloc 1 (Import) + Bloc 2 (Normalisation / segmentation) : découverte, téléchargement, normaliser, indexer.")
-        self.project_tab.set_open_corpus_callback(lambda: self.tabs.setCurrentIndex(TAB_CORPUS))
+
+    def _build_tab_pilotage(self) -> None:
+        """Crée l'onglet Pilotage (fusion Projet + Corpus) pour le workflow bout-en-bout."""
+        self._build_tab_projet()
+        self._build_tab_corpus()
+        self.pilotage_tab = PilotageTabWidget(
+            project_widget=self.project_tab,
+            corpus_widget=self.corpus_tab,
+        )
+        self.tabs.addTab(self.pilotage_tab, "Pilotage")
+        self.tabs.setTabToolTip(
+            TAB_PILOTAGE,
+            "Pilotage workflow : configuration projet + import/normalisation/indexation du corpus.",
+        )
+        self.project_tab.set_open_corpus_callback(self._open_corpus_in_pilotage)
+
+    def _open_corpus_in_pilotage(self) -> None:
+        """Conserve le raccourci Projet -> Corpus dans le nouvel onglet fusionné."""
+        self.tabs.setCurrentIndex(TAB_PILOTAGE)
+        if hasattr(self, "pilotage_tab") and self.pilotage_tab:
+            self.pilotage_tab.focus_corpus()
+        if self._store is not None:
+            QTimer.singleShot(0, self._refresh_episodes_from_store)
 
     def _get_context(self) -> PipelineContext:
         custom_profiles = self._store.load_custom_profiles() if self._store else {}
@@ -454,8 +481,8 @@ class MainWindow(QMainWindow):
             self._job_runner.cancel()
 
     def _on_tab_changed(self, index: int) -> None:
-        """Remplit le Corpus au passage sur l'onglet (évite segfault Qt/macOS au chargement du projet)."""
-        if index == TAB_CORPUS and self._store is not None:
+        """Remplit le Corpus au passage sur Pilotage (évite segfault Qt/macOS au chargement du projet)."""
+        if index == TAB_PILOTAGE and self._store is not None:
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
             QTimer.singleShot(50, self._refresh_episodes_from_store)
 
