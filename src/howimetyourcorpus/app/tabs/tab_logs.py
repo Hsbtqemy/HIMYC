@@ -351,28 +351,38 @@ class LogsTabWidget(QWidget):
             query=self._current_query(),
         )
 
-    def _on_log_emitted(self, level: str, message: str, formatted_line: str) -> None:
+    def _update_count_label(self) -> None:
+        self.count_label.setText(f"{self._visible_count} / {len(self._entries)}")
+
+    def _ingest_entry(self, entry: LogEntry, *, append_visible_to_editor: bool = True) -> bool:
+        """Ajoute une entrée au buffer et maintient le compteur visible de façon incrémentale."""
         dropped_entry: LogEntry | None = None
         if self._entries.maxlen and len(self._entries) >= self._entries.maxlen:
             dropped_entry = self._entries[0]
-        entry = LogEntry(level=level, message=message, formatted_line=formatted_line)
         self._entries.append(entry)
         if dropped_entry and self._entry_matches_current_filters(dropped_entry):
             self._visible_count = max(0, self._visible_count - 1)
-        if self._entry_matches_current_filters(entry):
-            self.logs_edit.appendPlainText(formatted_line)
+        is_visible = self._entry_matches_current_filters(entry)
+        if is_visible:
             self._visible_count += 1
-        self.count_label.setText(f"{self._visible_count} / {len(self._entries)}")
+            if append_visible_to_editor:
+                self.logs_edit.appendPlainText(entry.formatted_line)
+        return is_visible
+
+    def _on_log_emitted(self, level: str, message: str, formatted_line: str) -> None:
+        entry = LogEntry(level=level, message=message, formatted_line=formatted_line)
+        self._ingest_entry(entry, append_visible_to_editor=True)
+        self._update_count_label()
 
     def _refresh_view(self, *_args) -> None:
-        self.logs_edit.clear()
-        visible_count = 0
-        for entry in self._entries:
-            if self._entry_matches_current_filters(entry):
-                self.logs_edit.appendPlainText(entry.formatted_line)
-                visible_count += 1
-        self._visible_count = visible_count
-        self.count_label.setText(f"{self._visible_count} / {len(self._entries)}")
+        filtered_lines = [
+            entry.formatted_line
+            for entry in self._entries
+            if self._entry_matches_current_filters(entry)
+        ]
+        self.logs_edit.setPlainText("\n".join(filtered_lines))
+        self._visible_count = len(filtered_lines)
+        self._update_count_label()
 
     def _save_filters_state(self) -> None:
         settings = QSettings()
@@ -400,7 +410,7 @@ class LogsTabWidget(QWidget):
         self._entries.clear()
         self.logs_edit.clear()
         self._visible_count = 0
-        self.count_label.setText("0 / 0")
+        self._update_count_label()
 
     def load_file_tail(self, *, max_lines: int = 400, clear_existing: bool = False) -> int:
         """Charge les dernières lignes du fichier log projet dans le tampon visible."""
@@ -414,13 +424,23 @@ class LogsTabWidget(QWidget):
         tail = self._read_tail_lines(path, max_lines)
         if clear_existing:
             self._entries.clear()
+            self._visible_count = 0
+            self.logs_edit.clear()
         added = 0
+        visible_new_lines: list[str] = []
         for line in tail:
             if not line.strip():
                 continue
-            self._entries.append(parse_formatted_log_line(line))
+            entry = parse_formatted_log_line(line)
+            if self._ingest_entry(entry, append_visible_to_editor=False):
+                visible_new_lines.append(entry.formatted_line)
             added += 1
-        self._refresh_view()
+        if clear_existing:
+            self._refresh_view()
+        else:
+            if visible_new_lines:
+                self.logs_edit.appendPlainText("\n".join(visible_new_lines))
+            self._update_count_label()
         return added
 
     @staticmethod

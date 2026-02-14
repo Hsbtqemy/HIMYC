@@ -230,6 +230,13 @@ Etat 2026-02-14:
    - latence filtre p95
    - temps de chargement tail sur gros fichier.
 
+Etat 2026-02-14:
+- Debounce filtre: deja en place.
+- Tail reverse seek: deja en place.
+- Optimisation refresh global: implementee (`setPlainText` en bloc au lieu d'append ligne par ligne).
+- Ingestion incremental load tail (mode non-clear): implementee.
+- Mode pin logs: deja en place.
+
 ### Acceptance criteria
 - Filtre fluide sur 10k lignes.
 - `load_file_tail` significativement plus rapide sur gros logs.
