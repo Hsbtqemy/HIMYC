@@ -3,8 +3,9 @@
 import pytest
 from howimetyourcorpus.core.normalize.profiles import (
     NormalizationProfile,
-    get_profile,
     PROFILES,
+    get_profile,
+    resolve_lang_hint_from_profile_id,
 )
 
 
@@ -71,3 +72,19 @@ def test_get_profile():
     assert get_profile("default_en_v1") is not None
     assert get_profile("nonexistent") is None
     assert "default_en_v1" in PROFILES
+
+
+def test_resolve_lang_hint_from_profile_id_default_profile() -> None:
+    assert resolve_lang_hint_from_profile_id("default_fr_v2") == "fr"
+
+
+def test_resolve_lang_hint_from_profile_id_custom_prefix() -> None:
+    assert resolve_lang_hint_from_profile_id("it_dialogue_v1") == "it"
+
+
+def test_resolve_lang_hint_from_profile_id_falls_back_on_non_lang_prefix() -> None:
+    assert resolve_lang_hint_from_profile_id("aggressive_v1", fallback="en") == "en"
+
+
+def test_resolve_lang_hint_from_profile_id_supports_locale_tokens() -> None:
+    assert resolve_lang_hint_from_profile_id("default_en-us_v1", fallback="fr") == "en"

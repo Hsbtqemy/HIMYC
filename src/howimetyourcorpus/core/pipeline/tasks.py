@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, ProjectConfig, RunMeta, SeriesIndex, TransformStats
-from howimetyourcorpus.core.normalize.profiles import get_profile
+from howimetyourcorpus.core.normalize.profiles import get_profile, resolve_lang_hint_from_profile_id
 from howimetyourcorpus.core.pipeline.context import PipelineContext
 from howimetyourcorpus.core.pipeline.steps import Step, StepResult
 from howimetyourcorpus.core.segment import Segment, segmenter_sentences, segmenter_utterances
@@ -464,7 +464,10 @@ class RebuildSegmentsIndexStep(Step):
                 if d.is_dir() and (d / "clean.txt").exists():
                     to_segment.append(d.name)
         n = len(to_segment)
-        lang_hint = getattr(context.get("config"), "normalize_profile", "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        lang_hint = resolve_lang_hint_from_profile_id(
+            getattr(context.get("config"), "normalize_profile", None),
+            fallback="en",
+        )
         is_cancelled = context.get("is_cancelled")
         for i, eid in enumerate(to_segment):
             if is_cancelled and is_cancelled():

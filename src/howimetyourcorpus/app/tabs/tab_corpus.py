@@ -44,7 +44,7 @@ from howimetyourcorpus.core.export_utils import (
     export_corpus_phrases_csv,
 )
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, SeriesIndex
-from howimetyourcorpus.core.normalize.profiles import PROFILES
+from howimetyourcorpus.core.normalize.profiles import PROFILES, resolve_lang_hint_from_profile_id
 from howimetyourcorpus.core.pipeline.tasks import (
     FetchSeriesIndexStep,
     FetchAndMergeSeriesIndexStep,
@@ -1102,14 +1102,8 @@ class CorpusTabWidget(QWidget):
     @staticmethod
     def _resolve_lang_hint(context: dict[str, Any]) -> str:
         config = context.get("config")
-        if config and getattr(config, "normalize_profile", None):
-            return (
-                (config.normalize_profile or "default_en_v1")
-                .split("_")[0]
-                .replace("default", "en")
-                or "en"
-            )
-        return "en"
+        profile_id = getattr(config, "normalize_profile", None) if config else None
+        return resolve_lang_hint_from_profile_id(profile_id, fallback="en")
 
     def _build_plan_or_warn(
         self,

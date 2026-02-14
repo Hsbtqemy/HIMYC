@@ -112,3 +112,35 @@ def get_all_profile_ids(
             if pid not in ids:
                 ids.append(pid)
     return ids
+
+
+def _normalize_lang_code(value: str | None) -> str | None:
+    """Normalise un code langue 2-3 lettres (ex: en, fr, eng)."""
+    raw = (value or "").strip().lower()
+    if not raw:
+        return None
+    candidate = raw.split("-", 1)[0]
+    if re.fullmatch(r"[a-z]{2,3}", candidate):
+        return candidate
+    return None
+
+
+def resolve_lang_hint_from_profile_id(profile_id: str | None, *, fallback: str = "en") -> str:
+    """
+    Déduit le `lang_hint` pour la segmentation à partir d'un id de profil.
+
+    Règles:
+    - `default_en_v1` -> `en`
+    - `fr_custom_v2` -> `fr`
+    - si aucun token langue exploitable n'est trouvé -> `fallback`
+    """
+    fallback_lang = _normalize_lang_code(fallback) or "en"
+    tokens = [tok for tok in str(profile_id or "").strip().lower().split("_") if tok]
+    if not tokens:
+        return fallback_lang
+    start_idx = 1 if tokens[0] == "default" else 0
+    for token in tokens[start_idx:]:
+        lang = _normalize_lang_code(token)
+        if lang:
+            return lang
+    return fallback_lang

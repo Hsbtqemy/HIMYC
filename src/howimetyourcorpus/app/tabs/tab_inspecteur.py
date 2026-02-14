@@ -23,7 +23,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
+from howimetyourcorpus.core.normalize.profiles import (
+    PROFILES,
+    get_all_profile_ids,
+    resolve_lang_hint_from_profile_id,
+)
 from howimetyourcorpus.core.export_utils import (
     export_segments_txt,
     export_segments_csv,
@@ -31,7 +35,6 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_docx,
 )
 from howimetyourcorpus.app.feedback import show_error, warn_precondition
-from howimetyourcorpus.core.normalize.profiles import PROFILES
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 from howimetyourcorpus.core.workflow import (
@@ -472,10 +475,15 @@ class InspectorTabWidget(QWidget):
                 next_step="Inspecteur: cliquez sur « Normaliser cet épisode ».",
             )
             return
+        config = self._get_config()
+        lang_hint = resolve_lang_hint_from_profile_id(
+            getattr(config, "normalize_profile", None),
+            fallback="en",
+        )
         steps = self._build_single_episode_steps(
             WorkflowActionId.SEGMENT_EPISODES,
             str(eid),
-            options={"lang_hint": "en"},
+            options={"lang_hint": lang_hint},
             title="Segmentation",
         )
         if steps is None:
