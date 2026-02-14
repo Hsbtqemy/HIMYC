@@ -222,6 +222,44 @@ class AlignmentTabWidget(QWidget):
     def _selected_status_filter(self) -> str | None:
         return "accepted" if self.align_accepted_only_cb.isChecked() else None
 
+    def _resolve_episode_store_db_or_warn(
+        self,
+        *,
+        title: str,
+        next_step: str,
+    ) -> tuple[str, object, object] | None:
+        episode_id = self._current_episode_id()
+        store = self._get_store()
+        db = self._get_db()
+        if not episode_id or not store or not db:
+            warn_precondition(
+                self,
+                title,
+                "Sélectionnez un épisode et ouvrez un projet.",
+                next_step=next_step,
+            )
+            return None
+        return episode_id, store, db
+
+    def _resolve_target_lang_or_warn(self, *, title: str) -> str | None:
+        if self.align_target_lang_combo.count() == 0:
+            warn_precondition(
+                self,
+                title,
+                "Aucune langue cible disponible pour cet épisode. Importez un SRT/VTT cible dans l'Inspecteur.",
+                next_step="Inspecteur > Sous-titres: importez une piste non-EN pour cet épisode.",
+            )
+            return None
+        target_lang = (self.align_target_lang_combo.currentData() or "fr").lower()
+        if target_lang == "en":
+            warn_precondition(
+                self,
+                title,
+                "La langue cible doit être différente de EN (pivot).",
+            )
+            return None
+        return target_lang
+
     def _require_episode_run_and_db(self, title: str, message: str) -> tuple[str, str, object] | None:
         episode_id = self._current_episode_id()
         run_id = self._current_run_id()
@@ -471,32 +509,15 @@ class AlignmentTabWidget(QWidget):
                 self._fill_links()
 
     def _run_align_episode(self) -> None:
-        eid = self._current_episode_id()
-        store = self._get_store()
-        db = self._get_db()
-        if not eid or not store or not db:
-            warn_precondition(
-                self,
-                "Alignement",
-                "Sélectionnez un épisode et ouvrez un projet.",
-                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode ici.",
-            )
+        resolved = self._resolve_episode_store_db_or_warn(
+            title="Alignement",
+            next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode ici.",
+        )
+        if resolved is None:
             return
-        if self.align_target_lang_combo.count() == 0:
-            warn_precondition(
-                self,
-                "Alignement",
-                "Aucune langue cible disponible pour cet épisode. Importez un SRT/VTT cible dans l'Inspecteur.",
-                next_step="Inspecteur > Sous-titres: importez une piste non-EN pour cet épisode.",
-            )
-            return
-        target_lang = (self.align_target_lang_combo.currentData() or "fr").lower()
-        if target_lang == "en":
-            warn_precondition(
-                self,
-                "Alignement",
-                "La langue cible doit être différente de EN (pivot).",
-            )
+        eid, _store, _db = resolved
+        target_lang = self._resolve_target_lang_or_warn(title="Alignement")
+        if target_lang is None:
             return
         use_similarity = self.align_by_similarity_cb.isChecked()
         self._run_job([
