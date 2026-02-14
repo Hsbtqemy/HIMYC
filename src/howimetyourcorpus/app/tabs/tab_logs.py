@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -19,7 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from howimetyourcorpus.app.feedback import warn_precondition
+from howimetyourcorpus.app.feedback import show_info, warn_precondition
 from howimetyourcorpus.app.logs_utils import (
     LogEntry,
     extract_episode_id,
@@ -74,6 +75,10 @@ class LogsTabWidget(QWidget):
         self.preset_combo.addItem("Tous", ("ALL", ""))
         self.preset_combo.addItem("Erreurs (ERROR+)", ("ERROR", ""))
         self.preset_combo.addItem("Pipeline", ("INFO", "step"))
+        self.preset_combo.addItem("Fetch", ("ALL", "fetch"))
+        self.preset_combo.addItem("Normalize", ("ALL", "normalize"))
+        self.preset_combo.addItem("Segment", ("ALL", "segment"))
+        self.preset_combo.addItem("Index", ("ALL", "index"))
         self.preset_combo.addItem("Alignement", ("ALL", "align"))
         self.preset_combo.addItem("Concordance", ("ALL", "kwic"))
         self.preset_combo.addItem("Personnalisé", ("CUSTOM", ""))
@@ -112,6 +117,14 @@ class LogsTabWidget(QWidget):
         )
         open_episode_btn.clicked.connect(self._open_episode_from_selected_log)
         row.addWidget(open_episode_btn)
+        copy_line_btn = QPushButton("Copier ligne")
+        copy_line_btn.setToolTip("Copie la ligne de log sélectionnée (ou la ligne courante).")
+        copy_line_btn.clicked.connect(self._copy_selected_log_line)
+        row.addWidget(copy_line_btn)
+        copy_episode_btn = QPushButton("Copier épisode")
+        copy_episode_btn.setToolTip("Copie l'episode_id SxxExx détecté dans la ligne sélectionnée.")
+        copy_episode_btn.clicked.connect(self._copy_episode_id_from_selected_log)
+        row.addWidget(copy_episode_btn)
         load_file_tail_btn = QPushButton("Charger extrait fichier")
         load_file_tail_btn.setToolTip("Charge les dernières lignes du fichier log projet (si disponible).")
         load_file_tail_btn.clicked.connect(self._load_file_tail_from_button)
@@ -287,6 +300,63 @@ class LogsTabWidget(QWidget):
             )
             return
         self._on_open_inspector(episode_id)
+
+    @staticmethod
+    def _copy_to_clipboard(text: str) -> bool:
+        clipboard = QGuiApplication.clipboard()
+        if clipboard is None:
+            return False
+        clipboard.setText(text)
+        return True
+
+    def _copy_selected_log_line(self) -> None:
+        text = self._selected_log_text()
+        if not text:
+            warn_precondition(
+                self,
+                "Logs",
+                "Aucune ligne de log disponible à copier.",
+                next_step="Sélectionnez une ligne de log puis réessayez.",
+            )
+            return
+        if not self._copy_to_clipboard(text):
+            warn_precondition(
+                self,
+                "Logs",
+                "Impossible d'accéder au presse-papiers.",
+                next_step="Réessayez après avoir activé le focus de l'application.",
+            )
+            return
+        show_info(self, "Logs", "Ligne copiée dans le presse-papiers.")
+
+    def _copy_episode_id_from_selected_log(self) -> None:
+        text = self._selected_log_text()
+        if not text:
+            warn_precondition(
+                self,
+                "Logs",
+                "Aucune ligne de log disponible.",
+                next_step="Sélectionnez une ligne contenant un identifiant épisode.",
+            )
+            return
+        episode_id = extract_episode_id(text)
+        if not episode_id:
+            warn_precondition(
+                self,
+                "Logs",
+                "Aucun episode_id trouvé dans la ligne sélectionnée.",
+                next_step="Sélectionnez une ligne contenant un identifiant du type S01E01.",
+            )
+            return
+        if not self._copy_to_clipboard(episode_id):
+            warn_precondition(
+                self,
+                "Logs",
+                "Impossible d'accéder au presse-papiers.",
+                next_step="Réessayez après avoir activé le focus de l'application.",
+            )
+            return
+        show_info(self, "Logs", f"Épisode copié: {episode_id}")
 
     def closeEvent(self, event) -> None:
         if self._handler is not None:
