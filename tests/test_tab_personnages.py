@@ -1,5 +1,8 @@
 """Tests unitaires ciblés pour l'onglet Personnages."""
 
+from PySide6.QtCore import Qt
+
+from howimetyourcorpus.app.models_qt import CharacterNamesTableModel
 from howimetyourcorpus.app.tabs.tab_personnages import PersonnagesTabWidget
 
 
@@ -47,3 +50,24 @@ def test_encode_decode_run_selections_payload_roundtrip() -> None:
     encoded = PersonnagesTabWidget._encode_run_selections_payload(data)
     decoded = PersonnagesTabWidget._decode_run_selections_payload(encoded)
     assert decoded == data
+
+
+def test_character_names_table_model_edit_add_remove() -> None:
+    model = CharacterNamesTableModel()
+    model.set_characters(
+        characters=[
+            {"id": "ted", "canonical": "Ted", "names_by_lang": {"en": "Ted", "fr": "Ted"}},
+        ],
+        langs=["en", "fr"],
+    )
+    assert model.rowCount() == 1
+    assert model.columnCount() == 4
+    idx = model.index(0, 1)
+    assert model.data(idx, Qt.ItemDataRole.DisplayRole) == "Ted"
+    model.setData(idx, "Theodore", Qt.ItemDataRole.EditRole)
+    assert model.data(idx, Qt.ItemDataRole.DisplayRole) == "Theodore"
+    new_row = model.add_empty_row()
+    assert new_row == 1
+    assert model.rowCount() == 2
+    assert model.remove_row(0) is True
+    assert model.rowCount() == 1

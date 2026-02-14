@@ -7,11 +7,13 @@ from typing import Callable
 
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QPushButton,
+    QTableView,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
+from howimetyourcorpus.app.models_qt import CharacterNamesTableModel
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 
 _RUN_SELECTIONS_BY_PROJECT_KEY = "personnages/runSelectionsByProject"
@@ -47,9 +50,12 @@ class PersonnagesTabWidget(QWidget):
             "Liste des personnages du projet (noms canoniques et par langue). "
             "Utilisée pour l'assignation et la propagation des noms (backlog §8)."
         ))
-        self.personnages_table = QTableWidget()
-        self.personnages_table.setColumnCount(4)
-        self.personnages_table.setHorizontalHeaderLabels(["Id", "Canonique", "EN", "FR"])
+        self.personnages_table = QTableView()
+        self.personnages_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.personnages_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.personnages_table.setAlternatingRowColors(True)
+        self._personnages_model = CharacterNamesTableModel(self.personnages_table)
+        self.personnages_table.setModel(self._personnages_model)
         self.personnages_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.personnages_table)
         btn_row = QHBoxLayout()
@@ -127,14 +133,16 @@ class PersonnagesTabWidget(QWidget):
         self._load_assign_tooltip_default = self.personnages_load_assign_btn.toolTip()
         self._save_assign_tooltip_default = self.personnages_save_assign_btn.toolTip()
         self._propagate_tooltip_default = self.personnages_propagate_btn.toolTip()
-        self.personnages_table.itemSelectionChanged.connect(self._apply_controls_enabled)
+        sel_model = self.personnages_table.selectionModel()
+        if sel_model is not None:
+            sel_model.selectionChanged.connect(self._apply_controls_enabled)
         self._apply_controls_enabled()
 
     def refresh(self) -> None:
         """Charge la liste des personnages et le combo épisodes (appelé après ouverture projet)."""
         current_episode = self.personnages_episode_combo.currentData()
         current_source = self.personnages_source_combo.currentData()
-        self.personnages_table.setRowCount(0)
+        self._personnages_model.set_characters([], [])
         self.personnages_assign_table.setRowCount(0)
         store = self._get_store()
         if not store:
@@ -159,10 +167,6 @@ class PersonnagesTabWidget(QWidget):
             return
         self._load_run_selection_state_for_current_project()
         langs = store.load_project_languages()
-        self.personnages_table.setColumnCount(2 + len(langs))
-        self.personnages_table.setHorizontalHeaderLabels(
-            ["Id", "Canonique"] + [lang.upper() for lang in langs]
-        )
         source_items = [("Segments", "segments")] + [
             (f"Cues {lang.upper()}", f"cues_{lang}") for lang in langs
         ]
@@ -172,16 +176,7 @@ class PersonnagesTabWidget(QWidget):
             current_data=current_source,
         )
         characters = store.load_character_names()
-        for ch in characters:
-            row = self.personnages_table.rowCount()
-            self.personnages_table.insertRow(row)
-            names = ch.get("names_by_lang") or {}
-            self.personnages_table.setItem(row, 0, QTableWidgetItem(ch.get("id") or ""))
-            self.personnages_table.setItem(row, 1, QTableWidgetItem(ch.get("canonical") or ""))
-            for i, lang in enumerate(langs):
-                self.personnages_table.setItem(
-                    row, 2 + i, QTableWidgetItem(names.get(lang, ""))
-                )
+        self._personnages_model.set_characters(characters, langs)
         index = store.load_series_index()
         episode_items: list[tuple[str, str]] = []
         if index and index.episodes:
@@ -374,8 +369,8 @@ class PersonnagesTabWidget(QWidget):
         controls_enabled = has_project and not self._job_busy
         has_episode = bool(self.personnages_episode_combo.currentData())
         has_align_run = bool(self.personnages_run_combo.currentData())
-        has_character_rows = self.personnages_table.rowCount() > 0
-        has_character_selection = self.personnages_table.currentRow() >= 0
+        has_character_rows = self._personnages_model.rowCount() > 0
+        has_character_selection = self._selected_character_row() >= 0
         has_assignment_rows = self.personnages_assign_table.rowCount() > 0
         self.personnages_table.setEnabled(controls_enabled)
         self.personnages_add_btn.setEnabled(controls_enabled)
@@ -439,17 +434,30 @@ class PersonnagesTabWidget(QWidget):
         self._apply_controls_enabled()
 
     def _add_row(self) -> None:
-        row = self.personnages_table.rowCount()
-        self.personnages_table.insertRow(row)
-        for c in range(self.personnages_table.columnCount()):
-            self.personnages_table.setItem(row, c, QTableWidgetItem(""))
+        row = self._personnages_model.add_empty_row()
+        if row >= 0:
+            self.personnages_table.selectRow(row)
+            idx = self._personnages_model.index(row, 0)
+            if idx.isValid():
+                self.personnages_table.setCurrentIndex(idx)
         self._apply_controls_enabled()
 
     def _remove_row(self) -> None:
-        row = self.personnages_table.currentRow()
+        row = self._selected_character_row()
         if row >= 0:
-            self.personnages_table.removeRow(row)
+            self._personnages_model.remove_row(row)
         self._apply_controls_enabled()
+
+    def _selected_character_row(self) -> int:
+        sel_model = self.personnages_table.selectionModel()
+        if sel_model is not None:
+            selected_rows = sel_model.selectedRows()
+            if selected_rows:
+                return selected_rows[0].row()
+        current = self.personnages_table.currentIndex()
+        if current.isValid():
+            return current.row()
+        return -1
 
     def _resolve_store_db_or_warn(
         self,
@@ -545,21 +553,19 @@ class PersonnagesTabWidget(QWidget):
         if resolved is None:
             return
         store, _db = resolved
-        langs = store.load_project_languages()
+        langs = self._personnages_model.get_languages()
         characters = []
-        for row in range(self.personnages_table.rowCount()):
-            id_item = self.personnages_table.item(row, 0)
-            canon_item = self.personnages_table.item(row, 1)
-            cid = (id_item.text() or "").strip() if id_item else ""
-            canon = (canon_item.text() or "").strip() if canon_item else ""
+        for row in self._personnages_model.get_rows_payload():
+            cid = (row.get("id") or "").strip()
+            canon = (row.get("canonical") or "").strip()
             if not cid and not canon:
                 continue
             names_by_lang = {}
-            for i, lang in enumerate(langs):
-                if 2 + i < self.personnages_table.columnCount():
-                    item = self.personnages_table.item(row, 2 + i)
-                    if item and (item.text() or "").strip():
-                        names_by_lang[lang] = (item.text() or "").strip()
+            row_names = row.get("names_by_lang") or {}
+            for lang in langs:
+                value = str(row_names.get(lang) or "").strip()
+                if value:
+                    names_by_lang[lang] = value
             characters.append({
                 "id": cid or canon.lower().replace(" ", "_"),
                 "canonical": canon or cid,

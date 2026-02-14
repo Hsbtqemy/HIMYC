@@ -652,6 +652,140 @@ class KwicTableModel(QAbstractTableModel):
         return list(self._hits)
 
 
+class CharacterNamesTableModel(QAbstractTableModel):
+    """Modèle éditable pour les personnages (id, canonique, noms par langue)."""
+
+    BASE_HEADERS = ["Id", "Canonique"]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._langs: list[str] = []
+        self._rows: list[dict[str, Any]] = []
+
+    def set_characters(self, characters: list[dict], langs: list[str]) -> None:
+        clean_langs = [str(lang).strip().lower() for lang in langs if str(lang).strip()]
+        self.beginResetModel()
+        self._langs = clean_langs
+        self._rows = []
+        for ch in characters:
+            names_raw = ch.get("names_by_lang") if isinstance(ch, dict) else {}
+            names_by_lang = names_raw if isinstance(names_raw, dict) else {}
+            self._rows.append(
+                {
+                    "id": str(ch.get("id") or "") if isinstance(ch, dict) else "",
+                    "canonical": str(ch.get("canonical") or "") if isinstance(ch, dict) else "",
+                    "names_by_lang": {
+                        lang: str(names_by_lang.get(lang) or "")
+                        for lang in clean_langs
+                    },
+                }
+            )
+        self.endResetModel()
+
+    def get_languages(self) -> list[str]:
+        return list(self._langs)
+
+    def get_rows_payload(self) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for row in self._rows:
+            out.append(
+                {
+                    "id": str(row.get("id") or ""),
+                    "canonical": str(row.get("canonical") or ""),
+                    "names_by_lang": dict(row.get("names_by_lang") or {}),
+                }
+            )
+        return out
+
+    def add_empty_row(self) -> int:
+        row = len(self._rows)
+        self.beginInsertRows(QModelIndex(), row, row)
+        self._rows.append(
+            {
+                "id": "",
+                "canonical": "",
+                "names_by_lang": {lang: "" for lang in self._langs},
+            }
+        )
+        self.endInsertRows()
+        return row
+
+    def remove_row(self, row: int) -> bool:
+        if row < 0 or row >= len(self._rows):
+            return False
+        self.beginRemoveRows(QModelIndex(), row, row)
+        self._rows.pop(row)
+        self.endRemoveRows()
+        return True
+
+    def rowCount(self, parent=QModelIndex()):
+        if parent.isValid():
+            return 0
+        return len(self._rows)
+
+    def columnCount(self, parent=QModelIndex()):
+        if parent.isValid():
+            return 0
+        return 2 + len(self._langs)
+
+    def _lang_for_col(self, col: int) -> str | None:
+        lang_index = col - 2
+        if 0 <= lang_index < len(self._langs):
+            return self._langs[lang_index]
+        return None
+
+    def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or index.row() >= len(self._rows):
+            return None
+        row = self._rows[index.row()]
+        col = index.column()
+        if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
+            if col == 0:
+                return row.get("id", "")
+            if col == 1:
+                return row.get("canonical", "")
+            lang = self._lang_for_col(col)
+            if lang:
+                return (row.get("names_by_lang") or {}).get(lang, "")
+        return None
+
+    def setData(self, index: QModelIndex, value: Any, role=Qt.ItemDataRole.EditRole) -> bool:
+        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
+            return False
+        if index.row() < 0 or index.row() >= len(self._rows):
+            return False
+        row = self._rows[index.row()]
+        text = str(value or "")
+        col = index.column()
+        if col == 0:
+            row["id"] = text
+        elif col == 1:
+            row["canonical"] = text
+        else:
+            lang = self._lang_for_col(col)
+            if not lang:
+                return False
+            names_by_lang = row.get("names_by_lang")
+            if not isinstance(names_by_lang, dict):
+                names_by_lang = {}
+                row["names_by_lang"] = names_by_lang
+            names_by_lang[lang] = text
+        self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole])
+        return True
+
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+        if not index.isValid():
+            return super().flags(index)
+        return super().flags(index) | Qt.ItemFlag.ItemIsEditable
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role=Qt.ItemDataRole.DisplayRole):
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+            headers = self.BASE_HEADERS + [lang.upper() for lang in self._langs]
+            if 0 <= section < len(headers):
+                return headers[section]
+        return None
+
+
 def _truncate(s: str, max_len: int = 55) -> str:
     if not s:
         return ""
