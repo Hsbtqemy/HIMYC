@@ -99,11 +99,20 @@ class InspectorTabWidget(QWidget):
         self.inspect_set_preferred_profile_btn.clicked.connect(self._set_episode_preferred_profile)
         row.addWidget(self.inspect_set_preferred_profile_btn)
         self.inspect_segment_btn = QPushButton("Segmente l'épisode")
+        self.inspect_segment_btn.setToolTip(
+            "Découpe le fichier CLEAN de l'épisode en segments (phrases/tours) pour QA et alignement."
+        )
         self.inspect_segment_btn.clicked.connect(self._run_segment)
         row.addWidget(self.inspect_segment_btn)
         self.inspect_export_segments_btn = QPushButton("Exporter les segments")
+        self.inspect_export_segments_btn.setToolTip(
+            "Exporte les segments de l'épisode courant (TXT/CSV/TSV/Word)."
+        )
         self.inspect_export_segments_btn.clicked.connect(self._export_segments)
         row.addWidget(self.inspect_export_segments_btn)
+        self._inspect_norm_tooltip_default = self.inspect_norm_btn.toolTip()
+        self._inspect_segment_tooltip_default = self.inspect_segment_btn.toolTip()
+        self._inspect_export_segments_tooltip_default = self.inspect_export_segments_btn.toolTip()
         layout.addLayout(row)
 
         self.inspect_main_split = QSplitter(Qt.Orientation.Horizontal)
@@ -288,6 +297,28 @@ class InspectorTabWidget(QWidget):
         self.inspect_export_segments_btn.setEnabled(has_segments and bool(db) and controls_enabled)
         self.inspect_profile_combo.setEnabled(has_episode and controls_enabled)
         self.inspect_view_combo.setEnabled(has_episode and controls_enabled)
+        if not controls_enabled:
+            self.inspect_norm_btn.setToolTip("Action indisponible pendant un job.")
+            self.inspect_segment_btn.setToolTip("Action indisponible pendant un job.")
+            self.inspect_export_segments_btn.setToolTip("Action indisponible pendant un job.")
+            return
+        if not has_episode:
+            self.inspect_norm_btn.setToolTip("Sélectionnez un épisode.")
+            self.inspect_segment_btn.setToolTip("Sélectionnez un épisode.")
+            self.inspect_export_segments_btn.setToolTip("Sélectionnez un épisode.")
+            return
+        if has_raw:
+            self.inspect_norm_btn.setToolTip(self._inspect_norm_tooltip_default)
+        else:
+            self.inspect_norm_btn.setToolTip("Normalisation indisponible: transcript RAW manquant.")
+        if has_clean:
+            self.inspect_segment_btn.setToolTip(self._inspect_segment_tooltip_default)
+        else:
+            self.inspect_segment_btn.setToolTip("Segmentation indisponible: fichier CLEAN manquant.")
+        if has_segments:
+            self.inspect_export_segments_btn.setToolTip(self._inspect_export_segments_tooltip_default)
+        else:
+            self.inspect_export_segments_btn.setToolTip("Export indisponible: aucun segment pour cet épisode.")
 
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions de mutation pendant un job de fond."""
