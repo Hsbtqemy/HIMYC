@@ -387,6 +387,22 @@ class CorpusTabWidget(QWidget):
         self.all_in_one_btn.setToolTip(run_all_reason or self._all_in_one_btn_tooltip_default)
         self.index_btn.setToolTip(index_reason or self._index_btn_tooltip_default)
 
+    def _set_scope_actions_unavailable(self, reason: str) -> None:
+        self._set_scope_action_buttons_enabled(
+            fetch=False,
+            normalize=False,
+            segment=False,
+            run_all=False,
+            index=False,
+        )
+        self._set_scope_action_tooltips(
+            fetch_reason=reason,
+            normalize_reason=reason,
+            segment_reason=reason,
+            run_all_reason=reason,
+            index_reason=reason,
+        )
+
     def set_workflow_busy(self, busy: bool) -> None:
         """Active/désactive les contrôles de pilotage pendant l'exécution d'un job."""
         self._workflow_busy = busy
@@ -881,56 +897,17 @@ class CorpusTabWidget(QWidget):
             return
 
         if index is None or not index.episodes:
-            self._set_scope_action_buttons_enabled(
-                fetch=False,
-                normalize=False,
-                segment=False,
-                run_all=False,
-                index=False,
-            )
-            self._set_scope_action_tooltips(
-                fetch_reason="Action indisponible: aucun épisode dans le corpus.",
-                normalize_reason="Action indisponible: aucun épisode dans le corpus.",
-                segment_reason="Action indisponible: aucun épisode dans le corpus.",
-                run_all_reason="Action indisponible: aucun épisode dans le corpus.",
-                index_reason="Action indisponible: aucun épisode dans le corpus.",
-            )
+            self._set_scope_actions_unavailable("Action indisponible: aucun épisode dans le corpus.")
             return
 
         store = self._get_store()
         if not store:
-            self._set_scope_action_buttons_enabled(
-                fetch=False,
-                normalize=False,
-                segment=False,
-                run_all=False,
-                index=False,
-            )
-            self._set_scope_action_tooltips(
-                fetch_reason="Action indisponible: ouvrez un projet d'abord.",
-                normalize_reason="Action indisponible: ouvrez un projet d'abord.",
-                segment_reason="Action indisponible: ouvrez un projet d'abord.",
-                run_all_reason="Action indisponible: ouvrez un projet d'abord.",
-                index_reason="Action indisponible: ouvrez un projet d'abord.",
-            )
+            self._set_scope_actions_unavailable("Action indisponible: ouvrez un projet d'abord.")
             return
 
         ids = self._resolve_scope_ids_silent(index)
         if not ids:
-            self._set_scope_action_buttons_enabled(
-                fetch=False,
-                normalize=False,
-                segment=False,
-                run_all=False,
-                index=False,
-            )
-            self._set_scope_action_tooltips(
-                fetch_reason="Action indisponible: aucun épisode dans le scope courant.",
-                normalize_reason="Action indisponible: aucun épisode dans le scope courant.",
-                segment_reason="Action indisponible: aucun épisode dans le scope courant.",
-                run_all_reason="Action indisponible: aucun épisode dans le scope courant.",
-                index_reason="Action indisponible: aucun épisode dans le scope courant.",
-            )
+            self._set_scope_actions_unavailable("Action indisponible: aucun épisode dans le scope courant.")
             return
 
         episode_url_by_id = self._build_episode_url_by_id(index)
