@@ -838,6 +838,70 @@ class CorpusTabWidget(QWidget):
             return None
         return index
 
+    def _resolve_scope_context(
+        self,
+        *,
+        scope_mode: str | None = None,
+        require_db: bool = False,
+    ) -> tuple[Any, Any, dict[str, Any], SeriesIndex, WorkflowScope, list[str]] | None:
+        resolved_context = self._resolve_project_context(require_db=require_db)
+        if resolved_context is None:
+            return None
+        store, db, context = resolved_context
+        index = self._load_index_or_warn(store)
+        if index is None:
+            return None
+        resolved_scope = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
+        if resolved_scope is None:
+            return None
+        scope, ids = resolved_scope
+        return store, db, context, index, scope, ids
+
+    def _build_action_steps_or_warn(
+        self,
+        *,
+        action_id: WorkflowActionId,
+        context: dict[str, Any],
+        scope: WorkflowScope,
+        episode_refs: list[EpisodeRef],
+        options: dict[str, Any] | None = None,
+    ) -> list[Any] | None:
+        plan = self._build_plan_or_warn(
+            action_id=action_id,
+            context=context,
+            scope=scope,
+            episode_refs=episode_refs,
+            options=options,
+        )
+        if not plan:
+            return None
+        return list(plan.steps)
+
+    def _run_action_for_scope(
+        self,
+        *,
+        action_id: WorkflowActionId,
+        context: dict[str, Any],
+        scope: WorkflowScope,
+        episode_refs: list[EpisodeRef],
+        options: dict[str, Any] | None,
+        empty_message: str,
+    ) -> bool:
+        steps = self._build_action_steps_or_warn(
+            action_id=action_id,
+            context=context,
+            scope=scope,
+            episode_refs=episode_refs,
+            options=options,
+        )
+        if steps is None:
+            return False
+        if not steps:
+            QMessageBox.information(self, "Corpus", empty_message)
+            return False
+        self._run_job(steps)
+        return True
+
     def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
         db = self._get_db()
         if not db or not episode_ids:
@@ -920,16 +984,16 @@ class CorpusTabWidget(QWidget):
             episode_ids=ids,
             batch_profile=batch_profile,
         )
-        fetch_plan = self._build_plan_or_warn(
+        fetch_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
             options={"episode_url_by_id": {ref.episode_id: ref.url for ref in index.episodes}},
         )
-        if not fetch_plan:
+        if fetch_steps is None:
             return
-        normalize_plan = self._build_plan_or_warn(
+        normalize_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.NORMALIZE_EPISODES,
             context=context,
             scope=scope,
@@ -939,74 +1003,52 @@ class CorpusTabWidget(QWidget):
                 "profile_by_episode": profile_by_episode,
             },
         )
-        if not normalize_plan:
+        if normalize_steps is None:
             return
-        segment_plan = self._build_plan_or_warn(
+        segment_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
             options={"lang_hint": self._resolve_lang_hint(context)},
         )
-        if not segment_plan:
+        if segment_steps is None:
             return
-        index_plan = self._build_plan_or_warn(
+        index_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.BUILD_DB_INDEX,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
         )
-        if not index_plan:
+        if index_steps is None:
             return
-        steps = (
-            list(fetch_plan.steps)
-            + list(normalize_plan.steps)
-            + list(segment_plan.steps)
-            + list(index_plan.steps)
-        )
+        steps = fetch_steps + normalize_steps + segment_steps + index_steps
         if not steps:
             QMessageBox.information(self, "Corpus", "Aucune opération à exécuter.")
             return
         self._run_job(steps)
 
     def _fetch_episodes(self, scope_mode: str | None = None) -> None:
-        resolved = self._resolve_project_context(require_db=True)
+        resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
         if resolved is None:
             return
-        store, _db, context = resolved
-        index = self._load_index_or_warn(store)
-        if index is None:
-            return
-        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
-        if resolved is None:
-            return
-        scope, _ids = resolved
-        plan = self._build_plan_or_warn(
+        _store, _db, context, index, scope, _ids = resolved
+        self._run_action_for_scope(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
-            options={"episode_url_by_id": {ref.episode_id: ref.url for ref in index.episodes}},
+            options={
+                "episode_url_by_id": {ref.episode_id: ref.url for ref in index.episodes}
+            },
+            empty_message="Aucun épisode à télécharger.",
         )
-        if not plan:
-            return
-        if not plan.steps:
-            QMessageBox.information(self, "Corpus", "Aucun épisode à télécharger.")
-            return
-        self._run_job(list(plan.steps))
 
     def _normalize_episodes(self, scope_mode: str | None = None) -> None:
-        resolved = self._resolve_project_context()
+        resolved = self._resolve_scope_context(scope_mode=scope_mode)
         if resolved is None:
             return
-        store, _db, context = resolved
-        index = self._load_index_or_warn(store)
-        if index is None:
-            return
-        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
-        if resolved is None:
-            return
-        scope, ids = resolved
+        store, _db, context, index, scope, ids = resolved
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
         profile_by_episode = self._build_profile_by_episode(
             store=store,
@@ -1014,7 +1056,7 @@ class CorpusTabWidget(QWidget):
             episode_ids=ids,
             batch_profile=batch_profile,
         )
-        plan = self._build_plan_or_warn(
+        self._run_action_for_scope(
             action_id=WorkflowActionId.NORMALIZE_EPISODES,
             context=context,
             scope=scope,
@@ -1023,27 +1065,15 @@ class CorpusTabWidget(QWidget):
                 "default_profile_id": batch_profile,
                 "profile_by_episode": profile_by_episode,
             },
+            empty_message="Aucun épisode à normaliser.",
         )
-        if not plan:
-            return
-        if not plan.steps:
-            QMessageBox.information(self, "Corpus", "Aucun épisode à normaliser.")
-            return
-        self._run_job(list(plan.steps))
 
     def _segment_episodes(self, scope_mode: str | None = None) -> None:
         """Bloc 2 — Segmente les épisodes du scope sélectionné ayant clean.txt."""
-        resolved = self._resolve_project_context()
+        resolved = self._resolve_scope_context(scope_mode=scope_mode)
         if resolved is None:
             return
-        store, _db, context = resolved
-        index = self._load_index_or_warn(store)
-        if index is None:
-            return
-        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
-        if resolved is None:
-            return
-        _scope, ids = resolved
+        store, _db, context, index, _scope, ids = resolved
         eids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
         if not eids_with_clean:
             QMessageBox.warning(
@@ -1051,33 +1081,21 @@ class CorpusTabWidget(QWidget):
                 "Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope."
             )
             return
-        plan = self._build_plan_or_warn(
+        self._run_action_for_scope(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
             context=context,
             scope=WorkflowScope.selection(eids_with_clean),
             episode_refs=index.episodes,
             options={"lang_hint": self._resolve_lang_hint(context)},
+            empty_message="Aucun épisode à segmenter.",
         )
-        if not plan:
-            return
-        if not plan.steps:
-            QMessageBox.information(self, "Corpus", "Aucun épisode à segmenter.")
-            return
-        self._run_job(list(plan.steps))
 
     def _run_all_for_scope(self) -> None:
         """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB sur le scope choisi."""
-        resolved_context = self._resolve_project_context(require_db=True)
-        if resolved_context is None:
+        resolved = self._resolve_scope_context(require_db=True)
+        if resolved is None:
             return
-        store, _db, context = resolved_context
-        index = self._load_index_or_warn(store)
-        if index is None:
-            return
-        resolved_scope = self._resolve_scope_and_ids(index)
-        if resolved_scope is None:
-            return
-        _scope, ids = resolved_scope
+        store, _db, context, index, _scope, ids = resolved
         self._run_all_for_episode_ids(ids=ids, index=index, store=store, context=context)
 
     def _retry_selected_error_episode(self) -> None:
@@ -1132,66 +1150,48 @@ class CorpusTabWidget(QWidget):
         self._on_open_inspector(eid)
 
     def _index_db(self, scope_mode: str | None = None) -> None:
-        resolved_context = self._resolve_project_context(require_db=True)
-        if resolved_context is None:
-            return
-        store, _db, context = resolved_context
-        index = self._load_index_or_warn(store)
-        if index is None:
-            return
-        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
+        resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
         if resolved is None:
             return
-        scope, _ids = resolved
-        plan = self._build_plan_or_warn(
+        _store, _db, context, index, scope, _ids = resolved
+        self._run_action_for_scope(
             action_id=WorkflowActionId.BUILD_DB_INDEX,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
+            options=None,
+            empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
         )
-        if not plan:
-            return
-        if not plan.steps:
-            QMessageBox.information(self, "Corpus", "Aucun épisode CLEAN à indexer pour ce scope.")
-            return
-        self._run_job(list(plan.steps))
 
     def _segment_and_index_scope(self, scope_mode: str | None = None) -> None:
         """Chaîne segmenter puis indexer pour les épisodes CLEAN du scope choisi."""
-        resolved_context = self._resolve_project_context(require_db=True)
-        if resolved_context is None:
-            return
-        store, _db, context = resolved_context
-        index = self._load_index_or_warn(store)
-        if index is None:
-            return
-        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
+        resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
         if resolved is None:
             return
-        _scope, ids = resolved
+        store, _db, context, index, _scope, ids = resolved
         ids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
         if not ids_with_clean:
             QMessageBox.warning(self, "Corpus", "Aucun épisode CLEAN à segmenter/indexer pour ce scope.")
             return
         scope = WorkflowScope.selection(ids_with_clean)
-        segment_plan = self._build_plan_or_warn(
+        segment_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
             options={"lang_hint": self._resolve_lang_hint(context)},
         )
-        if not segment_plan:
+        if segment_steps is None:
             return
-        index_plan = self._build_plan_or_warn(
+        index_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.BUILD_DB_INDEX,
             context=context,
             scope=scope,
             episode_refs=index.episodes,
         )
-        if not index_plan:
+        if index_steps is None:
             return
-        steps = list(segment_plan.steps) + list(index_plan.steps)
+        steps = segment_steps + index_steps
         if not steps:
             QMessageBox.information(self, "Corpus", "Aucune opération à exécuter.")
             return
