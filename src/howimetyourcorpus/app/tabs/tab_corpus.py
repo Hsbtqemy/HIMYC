@@ -1066,12 +1066,22 @@ class CorpusTabWidget(QWidget):
                 return None
             ids = self.episodes_tree_model.get_episode_ids_for_season(season)
             if not ids:
-                warn_precondition(self, "Corpus", f"Aucun épisode trouvé pour la saison {season}.")
+                warn_precondition(
+                    self,
+                    "Corpus",
+                    f"Aucun épisode trouvé pour la saison {season}.",
+                    next_step="Ajustez le filtre « Saison » ou lancez « Découvrir épisodes » pour recharger l'index.",
+                )
                 return None
             return WorkflowScope.season_scope(int(season)), ids
         if mode == "all":
             return WorkflowScope.all(), [e.episode_id for e in index.episodes]
-        warn_precondition(self, "Corpus", f"Scope inconnu: {mode}")
+        warn_precondition(
+            self,
+            "Corpus",
+            f"Scope inconnu: {mode}",
+            next_step="Utilisez un périmètre valide: Épisode courant, Sélection, Saison filtrée ou Tout le corpus.",
+        )
         return None
 
     def _build_profile_by_episode(
@@ -1179,6 +1189,7 @@ class CorpusTabWidget(QWidget):
         episode_refs: list[EpisodeRef],
         options: dict[str, Any] | None,
         empty_message: str,
+        empty_next_step: str | None = None,
     ) -> bool:
         steps = self._build_action_steps_or_warn(
             action_id=action_id,
@@ -1190,7 +1201,7 @@ class CorpusTabWidget(QWidget):
         if steps is None:
             return False
         if not steps:
-            warn_precondition(self, "Corpus", empty_message)
+            warn_precondition(self, "Corpus", empty_message, next_step=empty_next_step)
             return False
         self._run_job(steps)
         return True
@@ -1282,6 +1293,14 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="sans URL source, RAW ni CLEAN",
         )
+        if not runnable_ids:
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode exécutable dans le scope choisi (URL source, RAW ou CLEAN manquant).",
+                next_step="Ajoutez des URL source valides ou préparez des fichiers RAW/CLEAN puis relancez.",
+            )
+            return
         fetch_scope = WorkflowScope.selection(ids)
         runnable_scope = WorkflowScope.selection(runnable_ids) if runnable_ids else None
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
@@ -1377,6 +1396,7 @@ class CorpusTabWidget(QWidget):
                 "episode_url_by_id": episode_url_by_id
             },
             empty_message="Aucun épisode à télécharger.",
+            empty_next_step="Vérifiez que les épisodes du scope ont une URL source valide.",
         )
 
     def _normalize_episodes(self, scope_mode: str | None = None) -> None:
@@ -1416,6 +1436,7 @@ class CorpusTabWidget(QWidget):
                 "profile_by_episode": profile_by_episode,
             },
             empty_message="Aucun épisode à normaliser.",
+            empty_next_step="Téléchargez d'abord des transcripts RAW pour ce scope.",
         )
 
     def _segment_episodes(self, scope_mode: str | None = None) -> None:
@@ -1446,6 +1467,7 @@ class CorpusTabWidget(QWidget):
             episode_refs=index.episodes,
             options={"lang_hint": self._resolve_lang_hint(context)},
             empty_message="Aucun épisode à segmenter.",
+            empty_next_step="Normalisez d'abord les épisodes du scope pour produire des fichiers CLEAN.",
         )
 
     def _run_all_for_scope(self) -> None:
@@ -1554,6 +1576,7 @@ class CorpusTabWidget(QWidget):
             episode_refs=index.episodes,
             options=None,
             empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
+            empty_next_step="Vérifiez que le scope contient des épisodes normalisés (CLEAN).",
         )
 
     def _segment_and_index_scope(self, scope_mode: str | None = None) -> None:
