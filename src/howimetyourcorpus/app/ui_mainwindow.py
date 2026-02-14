@@ -455,6 +455,14 @@ class MainWindow(QMainWindow):
     def _on_job_error(self, step_name: str, exc: object):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_cancel_btn_enabled(False)
+        if self.tabs.count() > TAB_LOGS:
+            self.tabs.setTabVisible(TAB_LOGS, True)
+        if hasattr(self, "logs_tab") and self.logs_tab:
+            self.logs_tab.load_file_tail(max_lines=300, clear_existing=False)
+        self.statusBar().showMessage(
+            "Une erreur est survenue. Ouvrez le panneau Logs pour le détail.",
+            8000,
+        )
         show_error(self, exc=exc, context=step_name)
 
     def _cancel_job(self):
