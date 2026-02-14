@@ -318,7 +318,7 @@ class CorpusTabWidget(QWidget):
         self.primary_action_row.addStretch()
         layout.addLayout(self.primary_action_row)
         scope_label = QLabel(
-            "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (onglet Sous-titres). "
+            "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (panneau Sous-titres dans Inspecteur). "
             "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
             "Périmètre : « sélection » = épisodes cochés ou lignes sélectionnées ; « tout » = tout le corpus."
         )
@@ -353,7 +353,7 @@ class CorpusTabWidget(QWidget):
             self.season_filter_combo.clear()
             self.season_filter_combo.addItem("Toutes les saisons", None)
             self.corpus_status_label.setText("")
-            self.corpus_next_step_label.setText("Prochaine action: ouvrez ou créez un projet dans l'onglet Projet.")
+            self.corpus_next_step_label.setText("Prochaine action: ouvrez ou créez un projet dans la section Projet (Pilotage).")
             self.norm_sel_btn.setEnabled(False)
             self.norm_all_btn.setEnabled(False)
             self.segment_sel_btn.setEnabled(False)

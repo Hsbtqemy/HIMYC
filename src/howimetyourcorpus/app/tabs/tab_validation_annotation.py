@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
 
 
@@ -36,6 +36,7 @@ class ValidationAnnotationTabWidget(QWidget):
         self._splitter.setStretchFactor(1, 1)
         self._splitter.setSizes([560, 480])
         layout.addWidget(self._splitter)
+        self._restore_splitter_sizes()
 
     def focus_alignment(self) -> None:
         """Met l'accent sur la partie Alignement."""
@@ -43,3 +44,18 @@ class ValidationAnnotationTabWidget(QWidget):
         align_table = getattr(self._alignment_widget, "align_table", None)
         if align_table is not None:
             align_table.setFocus()
+
+    def _restore_splitter_sizes(self) -> None:
+        settings = QSettings()
+        raw = settings.value("validation_annotation/splitter")
+        if isinstance(raw, (list, tuple)):
+            try:
+                sizes = [int(x) for x in raw]
+            except (TypeError, ValueError):
+                return
+            if len(sizes) >= 2:
+                self._splitter.setSizes(sizes)
+
+    def save_state(self) -> None:
+        settings = QSettings()
+        settings.setValue("validation_annotation/splitter", self._splitter.sizes())

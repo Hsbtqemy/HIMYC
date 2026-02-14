@@ -523,9 +523,13 @@ class MainWindow(QMainWindow):
         self.tabs.setTabToolTip(TAB_INSPECTEUR, "§15.4 — Transcript (RAW/CLEAN, segments) + Sous-titres (pistes, import, normaliser) pour l'épisode courant.")
 
     def closeEvent(self, event):
-        """Sauvegarde les tailles des splitters et les notes Inspecteur à la fermeture."""
+        """Sauvegarde les états UI persistants (splitters + notes) à la fermeture."""
+        if hasattr(self, "pilotage_tab") and self.pilotage_tab:
+            self.pilotage_tab.save_state()
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.save_state()
+        if hasattr(self, "validation_tab") and self.validation_tab:
+            self.validation_tab.save_state()
         super().closeEvent(event)
 
     def _refresh_inspecteur_episodes(self):

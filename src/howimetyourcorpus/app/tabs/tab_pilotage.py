@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
 
 
@@ -36,6 +36,7 @@ class PilotageTabWidget(QWidget):
         self._splitter.setStretchFactor(1, 1)
         self._splitter.setSizes([320, 760])
         layout.addWidget(self._splitter)
+        self._restore_splitter_sizes()
 
     def focus_corpus(self) -> None:
         """Met l'accent sur la zone Corpus quand l'utilisateur vient de la section Projet."""
@@ -44,3 +45,18 @@ class PilotageTabWidget(QWidget):
         episodes_tree = getattr(self._corpus_widget, "episodes_tree", None)
         if episodes_tree is not None:
             episodes_tree.setFocus()
+
+    def _restore_splitter_sizes(self) -> None:
+        settings = QSettings()
+        raw = settings.value("pilotage/splitter")
+        if isinstance(raw, (list, tuple)):
+            try:
+                sizes = [int(x) for x in raw]
+            except (TypeError, ValueError):
+                return
+            if len(sizes) >= 2:
+                self._splitter.setSizes(sizes)
+
+    def save_state(self) -> None:
+        settings = QSettings()
+        settings.setValue("pilotage/splitter", self._splitter.sizes())
