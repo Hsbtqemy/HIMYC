@@ -160,6 +160,7 @@ class AlignmentTabWidget(QWidget):
         self.align_delete_run_btn = QPushButton("Supprimer ce run")
         self.align_delete_run_btn.setToolTip("Supprime le run sélectionné et tous ses liens (irréversible).")
         self.align_delete_run_btn.clicked.connect(self._delete_current_run)
+        self.align_delete_run_btn.setEnabled(False)
         row.addWidget(self.align_delete_run_btn)
         self.align_by_similarity_cb = QCheckBox("Forcer alignement par similarité")
         self.align_by_similarity_cb.setToolTip(
@@ -168,15 +169,19 @@ class AlignmentTabWidget(QWidget):
         row.addWidget(self.align_by_similarity_cb)
         self.export_align_btn = QPushButton("Exporter aligné")
         self.export_align_btn.clicked.connect(self._export_alignment)
+        self.export_align_btn.setEnabled(False)
         row.addWidget(self.export_align_btn)
         self.export_parallel_btn = QPushButton("Exporter concordancier parallèle")
         self.export_parallel_btn.clicked.connect(self._export_parallel_concordance)
+        self.export_parallel_btn.setEnabled(False)
         row.addWidget(self.export_parallel_btn)
         self.align_report_btn = QPushButton("Rapport HTML")
         self.align_report_btn.clicked.connect(self._export_align_report)
+        self.align_report_btn.setEnabled(False)
         row.addWidget(self.align_report_btn)
         self.align_stats_btn = QPushButton("Stats")
         self.align_stats_btn.clicked.connect(self._show_align_stats)
+        self.align_stats_btn.setEnabled(False)
         row.addWidget(self.align_stats_btn)
         self.align_accepted_only_cb = QCheckBox("Liens acceptés uniquement")
         self.align_accepted_only_cb.setToolTip(
@@ -305,8 +310,26 @@ class AlignmentTabWidget(QWidget):
 
     def _on_run_changed(self) -> None:
         run_id = self._current_run_id()
-        self.align_delete_run_btn.setEnabled(bool(run_id))
+        self._set_run_actions_enabled(bool(run_id))
         self._fill_links()
+
+    def _set_run_actions_enabled(self, enabled: bool) -> None:
+        self.align_delete_run_btn.setEnabled(enabled)
+        self.export_align_btn.setEnabled(enabled)
+        self.export_parallel_btn.setEnabled(enabled)
+        self.align_report_btn.setEnabled(enabled)
+        self.align_stats_btn.setEnabled(enabled)
+        if enabled:
+            self.export_align_btn.setToolTip("")
+            self.export_parallel_btn.setToolTip("")
+            self.align_report_btn.setToolTip("")
+            self.align_stats_btn.setToolTip("")
+        else:
+            hint = "Créez ou sélectionnez d'abord un run d'alignement."
+            self.export_align_btn.setToolTip(hint)
+            self.export_parallel_btn.setToolTip(hint)
+            self.align_report_btn.setToolTip(hint)
+            self.align_stats_btn.setToolTip(hint)
 
     def _delete_current_run(self) -> None:
         run_id = self.align_run_combo.currentData()
