@@ -69,6 +69,15 @@ from howimetyourcorpus.app.workflow_status import (
     compute_workflow_status,
     load_episode_status_map,
 )
+from howimetyourcorpus.app.corpus_scope import (
+    build_episode_scope_capabilities,
+    build_episode_url_by_id,
+    filter_ids_with_clean,
+    filter_ids_with_raw,
+    filter_ids_with_source_url,
+    filter_runnable_ids_for_full_workflow,
+    resolve_episode_scope_capabilities_cache,
+)
 from howimetyourcorpus.app.models_qt import (
     EpisodesTreeModel,
     EpisodesTreeFilterProxyModel,
@@ -809,7 +818,12 @@ class CorpusTabWidget(QWidget):
             )
             return
         self._cached_index = index
-        self._episode_scope_capabilities = self._build_episode_scope_capabilities(index, store)
+        self._episode_scope_capabilities = build_episode_scope_capabilities(
+            index=index,
+            has_episode_raw=store.has_episode_raw,
+            has_episode_clean=store.has_episode_clean,
+            log=logger,
+        )
         episode_ids = [e.episode_id for e in index.episodes]
         statuses = load_episode_status_map(db, episode_ids) if db else {}
         counts, error_ids = compute_workflow_status(
@@ -1147,73 +1161,10 @@ class CorpusTabWidget(QWidget):
             return checked_ids[0]
         return None
 
-    @staticmethod
-    def _build_episode_url_by_id(index: SeriesIndex) -> dict[str, str]:
-        return {ref.episode_id: ref.url for ref in index.episodes}
-
-    @staticmethod
-    def _has_non_empty_value(value: str | None) -> bool:
-        return bool((value or "").strip())
-
-    def _filter_ids_with_source_url(
-        self,
-        *,
-        ids: list[str],
-        episode_url_by_id: dict[str, str],
-    ) -> list[str]:
-        return [
-            eid for eid in ids if self._has_non_empty_value(episode_url_by_id.get(eid))
-        ]
-
-    @staticmethod
-    def _filter_ids_with_raw(*, ids: list[str], store: Any) -> list[str]:
-        return [eid for eid in ids if store.has_episode_raw(eid)]
-
-    @staticmethod
-    def _filter_ids_with_clean(*, ids: list[str], store: Any) -> list[str]:
-        return [eid for eid in ids if store.has_episode_clean(eid)]
-
-    def _filter_runnable_ids_for_full_workflow(
-        self,
-        *,
-        ids: list[str],
-        store: Any,
-        episode_url_by_id: dict[str, str],
-    ) -> list[str]:
-        return [
-            eid
-            for eid in ids
-            if store.has_episode_clean(eid)
-            or store.has_episode_raw(eid)
-            or self._has_non_empty_value(episode_url_by_id.get(eid))
-        ]
-
     def _show_skipped_ids(self, *, prefix: str, skipped: int, reason: str) -> None:
         if skipped <= 0:
             return
         self._show_status(f"{prefix}: {skipped} épisode(s) ignoré(s) ({reason}).", 5000)
-
-    def _build_episode_scope_capabilities(
-        self,
-        index: SeriesIndex,
-        store: Any,
-    ) -> dict[str, tuple[bool, bool, bool, bool]]:
-        episode_url_by_id = self._build_episode_url_by_id(index)
-        capabilities: dict[str, tuple[bool, bool, bool, bool]] = {}
-        for eid in [e.episode_id for e in index.episodes]:
-            has_url = self._has_non_empty_value(episode_url_by_id.get(eid))
-            try:
-                has_raw = bool(store.has_episode_raw(eid))
-            except Exception:
-                logger.exception("Failed to check RAW availability for %s", eid)
-                has_raw = False
-            try:
-                has_clean = bool(store.has_episode_clean(eid))
-            except Exception:
-                logger.exception("Failed to check CLEAN availability for %s", eid)
-                has_clean = False
-            capabilities[eid] = (has_url, has_raw, has_clean, has_url or has_raw or has_clean)
-        return capabilities
 
     def _get_episode_scope_capabilities(
         self,
@@ -1221,10 +1172,13 @@ class CorpusTabWidget(QWidget):
         index: SeriesIndex,
         store: Any,
     ) -> dict[str, tuple[bool, bool, bool, bool]]:
-        expected_ids = [e.episode_id for e in index.episodes]
-        cache = self._episode_scope_capabilities
-        if len(cache) != len(expected_ids) or any(eid not in cache for eid in expected_ids):
-            self._episode_scope_capabilities = self._build_episode_scope_capabilities(index, store)
+        self._episode_scope_capabilities = resolve_episode_scope_capabilities_cache(
+            cache=self._episode_scope_capabilities,
+            index=index,
+            has_episode_raw=store.has_episode_raw,
+            has_episode_clean=store.has_episode_clean,
+            log=logger,
+        )
         return self._episode_scope_capabilities
 
     def _resolve_scope_ids_silent(
@@ -1564,11 +1518,12 @@ class CorpusTabWidget(QWidget):
                 next_step="Ajustez le scope ou sélectionnez/cochez au moins un épisode.",
             )
             return
-        episode_url_by_id = self._build_episode_url_by_id(index)
-        runnable_ids = self._filter_runnable_ids_for_full_workflow(
+        episode_url_by_id = build_episode_url_by_id(index)
+        runnable_ids = filter_runnable_ids_for_full_workflow(
             ids=ids,
-            store=store,
             episode_url_by_id=episode_url_by_id,
+            has_episode_raw=store.has_episode_raw,
+            has_episode_clean=store.has_episode_clean,
         )
         skipped = len(ids) - len(runnable_ids)
         self._show_skipped_ids(
@@ -1651,8 +1606,8 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         _store, _db, context, index, _scope, ids = resolved
-        episode_url_by_id = self._build_episode_url_by_id(index)
-        ids_with_url = self._filter_ids_with_source_url(
+        episode_url_by_id = build_episode_url_by_id(index)
+        ids_with_url = filter_ids_with_source_url(
             ids=ids,
             episode_url_by_id=episode_url_by_id,
         )
@@ -1687,7 +1642,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_raw = self._filter_ids_with_raw(ids=ids, store=store)
+        ids_with_raw = filter_ids_with_raw(ids=ids, has_episode_raw=store.has_episode_raw)
         if not ids_with_raw:
             warn_precondition(
                 self,
@@ -1728,7 +1683,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        eids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
+        eids_with_clean = filter_ids_with_clean(ids=ids, has_episode_clean=store.has_episode_clean)
         if not eids_with_clean:
             warn_precondition(
                 self,
@@ -1851,7 +1806,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
+        ids_with_clean = filter_ids_with_clean(ids=ids, has_episode_clean=store.has_episode_clean)
         if not ids_with_clean:
             warn_precondition(
                 self,
@@ -1882,7 +1837,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
+        ids_with_clean = filter_ids_with_clean(ids=ids, has_episode_clean=store.has_episode_clean)
         if not ids_with_clean:
             warn_precondition(
                 self,

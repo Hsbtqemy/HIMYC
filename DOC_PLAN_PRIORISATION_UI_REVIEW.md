@@ -321,6 +321,11 @@ Etat 2026-02-14:
    - phase B: brancher controller unique
 2. Couverture tests unitaires controller avant bascule.
 
+Etat 2026-02-14:
+- Phase A demarree: fonctions pures de scope extraites vers `app/corpus_scope.py`.
+- `tab_corpus.py` recable sur ces fonctions (URL/source/raw/clean/runnable + cache capabilities).
+- Couverture dediee ajoutee: `tests/test_corpus_scope.py`.
+
 ### Acceptance criteria
 - UI conserve le meme comportement observable.
 - Complexite reduite dans `tab_corpus.py`.
@@ -339,7 +344,7 @@ Etat 2026-02-14:
 | Lot 3 | TBD | TBD | TBD | A faire |
 | Lot 4 | TBD | TBD | TBD | En cours |
 | Lot 5 | TBD | TBD | TBD | En cours |
-| Lot 6 | TBD | TBD | TBD | A faire |
+| Lot 6 | TBD | TBD | TBD | En cours |
 
 ## 6) KPI instrumentes (definitifs)
 
