@@ -32,6 +32,8 @@ from howimetyourcorpus.app.feedback import warn_precondition
 from howimetyourcorpus.core.acquisition.profiles import (
     DEFAULT_ACQUISITION_PROFILE_ID,
     PROFILES as ACQUISITION_PROFILES,
+    format_http_options_summary,
+    resolve_http_options,
 )
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.normalize.profiles import PROFILES
@@ -110,6 +112,10 @@ class ProjectTabWidget(QWidget):
             "Profil d'acquisition (scraping): politique de débit/tolérance HTTP."
         )
         form_source.addRow("Profil acquisition:", self.acquisition_profile_combo)
+        self.acquisition_profile_details = QLabel("")
+        self.acquisition_profile_details.setStyleSheet("color: #666;")
+        self.acquisition_profile_details.setWordWrap(True)
+        form_source.addRow("", self.acquisition_profile_details)
         self.series_url_edit = QLineEdit()
         self.series_url_edit.setPlaceholderText("https://subslikescript.com/series/...")
         form_source.addRow("URL série:", self.series_url_edit)
@@ -125,8 +131,17 @@ class ProjectTabWidget(QWidget):
         self.rate_limit_spin.setSuffix(" s")
         self.rate_limit_spin.setToolTip("Délai minimal entre requêtes vers la source.")
         form_source.addRow("Rate limit:", self.rate_limit_spin)
+        self.acquisition_runtime_preview = QLabel("")
+        self.acquisition_runtime_preview.setStyleSheet("color: #505050; font-size: 0.9em;")
+        self.acquisition_runtime_preview.setWordWrap(True)
+        self.acquisition_runtime_preview.setToolTip(
+            "Aperçu des paramètres HTTP qui seront appliqués aux jobs réseau."
+        )
+        form_source.addRow("", self.acquisition_runtime_preview)
         self._last_applied_acquisition_profile_id = DEFAULT_ACQUISITION_PROFILE_ID
         self.acquisition_profile_combo.currentTextChanged.connect(self._on_acquisition_profile_changed)
+        self.rate_limit_spin.valueChanged.connect(self._refresh_acquisition_runtime_preview)
+        self._refresh_acquisition_runtime_preview()
         layout.addWidget(group_source)
 
         # —— 3. Workflow corpus (§refonte) ——
@@ -252,6 +267,7 @@ class ProjectTabWidget(QWidget):
         )
         self.rate_limit_spin.setValue(int(config.rate_limit_s))
         self.source_id_combo.setCurrentText(config.source_id)
+        self._refresh_acquisition_runtime_preview()
 
     def refresh_languages_list(self) -> None:
         """Remplit la liste des langues depuis le store (appelé après ouverture projet)."""
@@ -294,12 +310,33 @@ class ProjectTabWidget(QWidget):
         new_profile = ACQUISITION_PROFILES.get(profile_id)
         if new_profile is None:
             self._last_applied_acquisition_profile_id = profile_id
+            self._refresh_acquisition_runtime_preview()
             return
         current_rate = int(self.rate_limit_spin.value())
         previous_default = int(round(previous.default_rate_limit_s)) if previous else None
         if previous_default is None or current_rate == previous_default:
             self.rate_limit_spin.setValue(int(round(new_profile.default_rate_limit_s)))
         self._last_applied_acquisition_profile_id = profile_id
+        self._refresh_acquisition_runtime_preview()
+
+    def _refresh_acquisition_runtime_preview(self) -> None:
+        """Met à jour l'aperçu des options runtime acquisition depuis le formulaire Projet."""
+        profile_id = self.acquisition_profile_combo.currentText() or DEFAULT_ACQUISITION_PROFILE_ID
+        profile = ACQUISITION_PROFILES.get(profile_id)
+        if profile is not None:
+            self.acquisition_profile_details.setText(
+                f"{profile.label}: {profile.description}"
+            )
+        else:
+            self.acquisition_profile_details.setText("")
+        options = resolve_http_options(
+            acquisition_profile_id=profile_id,
+            user_agent=None,
+            rate_limit_s=float(self.rate_limit_spin.value()),
+        )
+        self.acquisition_runtime_preview.setText(
+            f"Runtime acquisition (prévisualisation): {format_http_options_summary(options)}"
+        )
 
     def _add_language(self) -> None:
         store = self._get_store()
