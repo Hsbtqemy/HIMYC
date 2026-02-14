@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from howimetyourcorpus.app.feedback import show_error, warn_precondition
+
 
 class PersonnagesTabWidget(QWidget):
     """Widget de l'onglet Personnages : liste personnages, assignation segment/cue → personnage, propagation."""
@@ -143,12 +145,20 @@ class PersonnagesTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not store or not db:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Personnages",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return
         index = store.load_series_index()
         if not index or not index.episodes:
-            QMessageBox.warning(
-                self, "Personnages", "Aucun épisode dans l'index. Ajoutez des épisodes au corpus."
+            warn_precondition(
+                self,
+                "Personnages",
+                "Aucun épisode dans l'index. Ajoutez des épisodes au corpus.",
+                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
             )
             return
         episode_ids = [e.episode_id for e in index.episodes]
@@ -193,7 +203,12 @@ class PersonnagesTabWidget(QWidget):
     def _save(self) -> None:
         store = self._get_store()
         if not store:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Personnages",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return
         langs = store.load_project_languages()
         characters = []
@@ -224,7 +239,12 @@ class PersonnagesTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not eid or not db or not store:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet et sélectionnez un épisode.")
+            warn_precondition(
+                self,
+                "Personnages",
+                "Ouvrez un projet et sélectionnez un épisode.",
+                next_step="Choisissez un épisode dans la section Assignation.",
+            )
             return
         character_ids = [
             ch.get("id") or ch.get("canonical", "")
@@ -284,7 +304,12 @@ class PersonnagesTabWidget(QWidget):
         source_key = self.personnages_source_combo.currentData() or "segments"
         store = self._get_store()
         if not eid or not store:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet et sélectionnez un épisode.")
+            warn_precondition(
+                self,
+                "Personnages",
+                "Ouvrez un projet et sélectionnez un épisode.",
+                next_step="Choisissez un épisode dans la section Assignation.",
+            )
             return
         source_type = "segment" if source_key == "segments" else "cue"
         new_assignments = []
@@ -316,11 +341,20 @@ class PersonnagesTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not store or not db:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Personnages",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return
         eid = self.personnages_episode_combo.currentData()
         if not eid:
-            QMessageBox.warning(self, "Personnages", "Sélectionnez un épisode (section Assignation).")
+            warn_precondition(
+                self,
+                "Personnages",
+                "Sélectionnez un épisode (section Assignation).",
+            )
             return
         assignments = store.load_character_assignments()
         episode_assignments = [a for a in assignments if a.get("episode_id") == eid]
@@ -345,8 +379,4 @@ class PersonnagesTabWidget(QWidget):
                 6000,
             )
         except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Propagation",
-                f"Erreur lors de la propagation : {e!s}",
-            )
+            show_error(self, title="Propagation", exc=e, context="Erreur lors de la propagation")

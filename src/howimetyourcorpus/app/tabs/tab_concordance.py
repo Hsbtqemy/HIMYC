@@ -28,6 +28,7 @@ from howimetyourcorpus.core.export_utils import (
     export_kwic_tsv,
     export_kwic_docx,
 )
+from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import KwicTableModel
 
@@ -127,7 +128,12 @@ class ConcordanceTabWidget(QWidget):
 
         hits = self.kwic_model.get_all_hits()
         if not hits:
-            QMessageBox.warning(self, "Concordance", "Effectuez d'abord une recherche ou aucun résultat à exporter.")
+            warn_precondition(
+                self,
+                "Concordance",
+                "Aucun résultat à exporter.",
+                next_step="Lancez d'abord une recherche KWIC.",
+            )
             return
         path, selected_filter = QFileDialog.getSaveFileName(
             self,
@@ -174,12 +180,16 @@ class ConcordanceTabWidget(QWidget):
             elif export_key == "docx":
                 export_kwic_docx(hits, path)
             else:
-                QMessageBox.warning(self, "Export", "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx")
+                warn_precondition(
+                    self,
+                    "Export",
+                    "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx",
+                )
                 return
             QMessageBox.information(self, "Export", f"Résultats exportés : {len(hits)} occurrence(s).")
         except Exception as e:
             logger.exception("Export KWIC")
-            QMessageBox.critical(self, "Erreur", str(e))
+            show_error(self, exc=e, context="Export KWIC")
 
     def _on_double_click(self, index: QModelIndex) -> None:
         hit = self.kwic_model.get_hit_at(index.row())
