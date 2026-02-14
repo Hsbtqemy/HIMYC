@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex, TransformStats
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
+
+logger = logging.getLogger(__name__)
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -41,6 +44,15 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
             lines.append(f'{k} = "{v!s}"')
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _load_json_with_default(path: Path, *, default: Any, context: str) -> Any:
+    """Charge un JSON avec fallback + journalisation explicite en cas d'échec."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        logger.exception("Failed to load %s from %s", context, path)
+        return default
 
 
 class ProjectStore:
@@ -149,19 +161,22 @@ class ProjectStore:
         path = self.root_dir / self.PROFILES_JSON
         if not path.exists():
             return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        data = _load_json_with_default(path, default={}, context="custom profiles")
+        if not isinstance(data, dict):
             return {}
         out: dict[str, NormalizationProfile] = {}
         for p in data.get("profiles", []):
             pid = p.get("id") or ""
             if not pid or not isinstance(p.get("merge_subtitle_breaks"), bool):
                 continue
+            try:
+                max_examples = int(p.get("max_merge_examples_in_debug", 20))
+            except Exception:
+                max_examples = 20
             out[pid] = NormalizationProfile(
                 id=pid,
                 merge_subtitle_breaks=bool(p.get("merge_subtitle_breaks", True)),
-                max_merge_examples_in_debug=int(p.get("max_merge_examples_in_debug", 20)),
+                max_merge_examples_in_debug=max_examples,
             )
         return out
 
@@ -183,11 +198,11 @@ class ProjectStore:
         path = self.root_dir / self.CHARACTER_NAMES_JSON
         if not path.exists():
             return []
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        data = _load_json_with_default(path, default={}, context="character names")
+        if not isinstance(data, dict):
             return []
-        return data.get("characters", [])
+        characters = data.get("characters", [])
+        return characters if isinstance(characters, list) else []
 
     def save_character_names(self, characters: list[dict[str, Any]]) -> None:
         """Sauvegarde la liste des personnages du projet."""
@@ -204,11 +219,11 @@ class ProjectStore:
         path = self.root_dir / self.CHARACTER_ASSIGNMENTS_JSON
         if not path.exists():
             return []
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        data = _load_json_with_default(path, default={}, context="character assignments")
+        if not isinstance(data, dict):
             return []
-        return data.get("assignments", [])
+        assignments = data.get("assignments", [])
+        return assignments if isinstance(assignments, list) else []
 
     def save_character_assignments(self, assignments: list[dict[str, Any]]) -> None:
         """Sauvegarde les assignations personnage."""
@@ -225,11 +240,8 @@ class ProjectStore:
         path = self.root_dir / self.SOURCE_PROFILE_DEFAULTS_JSON
         if not path.exists():
             return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return dict(data) if isinstance(data, dict) else {}
-        except Exception:
-            return {}
+        data = _load_json_with_default(path, default={}, context="source profile defaults")
+        return dict(data) if isinstance(data, dict) else {}
 
     def save_source_profile_defaults(self, defaults: dict[str, str]) -> None:
         """Sauvegarde le mapping source_id -> profile_id."""
@@ -243,11 +255,8 @@ class ProjectStore:
         path = self.root_dir / self.EPISODE_PREFERRED_PROFILES_JSON
         if not path.exists():
             return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return dict(data) if isinstance(data, dict) else {}
-        except Exception:
-            return {}
+        data = _load_json_with_default(path, default={}, context="episode preferred profiles")
+        return dict(data) if isinstance(data, dict) else {}
 
     def save_episode_preferred_profiles(self, preferred: dict[str, str]) -> None:
         """Sauvegarde le mapping episode_id -> profile_id."""
@@ -262,12 +271,15 @@ class ProjectStore:
         path = self.root_dir / self.LANGUAGES_JSON
         if not path.exists():
             return list(self.DEFAULT_LANGUAGES)
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            langs = data.get("languages", data if isinstance(data, list) else [])
-            return [str(x).strip().lower() for x in langs if str(x).strip()]
-        except Exception:
-            return list(self.DEFAULT_LANGUAGES)
+        data = _load_json_with_default(path, default=list(self.DEFAULT_LANGUAGES), context="project languages")
+        if isinstance(data, dict):
+            langs = data.get("languages", [])
+        elif isinstance(data, list):
+            langs = data
+        else:
+            langs = []
+        normalized = [str(x).strip().lower() for x in langs if str(x).strip()]
+        return normalized if normalized else list(self.DEFAULT_LANGUAGES)
 
     def save_project_languages(self, languages: list[str]) -> None:
         """Sauvegarde la liste des langues du projet."""
@@ -283,16 +295,24 @@ class ProjectStore:
         if not path.exists():
             return None
         from howimetyourcorpus.core.models import EpisodeRef
-        obj = json.loads(path.read_text(encoding="utf-8"))
+        obj = _load_json_with_default(path, default=None, context="series index")
+        if not isinstance(obj, dict):
+            return None
         episodes = []
         for e in obj.get("episodes", []):
             if not isinstance(e, dict):
                 continue
+            try:
+                season = int(e.get("season", 0))
+                episode_num = int(e.get("episode", 0))
+            except Exception:
+                logger.warning("Skipping malformed episode entry in %s: %r", path, e)
+                continue
             episodes.append(
                 EpisodeRef(
                     episode_id=e.get("episode_id", ""),
-                    season=int(e.get("season", 0)),
-                    episode=int(e.get("episode", 0)),
+                    season=season,
+                    episode=episode_num,
                     title=e.get("title", "") or "",
                     url=e.get("url", "") or "",
                     source_id=e.get("source_id"),
@@ -385,7 +405,8 @@ class ProjectStore:
         path = self.get_episode_transform_meta_path(episode_id)
         if not path.exists():
             return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        obj = _load_json_with_default(path, default=None, context="episode transform meta")
+        return obj if isinstance(obj, dict) else None
 
     def load_episode_notes(self, episode_id: str) -> str:
         """Charge les notes « à vérifier / à affiner » pour un épisode (Inspecteur)."""
