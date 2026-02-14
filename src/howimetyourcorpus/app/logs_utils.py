@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 from dataclasses import dataclass
 
 _EPISODE_RE = re.compile(r"\bS\d+E\d+\b", re.IGNORECASE)
@@ -45,10 +46,38 @@ def matches_log_filters(
         current_rank = _LEVEL_RANK.get((entry.level or "").strip().upper(), 0)
         if current_rank < wanted_rank:
             return False
-    q = (query or "").strip().lower()
-    if q:
-        haystack = f"{entry.formatted_line}\n{entry.message}".lower()
-        if q not in haystack:
+    haystack = f"{entry.formatted_line}\n{entry.message}".lower()
+    return _matches_query_expression(haystack, query or "")
+
+
+def _token_matches(haystack: str, token: str) -> bool:
+    term = token.strip().lower()
+    if not term:
+        return True
+    if "|" in term:
+        alternatives = [part for part in term.split("|") if part]
+        return any(alt in haystack for alt in alternatives)
+    return term in haystack
+
+
+def _matches_query_expression(haystack: str, query: str) -> bool:
+    raw_query = (query or "").strip()
+    if not raw_query:
+        return True
+    try:
+        tokens = shlex.split(raw_query)
+    except ValueError:
+        # Fallback permissif si guillemets mal fermés.
+        tokens = raw_query.split()
+    for raw in tokens:
+        token = raw.strip()
+        if not token:
+            continue
+        if token.startswith("-") and len(token) > 1:
+            if _token_matches(haystack, token[1:]):
+                return False
+            continue
+        if not _token_matches(haystack, token):
             return False
     return True
 

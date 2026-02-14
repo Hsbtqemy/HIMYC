@@ -37,6 +37,37 @@ def test_matches_log_filters_query_matches_formatted_line_or_message() -> None:
     assert not matches_log_filters(entry, level_min="ALL", query="S02E03")
 
 
+def test_matches_log_filters_query_supports_and_expression() -> None:
+    entry = LogEntry(
+        level="ERROR",
+        message="Indexing failed for S01E01",
+        formatted_line="2026-02-14 [ERROR] failed to index",
+    )
+    assert matches_log_filters(entry, level_min="ALL", query="failed S01E01")
+    assert not matches_log_filters(entry, level_min="ALL", query="failed S02E02")
+
+
+def test_matches_log_filters_query_supports_exclusion_tokens() -> None:
+    entry = LogEntry(
+        level="INFO",
+        message="fetch episode S01E01",
+        formatted_line="2026 [INFO] fetch episode S01E01",
+    )
+    assert matches_log_filters(entry, level_min="ALL", query="fetch -error")
+    assert not matches_log_filters(entry, level_min="ALL", query="fetch -S01E01")
+
+
+def test_matches_log_filters_query_supports_or_tokens_and_quotes() -> None:
+    entry = LogEntry(
+        level="WARNING",
+        message="align run failed for S01E02",
+        formatted_line="2026 [WARNING] align run failed for S01E02",
+    )
+    assert matches_log_filters(entry, level_min="ALL", query="align|kwic")
+    assert matches_log_filters(entry, level_min="ALL", query='"run failed" S01E02')
+    assert not matches_log_filters(entry, level_min="ALL", query="kwic|concordance")
+
+
 def test_parse_formatted_log_line_extracts_level_and_tail_message() -> None:
     line = "2026-02-14 10:00:00 [WARNING] Indexing failed for S01E01"
     entry = parse_formatted_log_line(line)
