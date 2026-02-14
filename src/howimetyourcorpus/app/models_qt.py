@@ -786,6 +786,91 @@ class CharacterNamesTableModel(QAbstractTableModel):
         return None
 
 
+class CharacterAssignmentsTableModel(QAbstractTableModel):
+    """Modèle éditable pour les assignations source -> personnage."""
+
+    HEADERS = ["ID", "Texte", "Personnage"]
+    COL_SOURCE_ID = 0
+    COL_TEXT = 1
+    COL_CHARACTER_ID = 2
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._character_ids: list[str] = []
+        self._rows: list[dict[str, str]] = []
+
+    def set_rows(self, rows_data: list[tuple[str, str, str]], character_ids: list[str]) -> None:
+        self.beginResetModel()
+        self._character_ids = [str(cid or "").strip() for cid in character_ids if str(cid or "").strip()]
+        self._rows = [
+            {
+                "source_id": str(source_id or ""),
+                "text": str(text or ""),
+                "character_id": str(character_id or ""),
+            }
+            for source_id, text, character_id in rows_data
+        ]
+        self.endResetModel()
+
+    def clear(self) -> None:
+        self.set_rows([], [])
+
+    def get_rows_payload(self) -> list[dict[str, str]]:
+        return [dict(row) for row in self._rows]
+
+    def get_character_ids(self) -> list[str]:
+        return list(self._character_ids)
+
+    def rowCount(self, parent=QModelIndex()):
+        if parent.isValid():
+            return 0
+        return len(self._rows)
+
+    def columnCount(self, parent=QModelIndex()):
+        if parent.isValid():
+            return 0
+        return 3
+
+    def data(self, index: QModelIndex, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or index.row() >= len(self._rows):
+            return None
+        row = self._rows[index.row()]
+        col = index.column()
+        if role in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
+            if col == self.COL_SOURCE_ID:
+                return row.get("source_id", "")
+            if col == self.COL_TEXT:
+                return row.get("text", "")
+            if col == self.COL_CHARACTER_ID:
+                return row.get("character_id", "")
+        return None
+
+    def setData(self, index: QModelIndex, value: Any, role=Qt.ItemDataRole.EditRole) -> bool:
+        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
+            return False
+        if index.row() < 0 or index.row() >= len(self._rows):
+            return False
+        if index.column() != self.COL_CHARACTER_ID:
+            return False
+        self._rows[index.row()]["character_id"] = str(value or "").strip()
+        self.dataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole])
+        return True
+
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+        if not index.isValid():
+            return super().flags(index)
+        flags = super().flags(index)
+        if index.column() == self.COL_CHARACTER_ID:
+            return flags | Qt.ItemFlag.ItemIsEditable
+        return flags
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role=Qt.ItemDataRole.DisplayRole):
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+            if 0 <= section < len(self.HEADERS):
+                return self.HEADERS[section]
+        return None
+
+
 def _truncate(s: str, max_len: int = 55) -> str:
     if not s:
         return ""

@@ -2,7 +2,7 @@
 
 from PySide6.QtCore import Qt
 
-from howimetyourcorpus.app.models_qt import CharacterNamesTableModel
+from howimetyourcorpus.app.models_qt import CharacterAssignmentsTableModel, CharacterNamesTableModel
 from howimetyourcorpus.app.tabs.tab_personnages import PersonnagesTabWidget
 
 
@@ -71,3 +71,17 @@ def test_character_names_table_model_edit_add_remove() -> None:
     assert model.rowCount() == 2
     assert model.remove_row(0) is True
     assert model.rowCount() == 1
+
+
+def test_character_assignments_table_model_edit_character_id() -> None:
+    model = CharacterAssignmentsTableModel()
+    model.set_rows(
+        rows_data=[("S01E01:sentence:1", "Hello there", "ted")],
+        character_ids=["ted", "robin"],
+    )
+    assert model.rowCount() == 1
+    assert model.columnCount() == 3
+    idx_char = model.index(0, CharacterAssignmentsTableModel.COL_CHARACTER_ID)
+    assert model.data(idx_char, Qt.ItemDataRole.DisplayRole) == "ted"
+    assert model.setData(idx_char, "robin", Qt.ItemDataRole.EditRole) is True
+    assert model.data(idx_char, Qt.ItemDataRole.DisplayRole) == "robin"

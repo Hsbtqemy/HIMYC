@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Callable
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -13,18 +13,46 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QPushButton,
+    QStyledItemDelegate,
     QTableView,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
-from howimetyourcorpus.app.models_qt import CharacterNamesTableModel
+from howimetyourcorpus.app.models_qt import CharacterAssignmentsTableModel, CharacterNamesTableModel
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 
 _RUN_SELECTIONS_BY_PROJECT_KEY = "personnages/runSelectionsByProject"
+
+
+class _CharacterAssignmentDelegate(QStyledItemDelegate):
+    """Delegate combo pour l'édition de la colonne Personnage dans la table d'assignation."""
+
+    def __init__(self, get_character_ids: Callable[[], list[str]], parent: QWidget | None = None):
+        super().__init__(parent)
+        self._get_character_ids = get_character_ids
+
+    def createEditor(self, parent, option, index):  # type: ignore[override]
+        if index.column() != CharacterAssignmentsTableModel.COL_CHARACTER_ID:
+            return None
+        combo = QComboBox(parent)
+        combo.addItem("—", "")
+        for char_id in self._get_character_ids():
+            combo.addItem(char_id, char_id)
+        return combo
+
+    def setEditorData(self, editor, index):  # type: ignore[override]
+        if not isinstance(editor, QComboBox):
+            return
+        value = str(index.data() or "")
+        idx = editor.findData(value)
+        editor.setCurrentIndex(idx if idx >= 0 else 0)
+
+    def setModelData(self, editor, model, index):  # type: ignore[override]
+        if not isinstance(editor, QComboBox):
+            return
+        model.setData(index, editor.currentData() or "", role=Qt.ItemDataRole.EditRole)
 
 
 class PersonnagesTabWidget(QWidget):
@@ -112,11 +140,21 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_refresh_runs_btn.clicked.connect(self._refresh_align_runs_for_current_episode)
         assign_row.addWidget(self.personnages_refresh_runs_btn)
         layout.addLayout(assign_row)
-        self.personnages_assign_table = QTableWidget()
-        self.personnages_assign_table.setColumnCount(3)
-        self.personnages_assign_table.setHorizontalHeaderLabels(["ID", "Texte", "Personnage"])
+        self.personnages_assign_table = QTableView()
+        self.personnages_assign_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.personnages_assign_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.personnages_assign_table.setAlternatingRowColors(True)
+        self._assign_model = CharacterAssignmentsTableModel(self.personnages_assign_table)
+        self.personnages_assign_table.setModel(self._assign_model)
+        self._assign_delegate = _CharacterAssignmentDelegate(
+            get_character_ids=self._assign_model.get_character_ids,
+            parent=self.personnages_assign_table,
+        )
+        self.personnages_assign_table.setItemDelegateForColumn(
+            CharacterAssignmentsTableModel.COL_CHARACTER_ID,
+            self._assign_delegate,
+        )
         self.personnages_assign_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.personnages_assign_table.itemSelectionChanged.connect(self._apply_controls_enabled)
         layout.addWidget(self.personnages_assign_table)
         self.personnages_save_assign_btn = QPushButton("Enregistrer assignations")
         self.personnages_save_assign_btn.setToolTip(
@@ -172,7 +210,7 @@ class PersonnagesTabWidget(QWidget):
         current_episode = self.personnages_episode_combo.currentData()
         current_source = self.personnages_source_combo.currentData()
         self._personnages_model.set_characters([], [])
-        self.personnages_assign_table.setRowCount(0)
+        self._assign_model.clear()
         store = self._get_store()
         if not store:
             self._selected_run_by_episode.clear()
@@ -220,8 +258,8 @@ class PersonnagesTabWidget(QWidget):
 
     def _on_assignment_context_changed(self, *_args) -> None:
         """Changement d'épisode/source: invalide les lignes chargées pour éviter les sauvegardes hors contexte."""
-        if self.personnages_assign_table.rowCount() > 0:
-            self.personnages_assign_table.setRowCount(0)
+        if self._assign_model.rowCount() > 0:
+            self._assign_model.clear()
         self._refresh_align_runs_for_current_episode()
         self._apply_controls_enabled()
 
@@ -400,7 +438,7 @@ class PersonnagesTabWidget(QWidget):
         has_align_run = bool(self.personnages_run_combo.currentData())
         has_character_rows = self._personnages_model.rowCount() > 0
         has_character_selection = self._selected_character_row() >= 0
-        has_assignment_rows = self.personnages_assign_table.rowCount() > 0
+        has_assignment_rows = self._assign_model.rowCount() > 0
         self.personnages_table.setEnabled(controls_enabled)
         self.personnages_add_btn.setEnabled(controls_enabled)
         self.personnages_remove_btn.setEnabled(controls_enabled and has_character_selection)
@@ -657,7 +695,7 @@ class PersonnagesTabWidget(QWidget):
             show_error(self, title="Assignation", exc=e, context="Chargement assignations personnages")
             return
         self._populate_assignments_table(rows_data, character_ids)
-        if self.personnages_assign_table.rowCount() == 0:
+        if self._assign_model.rowCount() == 0:
             if source_key == "segments":
                 warn_precondition(
                     self,
@@ -681,24 +719,7 @@ class PersonnagesTabWidget(QWidget):
         character_ids: list[str],
     ) -> None:
         """Remplit la table d'assignation en lot pour limiter le coût UI sur gros épisodes."""
-        table = self.personnages_assign_table
-        table.setUpdatesEnabled(False)
-        try:
-            table.setRowCount(0)
-            table.setRowCount(len(rows_data))
-            for row, (source_id, text, assigned_character_id) in enumerate(rows_data):
-                table.setItem(row, 0, QTableWidgetItem(source_id))
-                table.setItem(row, 1, QTableWidgetItem(text))
-                combo = QComboBox()
-                combo.addItem("—", "")
-                for char_id in character_ids:
-                    combo.addItem(char_id, char_id)
-                idx = combo.findData(assigned_character_id)
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
-                table.setCellWidget(row, 2, combo)
-        finally:
-            table.setUpdatesEnabled(True)
+        self._assign_model.set_rows(rows_data, character_ids)
 
     def _save_assignments(self) -> None:
         resolved = self._resolve_episode_store_db_or_warn()
@@ -708,13 +729,9 @@ class PersonnagesTabWidget(QWidget):
         source_key = self.personnages_source_combo.currentData() or "segments"
         source_type = "segment" if source_key == "segments" else "cue"
         new_assignments = []
-        for row in range(self.personnages_assign_table.rowCount()):
-            id_item = self.personnages_assign_table.item(row, 0)
-            source_id = (id_item.text() or "").strip() if id_item else ""
-            combo = self.personnages_assign_table.cellWidget(row, 2)
-            if not isinstance(combo, QComboBox):
-                continue
-            character_id = (combo.currentData() or combo.currentText() or "").strip()
+        for row in self._assign_model.get_rows_payload():
+            source_id = str(row.get("source_id") or "").strip()
+            character_id = str(row.get("character_id") or "").strip()
             if source_id and character_id:
                 new_assignments.append({
                     "episode_id": eid,
