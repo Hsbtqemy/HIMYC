@@ -643,7 +643,15 @@ class DownloadOpenSubtitlesStep(Step):
         if on_progress:
             on_progress(self.name, 0.0, f"Search OpenSubtitles {self.episode_id} ({self.lang})...")
         try:
-            client = OpenSubtitlesClient(api_key=self.api_key)
+            http_opts = resolve_http_options_for_config(context.get("config"))
+            client = OpenSubtitlesClient(
+                api_key=self.api_key,
+                user_agent=http_opts.user_agent,
+                timeout_s=http_opts.timeout_s,
+                retries=http_opts.retries,
+                backoff_s=http_opts.backoff_s,
+                min_interval_s=http_opts.rate_limit_s,
+            )
             hits = client.search(self.imdb_id, self.season, self.episode, self.lang)
         except OpenSubtitlesError as e:
             return StepResult(False, str(e))

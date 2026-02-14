@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from howimetyourcorpus.core.models import EpisodeRef, ProjectConfig, SeriesIndex
-from howimetyourcorpus.core.pipeline.tasks import FetchEpisodeStep, FetchSeriesIndexStep
+from howimetyourcorpus.core.pipeline.tasks import (
+    DownloadOpenSubtitlesStep,
+    FetchEpisodeStep,
+    FetchSeriesIndexStep,
+)
 
 
 class _SeriesStoreStub:
@@ -135,3 +140,71 @@ def test_fetch_episode_uses_acquisition_http_options(monkeypatch) -> None:
     assert call["retries"] == 2
     assert call["backoff_s"] == 1.0
     assert "acq=fast_v1" in str(call["user_agent"])
+
+
+class _OpenSubsStoreStub:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.saved_content: str | None = None
+        self.saved_lang: str | None = None
+
+    def save_episode_subtitle_content(self, episode_id: str, lang: str, content: str, fmt: str):
+        self.saved_content = content
+        self.saved_lang = lang
+        p = self.root / f"{episode_id}_{lang}.{fmt}"
+        p.write_text(content, encoding="utf-8")
+        return p
+
+    def save_episode_subtitles(self, episode_id: str, lang: str, content: str, fmt: str, cues_audit):
+        self.saved_content = content
+        self.saved_lang = lang
+
+
+def test_download_opensubtitles_uses_acquisition_http_options(monkeypatch, tmp_path: Path) -> None:
+    captured_init: dict[str, object] = {}
+
+    class _ClientStub:
+        def __init__(self, **kwargs):
+            captured_init.update(kwargs)
+
+        def search(self, imdb_id: str, season: int, episode: int, language: str):
+            return [SimpleNamespace(file_id=1234)]
+
+        def download(self, file_id: int) -> str:
+            assert file_id == 1234
+            return "1\n00:00:00,000 --> 00:00:01,000\nHello\n"
+
+    monkeypatch.setattr(
+        "howimetyourcorpus.core.pipeline.tasks.OpenSubtitlesClient",
+        _ClientStub,
+    )
+
+    config = ProjectConfig(
+        project_name="t",
+        root_dir=tmp_path,
+        source_id="subslikescript",
+        series_url="https://subslikescript.com/series/X",
+        rate_limit_s=4.0,
+        user_agent="Agent/3.0",
+        acquisition_profile_id="safe_v1",
+    )
+    store = _OpenSubsStoreStub(tmp_path)
+    step = DownloadOpenSubtitlesStep(
+        episode_id="S01E01",
+        season=1,
+        episode=1,
+        lang="en",
+        api_key="api-key",
+        imdb_id="tt0460649",
+    )
+
+    result = step.run({"store": store, "db": None, "config": config})
+
+    assert result.success
+    assert store.saved_content is not None
+    assert captured_init["api_key"] == "api-key"
+    assert captured_init["timeout_s"] == 45.0
+    assert captured_init["retries"] == 4
+    assert captured_init["backoff_s"] == 3.0
+    assert captured_init["min_interval_s"] == 4.0
+    assert "acq=safe_v1" in str(captured_init["user_agent"])

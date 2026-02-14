@@ -673,9 +673,11 @@ class ProjectStore:
                 continue
             target_langs.add((lnk.get("lang") or "fr").strip().lower())
         needed_langs = {"en"} | target_langs
+        cues_rows_by_lang: dict[str, list[dict[str, Any]]] = {}
         cues_by_lang: dict[str, dict[str, dict[str, Any]]] = {}
         for lang in needed_langs:
             rows = db.get_cues_for_episode_lang(episode_id, lang)
+            cues_rows_by_lang[lang] = rows
             cues_by_lang[lang] = {str(row.get("cue_id") or ""): row for row in rows if row.get("cue_id")}
 
         cue_updates: dict[str, str] = {}
@@ -727,7 +729,9 @@ class ProjectStore:
             nb_cue = 0
 
         for lang in langs_updated:
-            cues = db.get_cues_for_episode_lang(episode_id, lang)
+            cues = cues_rows_by_lang.get(lang)
+            if cues is None:
+                cues = db.get_cues_for_episode_lang(episode_id, lang)
             if cues:
                 srt_content = cues_to_srt(cues)
                 self.save_episode_subtitle_content(episode_id, lang, srt_content, "srt")

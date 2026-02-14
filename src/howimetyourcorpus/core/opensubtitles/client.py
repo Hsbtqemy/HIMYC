@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,6 +14,19 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.opensubtitles.com/api/v1"
 USER_AGENT = "HowIMetYourCorpus/0.5 (research)"
+_RETRYABLE_STATUS_CODES = {
+    408,
+    409,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+}
+
+_last_opensubtitles_request_time: float | None = None
+_last_opensubtitles_request_lock = threading.Lock()
 
 
 class OpenSubtitlesError(Exception):
@@ -43,11 +58,19 @@ class OpenSubtitlesClient:
         base_url: str = BASE_URL,
         user_agent: str = USER_AGENT,
         timeout_s: float = 30.0,
+        retries: int = 3,
+        backoff_s: float = 2.0,
+        min_interval_s: float | None = None,
     ):
         self.api_key = api_key.strip()
         self.base_url = base_url.rstrip("/")
         self.user_agent = user_agent
         self.timeout_s = timeout_s
+        self.retries = max(1, int(retries))
+        self.backoff_s = max(0.0, float(backoff_s))
+        self.min_interval_s = (
+            max(0.0, float(min_interval_s)) if min_interval_s is not None else None
+        )
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -56,6 +79,85 @@ class OpenSubtitlesClient:
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+    @staticmethod
+    def _parse_retry_after_seconds(response: httpx.Response | None) -> float | None:
+        if response is None:
+            return None
+        raw = (response.headers.get("Retry-After") or "").strip()
+        if not raw:
+            return None
+        try:
+            value = float(raw)
+        except ValueError:
+            return None
+        if value < 0:
+            return None
+        return value
+
+    def _reserve_request_slot(self) -> None:
+        global _last_opensubtitles_request_time
+        if self.min_interval_s is None or self.min_interval_s <= 0:
+            return
+        while True:
+            with _last_opensubtitles_request_lock:
+                now = time.monotonic()
+                if _last_opensubtitles_request_time is None:
+                    _last_opensubtitles_request_time = now
+                    return
+                wait_s = (_last_opensubtitles_request_time + self.min_interval_s) - now
+                if wait_s <= 0:
+                    _last_opensubtitles_request_time = now
+                    return
+            time.sleep(wait_s)
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        follow_redirects: bool = False,
+    ) -> httpx.Response:
+        last_exc: Exception | None = None
+        with httpx.Client(timeout=self.timeout_s, follow_redirects=follow_redirects) as client:
+            for attempt in range(self.retries):
+                self._reserve_request_slot()
+                try:
+                    response = client.request(
+                        method,
+                        url,
+                        params=params,
+                        json=json_body,
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+                    return response
+                except httpx.HTTPStatusError as e:
+                    last_exc = e
+                    status_code = e.response.status_code if e.response is not None else None
+                    if status_code not in _RETRYABLE_STATUS_CODES or attempt >= self.retries - 1:
+                        raise
+                    retry_after = self._parse_retry_after_seconds(e.response)
+                    delay = (
+                        retry_after
+                        if retry_after is not None
+                        else self.backoff_s * (2**attempt)
+                    )
+                    if delay > 0:
+                        time.sleep(delay)
+                except httpx.TransportError as e:
+                    last_exc = e
+                    if attempt >= self.retries - 1:
+                        break
+                    delay = self.backoff_s * (2**attempt)
+                    if delay > 0:
+                        time.sleep(delay)
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("OpenSubtitles request failed without explicit exception")
 
     def search(
         self,
@@ -86,9 +188,12 @@ class OpenSubtitlesClient:
             "languages": lang_clean,
         }
         try:
-            with httpx.Client(timeout=self.timeout_s) as client:
-                r = client.get(url, params=params, headers=self._headers())
-                r.raise_for_status()
+            r = self._request(
+                "GET",
+                url,
+                params=params,
+                headers=self._headers(),
+            )
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
                 raise OpenSubtitlesError("Clé API OpenSubtitles invalide ou expirée.") from e
@@ -128,9 +233,13 @@ class OpenSubtitlesClient:
         url = f"{self.base_url}/download"
         body = {"file_id": file_id}
         try:
-            with httpx.Client(timeout=self.timeout_s, follow_redirects=True) as client:
-                r = client.post(url, json=body, headers=self._headers())
-                r.raise_for_status()
+            r = self._request(
+                "POST",
+                url,
+                json_body=body,
+                headers=self._headers(),
+                follow_redirects=True,
+            )
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
                 raise OpenSubtitlesError("Clé API OpenSubtitles invalide ou expirée.") from e
@@ -145,8 +254,14 @@ class OpenSubtitlesClient:
         if not link:
             raise OpenSubtitlesError("Réponse OpenSubtitles sans lien de téléchargement.")
         try:
-            r2 = httpx.get(link, timeout=self.timeout_s)
-            r2.raise_for_status()
+            r2 = self._request(
+                "GET",
+                link,
+                headers={"User-Agent": self.user_agent},
+                follow_redirects=True,
+            )
+            if r2.encoding in (None, "ascii", "ISO-8859-1"):
+                r2.encoding = "utf-8"
             return r2.text
         except (httpx.HTTPError, httpx.TimeoutException) as e:
             raise OpenSubtitlesError(f"Téléchargement fichier: {e!s}") from e

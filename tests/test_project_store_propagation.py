@@ -126,7 +126,7 @@ def test_propagate_character_names_uses_bulk_updates_and_cached_cues(tmp_path: P
     assert db.segment_updates == [("S01E01:sentence:0", "ted")]
     assert db.bulk_updates_calls == 1
     assert db.single_update_calls == 0
-    assert db.get_cues_calls_by_lang.get("en") == 2
-    assert db.get_cues_calls_by_lang.get("fr") == 2
+    assert db.get_cues_calls_by_lang.get("en") == 1
+    assert db.get_cues_calls_by_lang.get("fr") == 1
     assert db._cues_by_lang["en"][0]["text_clean"].startswith("Ted: ")
     assert db._cues_by_lang["fr"][0]["text_clean"].startswith("Ted (FR): ")
