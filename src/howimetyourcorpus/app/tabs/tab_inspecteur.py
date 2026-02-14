@@ -341,17 +341,40 @@ class InspectorTabWidget(QWidget):
         self.clean_edit.setTextCursor(cursor)
         self.clean_edit.ensureCursorVisible()
 
-    def _run_normalize(self) -> None:
+    def _resolve_episode_store_or_warn(self, *, title: str) -> tuple[str, object] | None:
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
         if not eid or not store:
             warn_precondition(
                 self,
-                "Normalisation",
+                title,
                 "Sélectionnez un épisode et ouvrez un projet.",
                 next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
             )
+            return None
+        return str(eid), store
+
+    def _resolve_episode_store_db_or_warn(self, *, title: str) -> tuple[str, object, object] | None:
+        resolved = self._resolve_episode_store_or_warn(title=title)
+        if resolved is None:
+            return None
+        eid, store = resolved
+        db = self._get_db()
+        if not db:
+            warn_precondition(
+                self,
+                title,
+                "Base de données indisponible.",
+                next_step="Pilotage: rouvrez le projet pour réinitialiser la base.",
+            )
+            return None
+        return eid, store, db
+
+    def _run_normalize(self) -> None:
+        resolved = self._resolve_episode_store_or_warn(title="Normalisation")
+        if resolved is None:
             return
+        eid, store = resolved
         if not store.has_episode_raw(eid):
             warn_precondition(
                 self,
@@ -375,16 +398,10 @@ class InspectorTabWidget(QWidget):
         self._run_job(steps)
 
     def _set_episode_preferred_profile(self) -> None:
-        eid = self.inspect_episode_combo.currentData()
-        store = self._get_store()
-        if not eid or not store:
-            warn_precondition(
-                self,
-                "Profil préféré",
-                "Sélectionnez un épisode et ouvrez un projet.",
-                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
-            )
+        resolved = self._resolve_episode_store_or_warn(title="Profil préféré")
+        if resolved is None:
             return
+        eid, store = resolved
         profile = self.inspect_profile_combo.currentText() or "default_en_v1"
         preferred = store.load_episode_preferred_profiles()
         preferred[eid] = profile
@@ -392,17 +409,10 @@ class InspectorTabWidget(QWidget):
         self._show_status(f"Profil « {profile} » défini comme préféré pour {eid}.", 3000)
 
     def _run_segment(self) -> None:
-        eid = self.inspect_episode_combo.currentData()
-        store = self._get_store()
-        db = self._get_db()
-        if not eid or not store or not db:
-            warn_precondition(
-                self,
-                "Segmentation",
-                "Sélectionnez un épisode et ouvrez un projet.",
-                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
-            )
+        resolved = self._resolve_episode_store_db_or_warn(title="Segmentation")
+        if resolved is None:
             return
+        eid, store, _db = resolved
         if not store.has_episode_clean(eid):
             warn_precondition(
                 self,
@@ -422,16 +432,10 @@ class InspectorTabWidget(QWidget):
         self._run_job(steps)
 
     def _export_segments(self) -> None:
-        eid = self.inspect_episode_combo.currentData()
-        db = self._get_db()
-        if not eid or not db:
-            warn_precondition(
-                self,
-                "Export segments",
-                "Sélectionnez un épisode et ouvrez un projet.",
-                next_step="Pilotage: ouvrez/créez un projet puis choisissez un épisode dans l'Inspecteur.",
-            )
+        resolved = self._resolve_episode_store_db_or_warn(title="Export segments")
+        if resolved is None:
             return
+        eid, _store, db = resolved
         segments = db.get_segments_for_episode(eid)
         if not segments:
             warn_precondition(
