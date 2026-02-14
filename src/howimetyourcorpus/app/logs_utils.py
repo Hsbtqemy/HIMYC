@@ -28,6 +28,7 @@ LOGS_BUILTIN_PRESETS: tuple[tuple[str, str, str], ...] = (
     ("Normalize", "ALL", "normalize|normalized"),
     ("Segment", "ALL", "segment|segmented"),
     ("Index", "ALL", "index|indexed|fts"),
+    ("Skips (idempotence)", "INFO", "skip|already normalized|already indexed|already segmented"),
     ("Alignement", "ALL", "align|pivot|target"),
     ("Concordance", "ALL", "kwic|concordance"),
 )
