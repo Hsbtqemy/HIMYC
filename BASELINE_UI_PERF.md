@@ -28,20 +28,21 @@ python scripts/benchmark_ui_baseline.py
 - Segments (sentence): `17280`
 - Cues (sous-titres): `11520`
 - Fichier logs pour tail: `80000` lignes
-- Setup DB + index initial: `887.16 ms`
+- Setup DB + index initial: `1109.17 ms`
 
 ## KPI (resultats initiaux)
 
 | KPI | p50 (ms) | p95 (ms) | Mean (ms) | Seuil cible |
 |---|---:|---:|---:|---|
-| KWIC episodes (1 page) | 0.85 | 1.17 | 0.91 | pas de freeze UI |
-| KWIC episodes (2 pages) | 1.84 | 1.95 | 1.86 | pagination stable |
-| KWIC segments (1 page) | 9.10 | 9.72 | 9.23 | pas de freeze UI |
-| KWIC cues (1 page) | 3.08 | 3.61 | 3.16 | pas de freeze UI |
-| Open project -> export KWIC | 1.78 | 2.44 | 1.93 | tendance a la baisse |
-| Filtre logs 5k | 35.44 | 36.77 | 35.31 | p95 < 200 ms |
-| Filtre logs 10k | 70.34 | 73.05 | 70.81 | p95 < 200 ms |
-| Tail logs (500 lignes) | 0.09 | 0.09 | 0.09 | quasi instantane |
+| KWIC episodes (1 page) | 1.00 | 1.07 | 1.01 | pas de freeze UI |
+| KWIC episodes (2 pages) | 2.35 | 3.76 | 2.62 | pagination stable |
+| KWIC segments (1 page) | 12.77 | 14.26 | 13.00 | pas de freeze UI |
+| KWIC cues (1 page) | 3.91 | 4.14 | 3.93 | pas de freeze UI |
+| Open project -> export KWIC | 2.33 | 3.53 | 2.54 | tendance a la baisse |
+| Filtre logs 5k | 34.22 | 38.44 | 35.08 | p95 < 200 ms |
+| Filtre logs 10k | 68.78 | 69.77 | 68.74 | p95 < 200 ms |
+| Render logs 10k | 68.45 | 69.79 | 68.71 | p95 < 200 ms |
+| Tail logs (500 lignes) | 0.09 | 0.10 | 0.09 | quasi instantane |
 
 ## Notes d'interpretation
 

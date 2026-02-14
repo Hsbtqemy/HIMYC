@@ -236,6 +236,7 @@ Etat 2026-02-14:
 - Optimisation refresh global: implementee (`setPlainText` en bloc au lieu d'append ligne par ligne).
 - Ingestion incremental load tail (mode non-clear): implementee.
 - Mode pin logs: deja en place.
+- Baseline Lot 0 enrichie: metrique `logs_render_10k_ms` ajoutee.
 
 ### Acceptance criteria
 - Filtre fluide sur 10k lignes.

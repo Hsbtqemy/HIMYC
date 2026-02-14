@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import deque
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable
 
 from PySide6.QtCore import QObject, QSettings, Signal, QTimer
 from PySide6.QtGui import QGuiApplication
@@ -351,6 +351,22 @@ class LogsTabWidget(QWidget):
             query=self._current_query(),
         )
 
+    @staticmethod
+    def _build_filtered_view_text(
+        entries: Iterable[LogEntry],
+        *,
+        level_min: str,
+        query: str,
+    ) -> tuple[str, int]:
+        """Construit le texte affiché dans l'éditeur logs à partir des filtres courants."""
+        lines: list[str] = []
+        for entry in entries:
+            if matches_log_filters(entry, level_min=level_min, query=query):
+                lines.append(entry.formatted_line)
+        if not lines:
+            return "", 0
+        return "\n".join(lines), len(lines)
+
     def _update_count_label(self) -> None:
         self.count_label.setText(f"{self._visible_count} / {len(self._entries)}")
 
@@ -375,13 +391,13 @@ class LogsTabWidget(QWidget):
         self._update_count_label()
 
     def _refresh_view(self, *_args) -> None:
-        filtered_lines = [
-            entry.formatted_line
-            for entry in self._entries
-            if self._entry_matches_current_filters(entry)
-        ]
-        self.logs_edit.setPlainText("\n".join(filtered_lines))
-        self._visible_count = len(filtered_lines)
+        text, visible_count = self._build_filtered_view_text(
+            self._entries,
+            level_min=self._current_level_filter(),
+            query=self._current_query(),
+        )
+        self.logs_edit.setPlainText(text)
+        self._visible_count = visible_count
         self._update_count_label()
 
     def _save_filters_state(self) -> None:

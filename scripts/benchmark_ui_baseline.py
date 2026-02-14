@@ -261,8 +261,17 @@ def run_baseline(
                 if matches_log_filters(entry, level_min=level_min, query=query)
             )
 
+        def _logs_render_10k() -> int:
+            text, _count = LogsTabWidget._build_filtered_view_text(
+                logs_10k,
+                level_min=level_min,
+                query=query,
+            )
+            return len(text)
+
         logs_filter_5k_stats, _, logs_5k_visible = _measure(_logs_filter_5k, repeat=repeat)
         logs_filter_10k_stats, _, logs_10k_visible = _measure(_logs_filter_10k, repeat=repeat)
+        logs_render_10k_stats, _, logs_render_10k_chars = _measure(_logs_render_10k, repeat=repeat)
 
         big_log_lines = max(log_lines, 50000)
         with big_log_path.open("w", encoding="utf-8") as handle:
@@ -304,6 +313,7 @@ def run_baseline(
                 "workflow_open_project_to_export_kwic_ms": asdict(workflow_export_stats),
                 "logs_filter_5k_ms": asdict(logs_filter_5k_stats),
                 "logs_filter_10k_ms": asdict(logs_filter_10k_stats),
+                "logs_render_10k_ms": asdict(logs_render_10k_stats),
                 "logs_tail_read_500_ms": asdict(tail_stats),
             },
             "sanity": {
@@ -314,6 +324,7 @@ def run_baseline(
                 "workflow_export_hits": workflow_export_hits,
                 "logs_visible_5k": logs_5k_visible,
                 "logs_visible_10k": logs_10k_visible,
+                "logs_render_10k_chars": logs_render_10k_chars,
                 "tail_lines_read": tail_lines,
             },
         }
@@ -366,6 +377,7 @@ def main() -> int:
     print(_format_line("Workflow open->export", result["kpis"]["workflow_open_project_to_export_kwic_ms"]))
     print(_format_line("Logs filter 5k", result["kpis"]["logs_filter_5k_ms"]))
     print(_format_line("Logs filter 10k", result["kpis"]["logs_filter_10k_ms"]))
+    print(_format_line("Logs render 10k", result["kpis"]["logs_render_10k_ms"]))
     print(_format_line("Logs tail 500", result["kpis"]["logs_tail_read_500_ms"]))
     return 0
 
