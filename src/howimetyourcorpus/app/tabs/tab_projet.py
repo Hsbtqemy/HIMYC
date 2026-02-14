@@ -427,15 +427,27 @@ class ProjectTabWidget(QWidget):
         self._set_project_details_expanded(not self._details_expanded, persist=True)
 
     def _refresh_project_summary(self, *_args) -> None:
-        root = self.proj_root_edit.text().strip() or "—"
-        source = self.source_id_combo.currentText().strip() or "—"
-        acq = self.acquisition_profile_combo.currentText().strip() or "—"
-        norm = self.normalize_profile_combo.currentText().strip() or "—"
-        rate = int(self.rate_limit_spin.value())
-        series_url = (self.series_url_edit.text() or "").strip()
+        summary_label = getattr(self, "project_summary_label", None)
+        if summary_label is None:
+            return
+
+        root_edit = getattr(self, "proj_root_edit", None)
+        source_combo = getattr(self, "source_id_combo", None)
+        acq_combo = getattr(self, "acquisition_profile_combo", None)
+        norm_combo = getattr(self, "normalize_profile_combo", None)
+        rate_spin = getattr(self, "rate_limit_spin", None)
+        series_url_edit = getattr(self, "series_url_edit", None)
+        languages_list = getattr(self, "languages_list", None)
+
+        root = (root_edit.text().strip() if root_edit is not None else "") or "—"
+        source = (source_combo.currentText().strip() if source_combo is not None else "") or "—"
+        acq = (acq_combo.currentText().strip() if acq_combo is not None else "") or "—"
+        norm = (norm_combo.currentText().strip() if norm_combo is not None else "") or "—"
+        rate = int(rate_spin.value()) if rate_spin is not None else 0
+        series_url = ((series_url_edit.text() if series_url_edit is not None else "") or "").strip()
         source_desc = "SRT only" if not series_url else f"URL: {series_url}"
-        langs = self.languages_list.count()
-        self.project_summary_label.setText(
+        langs = int(languages_list.count()) if languages_list is not None else 0
+        summary_label.setText(
             " | ".join(
                 (
                     f"Dossier: {root}",
