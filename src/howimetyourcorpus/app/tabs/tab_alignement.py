@@ -216,18 +216,20 @@ class AlignmentTabWidget(QWidget):
         self._on_episode_changed()
 
     def _resolve_target_langs(self, episode_id: str | None) -> list[str]:
-        langs: list[str] = []
+        project_langs: list[str] = []
         store = self._get_store()
         if store:
             try:
-                project_langs = store.load_project_languages()
+                project_langs = [(lng or "").lower() for lng in store.load_project_languages()]
             except Exception:
                 project_langs = []
-            langs.extend([(lng or "").lower() for lng in project_langs])
+        track_langs: list[str] = []
         db = self._get_db()
         if db and episode_id:
             tracks = db.get_tracks_for_episode(episode_id)
-            langs.extend([(t.get("lang") or "").lower() for t in tracks])
+            track_langs = [(t.get("lang") or "").lower() for t in tracks]
+        # Priorité aux langues réellement disponibles pour l'épisode.
+        langs = track_langs or project_langs
         dedup: list[str] = []
         seen: set[str] = set()
         for lng in langs:
@@ -235,7 +237,7 @@ class AlignmentTabWidget(QWidget):
                 continue
             seen.add(lng)
             dedup.append(lng)
-        return dedup or ["fr"]
+        return dedup
 
     def _refresh_target_lang_combo(self, episode_id: str | None) -> None:
         current = (self.align_target_lang_combo.currentData() or "").lower()
@@ -246,7 +248,18 @@ class AlignmentTabWidget(QWidget):
         if current and current in langs:
             idx = langs.index(current)
             self.align_target_lang_combo.setCurrentIndex(idx)
-        self.align_target_lang_combo.setEnabled(self.align_target_lang_combo.count() > 0)
+        has_target = self.align_target_lang_combo.count() > 0
+        self.align_target_lang_combo.setEnabled(has_target)
+        self.align_run_btn.setEnabled(has_target and bool(episode_id))
+        if not has_target:
+            self.align_target_lang_combo.setToolTip(
+                "Aucune piste cible disponible pour cet épisode. Importez d'abord un SRT/VTT non-EN."
+            )
+        else:
+            self.align_target_lang_combo.setToolTip(
+                "Langue des sous-titres à aligner contre EN (pivot). "
+                "Les valeurs sont déduites des pistes disponibles."
+            )
 
     def _on_episode_changed(self) -> None:
         self.align_run_combo.clear()
@@ -335,6 +348,13 @@ class AlignmentTabWidget(QWidget):
         db = self._get_db()
         if not eid or not store or not db:
             QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode et ouvrez un projet.")
+            return
+        if self.align_target_lang_combo.count() == 0:
+            QMessageBox.warning(
+                self,
+                "Alignement",
+                "Aucune langue cible disponible pour cet épisode. Importez un SRT/VTT cible dans l'Inspecteur.",
+            )
             return
         target_lang = (self.align_target_lang_combo.currentData() or "fr").lower()
         if target_lang == "en":
