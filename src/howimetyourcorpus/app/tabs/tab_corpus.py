@@ -519,19 +519,19 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree_model.set_checked(set(ids), True)
 
     def _discover_episodes(self) -> None:
-        context = self._get_context()
-        if not context.get("config") or not context.get("store") or not context.get("db"):
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved = self._resolve_project_context(require_db=True)
+        if resolved is None:
             return
+        _store, _db, context = resolved
         config = context["config"]
         step = FetchSeriesIndexStep(config.series_url, config.user_agent)
         self._run_job([step])
 
     def _discover_merge(self) -> None:
-        context = self._get_context()
-        if not context.get("config") or not context.get("store") or not context.get("db"):
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved = self._resolve_project_context(require_db=True)
+        if resolved is None:
             return
+        _store, _db, context = resolved
         config = context["config"]
         dlg = QDialog(self)
         dlg.setWindowTitle("Découvrir (fusionner une autre source)")
@@ -743,6 +743,26 @@ class CorpusTabWidget(QWidget):
             QMessageBox.warning(self, "Corpus", str(exc))
             return None
 
+    def _resolve_project_context(
+        self,
+        *,
+        require_db: bool = False,
+    ) -> tuple[Any, Any, dict[str, Any]] | None:
+        store = self._get_store()
+        db = self._get_db()
+        context = self._get_context()
+        if not context.get("config") or not store or (require_db and not db):
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return None
+        return store, db, context
+
+    def _load_index_or_warn(self, store: Any) -> SeriesIndex | None:
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return None
+        return index
+
     def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
         db = self._get_db()
         if not db or not episode_ids:
@@ -875,15 +895,12 @@ class CorpusTabWidget(QWidget):
         self._run_job(steps)
 
     def _fetch_episodes(self, scope_mode: str | None = None) -> None:
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        if not context.get("config") or not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved = self._resolve_project_context(require_db=True)
+        if resolved is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
         resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
@@ -904,14 +921,12 @@ class CorpusTabWidget(QWidget):
         self._run_job(list(plan.steps))
 
     def _normalize_episodes(self, scope_mode: str | None = None) -> None:
-        store = self._get_store()
-        context = self._get_context()
-        if not context.get("config") or not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved = self._resolve_project_context()
+        if resolved is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
         resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
@@ -943,14 +958,12 @@ class CorpusTabWidget(QWidget):
 
     def _segment_episodes(self, scope_mode: str | None = None) -> None:
         """Bloc 2 — Segmente les épisodes du scope sélectionné ayant clean.txt."""
-        store = self._get_store()
-        context = self._get_context()
-        if not context.get("config") or not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved = self._resolve_project_context()
+        if resolved is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
         resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
@@ -979,32 +992,26 @@ class CorpusTabWidget(QWidget):
 
     def _run_all_for_scope(self) -> None:
         """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB sur le scope choisi."""
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        if not context.get("config") or not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved_context = self._resolve_project_context(require_db=True)
+        if resolved_context is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved_context
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
-        resolved = self._resolve_scope_and_ids(index)
-        if resolved is None:
+        resolved_scope = self._resolve_scope_and_ids(index)
+        if resolved_scope is None:
             return
-        _scope, ids = resolved
+        _scope, ids = resolved_scope
         self._run_all_for_episode_ids(ids=ids, index=index, store=store, context=context)
 
     def _retry_selected_error_episode(self) -> None:
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        if not context.get("config") or not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved = self._resolve_project_context(require_db=True)
+        if resolved is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
         eid = self._selected_error_episode_id()
         if not eid:
@@ -1022,15 +1029,12 @@ class CorpusTabWidget(QWidget):
 
     def _retry_error_episodes(self) -> None:
         """Relance les épisodes en erreur avec un enchaînement complet."""
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        if not context.get("config") or not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved = self._resolve_project_context(require_db=True)
+        if resolved is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
         error_ids = self._get_error_episode_ids(index)
         if not error_ids:
@@ -1053,15 +1057,12 @@ class CorpusTabWidget(QWidget):
         self._on_open_inspector(eid)
 
     def _index_db(self, scope_mode: str | None = None) -> None:
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        if not context.get("config") or not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved_context = self._resolve_project_context(require_db=True)
+        if resolved_context is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved_context
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
         resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
@@ -1082,15 +1083,12 @@ class CorpusTabWidget(QWidget):
 
     def _segment_and_index_scope(self, scope_mode: str | None = None) -> None:
         """Chaîne segmenter puis indexer pour les épisodes CLEAN du scope choisi."""
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        if not context.get("config") or not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        resolved_context = self._resolve_project_context(require_db=True)
+        if resolved_context is None:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _db, context = resolved_context
+        index = self._load_index_or_warn(store)
+        if index is None:
             return
         resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
