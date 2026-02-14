@@ -169,7 +169,7 @@ Etat 2026-02-14:
 Etat 2026-02-14:
 - Regle stricte run explicite: deja en place (propagation bloquee sans run).
 - Restauration dernier run par episode: implementee (QSettings, par projet) dans `tab_personnages.py`.
-- Reste a faire: contrat global d'etat machine transversal (`idle/running/cancelling/done/error`).
+- Contrat global d'etat machine transversal (`idle/running/cancelling/done/error`): implemente dans `ui_mainwindow.py`.
 
 ### Acceptance criteria
 - Zero propagation sur mauvais run en test manuel cible.

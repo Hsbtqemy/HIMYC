@@ -72,6 +72,32 @@ _NETWORK_STEP_NAMES = {
     "download_opensubtitles",
 }
 _LOGS_PINNED_KEY = "ui/logsPanelPinned"
+_JOB_STATE_IDLE = "idle"
+_JOB_STATE_RUNNING = "running"
+_JOB_STATE_CANCELLING = "cancelling"
+_JOB_STATE_DONE = "done"
+_JOB_STATE_ERROR = "error"
+_JOB_STATE_LABELS = {
+    _JOB_STATE_IDLE: "IDLE",
+    _JOB_STATE_RUNNING: "RUNNING",
+    _JOB_STATE_CANCELLING: "CANCELLING",
+    _JOB_STATE_DONE: "DONE",
+    _JOB_STATE_ERROR: "ERROR",
+}
+_JOB_STATE_COLORS = {
+    _JOB_STATE_IDLE: "#333333",
+    _JOB_STATE_RUNNING: "#005A9C",
+    _JOB_STATE_CANCELLING: "#9C6500",
+    _JOB_STATE_DONE: "#2E7D32",
+    _JOB_STATE_ERROR: "#A40000",
+}
+_JOB_STATE_ALLOWED_TRANSITIONS = {
+    _JOB_STATE_IDLE: {_JOB_STATE_RUNNING},
+    _JOB_STATE_RUNNING: {_JOB_STATE_CANCELLING, _JOB_STATE_DONE, _JOB_STATE_ERROR},
+    _JOB_STATE_CANCELLING: {_JOB_STATE_DONE, _JOB_STATE_ERROR},
+    _JOB_STATE_DONE: {_JOB_STATE_IDLE, _JOB_STATE_RUNNING},
+    _JOB_STATE_ERROR: {_JOB_STATE_IDLE, _JOB_STATE_RUNNING},
+}
 
 
 class MainWindow(QMainWindow):
@@ -100,6 +126,7 @@ class MainWindow(QMainWindow):
         self._job_runner: JobRunner | None = None
         self._log_handler: logging.Handler | None = None
         self._logs_panel_pinned = False
+        self._job_state = _JOB_STATE_IDLE
         self._restore_logs_panel_pinned_state()
 
         central = QWidget()
@@ -128,6 +155,9 @@ class MainWindow(QMainWindow):
         bar_layout = QHBoxLayout(self.global_job_feedback_bar)
         bar_layout.setContentsMargins(8, 6, 8, 6)
         bar_layout.addWidget(QLabel("Job:"))
+        self.global_job_feedback_state_label = QLabel(_JOB_STATE_LABELS[_JOB_STATE_IDLE])
+        self.global_job_feedback_state_label.setStyleSheet("font-weight: 600; color: #333333;")
+        bar_layout.addWidget(self.global_job_feedback_state_label)
         self.global_job_feedback_label = QLabel("Aucun job en cours.")
         self.global_job_feedback_label.setWordWrap(False)
         bar_layout.addWidget(self.global_job_feedback_label, 1)
@@ -148,36 +178,68 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.global_job_feedback_bar)
         self.global_job_feedback_bar.setVisible(False)
 
+    @staticmethod
+    def _is_valid_job_state_transition(current_state: str, next_state: str) -> bool:
+        if current_state == next_state:
+            return True
+        allowed = _JOB_STATE_ALLOWED_TRANSITIONS.get(current_state, set())
+        return next_state in allowed
+
+    @staticmethod
+    def _normalize_job_state(state: str) -> str:
+        state_key = str(state or "").strip().lower()
+        return state_key if state_key in _JOB_STATE_LABELS else _JOB_STATE_IDLE
+
+    def _set_job_state(self, state: str, *, force: bool = False) -> None:
+        next_state = self._normalize_job_state(state)
+        current = self._job_state
+        if not force and not self._is_valid_job_state_transition(current, next_state):
+            logger.warning("Invalid job state transition: %s -> %s", current, next_state)
+            return
+        self._job_state = next_state
+        color = _JOB_STATE_COLORS.get(next_state, "#333333")
+        self.global_job_feedback_state_label.setText(_JOB_STATE_LABELS[next_state])
+        self.global_job_feedback_state_label.setStyleSheet(
+            f"font-weight: 600; color: {color};"
+        )
+
     def _show_global_job_feedback(
         self,
         text: str,
         *,
         progress: int | None = None,
-        running: bool,
-        is_error: bool = False,
+        state: str,
         auto_hide_ms: int | None = None,
     ) -> None:
         """Met à jour la barre de feedback globale."""
+        self._set_job_state(state)
         self._job_feedback_hide_timer.stop()
         self.global_job_feedback_bar.setVisible(True)
         self.global_job_feedback_label.setText(text)
         if progress is not None:
             self.global_job_feedback_progress.setValue(max(0, min(100, int(progress))))
-        self.global_job_feedback_cancel_btn.setEnabled(bool(running and self._job_runner and self._job_runner.is_running()))
-        if is_error:
-            self.global_job_feedback_label.setStyleSheet("color: #A40000;")
-        elif running:
-            self.global_job_feedback_label.setStyleSheet("color: #005A9C;")
-        else:
-            self.global_job_feedback_label.setStyleSheet("color: #333;")
+        is_running = self._job_state in {_JOB_STATE_RUNNING, _JOB_STATE_CANCELLING}
+        can_cancel = (
+            self._job_state == _JOB_STATE_RUNNING
+            and self._job_runner is not None
+            and self._job_runner.is_running()
+        )
+        self.global_job_feedback_cancel_btn.setEnabled(can_cancel)
+        label_color = _JOB_STATE_COLORS.get(self._job_state, "#333333")
+        self.global_job_feedback_label.setStyleSheet(f"color: {label_color};")
         if auto_hide_ms and auto_hide_ms > 0:
             self._job_feedback_hide_timer.start(int(auto_hide_ms))
+        elif is_running:
+            self._job_feedback_hide_timer.stop()
 
     def _hide_global_job_feedback(self) -> None:
         """Masque la barre globale si aucun job n'est en cours."""
+        if self._job_state in {_JOB_STATE_RUNNING, _JOB_STATE_CANCELLING}:
+            return
         if self._job_runner and self._job_runner.is_running():
             return
         self.global_job_feedback_bar.setVisible(False)
+        self._set_job_state(_JOB_STATE_IDLE, force=True)
 
     def _build_menu_bar(self):
         """Barre de menu : Outils (journaux) + Aide."""
@@ -489,7 +551,7 @@ class MainWindow(QMainWindow):
         self._show_global_job_feedback(
             f"Lancement du job ({len(steps)} étape(s))…",
             progress=0,
-            running=True,
+            state=_JOB_STATE_RUNNING,
         )
         if force:
             self.statusBar().showMessage("Traitement lancé en mode force (re-traitement explicite).", 4000)
@@ -513,7 +575,8 @@ class MainWindow(QMainWindow):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_progress(pct)
         feedback = f"{step_name}: {message}" if message else step_name
-        self._show_global_job_feedback(feedback, progress=pct, running=True)
+        state = _JOB_STATE_CANCELLING if self._job_state == _JOB_STATE_CANCELLING else _JOB_STATE_RUNNING
+        self._show_global_job_feedback(feedback, progress=pct, state=state)
         if message:
             self.statusBar().showMessage(f"{step_name}: {message}", 2000)
 
@@ -579,11 +642,11 @@ class MainWindow(QMainWindow):
         step_breakdown = self._build_step_breakdown_summary(results)
         log_msg = f"{msg} Étapes: {step_breakdown}." if step_breakdown else msg
         self._append_job_summary_to_log(log_msg)
+        end_state = _JOB_STATE_ERROR if fail > 0 else _JOB_STATE_DONE
         self._show_global_job_feedback(
             msg,
             progress=100,
-            running=False,
-            is_error=fail > 0,
+            state=end_state,
             auto_hide_ms=8000 if fail == 0 else None,
         )
         self._refresh_after_project_loaded()
@@ -595,7 +658,7 @@ class MainWindow(QMainWindow):
         self._show_global_job_feedback(
             "Traitement annulé.",
             progress=0,
-            running=False,
+            state=_JOB_STATE_DONE,
             auto_hide_ms=5000,
         )
         self._job_runner = None
@@ -613,13 +676,16 @@ class MainWindow(QMainWindow):
         )
         self._show_global_job_feedback(
             f"Erreur détectée ({step_name}). Consultez les logs.",
-            running=True,
-            is_error=True,
+            state=_JOB_STATE_ERROR,
         )
         show_error(self, exc=exc, context=step_name)
 
     def _cancel_job(self):
-        if self._job_runner:
+        if self._job_runner and self._job_runner.is_running():
+            self._show_global_job_feedback(
+                "Annulation demandée…",
+                state=_JOB_STATE_CANCELLING,
+            )
             self._job_runner.cancel()
 
     def _set_job_ui_busy(self, busy: bool) -> None:
