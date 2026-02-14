@@ -98,6 +98,7 @@ class CorpusTabWidget(QWidget):
         self._workflow_service = WorkflowService()
         self._primary_action: Callable[[], None] | None = None
         self._cached_index: SeriesIndex | None = None
+        self._workflow_busy = False
 
         layout = QVBoxLayout(self)
         filter_row = QHBoxLayout()
@@ -344,6 +345,37 @@ class CorpusTabWidget(QWidget):
     def set_cancel_btn_enabled(self, enabled: bool) -> None:
         self.cancel_job_btn.setEnabled(enabled)
 
+    def set_workflow_busy(self, busy: bool) -> None:
+        """Active/désactive les contrôles de pilotage pendant l'exécution d'un job."""
+        self._workflow_busy = busy
+        enabled = not busy
+        controls = (
+            self.season_filter_combo,
+            self.status_filter_combo,
+            self.check_season_btn,
+            self.batch_scope_combo,
+            self.check_all_btn,
+            self.uncheck_all_btn,
+            self.discover_btn,
+            self.add_episodes_btn,
+            self.discover_merge_btn,
+            self.fetch_btn,
+            self.norm_batch_profile_combo,
+            self.norm_btn,
+            self.segment_btn,
+            self.all_in_one_btn,
+            self.index_btn,
+            self.export_corpus_btn,
+            self.retry_selected_error_btn,
+            self.retry_all_errors_btn,
+            self.inspect_error_btn,
+            self.refresh_errors_btn,
+            self.primary_action_btn,
+        )
+        for widget in controls:
+            widget.setEnabled(enabled)
+        self.cancel_job_btn.setEnabled(busy)
+
     def _emit_cancel_job(self) -> None:
         self._on_cancel_job()
 
@@ -496,6 +528,8 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree_model.set_episodes(index.episodes)
         self._refresh_season_filter_combo()
         self._refresh_scope_preview(index)
+        if self._workflow_busy:
+            self.set_workflow_busy(True)
 
     def refresh_profile_combo(self, profile_ids: list[str], current: str | None) -> None:
         """Met à jour le combo profil batch (après ouverture projet ou dialogue profils)."""

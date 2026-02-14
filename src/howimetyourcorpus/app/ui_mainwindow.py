@@ -381,7 +381,7 @@ class MainWindow(QMainWindow):
         self._job_runner.finished.connect(self._on_job_finished)
         self._job_runner.cancelled.connect(self._on_job_cancelled)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_cancel_btn_enabled(True)
+            self.corpus_tab.set_workflow_busy(True)
             self.corpus_tab.set_progress(0)
         self._job_runner.run_async()
 
@@ -411,7 +411,7 @@ class MainWindow(QMainWindow):
 
     def _on_job_finished(self, results: list):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_cancel_btn_enabled(False)
+            self.corpus_tab.set_workflow_busy(False)
             self.corpus_tab.set_progress(100)
         ok = sum(1 for r in results if getattr(r, "success", True))
         fail = len(results) - ok
@@ -445,7 +445,7 @@ class MainWindow(QMainWindow):
 
     def _on_job_cancelled(self):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_cancel_btn_enabled(False)
+            self.corpus_tab.set_workflow_busy(False)
         self.statusBar().showMessage("Traitement annulé.", 5000)
         self._job_runner = None
 
