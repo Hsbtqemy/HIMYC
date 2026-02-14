@@ -75,3 +75,20 @@ def test_pipeline_runner_preserves_existing_step_name_data() -> None:
     assert len(results) == 1
     data = results[0].data or {}
     assert data["step_name"] == "custom_step"
+
+
+class _FailingStep(Step):
+    name = "failing_step"
+
+    def run(self, context, *, force=False, on_progress=None, on_log=None) -> StepResult:
+        raise RuntimeError("boom")
+
+
+def test_pipeline_runner_keeps_step_name_when_step_raises_exception() -> None:
+    runner = PipelineRunner()
+    results = runner.run([_FailingStep()], context={})
+
+    assert len(results) == 1
+    assert not results[0].success
+    data = results[0].data or {}
+    assert data["step_name"] == "failing_step"

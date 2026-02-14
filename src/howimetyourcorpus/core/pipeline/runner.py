@@ -101,6 +101,6 @@ class PipelineRunner:
                 logger.exception("Step %s failed", step.name)
                 if on_error:
                     on_error(step.name, e)
-                results.append(StepResult(False, str(e)))
+                results.append(StepResult(False, str(e), {"step_name": step.name}))
                 break
         return results
