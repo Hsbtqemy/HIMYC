@@ -147,11 +147,19 @@ class MainWindow(QMainWindow):
         """Enregistre la configuration de l'onglet Projet dans config.toml (source, URL, etc.)."""
         if not self._config or not self._store or not (hasattr(self, "project_tab") and self.project_tab):
             return
+        if not self._sync_project_config_from_form():
+            self.statusBar().showMessage("Ouvrez un projet puis modifiez le formulaire du projet ouvert.", 4000)
+            return
+        self.statusBar().showMessage("Configuration enregistrée (source, URL série, profil).", 3000)
+
+    def _sync_project_config_from_form(self) -> bool:
+        """Synchronise config.toml + config mémoire depuis le formulaire projet courant."""
+        if not self._config or not self._store or not (hasattr(self, "project_tab") and self.project_tab):
+            return False
         data = self.project_tab.get_form_data()
         root = data.get("root")
         if not root or Path(root).resolve() != self._config.root_dir.resolve():
-            self.statusBar().showMessage("Ouvrez un projet puis modifiez le formulaire du projet ouvert.", 4000)
-            return
+            return False
         self._store.save_config_main(
             series_url=data.get("series_url", ""),
             source_id=data.get("source_id"),
@@ -167,7 +175,7 @@ class MainWindow(QMainWindow):
             user_agent=self._config.user_agent,
             normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
         )
-        self.statusBar().showMessage("Configuration enregistrée (source, URL série, profil).", 3000)
+        return True
 
     def _open_profiles_dialog(self):
         if not self._store:
@@ -352,24 +360,7 @@ class MainWindow(QMainWindow):
             )
             return
         # Synchroniser la config depuis l'onglet Projet (URL série, etc.) avant tout job
-        if self._config and self._store and hasattr(self, "project_tab") and self.project_tab:
-            data = self.project_tab.get_form_data()
-            if data.get("root") and Path(data["root"]).resolve() == self._config.root_dir.resolve():
-                self._store.save_config_main(
-                    series_url=data.get("series_url", ""),
-                    source_id=data.get("source_id"),
-                    rate_limit_s=float(data.get("rate_limit", 2)),
-                    normalize_profile=data.get("normalize_profile"),
-                )
-                self._config = ProjectConfig(
-                    project_name=self._config.project_name,
-                    root_dir=self._config.root_dir,
-                    source_id=data.get("source_id", self._config.source_id),
-                    series_url=data.get("series_url", self._config.series_url),
-                    rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
-                    user_agent=self._config.user_agent,
-                    normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
-                )
+        self._sync_project_config_from_form()
         context = self._get_context()
         if not context.get("config"):
             return
