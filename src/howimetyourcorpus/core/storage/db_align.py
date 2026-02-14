@@ -39,6 +39,7 @@ def upsert_align_links(
 ) -> None:
     """Remplace les liens d'un run (DELETE puis INSERT). Chaque link: segment_id?, cue_id?, cue_id_target?, lang?, role, confidence, status, meta_json?."""
     conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
+    rows: list[tuple] = []
     for i, link in enumerate(links):
         link_id = link.get("link_id") or f"{align_run_id}:{i}"
         segment_id = link.get("segment_id")
@@ -49,12 +50,28 @@ def upsert_align_links(
         confidence = link.get("confidence")
         status = link.get("status", "auto")
         meta_json = json.dumps(link["meta"]) if link.get("meta") else None
-        conn.execute(
+        rows.append(
+            (
+                link_id,
+                align_run_id,
+                episode_id,
+                segment_id,
+                cue_id,
+                cue_id_target,
+                lang,
+                role,
+                confidence,
+                status,
+                meta_json,
+            )
+        )
+    if rows:
+        conn.executemany(
             """
             INSERT INTO align_links (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json),
+            rows,
         )
 
 

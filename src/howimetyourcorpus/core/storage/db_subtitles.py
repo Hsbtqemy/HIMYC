@@ -50,17 +50,14 @@ def upsert_cues(
     from howimetyourcorpus.core.subtitles import Cue
 
     conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
+    rows: list[tuple] = []
     for c in cues:
         if not isinstance(c, Cue):
             continue
         cid = f"{episode_id}:{lang}:{c.n}" if episode_id and lang else f":{c.lang}:{c.n}"
         meta_json_str = json.dumps(c.meta) if c.meta else None
         text_clean = c.text_clean or normalize_text(c.text_raw)
-        conn.execute(
-            """
-            INSERT INTO subtitle_cues (cue_id, track_id, episode_id, lang, n, start_ms, end_ms, text_raw, text_clean, meta_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+        rows.append(
             (
                 cid,
                 track_id,
@@ -72,7 +69,15 @@ def upsert_cues(
                 c.text_raw,
                 text_clean,
                 meta_json_str,
-            ),
+            )
+        )
+    if rows:
+        conn.executemany(
+            """
+            INSERT INTO subtitle_cues (cue_id, track_id, episode_id, lang, n, start_ms, end_ms, text_raw, text_clean, meta_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
         )
 
 

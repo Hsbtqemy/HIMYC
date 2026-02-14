@@ -19,16 +19,13 @@ def upsert_segments(
         "DELETE FROM segments WHERE episode_id = ? AND kind = ?",
         (episode_id, kind),
     )
+    rows: list[tuple] = []
     for seg in segments:
         if not isinstance(seg, Segment):
             continue
         sid = f"{episode_id}:{seg.kind}:{seg.n}"
         meta_json = json.dumps(seg.meta) if seg.meta else None
-        conn.execute(
-            """
-            INSERT INTO segments (segment_id, episode_id, kind, n, start_char, end_char, text, speaker_explicit, meta_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+        rows.append(
             (
                 sid,
                 episode_id,
@@ -39,7 +36,15 @@ def upsert_segments(
                 seg.text,
                 seg.speaker_explicit,
                 meta_json,
-            ),
+            )
+        )
+    if rows:
+        conn.executemany(
+            """
+            INSERT INTO segments (segment_id, episode_id, kind, n, start_char, end_char, text, speaker_explicit, meta_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
         )
 
 
