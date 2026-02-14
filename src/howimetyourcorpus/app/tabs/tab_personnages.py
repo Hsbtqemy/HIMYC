@@ -69,6 +69,7 @@ class PersonnagesTabWidget(QWidget):
         assign_row.addWidget(QLabel("Épisode:"))
         self.personnages_episode_combo = QComboBox()
         self.personnages_episode_combo.setMinimumWidth(200)
+        self.personnages_episode_combo.currentIndexChanged.connect(self._apply_controls_enabled)
         assign_row.addWidget(self.personnages_episode_combo)
         assign_row.addWidget(QLabel("Source:"))
         self.personnages_source_combo = QComboBox()
@@ -76,6 +77,7 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_source_combo.addItem("Cues EN", "cues_en")
         self.personnages_source_combo.addItem("Cues FR", "cues_fr")
         self.personnages_source_combo.addItem("Cues IT", "cues_it")
+        self.personnages_source_combo.currentIndexChanged.connect(self._apply_controls_enabled)
         assign_row.addWidget(self.personnages_source_combo)
         self.personnages_load_assign_btn = QPushButton("Charger")
         self.personnages_load_assign_btn.clicked.connect(self._load_assignments)
@@ -85,6 +87,7 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_assign_table.setColumnCount(3)
         self.personnages_assign_table.setHorizontalHeaderLabels(["ID", "Texte", "Personnage"])
         self.personnages_assign_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.personnages_assign_table.itemSelectionChanged.connect(self._apply_controls_enabled)
         layout.addWidget(self.personnages_assign_table)
         self.personnages_save_assign_btn = QPushButton("Enregistrer assignations")
         self.personnages_save_assign_btn.clicked.connect(self._save_assignments)
@@ -95,6 +98,7 @@ class PersonnagesTabWidget(QWidget):
         )
         self.personnages_propagate_btn.clicked.connect(self._propagate)
         layout.addWidget(self.personnages_propagate_btn)
+        self.personnages_table.itemSelectionChanged.connect(self._apply_controls_enabled)
         self._apply_controls_enabled()
 
     def refresh(self) -> None:
@@ -133,24 +137,24 @@ class PersonnagesTabWidget(QWidget):
                 )
         self._apply_controls_enabled()
 
-    def _apply_controls_enabled(self) -> None:
+    def _apply_controls_enabled(self, *_args) -> None:
         has_project = bool(self._get_store() and self._get_db())
         controls_enabled = has_project and not self._job_busy
-        controls = (
-            self.personnages_table,
-            self.personnages_add_btn,
-            self.personnages_remove_btn,
-            self.personnages_save_btn,
-            self.personnages_import_speakers_btn,
-            self.personnages_episode_combo,
-            self.personnages_source_combo,
-            self.personnages_load_assign_btn,
-            self.personnages_assign_table,
-            self.personnages_save_assign_btn,
-            self.personnages_propagate_btn,
-        )
-        for widget in controls:
-            widget.setEnabled(controls_enabled)
+        has_episode = bool(self.personnages_episode_combo.currentData())
+        has_character_rows = self.personnages_table.rowCount() > 0
+        has_character_selection = self.personnages_table.currentRow() >= 0
+        has_assignment_rows = self.personnages_assign_table.rowCount() > 0
+        self.personnages_table.setEnabled(controls_enabled)
+        self.personnages_add_btn.setEnabled(controls_enabled)
+        self.personnages_remove_btn.setEnabled(controls_enabled and has_character_selection)
+        self.personnages_save_btn.setEnabled(controls_enabled and has_character_rows)
+        self.personnages_import_speakers_btn.setEnabled(controls_enabled)
+        self.personnages_episode_combo.setEnabled(controls_enabled)
+        self.personnages_source_combo.setEnabled(controls_enabled and has_episode)
+        self.personnages_load_assign_btn.setEnabled(controls_enabled and has_episode)
+        self.personnages_assign_table.setEnabled(controls_enabled and has_episode)
+        self.personnages_save_assign_btn.setEnabled(controls_enabled and has_episode and has_assignment_rows)
+        self.personnages_propagate_btn.setEnabled(controls_enabled and has_episode)
 
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions d'annotation pendant un job pipeline."""
@@ -162,11 +166,13 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_table.insertRow(row)
         for c in range(self.personnages_table.columnCount()):
             self.personnages_table.setItem(row, c, QTableWidgetItem(""))
+        self._apply_controls_enabled()
 
     def _remove_row(self) -> None:
         row = self.personnages_table.currentRow()
         if row >= 0:
             self.personnages_table.removeRow(row)
+        self._apply_controls_enabled()
 
     def _import_speakers_from_segments(self) -> None:
         """Récupère les noms de locuteurs des segments (Inspecteur) et les ajoute à la grille des personnages."""
@@ -260,6 +266,7 @@ class PersonnagesTabWidget(QWidget):
             })
         store.save_character_names(characters)
         self._show_status("Personnages enregistrés.", 3000)
+        self._apply_controls_enabled()
 
     def _load_assignments(self) -> None:
         eid = self.personnages_episode_combo.currentData()
@@ -326,6 +333,7 @@ class PersonnagesTabWidget(QWidget):
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
                 self.personnages_assign_table.setCellWidget(row, 2, combo)
+        self._apply_controls_enabled()
 
     def _save_assignments(self) -> None:
         eid = self.personnages_episode_combo.currentData()
@@ -364,6 +372,7 @@ class PersonnagesTabWidget(QWidget):
         all_assignments.extend(new_assignments)
         store.save_character_assignments(all_assignments)
         self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
+        self._apply_controls_enabled()
 
     def _propagate(self) -> None:
         store = self._get_store()

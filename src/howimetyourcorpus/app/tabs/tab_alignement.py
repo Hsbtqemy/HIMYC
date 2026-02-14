@@ -154,6 +154,7 @@ class AlignmentTabWidget(QWidget):
             "Langue des sous-titres à aligner contre EN (pivot). "
             "Les valeurs sont déduites des langues projet et des pistes disponibles."
         )
+        self.align_target_lang_combo.currentIndexChanged.connect(self._on_target_lang_changed)
         row.addWidget(self.align_target_lang_combo)
         self.align_run_btn = QPushButton("Lancer alignement")
         self.align_run_btn.clicked.connect(self._run_align_episode)
@@ -284,7 +285,6 @@ class AlignmentTabWidget(QWidget):
         has_target = self.align_target_lang_combo.count() > 0
         controls_enabled = not self._job_busy
         self.align_target_lang_combo.setEnabled(has_target and controls_enabled)
-        self.align_run_btn.setEnabled(has_target and bool(episode_id) and controls_enabled)
         if not has_target:
             self.align_target_lang_combo.setToolTip(
                 "Aucune piste cible disponible pour cet épisode. Importez d'abord un SRT/VTT non-EN."
@@ -294,6 +294,47 @@ class AlignmentTabWidget(QWidget):
                 "Langue des sous-titres à aligner contre EN (pivot). "
                 "Les valeurs sont déduites des pistes disponibles."
             )
+        self._refresh_run_button_state(episode_id)
+
+    def _refresh_run_button_state(self, episode_id: str | None) -> None:
+        controls_enabled = not self._job_busy
+        if not controls_enabled:
+            self.align_run_btn.setEnabled(False)
+            self.align_run_btn.setToolTip("Alignement indisponible pendant l'exécution d'un job.")
+            return
+        if not episode_id:
+            self.align_run_btn.setEnabled(False)
+            self.align_run_btn.setToolTip("Sélectionnez un épisode.")
+            return
+        db = self._get_db()
+        if not db:
+            self.align_run_btn.setEnabled(False)
+            self.align_run_btn.setToolTip("Base de données indisponible. Rouvrez le projet.")
+            return
+        has_target = self.align_target_lang_combo.count() > 0
+        try:
+            has_segments = bool(db.get_segments_for_episode(episode_id, kind="sentence"))
+            has_cues_en = bool(db.get_cues_for_episode_lang(episode_id, "en"))
+        except Exception:
+            logger.exception("Failed to refresh align prerequisites")
+            self.align_run_btn.setEnabled(False)
+            self.align_run_btn.setToolTip("Impossible de vérifier les prérequis d'alignement.")
+            return
+        can_run = has_target and has_segments and has_cues_en
+        self.align_run_btn.setEnabled(can_run)
+        if can_run:
+            self.align_run_btn.setToolTip("Lancer l'alignement de l'épisode sélectionné.")
+            return
+        missing: list[str] = []
+        if not has_segments:
+            missing.append("segments transcript")
+        if not has_cues_en:
+            missing.append("piste EN")
+        if not has_target:
+            missing.append("piste cible")
+        self.align_run_btn.setToolTip(
+            "Prérequis manquants: " + ", ".join(missing) + "."
+        )
 
     def _on_episode_changed(self) -> None:
         self.align_run_combo.clear()
@@ -314,6 +355,9 @@ class AlignmentTabWidget(QWidget):
         run_id = self._current_run_id()
         self._set_run_actions_enabled(bool(run_id))
         self._fill_links()
+
+    def _on_target_lang_changed(self, *_args) -> None:
+        self._refresh_run_button_state(self._current_episode_id())
 
     def _set_run_actions_enabled(self, enabled: bool) -> None:
         controls_enabled = enabled and not self._job_busy
