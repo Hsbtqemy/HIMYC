@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QTextCursor
@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
-from howimetyourcorpus.core.pipeline.tasks import NormalizeEpisodeStep, SegmentEpisodeStep
 from howimetyourcorpus.core.export_utils import (
     export_segments_txt,
     export_segments_csv,
@@ -32,6 +31,13 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_docx,
 )
 from howimetyourcorpus.core.normalize.profiles import PROFILES
+from howimetyourcorpus.core.workflow import (
+    WorkflowActionError,
+    WorkflowActionId,
+    WorkflowScope,
+    WorkflowScopeError,
+    WorkflowService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +61,7 @@ class InspectorTabWidget(QWidget):
         self._run_job = run_job
         self._show_status = show_status
         self._current_episode_id: str | None = None
+        self._workflow_service = WorkflowService()
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -310,7 +317,18 @@ class InspectorTabWidget(QWidget):
             QMessageBox.warning(self, "Normalisation", "L'épisode doit d'abord être téléchargé (RAW).")
             return
         profile = self.inspect_profile_combo.currentText() or "default_en_v1"
-        self._run_job([NormalizeEpisodeStep(eid, profile)])
+        steps = self._build_single_episode_steps(
+            WorkflowActionId.NORMALIZE_EPISODES,
+            str(eid),
+            options={
+                "default_profile_id": profile,
+                "profile_by_episode": {str(eid): profile},
+            },
+            title="Normalisation",
+        )
+        if steps is None:
+            return
+        self._run_job(steps)
 
     def _set_episode_preferred_profile(self) -> None:
         eid = self.inspect_episode_combo.currentData()
@@ -334,7 +352,15 @@ class InspectorTabWidget(QWidget):
         if not store.has_episode_clean(eid):
             QMessageBox.warning(self, "Segmentation", "L'épisode doit d'abord être normalisé (clean.txt).")
             return
-        self._run_job([SegmentEpisodeStep(eid, lang_hint="en")])
+        steps = self._build_single_episode_steps(
+            WorkflowActionId.SEGMENT_EPISODES,
+            str(eid),
+            options={"lang_hint": "en"},
+            title="Segmentation",
+        )
+        if steps is None:
+            return
+        self._run_job(steps)
 
     def _export_segments(self) -> None:
         eid = self.inspect_episode_combo.currentData()
@@ -376,3 +402,35 @@ class InspectorTabWidget(QWidget):
         except Exception as e:
             logger.exception("Export segments Inspecteur")
             QMessageBox.critical(self, "Erreur", str(e))
+
+    def _build_single_episode_steps(
+        self,
+        action_id: WorkflowActionId,
+        episode_id: str,
+        *,
+        options: dict[str, Any] | None,
+        title: str,
+    ) -> list[Any] | None:
+        store = self._get_store()
+        if not store:
+            QMessageBox.warning(self, title, "Ouvrez un projet d'abord.")
+            return None
+        index = store.load_series_index()
+        refs = index.episodes if index else []
+        context = {
+            "config": self._get_config(),
+            "store": store,
+            "db": self._get_db(),
+        }
+        try:
+            plan = self._workflow_service.build_plan(
+                action_id=action_id,
+                context=context,
+                scope=WorkflowScope.current(episode_id),
+                episode_refs=refs,
+                options=options or {},
+            )
+        except (WorkflowScopeError, WorkflowActionError) as exc:
+            QMessageBox.warning(self, title, str(exc))
+            return None
+        return list(plan.steps)
