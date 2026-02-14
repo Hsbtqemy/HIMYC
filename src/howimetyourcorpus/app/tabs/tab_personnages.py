@@ -299,6 +299,14 @@ class PersonnagesTabWidget(QWidget):
             for ch in store.load_character_names()
             if ch.get("id") or ch.get("canonical")
         ]
+        if not character_ids:
+            warn_precondition(
+                self,
+                "Assignation",
+                "Aucun personnage défini dans le projet.",
+                next_step="Ajoutez des personnages dans la grille puis cliquez sur « Enregistrer ».",
+            )
+            return
         assignments = store.load_character_assignments()
         source_type = "segment" if source_key == "segments" else "cue"
         assign_map = {
@@ -307,45 +315,49 @@ class PersonnagesTabWidget(QWidget):
             if a.get("episode_id") == eid and a.get("source_type") == source_type
         }
         self.personnages_assign_table.setRowCount(0)
-        if source_key == "segments":
-            segments = db.get_segments_for_episode(eid, kind="sentence")
-            for s in segments:
-                sid = s.get("segment_id") or ""
-                text = (s.get("text") or "")[:80]
-                if len((s.get("text") or "")) > 80:
-                    text += "…"
-                row = self.personnages_assign_table.rowCount()
-                self.personnages_assign_table.insertRow(row)
-                self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(sid))
-                self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
-                combo = QComboBox()
-                combo.addItem("—", "")
-                for cid in character_ids:
-                    combo.addItem(cid, cid)
-                idx = combo.findData(assign_map.get(sid, ""))
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
-                self.personnages_assign_table.setCellWidget(row, 2, combo)
-        else:
-            lang = source_key.replace("cues_", "")
-            cues = db.get_cues_for_episode_lang(eid, lang)
-            for c in cues:
-                cid = c.get("cue_id") or ""
-                text = (c.get("text_clean") or c.get("text_raw") or "")[:80]
-                if len((c.get("text_clean") or c.get("text_raw") or "")) > 80:
-                    text += "…"
-                row = self.personnages_assign_table.rowCount()
-                self.personnages_assign_table.insertRow(row)
-                self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(cid))
-                self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
-                combo = QComboBox()
-                combo.addItem("—", "")
-                for char_id in character_ids:
-                    combo.addItem(char_id, char_id)
-                idx = combo.findData(assign_map.get(cid, ""))
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
-                self.personnages_assign_table.setCellWidget(row, 2, combo)
+        try:
+            if source_key == "segments":
+                segments = db.get_segments_for_episode(eid, kind="sentence")
+                for s in segments:
+                    sid = s.get("segment_id") or ""
+                    text = (s.get("text") or "")[:80]
+                    if len((s.get("text") or "")) > 80:
+                        text += "…"
+                    row = self.personnages_assign_table.rowCount()
+                    self.personnages_assign_table.insertRow(row)
+                    self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(sid))
+                    self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
+                    combo = QComboBox()
+                    combo.addItem("—", "")
+                    for cid in character_ids:
+                        combo.addItem(cid, cid)
+                    idx = combo.findData(assign_map.get(sid, ""))
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                    self.personnages_assign_table.setCellWidget(row, 2, combo)
+            else:
+                lang = source_key.replace("cues_", "")
+                cues = db.get_cues_for_episode_lang(eid, lang)
+                for c in cues:
+                    cid = c.get("cue_id") or ""
+                    text = (c.get("text_clean") or c.get("text_raw") or "")[:80]
+                    if len((c.get("text_clean") or c.get("text_raw") or "")) > 80:
+                        text += "…"
+                    row = self.personnages_assign_table.rowCount()
+                    self.personnages_assign_table.insertRow(row)
+                    self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(cid))
+                    self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
+                    combo = QComboBox()
+                    combo.addItem("—", "")
+                    for char_id in character_ids:
+                        combo.addItem(char_id, char_id)
+                    idx = combo.findData(assign_map.get(cid, ""))
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                    self.personnages_assign_table.setCellWidget(row, 2, combo)
+        except Exception as e:
+            show_error(self, title="Assignation", exc=e, context="Chargement assignations personnages")
+            return
         self._apply_controls_enabled()
 
     def _save_assignments(self) -> None:
