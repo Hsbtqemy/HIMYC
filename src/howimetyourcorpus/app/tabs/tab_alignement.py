@@ -202,6 +202,26 @@ class AlignmentTabWidget(QWidget):
         self.align_table.customContextMenuRequested.connect(self._table_context_menu)
         layout.addWidget(self.align_table)
 
+    def _current_episode_id(self) -> str | None:
+        episode_id = self.align_episode_combo.currentData()
+        return str(episode_id) if episode_id else None
+
+    def _current_run_id(self) -> str | None:
+        run_id = self.align_run_combo.currentData()
+        return str(run_id) if run_id else None
+
+    def _selected_status_filter(self) -> str | None:
+        return "accepted" if self.align_accepted_only_cb.isChecked() else None
+
+    def _require_episode_run_and_db(self, title: str, message: str) -> tuple[str, str, object] | None:
+        episode_id = self._current_episode_id()
+        run_id = self._current_run_id()
+        db = self._get_db()
+        if not episode_id or not run_id or not db:
+            QMessageBox.warning(self, title, message)
+            return None
+        return episode_id, run_id, db
+
     def refresh(self) -> None:
         """Recharge la liste des épisodes et des runs (appelé après ouverture projet / alignement)."""
         self.align_episode_combo.clear()
@@ -263,7 +283,7 @@ class AlignmentTabWidget(QWidget):
 
     def _on_episode_changed(self) -> None:
         self.align_run_combo.clear()
-        eid = self.align_episode_combo.currentData()
+        eid = self._current_episode_id()
         db = self._get_db()
         self._refresh_target_lang_combo(eid if eid else None)
         if not eid or not db:
@@ -277,7 +297,7 @@ class AlignmentTabWidget(QWidget):
         self._on_run_changed()
 
     def _on_run_changed(self) -> None:
-        run_id = self.align_run_combo.currentData()
+        run_id = self._current_run_id()
         self.align_delete_run_btn.setEnabled(bool(run_id))
         self._fill_links()
 
@@ -300,8 +320,8 @@ class AlignmentTabWidget(QWidget):
         self._fill_links()
 
     def _fill_links(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
+        eid = self._current_episode_id()
+        run_id = self._current_run_id()
         model = AlignLinksTableModel()
         db = self._get_db()
         if not db or not eid:
@@ -325,7 +345,7 @@ class AlignmentTabWidget(QWidget):
         if not link or not link.get("link_id"):
             return
         link_id = link["link_id"]
-        eid = self.align_episode_combo.currentData()
+        eid = self._current_episode_id()
         menu = QMenu(self)
         accept_act = menu.addAction("Accepter")
         reject_act = menu.addAction("Rejeter")
@@ -343,7 +363,7 @@ class AlignmentTabWidget(QWidget):
                 self._fill_links()
 
     def _run_align_episode(self) -> None:
-        eid = self.align_episode_combo.currentData()
+        eid = self._current_episode_id()
         store = self._get_store()
         db = self._get_db()
         if not eid or not store or not db:
@@ -371,12 +391,13 @@ class AlignmentTabWidget(QWidget):
         ])
 
     def _export_alignment(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id or not db:
-            QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode et un run.")
+        state = self._require_episode_run_and_db(
+            "Alignement",
+            "Sélectionnez un épisode et un run.",
+        )
+        if not state:
             return
+        eid, run_id, db = state
         path, _ = QFileDialog.getSaveFileName(
             self, "Exporter alignement", "", "CSV (*.csv);;JSONL (*.jsonl)"
         )
@@ -410,12 +431,13 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.critical(self, "Erreur", str(e))
 
     def _export_parallel_concordance(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id or not db:
-            QMessageBox.warning(self, "Concordancier parallèle", "Sélectionnez un épisode et un run.")
+        state = self._require_episode_run_and_db(
+            "Concordancier parallèle",
+            "Sélectionnez un épisode et un run.",
+        )
+        if not state:
             return
+        eid, run_id, db = state
         path, selected_filter = QFileDialog.getSaveFileName(
             self, "Exporter concordancier parallèle (comparaison de traductions)", "",
             "CSV (*.csv);;TSV (*.tsv);;TXT (*.txt);;HTML (*.html);;JSONL (*.jsonl);;Word (*.docx)"
@@ -428,7 +450,7 @@ class AlignmentTabWidget(QWidget):
         if path.suffix.lower() not in (".csv", ".tsv", ".txt", ".html", ".jsonl", ".docx"):
             path = path.with_suffix(".csv")
         try:
-            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
+            status_filter = self._selected_status_filter()
             rows = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
             if path.suffix.lower() == ".jsonl":
                 export_parallel_concordance_jsonl(rows, path)
@@ -450,12 +472,13 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.critical(self, "Erreur", str(e))
 
     def _export_align_report(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id or not db:
-            QMessageBox.warning(self, "Rapport", "Sélectionnez un épisode et un run.")
+        state = self._require_episode_run_and_db(
+            "Rapport",
+            "Sélectionnez un épisode et un run.",
+        )
+        if not state:
             return
+        eid, run_id, db = state
         path, _ = QFileDialog.getSaveFileName(
             self, "Rapport alignement", "", "HTML (*.html)"
         )
@@ -465,7 +488,7 @@ class AlignmentTabWidget(QWidget):
         if path.suffix.lower() != ".html":
             path = path.with_suffix(".html")
         try:
-            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
+            status_filter = self._selected_status_filter()
             stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
             sample = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
             export_align_report_html(stats, sample, eid, run_id, path)
@@ -475,14 +498,15 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.critical(self, "Erreur", str(e))
 
     def _show_align_stats(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id or not db:
-            QMessageBox.warning(self, "Stats", "Sélectionnez un épisode et un run.")
+        state = self._require_episode_run_and_db(
+            "Stats",
+            "Sélectionnez un épisode et un run.",
+        )
+        if not state:
             return
+        eid, run_id, db = state
         try:
-            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
+            status_filter = self._selected_status_filter()
             stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
             by_status = stats.get("by_status") or {}
             msg = (
