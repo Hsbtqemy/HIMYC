@@ -300,6 +300,9 @@ class MainWindow(QMainWindow):
         self.pilotage_tab = PilotageTabWidget(
             project_widget=self.project_tab,
             corpus_widget=self.corpus_tab,
+            on_open_inspector=lambda: self.tabs.setCurrentIndex(TAB_INSPECTEUR),
+            on_open_validation=self._open_alignment_in_validation,
+            on_open_concordance=self._open_concordance_tab,
         )
         self.tabs.addTab(self.pilotage_tab, "Pilotage")
         self.tabs.setTabToolTip(

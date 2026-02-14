@@ -145,6 +145,14 @@ class ProjectTabWidget(QWidget):
         profiles_btn.setToolTip("Créer, modifier ou supprimer les profils personnalisés (profiles.json).")
         profiles_btn.clicked.connect(self._emit_open_profiles)
         form_norm.addRow("", profiles_btn)
+        norm_policy = QLabel(
+            "Le profil de normalisation s'applique aux transcripts (RAW→CLEAN, Pilotage/Inspecteur) "
+            "et aux pistes SRT/VTT via « Normaliser la piste ». "
+            "Les exports (TXT/CSV/JSON/JSONL/Word/SRT) n'appliquent pas de normalisation cachée."
+        )
+        norm_policy.setWordWrap(True)
+        norm_policy.setStyleSheet("color: #666;")
+        form_norm.addRow("", norm_policy)
         layout.addWidget(group_norm)
 
         # —— 5. Langues ——
