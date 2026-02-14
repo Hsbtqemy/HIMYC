@@ -8,7 +8,12 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (
     QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
     QMainWindow,
+    QProgressBar,
+    QPushButton,
     QTabWidget,
     QWidget,
     QVBoxLayout,
@@ -97,6 +102,10 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
+        self._job_feedback_hide_timer = QTimer(self)
+        self._job_feedback_hide_timer.setSingleShot(True)
+        self._job_feedback_hide_timer.timeout.connect(self._hide_global_job_feedback)
+        self._build_global_job_feedback_bar(layout)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
 
@@ -108,6 +117,64 @@ class MainWindow(QMainWindow):
         self._build_tab_logs()
         self.tabs.setCurrentIndex(TAB_PILOTAGE)
         self.tabs.currentChanged.connect(self._on_tab_changed)
+
+    def _build_global_job_feedback_bar(self, root_layout: QVBoxLayout) -> None:
+        """Crée une barre de feedback globale (progress/cancel/logs), visible quel que soit l'onglet."""
+        self.global_job_feedback_bar = QFrame(self)
+        self.global_job_feedback_bar.setFrameShape(QFrame.Shape.StyledPanel)
+        bar_layout = QHBoxLayout(self.global_job_feedback_bar)
+        bar_layout.setContentsMargins(8, 6, 8, 6)
+        bar_layout.addWidget(QLabel("Job:"))
+        self.global_job_feedback_label = QLabel("Aucun job en cours.")
+        self.global_job_feedback_label.setWordWrap(False)
+        bar_layout.addWidget(self.global_job_feedback_label, 1)
+        self.global_job_feedback_progress = QProgressBar()
+        self.global_job_feedback_progress.setMinimum(0)
+        self.global_job_feedback_progress.setMaximum(100)
+        self.global_job_feedback_progress.setValue(0)
+        self.global_job_feedback_progress.setFixedWidth(220)
+        bar_layout.addWidget(self.global_job_feedback_progress)
+        self.global_job_feedback_cancel_btn = QPushButton("Annuler")
+        self.global_job_feedback_cancel_btn.setToolTip("Annule le job pipeline en cours.")
+        self.global_job_feedback_cancel_btn.clicked.connect(self._cancel_job)
+        bar_layout.addWidget(self.global_job_feedback_cancel_btn)
+        self.global_job_feedback_logs_btn = QPushButton("Ouvrir logs")
+        self.global_job_feedback_logs_btn.setToolTip("Affiche le panneau logs pour diagnostic immédiat.")
+        self.global_job_feedback_logs_btn.clicked.connect(self._open_logs_panel)
+        bar_layout.addWidget(self.global_job_feedback_logs_btn)
+        root_layout.addWidget(self.global_job_feedback_bar)
+        self.global_job_feedback_bar.setVisible(False)
+
+    def _show_global_job_feedback(
+        self,
+        text: str,
+        *,
+        progress: int | None = None,
+        running: bool,
+        is_error: bool = False,
+        auto_hide_ms: int | None = None,
+    ) -> None:
+        """Met à jour la barre de feedback globale."""
+        self._job_feedback_hide_timer.stop()
+        self.global_job_feedback_bar.setVisible(True)
+        self.global_job_feedback_label.setText(text)
+        if progress is not None:
+            self.global_job_feedback_progress.setValue(max(0, min(100, int(progress))))
+        self.global_job_feedback_cancel_btn.setEnabled(bool(running and self._job_runner and self._job_runner.is_running()))
+        if is_error:
+            self.global_job_feedback_label.setStyleSheet("color: #A40000;")
+        elif running:
+            self.global_job_feedback_label.setStyleSheet("color: #005A9C;")
+        else:
+            self.global_job_feedback_label.setStyleSheet("color: #333;")
+        if auto_hide_ms and auto_hide_ms > 0:
+            self._job_feedback_hide_timer.start(int(auto_hide_ms))
+
+    def _hide_global_job_feedback(self) -> None:
+        """Masque la barre globale si aucun job n'est en cours."""
+        if self._job_runner and self._job_runner.is_running():
+            return
+        self.global_job_feedback_bar.setVisible(False)
 
     def _build_menu_bar(self):
         """Barre de menu : Outils (journaux) + Aide."""
@@ -399,6 +466,11 @@ class MainWindow(QMainWindow):
         self._job_runner.finished.connect(self._on_job_finished)
         self._job_runner.cancelled.connect(self._on_job_cancelled)
         self._set_job_ui_busy(True)
+        self._show_global_job_feedback(
+            f"Lancement du job ({len(steps)} étape(s))…",
+            progress=0,
+            running=True,
+        )
         if force:
             self.statusBar().showMessage("Traitement lancé en mode force (re-traitement explicite).", 4000)
         self._on_job_log(
@@ -417,9 +489,11 @@ class MainWindow(QMainWindow):
         self._job_runner.run_async()
 
     def _on_job_progress(self, step_name: str, percent: float, message: str):
+        pct = max(0, min(100, int(percent * 100)))
         if hasattr(self, "corpus_tab") and self.corpus_tab:
-            pct = max(0, min(100, int(percent * 100)))
             self.corpus_tab.set_progress(pct)
+        feedback = f"{step_name}: {message}" if message else step_name
+        self._show_global_job_feedback(feedback, progress=pct, running=True)
         if message:
             self.statusBar().showMessage(f"{step_name}: {message}", 2000)
 
@@ -485,12 +559,25 @@ class MainWindow(QMainWindow):
         step_breakdown = self._build_step_breakdown_summary(results)
         log_msg = f"{msg} Étapes: {step_breakdown}." if step_breakdown else msg
         self._append_job_summary_to_log(log_msg)
+        self._show_global_job_feedback(
+            msg,
+            progress=100,
+            running=False,
+            is_error=fail > 0,
+            auto_hide_ms=8000 if fail == 0 else None,
+        )
         self._refresh_after_project_loaded()
         self._job_runner = None
 
     def _on_job_cancelled(self):
         self._set_job_ui_busy(False)
         self.statusBar().showMessage("Traitement annulé.", 5000)
+        self._show_global_job_feedback(
+            "Traitement annulé.",
+            progress=0,
+            running=False,
+            auto_hide_ms=5000,
+        )
         self._job_runner = None
 
     def _on_job_error(self, step_name: str, exc: object):
@@ -503,6 +590,11 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(
             "Une erreur est survenue. Ouvrez le panneau Logs pour le détail.",
             8000,
+        )
+        self._show_global_job_feedback(
+            f"Erreur détectée ({step_name}). Consultez les logs.",
+            running=True,
+            is_error=True,
         )
         show_error(self, exc=exc, context=step_name)
 

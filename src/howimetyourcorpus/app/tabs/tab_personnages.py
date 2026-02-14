@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Callable
 
 from PySide6.QtWidgets import (
@@ -35,6 +36,7 @@ class PersonnagesTabWidget(QWidget):
         self._get_db = get_db
         self._show_status = show_status
         self._job_busy = False
+        self._selected_run_by_episode: dict[str, str] = {}
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(
@@ -85,6 +87,20 @@ class PersonnagesTabWidget(QWidget):
         )
         self.personnages_load_assign_btn.clicked.connect(self._load_assignments)
         assign_row.addWidget(self.personnages_load_assign_btn)
+        assign_row.addWidget(QLabel("Run alignement:"))
+        self.personnages_run_combo = QComboBox()
+        self.personnages_run_combo.setMinimumWidth(260)
+        self.personnages_run_combo.setToolTip(
+            "Run d'alignement utilisé pour la propagation des personnages (sélection explicite)."
+        )
+        self.personnages_run_combo.currentIndexChanged.connect(self._on_run_selection_changed)
+        assign_row.addWidget(self.personnages_run_combo)
+        self.personnages_refresh_runs_btn = QPushButton("Rafraîchir runs")
+        self.personnages_refresh_runs_btn.setToolTip(
+            "Recharge la liste des runs d'alignement pour l'épisode sélectionné."
+        )
+        self.personnages_refresh_runs_btn.clicked.connect(self._refresh_align_runs_for_current_episode)
+        assign_row.addWidget(self.personnages_refresh_runs_btn)
         layout.addLayout(assign_row)
         self.personnages_assign_table = QTableWidget()
         self.personnages_assign_table.setColumnCount(3)
@@ -118,6 +134,7 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_assign_table.setRowCount(0)
         store = self._get_store()
         if not store:
+            self._selected_run_by_episode.clear()
             refill_combo_preserve_selection(
                 self.personnages_episode_combo,
                 items=[],
@@ -125,6 +142,11 @@ class PersonnagesTabWidget(QWidget):
             )
             refill_combo_preserve_selection(
                 self.personnages_source_combo,
+                items=[],
+                current_data=None,
+            )
+            refill_combo_preserve_selection(
+                self.personnages_run_combo,
                 items=[],
                 current_data=None,
             )
@@ -163,18 +185,87 @@ class PersonnagesTabWidget(QWidget):
             items=episode_items,
             current_data=current_episode,
         )
+        self._refresh_align_runs_for_current_episode()
         self._apply_controls_enabled()
 
     def _on_assignment_context_changed(self, *_args) -> None:
         """Changement d'épisode/source: invalide les lignes chargées pour éviter les sauvegardes hors contexte."""
         if self.personnages_assign_table.rowCount() > 0:
             self.personnages_assign_table.setRowCount(0)
+        self._refresh_align_runs_for_current_episode()
         self._apply_controls_enabled()
+
+    def _on_run_selection_changed(self, *_args) -> None:
+        episode_id = self.personnages_episode_combo.currentData()
+        run_id = self.personnages_run_combo.currentData()
+        if episode_id and run_id:
+            self._selected_run_by_episode[str(episode_id)] = str(run_id)
+        elif episode_id:
+            self._selected_run_by_episode.pop(str(episode_id), None)
+        self._apply_controls_enabled()
+
+    @staticmethod
+    def _format_run_label(run: dict) -> str:
+        run_id = str(run.get("align_run_id") or "").strip()
+        if not run_id:
+            return ""
+        created_at = str(run.get("created_at") or "").strip()
+        created_label = created_at.replace("T", " ").replace("Z", " UTC") if created_at else ""
+        langs_label = ""
+        params_raw = run.get("params_json")
+        if params_raw:
+            try:
+                params = json.loads(params_raw)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                params = {}
+            target_langs = params.get("target_langs")
+            if isinstance(target_langs, list):
+                langs = sorted({str(lang).strip().lower() for lang in target_langs if str(lang).strip()})
+                if langs:
+                    langs_label = "/".join(lang.upper() for lang in langs)
+        details: list[str] = []
+        if created_label:
+            details.append(created_label)
+        if langs_label:
+            details.append(f"Cible {langs_label}")
+        if details:
+            return f"{' | '.join(details)} | {run_id}"
+        return run_id
+
+    def _refresh_align_runs_for_current_episode(self) -> None:
+        db = self._get_db()
+        episode_id = self.personnages_episode_combo.currentData()
+        if not db or not episode_id:
+            refill_combo_preserve_selection(
+                self.personnages_run_combo,
+                items=[],
+                current_data=None,
+            )
+            return
+        episode_key = str(episode_id)
+        current_run = self._selected_run_by_episode.get(episode_key) or self.personnages_run_combo.currentData()
+        try:
+            runs = db.get_align_runs_for_episode(episode_key)
+        except Exception:
+            runs = []
+        items: list[tuple[str, str]] = []
+        for run in runs:
+            run_id = str(run.get("align_run_id") or "").strip()
+            if not run_id:
+                continue
+            label = self._format_run_label(run)
+            items.append((label, run_id))
+        refill_combo_preserve_selection(
+            self.personnages_run_combo,
+            items=items,
+            current_data=current_run,
+        )
 
     def _apply_controls_enabled(self, *_args) -> None:
         has_project = bool(self._get_store() and self._get_db())
         controls_enabled = has_project and not self._job_busy
         has_episode = bool(self.personnages_episode_combo.currentData())
+        has_align_run = bool(self.personnages_run_combo.currentData())
         has_character_rows = self.personnages_table.rowCount() > 0
         has_character_selection = self.personnages_table.currentRow() >= 0
         has_assignment_rows = self.personnages_assign_table.rowCount() > 0
@@ -186,35 +277,53 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_episode_combo.setEnabled(controls_enabled)
         self.personnages_source_combo.setEnabled(controls_enabled and has_episode)
         self.personnages_load_assign_btn.setEnabled(controls_enabled and has_episode)
+        self.personnages_run_combo.setEnabled(controls_enabled and has_episode)
+        self.personnages_refresh_runs_btn.setEnabled(controls_enabled and has_episode)
         self.personnages_assign_table.setEnabled(controls_enabled and has_episode)
         self.personnages_save_assign_btn.setEnabled(controls_enabled and has_episode and has_assignment_rows)
-        self.personnages_propagate_btn.setEnabled(controls_enabled and has_episode)
+        self.personnages_propagate_btn.setEnabled(controls_enabled and has_episode and has_align_run)
         if self._job_busy:
             hint = "Action indisponible pendant l'exécution d'un job."
             self.personnages_load_assign_btn.setToolTip(hint)
             self.personnages_save_assign_btn.setToolTip(hint)
             self.personnages_propagate_btn.setToolTip(hint)
+            self.personnages_run_combo.setToolTip(hint)
             return
         if not has_project:
             hint = "Action indisponible: ouvrez un projet."
             self.personnages_load_assign_btn.setToolTip(hint)
             self.personnages_save_assign_btn.setToolTip(hint)
             self.personnages_propagate_btn.setToolTip(hint)
+            self.personnages_run_combo.setToolTip(hint)
             return
         if not has_episode:
             hint = "Action indisponible: sélectionnez un épisode."
             self.personnages_load_assign_btn.setToolTip(hint)
             self.personnages_save_assign_btn.setToolTip(hint)
             self.personnages_propagate_btn.setToolTip(hint)
+            self.personnages_run_combo.setToolTip(hint)
             return
         self.personnages_load_assign_btn.setToolTip(self._load_assign_tooltip_default)
+        if has_align_run:
+            self.personnages_run_combo.setToolTip(
+                "Run d'alignement utilisé pour la propagation des personnages (sélection explicite)."
+            )
+        else:
+            self.personnages_run_combo.setToolTip(
+                "Aucun run d'alignement pour cet épisode. Lancez d'abord un alignement dans la partie supérieure."
+            )
         if has_assignment_rows:
             self.personnages_save_assign_btn.setToolTip(self._save_assign_tooltip_default)
         else:
             self.personnages_save_assign_btn.setToolTip(
                 "Action indisponible: chargez d'abord une source (segments/cues)."
             )
-        self.personnages_propagate_btn.setToolTip(self._propagate_tooltip_default)
+        if has_align_run:
+            self.personnages_propagate_btn.setToolTip(self._propagate_tooltip_default)
+        else:
+            self.personnages_propagate_btn.setToolTip(
+                "Action indisponible: aucun run d'alignement sélectionné pour cet épisode."
+            )
 
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions d'annotation pendant un job pipeline."""
@@ -508,24 +617,35 @@ class PersonnagesTabWidget(QWidget):
                 next_step="Chargez une source, assignez des personnages puis cliquez sur « Enregistrer assignations ».",
             )
             return
+        run_id = self.personnages_run_combo.currentData()
+        if not run_id:
+            warn_precondition(
+                self,
+                "Propagation",
+                "Sélectionnez explicitement un run d'alignement.",
+                next_step="Choisissez un run dans le sélecteur « Run alignement ».",
+            )
+            return
+        run_id = str(run_id)
         try:
             runs = db.get_align_runs_for_episode(eid)
         except Exception as e:
             show_error(self, title="Propagation", exc=e, context="Chargement runs d'alignement")
             return
-        if not runs:
+        available_run_ids = {str(run.get("align_run_id") or "") for run in runs}
+        if run_id not in available_run_ids:
+            self._refresh_align_runs_for_current_episode()
             warn_precondition(
                 self,
                 "Propagation",
-                "Aucun run d'alignement pour cet épisode.",
-                next_step="Validation & Annotation > Alignement: lancez un alignement pour cet épisode.",
+                "Le run sélectionné n'existe plus pour cet épisode.",
+                next_step="Sélectionnez un run valide puis relancez la propagation.",
             )
             return
-        run_id = runs[0].get("align_run_id")
         try:
             nb_seg, nb_cue = store.propagate_character_names(db, eid, run_id)
             self._show_status(
-                f"Propagation : {nb_seg} segment(s), {nb_cue} cue(s) mis à jour ; fichiers SRT réécrits.",
+                f"Propagation ({run_id}) : {nb_seg} segment(s), {nb_cue} cue(s) mis à jour ; fichiers SRT réécrits.",
                 6000,
             )
         except Exception as e:

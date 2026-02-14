@@ -151,6 +151,25 @@ def test_db_kwic(db):
         assert h.title == "Purple Giraffe"
 
 
+def test_db_kwic_offset_paginates_results(db):
+    ref = EpisodeRef(
+        episode_id="S01E02B",
+        season=1,
+        episode=22,
+        title="Offset test",
+        url="https://example.com/s01e02b",
+    )
+    db.upsert_episode(ref)
+    text = "Legendary one. Legendary two. Legendary three. Legendary four."
+    db.index_episode_text("S01E02B", text)
+    page1 = db.query_kwic("legendary", window=10, limit=2, offset=0)
+    page2 = db.query_kwic("legendary", window=10, limit=2, offset=2)
+    assert len(page1) == 2
+    assert len(page2) == 2
+    assert page1[0].position < page1[1].position
+    assert page1[1].position < page2[0].position
+
+
 def test_upsert_segments_and_query_kwic_segments(db):
     """Phase 2 : upsert segments, query_kwic_segments, segment_id/kind présents."""
     ref = EpisodeRef(

@@ -37,12 +37,14 @@ def query_kwic(
     episode: int | None = None,
     window: int = 45,
     limit: int = 200,
+    offset: int = 0,
 ) -> list[KwicHit]:
     """
     Recherche KWIC sur documents (FTS5). Construit (left, match, right) avec window caractères.
     """
-    if not term or not term.strip():
+    if not term or not term.strip() or limit <= 0:
         return []
+    offset = max(0, int(offset))
     conn.row_factory = sqlite3.Row
     fts_query = fts5_match_query(term)
     if season is not None and episode is not None:
@@ -80,12 +82,16 @@ def query_kwic(
         ).fetchall()
 
     hits: list[KwicHit] = []
+    seen = 0
     pattern = re.compile(re.escape(term), re.IGNORECASE)
     for row in rows:
         episode_id = row["episode_id"]
         title = row["title"] or ""
         text = row["clean_text"] or ""
         for m in pattern.finditer(text):
+            if seen < offset:
+                seen += 1
+                continue
             start, end = m.start(), m.end()
             left = text[max(0, start - window) : start]
             match = text[start:end]
@@ -105,6 +111,7 @@ def query_kwic(
                     score=1.0,
                 )
             )
+            seen += 1
             if len(hits) >= limit:
                 return hits
     return hits
@@ -118,10 +125,12 @@ def query_kwic_segments(
     episode: int | None = None,
     window: int = 45,
     limit: int = 200,
+    offset: int = 0,
 ) -> list[KwicHit]:
     """Recherche KWIC au niveau segments (FTS segments_fts). Retourne des KwicHit avec segment_id et kind."""
-    if not term or not term.strip():
+    if not term or not term.strip() or limit <= 0:
         return []
+    offset = max(0, int(offset))
     conn.row_factory = sqlite3.Row
     fts_query = fts5_match_query(term)
     params: list = [fts_query]
@@ -147,6 +156,7 @@ def query_kwic_segments(
     ).fetchall()
 
     hits: list[KwicHit] = []
+    seen = 0
     pattern = re.compile(re.escape(term), re.IGNORECASE)
     for row in rows:
         segment_id = row["segment_id"]
@@ -155,6 +165,9 @@ def query_kwic_segments(
         title = row["title"] or ""
         text = row["text"] or ""
         for m in pattern.finditer(text):
+            if seen < offset:
+                seen += 1
+                continue
             start, end = m.start(), m.end()
             left = text[max(0, start - window) : start]
             match = text[start:end]
@@ -176,6 +189,7 @@ def query_kwic_segments(
                     kind=k,
                 )
             )
+            seen += 1
             if len(hits) >= limit:
                 return hits
     return hits
@@ -189,10 +203,12 @@ def query_kwic_cues(
     episode: int | None = None,
     window: int = 45,
     limit: int = 200,
+    offset: int = 0,
 ) -> list[KwicHit]:
     """Recherche KWIC sur les cues sous-titres (FTS cues_fts). Retourne des KwicHit avec cue_id et lang."""
-    if not term or not term.strip():
+    if not term or not term.strip() or limit <= 0:
         return []
+    offset = max(0, int(offset))
     conn.row_factory = sqlite3.Row
     fts_query = fts5_match_query(term)
     params: list = [fts_query]
@@ -218,6 +234,7 @@ def query_kwic_cues(
     ).fetchall()
 
     hits: list[KwicHit] = []
+    seen = 0
     pattern = re.compile(re.escape(term), re.IGNORECASE)
     for row in rows:
         cue_id = row["cue_id"]
@@ -226,6 +243,9 @@ def query_kwic_cues(
         title = row["title"] or ""
         text = row["text_clean"] or ""
         for m in pattern.finditer(text):
+            if seen < offset:
+                seen += 1
+                continue
             start, end = m.start(), m.end()
             left = text[max(0, start - window) : start]
             match = text[start:end]
@@ -247,6 +267,7 @@ def query_kwic_cues(
                     lang=lang_val,
                 )
             )
+            seen += 1
             if len(hits) >= limit:
                 return hits
     return hits

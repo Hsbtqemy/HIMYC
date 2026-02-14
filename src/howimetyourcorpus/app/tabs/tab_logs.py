@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QObject, QSettings, Signal
+from PySide6.QtCore import QObject, QSettings, Signal, QTimer
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
@@ -83,6 +83,10 @@ class LogsTabWidget(QWidget):
         self._applying_preset = False
         self._custom_presets: list[tuple[str, str, str]] = []
         self._builtin_preset_labels = {label.casefold() for label, _level, _query in LOGS_BUILTIN_PRESETS}
+        self._refresh_debounce = QTimer(self)
+        self._refresh_debounce.setSingleShot(True)
+        self._refresh_debounce.setInterval(200)
+        self._refresh_debounce.timeout.connect(self._refresh_view)
 
         controls = QHBoxLayout()
         controls.addWidget(QLabel("Preset:"))
@@ -289,7 +293,10 @@ class LogsTabWidget(QWidget):
             return
         self._sync_preset_with_filters()
         self._save_filters_state()
-        self._refresh_view()
+        self._schedule_refresh_view()
+
+    def _schedule_refresh_view(self) -> None:
+        self._refresh_debounce.start()
 
     def _apply_selected_preset(self, *_args) -> None:
         data = self.preset_combo.currentData()
@@ -404,13 +411,7 @@ class LogsTabWidget(QWidget):
         path = self._get_log_path()
         if not path or not path.exists():
             return 0
-        tail: deque[str] = deque(maxlen=max_lines)
-        try:
-            with path.open("r", encoding="utf-8", errors="replace") as handle:
-                for line in handle:
-                    tail.append(line.rstrip("\n"))
-        except OSError:
-            return 0
+        tail = self._read_tail_lines(path, max_lines)
         if clear_existing:
             self._entries.clear()
         added = 0
@@ -421,6 +422,37 @@ class LogsTabWidget(QWidget):
             added += 1
         self._refresh_view()
         return added
+
+    @staticmethod
+    def _read_tail_lines(path: Path, max_lines: int) -> list[str]:
+        """Lit au plus `max_lines` lignes depuis la fin du fichier sans parcours linéaire complet."""
+        if max_lines <= 0:
+            return []
+        chunk_size = 8192
+        chunks: list[bytes] = []
+        newline_count = 0
+        try:
+            with path.open("rb") as handle:
+                handle.seek(0, 2)
+                position = handle.tell()
+                while position > 0 and newline_count <= max_lines:
+                    read_size = min(chunk_size, position)
+                    position -= read_size
+                    handle.seek(position)
+                    chunk = handle.read(read_size)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    newline_count += chunk.count(b"\n")
+        except OSError:
+            return []
+        if not chunks:
+            return []
+        data = b"".join(reversed(chunks))
+        lines = data.splitlines()
+        if len(lines) > max_lines:
+            lines = lines[-max_lines:]
+        return [line.decode("utf-8", errors="replace") for line in lines]
 
     def _load_file_tail_from_button(self) -> None:
         added = self.load_file_tail(max_lines=500, clear_existing=False)
@@ -580,6 +612,7 @@ class LogsTabWidget(QWidget):
 
     def closeEvent(self, event) -> None:
         self.save_state()
+        self._refresh_debounce.stop()
         if self._handler is not None:
             self._logger.removeHandler(self._handler)
             self._handler = None
