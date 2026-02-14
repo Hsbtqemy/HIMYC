@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import QModelIndex
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -120,6 +120,18 @@ class CorpusTabWidget(QWidget):
         )
         self.check_season_btn.clicked.connect(self._on_check_season_clicked)
         filter_row.addWidget(self.check_season_btn)
+        filter_row.addWidget(QLabel("Périmètre action:"))
+        self.batch_scope_combo = QComboBox()
+        self.batch_scope_combo.setMinimumWidth(200)
+        self.batch_scope_combo.addItem("Épisode courant", "current")
+        self.batch_scope_combo.addItem("Sélection (coché/lignes)", "selection")
+        self.batch_scope_combo.addItem("Saison filtrée", "season")
+        self.batch_scope_combo.addItem("Tout le corpus", "all")
+        self.batch_scope_combo.setCurrentIndex(1)
+        self.batch_scope_combo.setToolTip(
+            "Périmètre unifié des actions batch : épisode courant, sélection, saison filtrée ou tout le corpus."
+        )
+        filter_row.addWidget(self.batch_scope_combo)
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
@@ -155,7 +167,7 @@ class CorpusTabWidget(QWidget):
         # Bloc 1 — Import (constitution du corpus) §14
         group_import = QGroupBox("1. Importer — Constituer le corpus")
         group_import.setToolTip(
-            "Workflow §14 : Découvrir les épisodes, télécharger les transcripts (RAW), importer les SRT (onglet Sous-titres). "
+            "Workflow §14 : Découvrir les épisodes, télécharger les transcripts (RAW), importer les SRT (panneau Sous-titres de l'Inspecteur). "
             "Pas de normalisation ni d'alignement ici."
         )
         btn_row1 = QHBoxLayout()
@@ -178,13 +190,12 @@ class CorpusTabWidget(QWidget):
             "Découvre une série depuis une autre source/URL et fusionne avec l'index existant (sans écraser les épisodes déjà présents)."
         )
         self.discover_merge_btn.clicked.connect(self._discover_merge)
-        self.fetch_sel_btn = QPushButton("Télécharger\nsélection")
-        self.fetch_sel_btn.setToolTip("Télécharge les épisodes cochés (ou les lignes sélectionnées au clic).")
-        self.fetch_sel_btn.clicked.connect(lambda: self._fetch_episodes(selection_only=True))
-        self.fetch_all_btn = QPushButton("Télécharger tout")
-        self.fetch_all_btn.setToolTip("Télécharge tout le corpus (tous les épisodes découverts).")
-        self.fetch_all_btn.clicked.connect(lambda: self._fetch_episodes(selection_only=False))
-        for b in (self.discover_btn, self.add_episodes_btn, self.discover_merge_btn, self.fetch_sel_btn, self.fetch_all_btn):
+        self.fetch_btn = QPushButton("Télécharger")
+        self.fetch_btn.setToolTip(
+            "Télécharge selon le scope sélectionné (épisode courant, sélection, saison ou tout)."
+        )
+        self.fetch_btn.clicked.connect(self._fetch_episodes)
+        for b in (self.discover_btn, self.add_episodes_btn, self.discover_merge_btn, self.fetch_btn):
             btn_row1.addWidget(b)
         btn_row1.addStretch()
         group_import.setLayout(btn_row1)
@@ -202,38 +213,28 @@ class CorpusTabWidget(QWidget):
         self.norm_batch_profile_combo = QComboBox()
         self.norm_batch_profile_combo.addItems(list(PROFILES.keys()))
         self.norm_batch_profile_combo.setToolTip(
-            "Profil par défaut pour « Normaliser sélection » et « Normaliser tout ». "
+            "Profil par défaut pour « Normaliser » (scope courant). "
             "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce profil."
         )
         btn_row2.addWidget(self.norm_batch_profile_combo)
-        self.norm_sel_btn = QPushButton("Normaliser\nsélection")
-        self.norm_sel_btn.setToolTip(
-            "Bloc 2 — Normalise les épisodes cochés (ou les lignes sélectionnées). Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
+        self.norm_btn = QPushButton("Normaliser")
+        self.norm_btn.setToolTip(
+            "Bloc 2 — Normalise selon le scope sélectionné. Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
         )
-        self.norm_sel_btn.clicked.connect(lambda: self._normalize_episodes(selection_only=True))
-        self.norm_all_btn = QPushButton("Normaliser tout")
-        self.norm_all_btn.setToolTip(
-            "Bloc 2 — Normalise tout le corpus. Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
+        self.norm_btn.clicked.connect(self._normalize_episodes)
+        self.segment_btn = QPushButton("Segmenter")
+        self.segment_btn.setToolTip(
+            "Bloc 2 — Segmente selon le scope sélectionné (épisodes ayant un fichier CLEAN)."
         )
-        self.norm_all_btn.clicked.connect(lambda: self._normalize_episodes(selection_only=False))
-        self.segment_sel_btn = QPushButton("Segmenter\nsélection")
-        self.segment_sel_btn.setToolTip(
-            "Bloc 2 — Segmente les épisodes cochés (ou sélectionnés) ayant un fichier CLEAN."
-        )
-        self.segment_sel_btn.clicked.connect(lambda: self._segment_episodes(selection_only=True))
-        self.segment_all_btn = QPushButton("Segmenter tout")
-        self.segment_all_btn.setToolTip(
-            "Bloc 2 — Segmente tout le corpus (épisodes ayant CLEAN)."
-        )
-        self.segment_all_btn.clicked.connect(lambda: self._segment_episodes(selection_only=False))
-        self.all_in_one_btn = QPushButton("Tout faire\n(sélection)")
+        self.segment_btn.clicked.connect(self._segment_episodes)
+        self.all_in_one_btn = QPushButton("Tout faire")
         self.all_in_one_btn.setToolTip(
-            "§5 — Enchaînement pour les épisodes cochés : Télécharger → Normaliser → Segmenter → Indexer DB."
+            "§5 — Enchaînement selon le scope : Télécharger → Normaliser → Segmenter → Indexer DB."
         )
-        self.all_in_one_btn.clicked.connect(self._run_all_for_selection)
+        self.all_in_one_btn.clicked.connect(self._run_all_for_scope)
         self.index_btn = QPushButton("Indexer DB")
         self.index_btn.setToolTip(
-            "Bloc 2 — Indexe en base tous les épisodes ayant un fichier CLEAN (segmentation). Tout le projet."
+            "Bloc 2 — Indexe en base selon le scope sélectionné (épisodes ayant CLEAN)."
         )
         self.index_btn.clicked.connect(self._index_db)
         self.export_corpus_btn = QPushButton("Exporter corpus")
@@ -242,10 +243,8 @@ class CorpusTabWidget(QWidget):
         self.cancel_job_btn.clicked.connect(self._emit_cancel_job)
         self.cancel_job_btn.setEnabled(False)
         for b in (
-            self.norm_sel_btn,
-            self.norm_all_btn,
-            self.segment_sel_btn,
-            self.segment_all_btn,
+            self.norm_btn,
+            self.segment_btn,
             self.all_in_one_btn,
             self.index_btn,
             self.export_corpus_btn,
@@ -320,7 +319,7 @@ class CorpusTabWidget(QWidget):
         scope_label = QLabel(
             "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (panneau Sous-titres dans Inspecteur). "
             "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
-            "Périmètre : « sélection » = épisodes cochés ou lignes sélectionnées ; « tout » = tout le corpus."
+            "Périmètre via « Scope action » : épisode courant, sélection, saison filtrée ou tout le corpus."
         )
         scope_label.setStyleSheet("color: gray; font-size: 0.9em;")
         scope_label.setWordWrap(True)
@@ -354,11 +353,11 @@ class CorpusTabWidget(QWidget):
             self.season_filter_combo.addItem("Toutes les saisons", None)
             self.corpus_status_label.setText("")
             self.corpus_next_step_label.setText("Prochaine action: ouvrez ou créez un projet dans la section Projet (Pilotage).")
-            self.norm_sel_btn.setEnabled(False)
-            self.norm_all_btn.setEnabled(False)
-            self.segment_sel_btn.setEnabled(False)
-            self.segment_all_btn.setEnabled(False)
+            self.fetch_btn.setEnabled(False)
+            self.norm_btn.setEnabled(False)
+            self.segment_btn.setEnabled(False)
             self.all_in_one_btn.setEnabled(False)
+            self.index_btn.setEnabled(False)
             self._refresh_error_panel(index=None, error_ids=[])
             self._set_primary_action("Ouvrez un projet", None)
             return
@@ -368,11 +367,11 @@ class CorpusTabWidget(QWidget):
             self.season_filter_combo.addItem("Toutes les saisons", None)
             self.corpus_status_label.setText("")
             self.corpus_next_step_label.setText("Prochaine action: cliquez sur « Découvrir épisodes » (ou ajoutez des épisodes en mode SRT only).")
-            self.norm_sel_btn.setEnabled(False)
-            self.norm_all_btn.setEnabled(False)
-            self.segment_sel_btn.setEnabled(False)
-            self.segment_all_btn.setEnabled(False)
+            self.fetch_btn.setEnabled(False)
+            self.norm_btn.setEnabled(False)
+            self.segment_btn.setEnabled(False)
             self.all_in_one_btn.setEnabled(False)
+            self.index_btn.setEnabled(False)
             self._refresh_error_panel(index=None, error_ids=[])
             self._set_primary_action("Découvrir épisodes", self._discover_episodes)
             return
@@ -403,19 +402,19 @@ class CorpusTabWidget(QWidget):
             self._set_primary_action("Relancer toutes les erreurs", self._retry_error_episodes)
         elif n_fetched < n_total:
             self.corpus_next_step_label.setText(
-                "Prochaine action: importer les transcripts manquants avec « Télécharger sélection » ou « Télécharger tout »."
+                "Prochaine action: importer les transcripts manquants avec « Télécharger » (scope « Tout le corpus »)."
             )
-            self._set_primary_action("Télécharger tout", lambda: self._fetch_episodes(selection_only=False))
+            self._set_primary_action("Télécharger tout", lambda: self._fetch_episodes(scope_mode="all"))
         elif n_norm < n_fetched:
             self.corpus_next_step_label.setText(
-                "Prochaine action: normaliser les épisodes FETCHED avec « Normaliser sélection » ou « Normaliser tout »."
+                "Prochaine action: normaliser les épisodes FETCHED avec « Normaliser » (scope « Tout le corpus »)."
             )
-            self._set_primary_action("Normaliser tout", lambda: self._normalize_episodes(selection_only=False))
+            self._set_primary_action("Normaliser tout", lambda: self._normalize_episodes(scope_mode="all"))
         elif n_indexed < n_norm:
             self.corpus_next_step_label.setText(
                 "Prochaine action: segmenter et indexer les épisodes NORMALIZED (boutons Segmenter / Indexer DB)."
             )
-            self._set_primary_action("Segmenter + Indexer", self._segment_and_index_all)
+            self._set_primary_action("Segmenter + Indexer", lambda: self._segment_and_index_scope(scope_mode="all"))
         elif n_with_srt == 0:
             self.corpus_next_step_label.setText(
                 "Prochaine action: importer des sous-titres (SRT/VTT) dans l'Inspecteur pour préparer l'alignement."
@@ -437,11 +436,11 @@ class CorpusTabWidget(QWidget):
                 "Corpus prêt: passez à Validation & Annotation puis Concordance pour l'analyse."
             )
             self._set_primary_action("Corpus prêt", None)
-        self.norm_sel_btn.setEnabled(n_fetched > 0)
-        self.norm_all_btn.setEnabled(n_fetched > 0)
-        self.segment_sel_btn.setEnabled(n_norm > 0)
-        self.segment_all_btn.setEnabled(n_norm > 0)
+        self.fetch_btn.setEnabled(n_total > 0)
+        self.norm_btn.setEnabled(n_fetched > 0)
+        self.segment_btn.setEnabled(n_norm > 0)
         self.all_in_one_btn.setEnabled(n_total > 0)
+        self.index_btn.setEnabled(n_norm > 0)
         self._refresh_error_panel(index=index, error_ids=error_ids)
         # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
         # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
@@ -632,21 +631,62 @@ class CorpusTabWidget(QWidget):
         source_indices = [self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices]
         return self.episodes_tree_model.get_episode_ids_selection(source_indices)
 
+    def _resolve_current_episode_id(self) -> str | None:
+        selection_model = self.episodes_tree.selectionModel()
+        if selection_model is not None:
+            proxy_indices = selection_model.selectedIndexes()
+            source_indices = [self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices]
+            selected_ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+            if selected_ids:
+                return selected_ids[0]
+        checked_ids = self.episodes_tree_model.get_checked_episode_ids()
+        if checked_ids:
+            return checked_ids[0]
+        return None
+
     def _resolve_scope_and_ids(
         self,
         index: SeriesIndex,
         *,
-        selection_only: bool,
+        scope_mode: str | None = None,
     ) -> tuple[WorkflowScope, list[str]] | None:
-        if selection_only:
+        mode = (scope_mode or self.batch_scope_combo.currentData() or "selection").lower()
+        if mode == "current":
+            eid = self._resolve_current_episode_id()
+            if not eid:
+                QMessageBox.warning(
+                    self,
+                    "Corpus",
+                    "Scope « Épisode courant »: sélectionnez une ligne (ou cochez un épisode).",
+                )
+                return None
+            return WorkflowScope.current(eid), [eid]
+        if mode == "selection":
             ids = self._resolve_selected_episode_ids()
             if not ids:
                 QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
+                    self, "Corpus", "Scope « Sélection »: cochez au moins un épisode ou sélectionnez des lignes."
                 )
                 return None
             return WorkflowScope.selection(ids), ids
-        return WorkflowScope.all(), [e.episode_id for e in index.episodes]
+        if mode == "season":
+            season = self.season_filter_combo.currentData()
+            if season is None:
+                QMessageBox.warning(
+                    self,
+                    "Corpus",
+                    "Scope « Saison filtrée »: choisissez d'abord une saison (pas « Toutes les saisons »).",
+                )
+                return None
+            ids = self.episodes_tree_model.get_episode_ids_for_season(season)
+            if not ids:
+                QMessageBox.warning(self, "Corpus", f"Aucun épisode trouvé pour la saison {season}.")
+                return None
+            return WorkflowScope.season_scope(int(season)), ids
+        if mode == "all":
+            return WorkflowScope.all(), [e.episode_id for e in index.episodes]
+        QMessageBox.warning(self, "Corpus", f"Scope inconnu: {mode}")
+        return None
 
     def _build_profile_by_episode(
         self,
@@ -774,7 +814,7 @@ class CorpusTabWidget(QWidget):
     ) -> None:
         if not ids:
             QMessageBox.warning(
-                self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
+                self, "Corpus", "Aucun épisode résolu pour le scope choisi."
             )
             return
         scope = WorkflowScope.selection(ids)
@@ -834,7 +874,7 @@ class CorpusTabWidget(QWidget):
             return
         self._run_job(steps)
 
-    def _fetch_episodes(self, selection_only: bool) -> None:
+    def _fetch_episodes(self, scope_mode: str | None = None) -> None:
         store = self._get_store()
         db = self._get_db()
         context = self._get_context()
@@ -845,7 +885,7 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        resolved = self._resolve_scope_and_ids(index, selection_only=selection_only)
+        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
             return
         scope, _ids = resolved
@@ -863,7 +903,7 @@ class CorpusTabWidget(QWidget):
             return
         self._run_job(list(plan.steps))
 
-    def _normalize_episodes(self, selection_only: bool) -> None:
+    def _normalize_episodes(self, scope_mode: str | None = None) -> None:
         store = self._get_store()
         context = self._get_context()
         if not context.get("config") or not store:
@@ -873,7 +913,7 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        resolved = self._resolve_scope_and_ids(index, selection_only=selection_only)
+        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
             return
         scope, ids = resolved
@@ -901,8 +941,8 @@ class CorpusTabWidget(QWidget):
             return
         self._run_job(list(plan.steps))
 
-    def _segment_episodes(self, selection_only: bool) -> None:
-        """Bloc 2 — Segmente les épisodes (sélection ou tout) ayant clean.txt."""
+    def _segment_episodes(self, scope_mode: str | None = None) -> None:
+        """Bloc 2 — Segmente les épisodes du scope sélectionné ayant clean.txt."""
         store = self._get_store()
         context = self._get_context()
         if not context.get("config") or not store:
@@ -912,7 +952,7 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        resolved = self._resolve_scope_and_ids(index, selection_only=selection_only)
+        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
         if resolved is None:
             return
         _scope, ids = resolved
@@ -920,7 +960,7 @@ class CorpusTabWidget(QWidget):
         if not eids_with_clean:
             QMessageBox.warning(
                 self, "Corpus",
-                "Aucun épisode sélectionné n'a de fichier CLEAN. Normalisez d'abord la sélection."
+                "Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope."
             )
             return
         plan = self._build_plan_or_warn(
@@ -937,8 +977,8 @@ class CorpusTabWidget(QWidget):
             return
         self._run_job(list(plan.steps))
 
-    def _run_all_for_selection(self) -> None:
-        """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB pour les épisodes cochés."""
+    def _run_all_for_scope(self) -> None:
+        """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB sur le scope choisi."""
         store = self._get_store()
         db = self._get_db()
         context = self._get_context()
@@ -949,7 +989,7 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        resolved = self._resolve_scope_and_ids(index, selection_only=True)
+        resolved = self._resolve_scope_and_ids(index)
         if resolved is None:
             return
         _scope, ids = resolved
@@ -1012,31 +1052,7 @@ class CorpusTabWidget(QWidget):
             return
         self._on_open_inspector(eid)
 
-    def _index_db(self) -> None:
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        if not context.get("config") or not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
-            return
-        index = store.load_series_index()
-        episode_refs = index.episodes if index else []
-        plan = self._build_plan_or_warn(
-            action_id=WorkflowActionId.BUILD_DB_INDEX,
-            context=context,
-            scope=WorkflowScope.all(),
-            episode_refs=episode_refs,
-            options={"allow_all_with_clean": True},
-        )
-        if not plan:
-            return
-        if not plan.steps:
-            QMessageBox.information(self, "Corpus", "Aucun épisode CLEAN à indexer.")
-            return
-        self._run_job(list(plan.steps))
-
-    def _segment_and_index_all(self) -> None:
-        """Chaîne segmenter puis indexer pour tous les épisodes CLEAN."""
+    def _index_db(self, scope_mode: str | None = None) -> None:
         store = self._get_store()
         db = self._get_db()
         context = self._get_context()
@@ -1047,9 +1063,42 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        ids_with_clean = [e.episode_id for e in index.episodes if store.has_episode_clean(e.episode_id)]
+        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
+        if resolved is None:
+            return
+        scope, _ids = resolved
+        plan = self._build_plan_or_warn(
+            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            context=context,
+            scope=scope,
+            episode_refs=index.episodes,
+        )
+        if not plan:
+            return
+        if not plan.steps:
+            QMessageBox.information(self, "Corpus", "Aucun épisode CLEAN à indexer pour ce scope.")
+            return
+        self._run_job(list(plan.steps))
+
+    def _segment_and_index_scope(self, scope_mode: str | None = None) -> None:
+        """Chaîne segmenter puis indexer pour les épisodes CLEAN du scope choisi."""
+        store = self._get_store()
+        db = self._get_db()
+        context = self._get_context()
+        if not context.get("config") or not store or not db:
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return
+        resolved = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
+        if resolved is None:
+            return
+        _scope, ids = resolved
+        ids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
         if not ids_with_clean:
-            QMessageBox.warning(self, "Corpus", "Aucun épisode CLEAN à segmenter/indexer.")
+            QMessageBox.warning(self, "Corpus", "Aucun épisode CLEAN à segmenter/indexer pour ce scope.")
             return
         scope = WorkflowScope.selection(ids_with_clean)
         segment_plan = self._build_plan_or_warn(

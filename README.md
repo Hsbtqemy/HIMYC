@@ -89,14 +89,16 @@ Voir **example/README.md** pour les instructions détaillées.
 2. **Construire le corpus** (onglet Pilotage, section Corpus)  
    - « Découvrir épisodes » : récupère la liste des épisodes depuis la source.  
    - **Filtre Saison** : choisir « Toutes les saisons » ou « Saison 1 », « Saison 2 », etc. pour afficher uniquement les épisodes d’une saison ; **« Cocher la saison »** coche tous les épisodes de la saison affichée (ou tout si « Toutes les saisons »).  
-   - « Télécharger sélection » / « Télécharger tout » : récupère les pages HTML et extrait le texte brut.  
-   - « Normaliser sélection » / « Normaliser tout » : applique le profil de normalisation (RAW → CLEAN).  
-   - « Indexer DB » : indexe le texte normalisé dans SQLite/FTS pour la recherche.  
+   - **« Périmètre action »** : choisir `Épisode courant`, `Sélection`, `Saison filtrée` ou `Tout le corpus`.  
+   - « Télécharger » : récupère les pages HTML et extrait le texte brut selon le périmètre choisi.  
+   - « Normaliser » : applique le profil de normalisation (RAW → CLEAN) selon le périmètre choisi.  
+   - « Segmenter » / « Indexer DB » : segmente et indexe selon le périmètre choisi.  
+   - « Tout faire » : enchaîne Télécharger → Normaliser → Segmenter → Indexer DB sur le périmètre choisi.  
    - **« Exporter corpus »** : exporte les épisodes normalisés en **TXT**, **CSV**, **JSON**, **Word (.docx)**, ou en **segmenté** : **JSONL** / **CSV** par **utterances** (tours de parole) ou par **phrases**.
 
    **Workflow recommandé (batch par saison)**  
-   - **Option A — Saison par saison** : pour chaque saison, sélectionner « Saison N » dans le filtre → « Cocher la saison » → « Télécharger sélection » → « Normaliser sélection » → « Indexer DB » (ou segmenter / importer SRT / aligner selon vos besoins), puis passer à la saison suivante.  
-   - **Option B — Tout normaliser puis traiter par saison** : « Télécharger tout » puis « Normaliser tout » pour tout le corpus ; ensuite utiliser le filtre saison + « Cocher la saison » pour segmenter, importer les sous-titres et aligner saison par saison.
+   - **Option A — Saison par saison** : pour chaque saison, sélectionner « Saison N » + `Périmètre action = Saison filtrée` → « Télécharger » → « Normaliser » → « Indexer DB » (ou segmenter / importer SRT / aligner selon vos besoins), puis passer à la saison suivante.  
+   - **Option B — Tout normaliser puis traiter par saison** : `Périmètre action = Tout le corpus` + « Télécharger » puis « Normaliser » ; ensuite utiliser le filtre saison + `Périmètre action = Saison filtrée` pour segmenter, importer les sous-titres et aligner saison par saison.
 
 3. **Inspecter** (onglet Inspecteur)  
    - Choisir un épisode et comparer RAW vs CLEAN, stats et exemples de fusions.  
