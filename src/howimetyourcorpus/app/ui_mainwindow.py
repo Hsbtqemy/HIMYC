@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QMenuBar,
 )
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import QSettings, QTimer, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QIcon
 
 from howimetyourcorpus.core.acquisition.profiles import (
@@ -71,6 +71,7 @@ _NETWORK_STEP_NAMES = {
     "fetch_episode",
     "download_opensubtitles",
 }
+_LOGS_PINNED_KEY = "ui/logsPanelPinned"
 
 
 class MainWindow(QMainWindow):
@@ -98,6 +99,8 @@ class MainWindow(QMainWindow):
         self._db: CorpusDB | None = None
         self._job_runner: JobRunner | None = None
         self._log_handler: logging.Handler | None = None
+        self._logs_panel_pinned = False
+        self._restore_logs_panel_pinned_state()
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -190,6 +193,14 @@ class MainWindow(QMainWindow):
         logs_file_act.setToolTip("Ouvrir le fichier log du projet courant.")
         logs_file_act.triggered.connect(self._open_log_file)
         logs_menu.addAction(logs_file_act)
+        self.logs_pin_action = QAction("Épingler le panneau logs", self)
+        self.logs_pin_action.setCheckable(True)
+        self.logs_pin_action.setChecked(self._logs_panel_pinned)
+        self.logs_pin_action.setToolTip(
+            "Quand activé, l'onglet Logs reste visible pendant la navigation entre onglets."
+        )
+        self.logs_pin_action.toggled.connect(self._set_logs_panel_pinned)
+        logs_menu.addAction(self.logs_pin_action)
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
         about_act.triggered.connect(self._show_about)
@@ -619,7 +630,12 @@ class MainWindow(QMainWindow):
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
             QTimer.singleShot(50, self._refresh_episodes_from_store)
         # L'onglet Logs est un panneau temporaire: on le masque quand on revient au workflow.
-        if index != TAB_LOGS and self.tabs.count() > TAB_LOGS and self.tabs.isTabVisible(TAB_LOGS):
+        if (
+            index != TAB_LOGS
+            and not self._logs_panel_pinned
+            and self.tabs.count() > TAB_LOGS
+            and self.tabs.isTabVisible(TAB_LOGS)
+        ):
             self.tabs.setTabVisible(TAB_LOGS, False)
 
     def _refresh_episodes_from_store(self):
@@ -746,7 +762,23 @@ class MainWindow(QMainWindow):
         )
         self.tabs.addTab(self.logs_tab, "Logs")
         # Réduit la surcharge visuelle: logs accessibles via menu Outils.
-        self.tabs.setTabVisible(TAB_LOGS, False)
+        self.tabs.setTabVisible(TAB_LOGS, self._logs_panel_pinned)
+
+    def _restore_logs_panel_pinned_state(self) -> None:
+        settings = QSettings()
+        self._logs_panel_pinned = bool(settings.value(_LOGS_PINNED_KEY, False))
+
+    def _set_logs_panel_pinned(self, pinned: bool) -> None:
+        self._logs_panel_pinned = bool(pinned)
+        settings = QSettings()
+        settings.setValue(_LOGS_PINNED_KEY, self._logs_panel_pinned)
+        if self.tabs.count() <= TAB_LOGS:
+            return
+        self.tabs.setTabVisible(TAB_LOGS, self._logs_panel_pinned)
+        if self._logs_panel_pinned:
+            self.statusBar().showMessage("Panneau Logs épinglé (visible en permanence).", 3000)
+        else:
+            self.statusBar().showMessage("Panneau Logs non épinglé (masqué hors focus).", 3000)
 
     def _current_log_path(self) -> Path | None:
         if not self._config:
