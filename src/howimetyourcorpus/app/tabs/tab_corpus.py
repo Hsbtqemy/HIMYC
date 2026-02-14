@@ -1093,18 +1093,33 @@ class CorpusTabWidget(QWidget):
         resolved = self._resolve_scope_context(scope_mode=scope_mode)
         if resolved is None:
             return
-        store, _db, context, index, scope, ids = resolved
+        store, _db, context, index, _scope, ids = resolved
+        ids_with_raw = [eid for eid in ids if store.has_episode_raw(eid)]
+        if not ids_with_raw:
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode du scope choisi n'a de transcript RAW. Téléchargez d'abord ce scope.",
+                next_step="Pilotage > Corpus: lancez « Télécharger » sur ce scope.",
+            )
+            return
+        skipped = len(ids) - len(ids_with_raw)
+        if skipped > 0:
+            self._show_status(
+                f"Normalisation: {skipped} épisode(s) ignoré(s) sans RAW dans le scope.",
+                5000,
+            )
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
         profile_by_episode = self._build_profile_by_episode(
             store=store,
             episode_refs=index.episodes,
-            episode_ids=ids,
+            episode_ids=ids_with_raw,
             batch_profile=batch_profile,
         )
         self._run_action_for_scope(
             action_id=WorkflowActionId.NORMALIZE_EPISODES,
             context=context,
-            scope=scope,
+            scope=WorkflowScope.selection(ids_with_raw),
             episode_refs=index.episodes,
             options={
                 "default_profile_id": batch_profile,
