@@ -53,3 +53,22 @@ def resolve_export_key(
             if token.upper() in chosen:
                 return key
     return default_key
+
+
+def build_export_success_message(
+    *,
+    subject: str,
+    count: int | None = None,
+    count_label: str | None = None,
+    path: Path | None = None,
+) -> str:
+    """Construit un message de succès export homogène (avec quantité + fichier)."""
+    base = (subject or "Export terminé").strip().rstrip(".")
+    message = base
+    if count is not None and count_label:
+        message += f" : {count} {count_label}."
+    else:
+        message += "."
+    if path is not None:
+        message += f" Fichier: {path.name}"
+    return message

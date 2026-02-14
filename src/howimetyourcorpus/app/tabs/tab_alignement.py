@@ -38,7 +38,11 @@ from howimetyourcorpus.core.export_utils import (
     export_align_report_html,
 )
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
-from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.export_dialog import (
+    build_export_success_message,
+    normalize_export_path,
+    resolve_export_key,
+)
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 
@@ -709,7 +713,16 @@ class AlignmentTabWidget(QWidget):
                             row.get("cue_id_target"), row.get("lang"), row.get("role"),
                             row.get("confidence"), row.get("status"), meta_str,
                         ])
-            show_info(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
+            show_info(
+                self,
+                "Export",
+                build_export_success_message(
+                    subject="Alignement exporté",
+                    count=len(links),
+                    count_label="lien(s)",
+                    path=path,
+                ),
+            )
         except Exception as e:
             logger.exception("Export alignement")
             show_error(self, exc=e, context="Export alignement")
@@ -778,7 +791,16 @@ class AlignmentTabWidget(QWidget):
                 export_parallel_concordance_docx(rows, path)
             else:
                 export_parallel_concordance_csv(rows, path)
-            show_info(self, "Export", f"Concordancier parallèle exporté : {len(rows)} ligne(s).")
+            show_info(
+                self,
+                "Export",
+                build_export_success_message(
+                    subject="Concordancier parallèle exporté",
+                    count=len(rows),
+                    count_label="ligne(s)",
+                    path=path,
+                ),
+            )
         except Exception as e:
             logger.exception("Export concordancier parallèle")
             show_error(self, exc=e, context="Export concordancier parallèle")
@@ -807,7 +829,14 @@ class AlignmentTabWidget(QWidget):
             stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
             sample = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
             export_align_report_html(stats, sample, eid, run_id, path)
-            show_info(self, "Rapport", f"Rapport enregistré : {path.name}")
+            show_info(
+                self,
+                "Rapport",
+                build_export_success_message(
+                    subject="Rapport enregistré",
+                    path=path,
+                ),
+            )
         except Exception as e:
             logger.exception("Rapport alignement")
             show_error(self, exc=e, context="Rapport alignement")

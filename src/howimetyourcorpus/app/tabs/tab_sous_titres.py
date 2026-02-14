@@ -28,7 +28,7 @@ from howimetyourcorpus.core.pipeline.tasks import DownloadOpenSubtitlesStep, Imp
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
 from howimetyourcorpus.app.feedback import show_error, warn_precondition
-from howimetyourcorpus.app.export_dialog import normalize_export_path
+from howimetyourcorpus.app.export_dialog import build_export_success_message, normalize_export_path
 from howimetyourcorpus.app.dialogs import OpenSubtitlesDownloadDialog, SubtitleBatchImportDialog
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 
@@ -484,7 +484,15 @@ class SubtitleTabWidget(QWidget):
                 return
             srt_content = cues_to_srt(cues)
             path.write_text(srt_content, encoding="utf-8")
-            self._show_status(f"SRT final exporté : {path.name}", 4000)
+            self._show_status(
+                build_export_success_message(
+                    subject="SRT final exporté",
+                    count=len(cues),
+                    count_label="cue(s)",
+                    path=path,
+                ),
+                4000,
+            )
         except Exception as e:
             logger.exception("Export SRT final")
             show_error(self, exc=e, context="Export SRT final")

@@ -2,7 +2,11 @@
 
 from pathlib import Path
 
-from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.export_dialog import (
+    build_export_success_message,
+    normalize_export_path,
+    resolve_export_key,
+)
 
 
 def test_normalize_export_path_keeps_known_suffix() -> None:
@@ -76,3 +80,18 @@ def test_resolve_export_key_uses_filter_then_default() -> None:
     )
     assert key_from_filter == "jsonl"
     assert key_default == "csv"
+
+
+def test_build_export_success_message_with_count_and_path() -> None:
+    msg = build_export_success_message(
+        subject="Corpus exporté",
+        count=12,
+        count_label="épisode(s)",
+        path=Path("/tmp/corpus.csv"),
+    )
+    assert msg == "Corpus exporté : 12 épisode(s). Fichier: corpus.csv"
+
+
+def test_build_export_success_message_without_count_uses_default_subject() -> None:
+    msg = build_export_success_message(subject="", path=Path("/tmp/report.html"))
+    assert msg == "Export terminé. Fichier: report.html"

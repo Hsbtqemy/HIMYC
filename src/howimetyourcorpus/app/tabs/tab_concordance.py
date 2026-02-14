@@ -28,7 +28,11 @@ from howimetyourcorpus.core.export_utils import (
     export_kwic_docx,
 )
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
-from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.export_dialog import (
+    build_export_success_message,
+    normalize_export_path,
+    resolve_export_key,
+)
 from howimetyourcorpus.app.models_qt import KwicTableModel
 
 logger = logging.getLogger(__name__)
@@ -313,7 +317,16 @@ class ConcordanceTabWidget(QWidget):
                     next_step="Choisissez un format supporté dans la boîte d'export.",
                 )
                 return
-            show_info(self, "Export", f"Résultats exportés : {len(hits)} occurrence(s).")
+            show_info(
+                self,
+                "Export",
+                build_export_success_message(
+                    subject="Résultats exportés",
+                    count=len(hits),
+                    count_label="occurrence(s)",
+                    path=path,
+                ),
+            )
         except Exception as e:
             logger.exception("Export KWIC")
             show_error(self, exc=e, context="Export KWIC")

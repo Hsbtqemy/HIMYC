@@ -35,7 +35,11 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_docx,
 )
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
-from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.export_dialog import (
+    build_export_success_message,
+    normalize_export_path,
+    resolve_export_key,
+)
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 from howimetyourcorpus.core.workflow import (
     WorkflowActionId,
@@ -586,7 +590,12 @@ class InspectorTabWidget(QWidget):
             show_info(
                 self,
                 "Export",
-                f"Segments exportés : {len(segments)} segment(s).",
+                build_export_success_message(
+                    subject="Segments exportés",
+                    count=len(segments),
+                    count_label="segment(s)",
+                    path=path,
+                ),
                 status_callback=self._show_status,
             )
         except Exception as e:

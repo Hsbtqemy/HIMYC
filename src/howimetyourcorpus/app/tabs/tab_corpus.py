@@ -55,7 +55,11 @@ from howimetyourcorpus.core.workflow import (
     WorkflowService,
 )
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
-from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.export_dialog import (
+    build_export_success_message,
+    normalize_export_path,
+    resolve_export_key,
+)
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 from howimetyourcorpus.app.workflow_advice import build_workflow_advice
 from howimetyourcorpus.app.workflow_status import (
@@ -1746,7 +1750,12 @@ class CorpusTabWidget(QWidget):
             show_info(
                 self,
                 "Export",
-                f"Corpus exporté : {len(episodes_data)} épisode(s).",
+                build_export_success_message(
+                    subject="Corpus exporté",
+                    count=len(episodes_data),
+                    count_label="épisode(s)",
+                    path=path,
+                ),
                 status_callback=self._show_status,
             )
         except Exception as e:
