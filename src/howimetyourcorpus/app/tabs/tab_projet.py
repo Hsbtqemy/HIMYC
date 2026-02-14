@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from howimetyourcorpus.app.feedback import warn_precondition
+
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 
@@ -247,7 +249,12 @@ class ProjectTabWidget(QWidget):
     def _add_language(self) -> None:
         store = self._get_store()
         if not store:
-            QMessageBox.warning(self, "Langues", "Ouvrez un projet d'abord.")
+            warn_precondition(
+                self,
+                "Langues",
+                "Ouvrez un projet d'abord.",
+                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
             return
         dlg = QDialog(self)
         dlg.setWindowTitle("Ajouter une langue")
@@ -266,8 +273,10 @@ class ProjectTabWidget(QWidget):
             return
         code = (code_edit.text() or "").strip().lower()
         if not code or len(code) < 2:
-            QMessageBox.warning(
-                self, "Langues", "Indiquez un code langue (au moins 2 caractères)."
+            warn_precondition(
+                self,
+                "Langues",
+                "Indiquez un code langue (au moins 2 caractères).",
             )
             return
         langs = store.load_project_languages()
