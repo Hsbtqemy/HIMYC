@@ -759,6 +759,52 @@ class CorpusTabWidget(QWidget):
             return checked_ids[0]
         return None
 
+    @staticmethod
+    def _build_episode_url_by_id(index: SeriesIndex) -> dict[str, str]:
+        return {ref.episode_id: ref.url for ref in index.episodes}
+
+    @staticmethod
+    def _has_non_empty_value(value: str | None) -> bool:
+        return bool((value or "").strip())
+
+    def _filter_ids_with_source_url(
+        self,
+        *,
+        ids: list[str],
+        episode_url_by_id: dict[str, str],
+    ) -> list[str]:
+        return [
+            eid for eid in ids if self._has_non_empty_value(episode_url_by_id.get(eid))
+        ]
+
+    @staticmethod
+    def _filter_ids_with_raw(*, ids: list[str], store: Any) -> list[str]:
+        return [eid for eid in ids if store.has_episode_raw(eid)]
+
+    @staticmethod
+    def _filter_ids_with_clean(*, ids: list[str], store: Any) -> list[str]:
+        return [eid for eid in ids if store.has_episode_clean(eid)]
+
+    def _filter_runnable_ids_for_full_workflow(
+        self,
+        *,
+        ids: list[str],
+        store: Any,
+        episode_url_by_id: dict[str, str],
+    ) -> list[str]:
+        return [
+            eid
+            for eid in ids
+            if store.has_episode_clean(eid)
+            or store.has_episode_raw(eid)
+            or self._has_non_empty_value(episode_url_by_id.get(eid))
+        ]
+
+    def _show_skipped_ids(self, *, prefix: str, skipped: int, reason: str) -> None:
+        if skipped <= 0:
+            return
+        self._show_status(f"{prefix}: {skipped} épisode(s) ignoré(s) ({reason}).", 5000)
+
     def _resolve_scope_and_ids(
         self,
         index: SeriesIndex,
@@ -1029,21 +1075,18 @@ class CorpusTabWidget(QWidget):
                 self, "Corpus", "Aucun épisode résolu pour le scope choisi."
             )
             return
-        episode_url_by_id = {ref.episode_id: ref.url for ref in index.episodes}
-        runnable_ids = [
-            eid
-            for eid in ids
-            if store.has_episode_clean(eid)
-            or store.has_episode_raw(eid)
-            or bool((episode_url_by_id.get(eid) or "").strip())
-        ]
+        episode_url_by_id = self._build_episode_url_by_id(index)
+        runnable_ids = self._filter_runnable_ids_for_full_workflow(
+            ids=ids,
+            store=store,
+            episode_url_by_id=episode_url_by_id,
+        )
         skipped = len(ids) - len(runnable_ids)
-        if skipped > 0:
-            self._show_status(
-                "Tout faire: "
-                f"{skipped} épisode(s) ignoré(s) (sans URL source, RAW ni CLEAN).",
-                5000,
-            )
+        self._show_skipped_ids(
+            prefix="Tout faire",
+            skipped=skipped,
+            reason="sans URL source, RAW ni CLEAN",
+        )
         fetch_scope = WorkflowScope.selection(ids)
         runnable_scope = WorkflowScope.selection(runnable_ids) if runnable_ids else None
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
@@ -1106,15 +1149,17 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         _store, _db, context, index, scope, ids = resolved
-        episode_url_by_id = {ref.episode_id: ref.url for ref in index.episodes}
-        skipped = sum(
-            1 for eid in ids if not (episode_url_by_id.get(eid) or "").strip()
+        episode_url_by_id = self._build_episode_url_by_id(index)
+        ids_with_url = self._filter_ids_with_source_url(
+            ids=ids,
+            episode_url_by_id=episode_url_by_id,
         )
-        if skipped > 0:
-            self._show_status(
-                f"Téléchargement: {skipped} épisode(s) ignoré(s) (URL source absente).",
-                5000,
-            )
+        skipped = len(ids) - len(ids_with_url)
+        self._show_skipped_ids(
+            prefix="Téléchargement",
+            skipped=skipped,
+            reason="URL source absente",
+        )
         self._run_action_for_scope(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
@@ -1131,7 +1176,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_raw = [eid for eid in ids if store.has_episode_raw(eid)]
+        ids_with_raw = self._filter_ids_with_raw(ids=ids, store=store)
         if not ids_with_raw:
             warn_precondition(
                 self,
@@ -1141,11 +1186,11 @@ class CorpusTabWidget(QWidget):
             )
             return
         skipped = len(ids) - len(ids_with_raw)
-        if skipped > 0:
-            self._show_status(
-                f"Normalisation: {skipped} épisode(s) ignoré(s) sans RAW dans le scope.",
-                5000,
-            )
+        self._show_skipped_ids(
+            prefix="Normalisation",
+            skipped=skipped,
+            reason="sans RAW dans le scope",
+        )
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
         profile_by_episode = self._build_profile_by_episode(
             store=store,
@@ -1171,7 +1216,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        eids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
+        eids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
         if not eids_with_clean:
             QMessageBox.warning(
                 self, "Corpus",
@@ -1266,7 +1311,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
+        ids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
         if not ids_with_clean:
             QMessageBox.warning(self, "Corpus", "Aucun épisode CLEAN à segmenter/indexer pour ce scope.")
             return
