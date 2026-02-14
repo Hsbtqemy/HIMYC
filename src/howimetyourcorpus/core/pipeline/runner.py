@@ -83,6 +83,8 @@ class PipelineRunner:
                     on_progress=emit_progress,
                     on_log=on_log,
                 )
+                result.data = dict(result.data or {})
+                result.data.setdefault("step_name", step.name)
                 results.append(result)
                 if not result.success:
                     if result.message == "Cancelled":

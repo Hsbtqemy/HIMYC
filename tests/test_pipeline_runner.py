@@ -46,3 +46,32 @@ def test_pipeline_runner_clamps_out_of_range_progress() -> None:
     assert min(emitted) >= 0.0
     assert max(emitted) <= 1.0
     assert emitted[-1] == 1.0
+
+
+class _DataStep(Step):
+    name = "data_step"
+
+    def __init__(self, data=None):
+        self._data = data
+
+    def run(self, context, *, force=False, on_progress=None, on_log=None) -> StepResult:
+        return StepResult(True, "ok", self._data)
+
+
+def test_pipeline_runner_adds_step_name_to_result_data() -> None:
+    runner = PipelineRunner()
+    results = runner.run([_DataStep({"meta": 1})], context={})
+
+    assert len(results) == 1
+    data = results[0].data or {}
+    assert data["meta"] == 1
+    assert data["step_name"] == "data_step"
+
+
+def test_pipeline_runner_preserves_existing_step_name_data() -> None:
+    runner = PipelineRunner()
+    results = runner.run([_DataStep({"step_name": "custom_step"})], context={})
+
+    assert len(results) == 1
+    data = results[0].data or {}
+    assert data["step_name"] == "custom_step"

@@ -391,6 +391,29 @@ class MainWindow(QMainWindow):
         """Ajoute le résumé de fin de job dans l'onglet Logs."""
         self._on_job_log("info", summary)
 
+    @staticmethod
+    def _build_step_breakdown_summary(results: list) -> str:
+        """Construit un résumé compact par type d'étape (pour logs QA)."""
+        stats: dict[str, list[int]] = {}
+        for result in results:
+            data = getattr(result, "data", None) or {}
+            step_name = str(data.get("step_name") or "unknown_step")
+            bucket = stats.setdefault(step_name, [0, 0])  # [ok, fail]
+            if getattr(result, "success", True):
+                bucket[0] += 1
+            else:
+                bucket[1] += 1
+        if not stats:
+            return ""
+        parts: list[str] = []
+        for step_name, (ok_count, fail_count) in stats.items():
+            total = ok_count + fail_count
+            if fail_count:
+                parts.append(f"{step_name}={total} ({fail_count} échec)")
+            else:
+                parts.append(f"{step_name}={total}")
+        return ", ".join(parts)
+
     def _on_job_finished(self, results: list):
         self._set_job_ui_busy(False)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
@@ -418,7 +441,9 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(msg, 10000)
         else:
             self.statusBar().showMessage(msg, 5000)
-        self._append_job_summary_to_log(msg)
+        step_breakdown = self._build_step_breakdown_summary(results)
+        log_msg = f"{msg} Étapes: {step_breakdown}." if step_breakdown else msg
+        self._append_job_summary_to_log(log_msg)
         self._refresh_after_project_loaded()
         self._job_runner = None
 
