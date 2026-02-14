@@ -355,6 +355,15 @@ class CorpusTabWidget(QWidget):
             return
         self._primary_action()
 
+    def _set_scope_mode(self, mode: str) -> None:
+        idx = self.batch_scope_combo.findData(mode)
+        if idx >= 0 and self.batch_scope_combo.currentIndex() != idx:
+            self.batch_scope_combo.setCurrentIndex(idx)
+
+    def _run_action_with_scope(self, mode: str, action: Callable[[str | None], None]) -> None:
+        self._set_scope_mode(mode)
+        action(scope_mode=mode)
+
     def refresh(self) -> None:
         """Recharge l'arbre et le statut depuis le store (appelé après ouverture projet / fin de job)."""
         store = self._get_store()
@@ -420,17 +429,26 @@ class CorpusTabWidget(QWidget):
             self.corpus_next_step_label.setText(
                 "Prochaine action: importer les transcripts manquants avec « Télécharger » (scope « Tout le corpus »)."
             )
-            self._set_primary_action("Télécharger tout", lambda: self._fetch_episodes(scope_mode="all"))
+            self._set_primary_action(
+                "Télécharger tout",
+                lambda: self._run_action_with_scope("all", self._fetch_episodes),
+            )
         elif n_norm < n_fetched:
             self.corpus_next_step_label.setText(
                 "Prochaine action: normaliser les épisodes FETCHED avec « Normaliser » (scope « Tout le corpus »)."
             )
-            self._set_primary_action("Normaliser tout", lambda: self._normalize_episodes(scope_mode="all"))
+            self._set_primary_action(
+                "Normaliser tout",
+                lambda: self._run_action_with_scope("all", self._normalize_episodes),
+            )
         elif n_indexed < n_norm:
             self.corpus_next_step_label.setText(
                 "Prochaine action: segmenter et indexer les épisodes NORMALIZED (boutons Segmenter / Indexer DB)."
             )
-            self._set_primary_action("Segmenter + Indexer", lambda: self._segment_and_index_scope(scope_mode="all"))
+            self._set_primary_action(
+                "Segmenter + Indexer",
+                lambda: self._run_action_with_scope("all", self._segment_and_index_scope),
+            )
         elif n_with_srt == 0:
             self.corpus_next_step_label.setText(
                 "Prochaine action: importer des sous-titres (SRT/VTT) dans l'Inspecteur pour préparer l'alignement."
