@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -82,12 +83,17 @@ class ProjectTabWidget(QWidget):
         form_projet = QFormLayout(self.group_projet)
         form_projet.setHorizontalSpacing(8)
         form_projet.setVerticalSpacing(6)
+        form_projet.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        form_projet.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        form_projet.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.proj_root_edit = QLineEdit()
         self.proj_root_edit.setPlaceholderText("C:\\...\\MonProjet ou /path/to/project")
         browse_btn = QPushButton("Parcourir…")
         browse_btn.clicked.connect(self._browse)
         row_root = QHBoxLayout()
-        row_root.addWidget(self.proj_root_edit)
+        row_root.setContentsMargins(0, 0, 0, 0)
+        row_root.setSpacing(6)
+        row_root.addWidget(self.proj_root_edit, 1)
         row_root.addWidget(browse_btn)
         form_projet.addRow("Dossier:", row_root)
         btn_row = QHBoxLayout()
@@ -138,12 +144,28 @@ class ProjectTabWidget(QWidget):
         self.project_summary_group.setVisible(False)
         layout.addWidget(self.project_summary_group)
 
-        # —— 2. Source et série ——
+        # L'action d'ouverture Corpus est portée par le résumé (évite le doublon de bouton).
+        self.open_corpus_btn = self.open_corpus_compact_btn
+
+        # —— 2. Détails configuration (onglets internes) ——
+        self.project_details_tabs = QTabWidget()
+        self.project_details_tabs.setDocumentMode(True)
+        self.project_details_tabs.setUsesScrollButtons(True)
+        layout.addWidget(self.project_details_tabs)
+
+        # Onglet Source
+        source_page = QWidget()
+        source_page_layout = QVBoxLayout(source_page)
+        source_page_layout.setContentsMargins(0, 0, 0, 0)
+        source_page_layout.setSpacing(8)
         self.group_source = QGroupBox("Source et série")
         self.group_source.setToolTip("D’où viennent les épisodes et les transcripts (ignoré si projet SRT uniquement).")
         form_source = QFormLayout(self.group_source)
         form_source.setHorizontalSpacing(8)
         form_source.setVerticalSpacing(6)
+        form_source.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        form_source.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        form_source.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.source_id_combo = QComboBox()
         self.source_id_combo.addItems(AdapterRegistry.list_ids() or ["subslikescript"])
         form_source.addRow("Source:", self.source_id_combo)
@@ -183,34 +205,31 @@ class ProjectTabWidget(QWidget):
         self.acquisition_profile_combo.currentTextChanged.connect(self._on_acquisition_profile_changed)
         self.rate_limit_spin.valueChanged.connect(self._refresh_acquisition_runtime_preview)
         self._refresh_acquisition_runtime_preview()
-        layout.addWidget(self.group_source)
+        source_page_layout.addWidget(self.group_source)
+        source_page_layout.addStretch()
+        self.project_details_tabs.addTab(source_page, "Source")
+        self.project_details_tabs.setTabToolTip(
+            self.project_details_tabs.indexOf(source_page),
+            "Configuration source/acquisition (URL série, profil, rate limit).",
+        )
 
-        # —— 3. Workflow corpus (§refonte) ——
-        self.group_acquisition = QGroupBox("Workflow corpus")
-        self.group_acquisition.setToolTip(
-            "Les opérations de workflow (découvrir, télécharger, normaliser, segmenter, indexer) sont centralisées dans l'onglet Pilotage."
-        )
-        acq_row = QHBoxLayout(self.group_acquisition)
-        self.open_corpus_btn = QPushButton("Aller à la section Corpus")
-        self.open_corpus_btn.setMinimumHeight(30)
-        self.open_corpus_btn.setStyleSheet("font-weight: 600;")
-        self.open_corpus_btn.setToolTip(
-            "Aller à la section Corpus du Pilotage pour exécuter les opérations Import/Transformer/Indexer."
-        )
-        self.open_corpus_btn.clicked.connect(self._on_open_corpus_clicked)
-        acq_row.addWidget(self.open_corpus_btn)
-        acq_row.addStretch()
-        layout.addWidget(self.group_acquisition)
+        # Onglet Normalisation
+        norm_page = QWidget()
+        norm_page_layout = QVBoxLayout(norm_page)
+        norm_page_layout.setContentsMargins(0, 0, 0, 0)
+        norm_page_layout.setSpacing(8)
         self.open_corpus_btn.setEnabled(False)
         self.open_corpus_compact_btn.setEnabled(False)
         self.save_config_btn.setEnabled(False)
 
-        # —— 4. Normalisation ——
         self.group_norm = QGroupBox("Normalisation")
         self.group_norm.setToolTip("Profil utilisé pour RAW → CLEAN (transcripts et sous-titres).")
         form_norm = QFormLayout(self.group_norm)
         form_norm.setHorizontalSpacing(8)
         form_norm.setVerticalSpacing(6)
+        form_norm.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        form_norm.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        form_norm.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.normalize_profile_combo = QComboBox()
         self.normalize_profile_combo.addItems(list(PROFILES.keys()))
         form_norm.addRow("Profil:", self.normalize_profile_combo)
@@ -227,14 +246,27 @@ class ProjectTabWidget(QWidget):
         norm_policy.setWordWrap(True)
         norm_policy.setStyleSheet("color: #666;")
         form_norm.addRow("", norm_policy)
-        layout.addWidget(self.group_norm)
+        norm_page_layout.addWidget(self.group_norm)
+        norm_page_layout.addStretch()
+        self.project_details_tabs.addTab(norm_page, "Normalisation")
+        self.project_details_tabs.setTabToolTip(
+            self.project_details_tabs.indexOf(norm_page),
+            "Profil RAW→CLEAN appliqué au workflow batch et à l'inspection locale.",
+        )
 
-        # —— 5. Langues ——
+        # Onglet Langues
+        lang_page = QWidget()
+        lang_page_layout = QVBoxLayout(lang_page)
+        lang_page_layout.setContentsMargins(0, 0, 0, 0)
+        lang_page_layout.setSpacing(8)
         self.group_lang = QGroupBox("Langues du projet")
         self.group_lang.setToolTip("Langues pour sous-titres, personnages et concordancier (ex. en, fr, it).")
         form_lang = QFormLayout(self.group_lang)
         form_lang.setHorizontalSpacing(8)
         form_lang.setVerticalSpacing(6)
+        form_lang.setFormAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        form_lang.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        form_lang.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.languages_list = QListWidget()
         self.languages_list.setMaximumHeight(100)
         self.languages_list.currentRowChanged.connect(self._on_languages_selection_changed)
@@ -252,7 +284,13 @@ class ProjectTabWidget(QWidget):
         lang_btn_row.addWidget(self.remove_lang_btn)
         lang_btn_row.addStretch()
         form_lang.addRow("", lang_btn_row)
-        layout.addWidget(self.group_lang)
+        lang_page_layout.addWidget(self.group_lang)
+        lang_page_layout.addStretch()
+        self.project_details_tabs.addTab(lang_page, "Langues")
+        self.project_details_tabs.setTabToolTip(
+            self.project_details_tabs.indexOf(lang_page),
+            "Codes langue projet utilisés par sous-titres, annotation et concordance.",
+        )
 
         layout.addStretch()
         scroll.setWidget(content)
@@ -416,8 +454,7 @@ class ProjectTabWidget(QWidget):
 
     def _set_project_details_expanded(self, expanded: bool, *, persist: bool = True) -> None:
         self._details_expanded = bool(expanded)
-        for widget in (self.group_source, self.group_acquisition, self.group_norm, self.group_lang):
-            widget.setVisible(self._details_expanded)
+        self.project_details_tabs.setVisible(self._details_expanded)
         self.project_toggle_details_btn.setText("Masquer détails" if self._details_expanded else "Modifier détails")
         if persist:
             settings = QSettings()

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSplitter, QTool
 
 _HELP_EXPANDED_KEY = "pilotage/helpExpanded"
 _SPLITTER_KEY = "pilotage/splitter"
+_PROJECT_PANEL_VISIBLE_KEY = "pilotage/projectPanelVisible"
 _DEFAULT_SPLITTER_SIZES = [320, 760]
 
 
@@ -31,6 +32,7 @@ class PilotageTabWidget(QWidget):
         self._on_open_inspector = on_open_inspector
         self._on_open_validation = on_open_validation
         self._on_open_concordance = on_open_concordance
+        self._project_panel_sizes = list(_DEFAULT_SPLITTER_SIZES)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -39,6 +41,12 @@ class PilotageTabWidget(QWidget):
         self._state_summary_label.setStyleSheet("color: #505050; font-weight: 600;")
         self._state_summary_label.setWordWrap(True)
         layout.addWidget(self._state_summary_label)
+
+        self._project_panel_toggle_btn = QToolButton()
+        self._project_panel_toggle_btn.setCheckable(True)
+        self._project_panel_toggle_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._project_panel_toggle_btn.toggled.connect(self._set_project_panel_visible)
+        layout.addWidget(self._project_panel_toggle_btn)
 
         self._help_toggle_btn = QToolButton()
         self._help_toggle_btn.setCheckable(True)
@@ -105,11 +113,12 @@ class PilotageTabWidget(QWidget):
         layout.addWidget(self._splitter)
         self._restore_help_expanded()
         self._restore_splitter_sizes()
+        self._restore_project_panel_visibility()
         self.refresh_state_banner()
 
     def focus_corpus(self) -> None:
         """Met l'accent sur la zone Corpus quand l'utilisateur vient de la section Projet."""
-        self._splitter.setSizes([220, 860])
+        self._set_project_panel_visible(False)
         self.refresh_state_banner()
         # Optionnel : donner le focus à la vue corpus si disponible.
         episodes_tree = getattr(self._corpus_widget, "episodes_tree", None)
@@ -124,6 +133,8 @@ class PilotageTabWidget(QWidget):
         n_episodes = len(index.episodes) if index and getattr(index, "episodes", None) else 0
 
         if not project_open:
+            if not self._project_widget.isVisible():
+                self._set_project_panel_visible(True, persist=False)
             self._state_summary_label.setText(
                 "État rapide: projet non ouvert. Commencez par « Ouvrir / créer le projet »."
             )
@@ -139,6 +150,8 @@ class PilotageTabWidget(QWidget):
 
     def reset_layout(self) -> None:
         """Réinitialise la répartition Projet/Corpus à la configuration par défaut."""
+        self._project_panel_sizes = list(_DEFAULT_SPLITTER_SIZES)
+        self._set_project_panel_visible(True)
         self._splitter.setSizes(list(_DEFAULT_SPLITTER_SIZES))
         self.save_state()
 
@@ -173,6 +186,39 @@ class PilotageTabWidget(QWidget):
         self._help_toggle_btn.setChecked(expanded)
         self._help_toggle_btn.blockSignals(False)
         self._set_help_expanded(expanded, persist=False)
+
+    def _set_project_panel_visible(self, visible: bool, *, persist: bool = True) -> None:
+        panel_visible = bool(visible)
+        sizes = self._splitter.sizes()
+        if len(sizes) >= 2 and sizes[0] > 0:
+            self._project_panel_sizes = [int(sizes[0]), int(sizes[1])]
+        self._project_widget.setVisible(panel_visible)
+        self._project_panel_toggle_btn.blockSignals(True)
+        self._project_panel_toggle_btn.setChecked(panel_visible)
+        self._project_panel_toggle_btn.blockSignals(False)
+        self._project_panel_toggle_btn.setArrowType(
+            Qt.ArrowType.DownArrow if panel_visible else Qt.ArrowType.RightArrow
+        )
+        self._project_panel_toggle_btn.setText(
+            "Configuration projet (masquer)" if panel_visible else "Configuration projet (afficher)"
+        )
+        if panel_visible:
+            self._splitter.setSizes(list(self._project_panel_sizes))
+        else:
+            total = max(1, sum(self._splitter.sizes()))
+            self._splitter.setSizes([0, total])
+        if persist:
+            settings = QSettings()
+            settings.setValue(_PROJECT_PANEL_VISIBLE_KEY, panel_visible)
+
+    def _restore_project_panel_visibility(self) -> None:
+        settings = QSettings()
+        raw = settings.value(_PROJECT_PANEL_VISIBLE_KEY, True)
+        if isinstance(raw, str):
+            visible = raw.strip().lower() in {"1", "true", "yes", "on"}
+        else:
+            visible = bool(raw)
+        self._set_project_panel_visible(visible, persist=False)
 
     def _restore_splitter_sizes(self) -> None:
         settings = QSettings()
