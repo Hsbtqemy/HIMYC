@@ -157,6 +157,8 @@ class ConcordanceTabWidget(QWidget):
             widget.setEnabled(enabled)
         self._apply_scope_filter_states(controls_enabled=enabled)
         has_db = db is not None
+        if not has_db:
+            self._invalidate_hits()
         has_term = bool(self.kwic_search_edit.text().strip())
         has_hits = bool(self.kwic_model.get_all_hits())
         go_enabled = enabled and has_db and has_term
