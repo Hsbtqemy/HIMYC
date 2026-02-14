@@ -411,6 +411,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_progress(0)
             self.corpus_tab.set_acquisition_runtime_info(runtime_label)
+        if hasattr(self, "inspector_tab") and self.inspector_tab:
+            if hasattr(self.inspector_tab, "set_acquisition_runtime_info"):
+                self.inspector_tab.set_acquisition_runtime_info(runtime_label)
         self._job_runner.run_async()
 
     def _on_job_progress(self, step_name: str, percent: float, message: str):

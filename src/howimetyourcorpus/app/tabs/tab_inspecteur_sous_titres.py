@@ -70,6 +70,13 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         workflow_hint.setStyleSheet("color: #666;")
         workflow_hint.setWordWrap(True)
         layout.addWidget(workflow_hint)
+        self.acquisition_runtime_label = QLabel("")
+        self.acquisition_runtime_label.setStyleSheet("color: #505050; font-size: 0.9em;")
+        self.acquisition_runtime_label.setWordWrap(True)
+        self.acquisition_runtime_label.setToolTip(
+            "Paramètres d'acquisition HTTP effectivement appliqués au dernier job."
+        )
+        layout.addWidget(self.acquisition_runtime_label)
 
         self.inspector_tab = InspectorTabWidget(
             get_store=get_store,
@@ -126,6 +133,8 @@ class InspecteurEtSousTitresTabWidget(QWidget):
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et synchronise les deux panneaux."""
+        if self._get_store() is None:
+            self.acquisition_runtime_label.setText("")
         current_episode = self.episode_combo.currentData()
         self.inspector_tab.refresh()
         self.subtitles_tab.refresh()
@@ -180,6 +189,10 @@ class InspecteurEtSousTitresTabWidget(QWidget):
                 return
         self.inspector_tab.set_episode_and_load(episode_id)
         self.subtitles_tab.set_episode_and_load(episode_id)
+
+    def set_acquisition_runtime_info(self, text: str) -> None:
+        """Expose le diagnostic runtime d'acquisition pour les jobs lancés depuis cet onglet."""
+        self.acquisition_runtime_label.setText(text or "")
 
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions de mutation pendant un job global."""
