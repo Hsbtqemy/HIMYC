@@ -319,7 +319,11 @@ class PersonnagesTabWidget(QWidget):
                 "canonical": canon or cid,
                 "names_by_lang": names_by_lang,
             })
-        store.save_character_names(characters)
+        try:
+            store.save_character_names(characters)
+        except Exception as e:
+            show_error(self, title="Personnages", exc=e, context="Enregistrement personnages")
+            return
         self._show_status("Personnages enregistrés.", 3000)
         self._apply_controls_enabled()
 
@@ -428,7 +432,11 @@ class PersonnagesTabWidget(QWidget):
             if not (a.get("episode_id") == eid and a.get("source_type") == source_type)
         ]
         all_assignments.extend(new_assignments)
-        store.save_character_assignments(all_assignments)
+        try:
+            store.save_character_assignments(all_assignments)
+        except Exception as e:
+            show_error(self, title="Assignation", exc=e, context="Enregistrement assignations personnages")
+            return
         self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
         self._apply_controls_enabled()
 
