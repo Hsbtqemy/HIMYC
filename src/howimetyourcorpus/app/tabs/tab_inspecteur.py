@@ -31,6 +31,7 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_docx,
 )
 from howimetyourcorpus.core.normalize.profiles import PROFILES
+from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.core.workflow import (
     WorkflowActionError,
     WorkflowActionId,
@@ -385,14 +386,34 @@ class InspectorTabWidget(QWidget):
         if not path:
             return
         path = Path(path)
-        if path.suffix.lower() != ".docx" and "Word" in (selected_filter or ""):
-            path = path.with_suffix(".docx")
+        path = normalize_export_path(
+            path,
+            selected_filter,
+            allowed_suffixes=(".txt", ".csv", ".tsv", ".docx"),
+            default_suffix=".txt",
+            filter_to_suffix={
+                "TXT": ".txt",
+                "CSV": ".csv",
+                "TSV": ".tsv",
+                "WORD": ".docx",
+            },
+        )
+        export_key = resolve_export_key(
+            path,
+            selected_filter,
+            suffix_to_key={
+                ".txt": "txt",
+                ".csv": "csv",
+                ".tsv": "tsv",
+                ".docx": "docx",
+            },
+        )
         try:
-            if path.suffix.lower() == ".txt" or "TXT" in (selected_filter or ""):
+            if export_key == "txt":
                 export_segments_txt(segments, path)
-            elif path.suffix.lower() == ".tsv" or "TSV" in (selected_filter or ""):
+            elif export_key == "tsv":
                 export_segments_tsv(segments, path)
-            elif path.suffix.lower() == ".docx" or "Word" in (selected_filter or ""):
+            elif export_key == "docx":
                 export_segments_docx(segments, path)
             else:
                 export_segments_csv(segments, path)

@@ -28,6 +28,7 @@ from howimetyourcorpus.core.export_utils import (
     export_kwic_tsv,
     export_kwic_docx,
 )
+from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import KwicTableModel
 
 logger = logging.getLogger(__name__)
@@ -137,19 +138,40 @@ class ConcordanceTabWidget(QWidget):
         if not path:
             return
         path = Path(path)
-        if path.suffix.lower() != ".docx" and "Word" in (selected_filter or ""):
-            path = path.with_suffix(".docx")
+        path = normalize_export_path(
+            path,
+            selected_filter,
+            allowed_suffixes=(".csv", ".tsv", ".json", ".jsonl", ".docx"),
+            default_suffix=".csv",
+            filter_to_suffix={
+                "CSV": ".csv",
+                "TSV": ".tsv",
+                "JSONL": ".jsonl",
+                "JSON": ".json",
+                "WORD": ".docx",
+            },
+        )
+        export_key = resolve_export_key(
+            path,
+            selected_filter,
+            suffix_to_key={
+                ".csv": "csv",
+                ".tsv": "tsv",
+                ".json": "json",
+                ".jsonl": "jsonl",
+                ".docx": "docx",
+            },
+        )
         try:
-            chosen_filter = (selected_filter or "").upper()
-            if path.suffix.lower() == ".csv" or chosen_filter.startswith("CSV"):
+            if export_key == "csv":
                 export_kwic_csv(hits, path)
-            elif path.suffix.lower() == ".tsv" or chosen_filter.startswith("TSV"):
+            elif export_key == "tsv":
                 export_kwic_tsv(hits, path)
-            elif path.suffix.lower() == ".jsonl" or chosen_filter.startswith("JSONL"):
+            elif export_key == "jsonl":
                 export_kwic_jsonl(hits, path)
-            elif path.suffix.lower() == ".json" or chosen_filter.startswith("JSON"):
+            elif export_key == "json":
                 export_kwic_json(hits, path)
-            elif path.suffix.lower() == ".docx" or "WORD" in chosen_filter:
+            elif export_key == "docx":
                 export_kwic_docx(hits, path)
             else:
                 QMessageBox.warning(self, "Export", "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx")

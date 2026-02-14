@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from howimetyourcorpus.core.pipeline.tasks import DownloadOpenSubtitlesStep, ImportSubtitlesStep
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
+from howimetyourcorpus.app.export_dialog import normalize_export_path
 from howimetyourcorpus.app.dialogs import OpenSubtitlesDownloadDialog, SubtitleBatchImportDialog
 
 logger = logging.getLogger(__name__)
@@ -313,14 +314,18 @@ class SubtitleTabWidget(QWidget):
         lang = data.get("lang", "")
         if not lang:
             return
-        path, _ = QFileDialog.getSaveFileName(
+        path, selected_filter = QFileDialog.getSaveFileName(
             self, "Exporter SRT final", "", "SRT (*.srt);;Tous (*.*)"
         )
         if not path:
             return
-        path = Path(path)
-        if path.suffix.lower() != ".srt":
-            path = path.with_suffix(".srt")
+        path = normalize_export_path(
+            Path(path),
+            selected_filter,
+            allowed_suffixes=(".srt",),
+            default_suffix=".srt",
+            filter_to_suffix={"SRT": ".srt"},
+        )
         try:
             cues = db.get_cues_for_episode_lang(eid, lang)
             if not cues:

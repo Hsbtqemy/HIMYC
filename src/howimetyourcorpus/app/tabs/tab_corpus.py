@@ -57,6 +57,7 @@ from howimetyourcorpus.core.workflow import (
     WorkflowScopeError,
     WorkflowService,
 )
+from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import (
     EpisodesTreeModel,
     EpisodesTreeFilterProxyModel,
@@ -1239,30 +1240,60 @@ class CorpusTabWidget(QWidget):
             return
         path = Path(path)
         selected_filter = selected_filter or ""
+        path = normalize_export_path(
+            path,
+            selected_filter,
+            allowed_suffixes=(".txt", ".csv", ".json", ".jsonl", ".docx"),
+            default_suffix=".txt",
+            filter_to_suffix={
+                "TXT": ".txt",
+                "CSV": ".csv",
+                "JSON": ".json",
+                "JSONL": ".jsonl",
+                "WORD": ".docx",
+            },
+        )
+        selected_upper = selected_filter.upper()
         try:
-            if path.suffix.lower() == ".txt" or selected_filter.startswith("TXT"):
-                export_corpus_txt(episodes_data, path)
-            elif "JSONL - Utterances" in selected_filter:
+            if "JSONL - UTTERANCES" in selected_upper:
                 export_corpus_utterances_jsonl(episodes_data, path)
-            elif "JSONL - Phrases" in selected_filter:
+            elif "JSONL - PHRASES" in selected_upper:
                 export_corpus_phrases_jsonl(episodes_data, path)
-            elif "CSV - Utterances" in selected_filter:
+            elif "CSV - UTTERANCES" in selected_upper:
                 export_corpus_utterances_csv(episodes_data, path)
-            elif "CSV - Phrases" in selected_filter:
+            elif "CSV - PHRASES" in selected_upper:
                 export_corpus_phrases_csv(episodes_data, path)
-            elif path.suffix.lower() == ".csv" or selected_filter.startswith("CSV"):
-                export_corpus_csv(episodes_data, path)
-            elif path.suffix.lower() == ".json" or "JSON" in selected_filter:
-                export_corpus_json(episodes_data, path)
-            elif path.suffix.lower() == ".docx" or "Word" in selected_filter:
-                export_corpus_docx(episodes_data, path)
             else:
-                QMessageBox.warning(
-                    self,
-                    "Export",
-                    "Format non reconnu. Utilisez .txt, .csv, .json ou .jsonl (segmenté).",
+                export_key = resolve_export_key(
+                    path,
+                    selected_filter,
+                    suffix_to_key={
+                        ".txt": "txt",
+                        ".csv": "csv",
+                        ".json": "json",
+                        ".jsonl": "jsonl",
+                        ".docx": "docx",
+                    },
+                    default_key="txt",
                 )
-                return
+                if export_key == "txt":
+                    export_corpus_txt(episodes_data, path)
+                elif export_key == "csv":
+                    export_corpus_csv(episodes_data, path)
+                elif export_key == "json":
+                    export_corpus_json(episodes_data, path)
+                elif export_key == "docx":
+                    export_corpus_docx(episodes_data, path)
+                elif export_key == "jsonl":
+                    # JSONL direct sans variante explicite: valeur par défaut = utterances.
+                    export_corpus_utterances_jsonl(episodes_data, path)
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Export",
+                        "Format non reconnu. Utilisez .txt, .csv, .json, .jsonl ou .docx.",
+                    )
+                    return
             QMessageBox.information(
                 self, "Export", f"Corpus exporté : {len(episodes_data)} épisode(s)."
             )

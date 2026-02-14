@@ -37,6 +37,7 @@ from howimetyourcorpus.core.export_utils import (
     export_parallel_concordance_html,
     export_align_report_html,
 )
+from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
 
 logger = logging.getLogger(__name__)
@@ -398,15 +399,30 @@ class AlignmentTabWidget(QWidget):
         if not state:
             return
         eid, run_id, db = state
-        path, _ = QFileDialog.getSaveFileName(
+        path, selected_filter = QFileDialog.getSaveFileName(
             self, "Exporter alignement", "", "CSV (*.csv);;JSONL (*.jsonl)"
         )
         if not path:
             return
         path = Path(path)
+        path = normalize_export_path(
+            path,
+            selected_filter,
+            allowed_suffixes=(".csv", ".jsonl"),
+            default_suffix=".csv",
+            filter_to_suffix={
+                "CSV": ".csv",
+                "JSONL": ".jsonl",
+            },
+        )
+        export_key = resolve_export_key(
+            path,
+            selected_filter,
+            suffix_to_key={".csv": "csv", ".jsonl": "jsonl"},
+        )
         links = db.query_alignment_for_episode(eid, run_id=run_id)
         try:
-            if path.suffix.lower() == ".jsonl":
+            if export_key == "jsonl":
                 with path.open("w", encoding="utf-8") as f:
                     for row in links:
                         f.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -445,22 +461,44 @@ class AlignmentTabWidget(QWidget):
         if not path:
             return
         path = Path(path)
-        if path.suffix.lower() != ".docx" and (selected_filter or "").strip().startswith("Word"):
-            path = path.with_suffix(".docx")
-        if path.suffix.lower() not in (".csv", ".tsv", ".txt", ".html", ".jsonl", ".docx"):
-            path = path.with_suffix(".csv")
+        path = normalize_export_path(
+            path,
+            selected_filter,
+            allowed_suffixes=(".csv", ".tsv", ".txt", ".html", ".jsonl", ".docx"),
+            default_suffix=".csv",
+            filter_to_suffix={
+                "CSV": ".csv",
+                "TSV": ".tsv",
+                "TXT": ".txt",
+                "HTML": ".html",
+                "JSONL": ".jsonl",
+                "WORD": ".docx",
+            },
+        )
+        export_key = resolve_export_key(
+            path,
+            selected_filter,
+            suffix_to_key={
+                ".csv": "csv",
+                ".tsv": "tsv",
+                ".txt": "txt",
+                ".html": "html",
+                ".jsonl": "jsonl",
+                ".docx": "docx",
+            },
+        )
         try:
             status_filter = self._selected_status_filter()
             rows = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
-            if path.suffix.lower() == ".jsonl":
+            if export_key == "jsonl":
                 export_parallel_concordance_jsonl(rows, path)
-            elif path.suffix.lower() == ".tsv":
+            elif export_key == "tsv":
                 export_parallel_concordance_tsv(rows, path)
-            elif path.suffix.lower() == ".txt":
+            elif export_key == "txt":
                 export_parallel_concordance_txt(rows, path)
-            elif path.suffix.lower() == ".html":
+            elif export_key == "html":
                 export_parallel_concordance_html(rows, path, title=f"Comparaison {eid} — {run_id}")
-            elif path.suffix.lower() == ".docx":
+            elif export_key == "docx":
                 export_parallel_concordance_docx(rows, path)
             else:
                 export_parallel_concordance_csv(rows, path)
@@ -484,9 +522,12 @@ class AlignmentTabWidget(QWidget):
         )
         if not path:
             return
-        path = Path(path)
-        if path.suffix.lower() != ".html":
-            path = path.with_suffix(".html")
+        path = normalize_export_path(
+            Path(path),
+            None,
+            allowed_suffixes=(".html",),
+            default_suffix=".html",
+        )
         try:
             status_filter = self._selected_status_filter()
             stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
