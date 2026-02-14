@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable
 
 from PySide6.QtCore import Qt, QSettings
@@ -16,6 +17,8 @@ from PySide6.QtWidgets import (
 
 from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget
 from howimetyourcorpus.app.tabs.tab_sous_titres import SubtitleTabWidget
+
+logger = logging.getLogger(__name__)
 
 
 class InspecteurEtSousTitresTabWidget(QWidget):
@@ -89,8 +92,14 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         eid = self.episode_combo.currentData()
         if not eid:
             return
-        self.inspector_tab.set_episode_and_load(eid)
-        self.subtitles_tab.set_episode_and_load(eid)
+        try:
+            self.inspector_tab.set_episode_and_load(eid)
+        except Exception:
+            logger.exception("Failed to sync inspector panel for episode %s", eid)
+        try:
+            self.subtitles_tab.set_episode_and_load(eid)
+        except Exception:
+            logger.exception("Failed to sync subtitles panel for episode %s", eid)
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et synchronise les deux panneaux."""
