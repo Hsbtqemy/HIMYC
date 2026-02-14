@@ -205,6 +205,7 @@ class SubtitleTabWidget(QWidget):
         eid = self.subs_episode_combo.currentData()
         db = self._get_db()
         if not eid or not db:
+            self._refresh_action_buttons()
             return
         tracks = db.get_tracks_for_episode(eid)
         for t in tracks:
@@ -271,18 +272,10 @@ class SubtitleTabWidget(QWidget):
         self._refresh_action_buttons()
 
     def _delete_selected_track(self) -> None:
-        current = self.subs_tracks_list.currentItem()
-        store = self._get_store()
-        db = self._get_db()
-        if not current or not store or not db:
+        resolved = self._resolve_selected_track_or_warn(title="Suppression piste")
+        if resolved is None:
             return
-        eid = self.subs_episode_combo.currentData()
-        data = current.data(Qt.ItemDataRole.UserRole)
-        if not eid or not data or not isinstance(data, dict):
-            return
-        lang = data.get("lang", "")
-        if not lang:
-            return
+        eid, lang, store, db = resolved
         reply = QMessageBox.question(
             self,
             "Supprimer la piste",
@@ -340,20 +333,50 @@ class SubtitleTabWidget(QWidget):
             return None
         return str(eid), store, db
 
+    def _resolve_selected_track_or_warn(
+        self,
+        *,
+        title: str = "Sous-titres",
+    ) -> tuple[str, str, object, object] | None:
+        resolved = self._resolve_episode_context_or_warn(title=title)
+        if resolved is None:
+            return None
+        eid, store, db = resolved
+        current = self.subs_tracks_list.currentItem()
+        if current is None:
+            warn_precondition(
+                self,
+                title,
+                "Sélectionnez une piste.",
+                next_step="Choisissez une piste dans la liste des sous-titres de l'épisode.",
+            )
+            return None
+        data = current.data(Qt.ItemDataRole.UserRole)
+        if not data or not isinstance(data, dict):
+            warn_precondition(
+                self,
+                title,
+                "La piste sélectionnée est invalide.",
+                next_step="Rafraîchissez l'onglet puis re-sélectionnez une piste.",
+            )
+            return None
+        lang = str(data.get("lang", "")).strip()
+        if not lang:
+            warn_precondition(
+                self,
+                title,
+                "La piste sélectionnée n'a pas de langue valide.",
+                next_step="Rafraîchissez l'onglet puis re-sélectionnez une piste.",
+            )
+            return None
+        return eid, lang, store, db
+
     def _normalize_track(self) -> None:
         """§11 — Applique le profil de normalisation aux cues de la piste sélectionnée."""
-        current = self.subs_tracks_list.currentItem()
-        store = self._get_store()
-        db = self._get_db()
-        if not current or not store or not db:
+        resolved = self._resolve_selected_track_or_warn(title="Normalisation piste")
+        if resolved is None:
             return
-        eid = self.subs_episode_combo.currentData()
-        data = current.data(Qt.ItemDataRole.UserRole)
-        if not eid or not data or not isinstance(data, dict):
-            return
-        lang = data.get("lang", "")
-        if not lang:
-            return
+        eid, lang, store, db = resolved
         profile_id = self.subs_norm_profile_combo.currentText() or "default_en_v1"
         rewrite_srt = self.subs_rewrite_srt_check.isChecked()
         nb = store.normalize_subtitle_track(db, eid, lang, profile_id, rewrite_srt=rewrite_srt)
@@ -369,17 +392,10 @@ class SubtitleTabWidget(QWidget):
 
     def _export_srt_final(self) -> None:
         """§15.2 — Exporte la piste sélectionnée en SRT final (timecodes + text_clean)."""
-        current = self.subs_tracks_list.currentItem()
-        db = self._get_db()
-        if not current or not db:
+        resolved = self._resolve_selected_track_or_warn(title="Export SRT")
+        if resolved is None:
             return
-        eid = self.subs_episode_combo.currentData()
-        data = current.data(Qt.ItemDataRole.UserRole)
-        if not eid or not data or not isinstance(data, dict):
-            return
-        lang = data.get("lang", "")
-        if not lang:
-            return
+        eid, lang, _store, db = resolved
         path, selected_filter = QFileDialog.getSaveFileName(
             self, "Exporter SRT final", "", "SRT (*.srt);;Tous (*.*)"
         )
@@ -491,13 +507,17 @@ class SubtitleTabWidget(QWidget):
         self._show_status(f"Téléchargement OpenSubtitles lancé : {len(steps)} épisode(s).", 5000)
 
     def _save_content(self) -> None:
-        eid = self.subs_episode_combo.currentData()
-        store = self._get_store()
-        db = self._get_db()
-        if not eid or not store or not db:
+        resolved = self._resolve_episode_context_or_warn(title="Sauvegarde sous-titres")
+        if resolved is None:
             return
+        eid, store, _db = resolved
         if not self._editing_lang or not self._editing_fmt:
-            QMessageBox.warning(self, "Sous-titres", "Sélectionnez une piste à modifier.")
+            warn_precondition(
+                self,
+                "Sauvegarde sous-titres",
+                "Sélectionnez une piste à modifier.",
+                next_step="Choisissez une piste dans la liste puis éditez son contenu.",
+            )
             return
         content = self.subs_content_edit.toPlainText()
         try:
