@@ -65,3 +65,32 @@ def parse_formatted_log_line(line: str) -> LogEntry:
         if tail:
             message = tail
     return LogEntry(level=level, message=message, formatted_line=text)
+
+
+def build_logs_diagnostic_report(
+    *,
+    selected_line: str,
+    episode_id: str | None,
+    preset_label: str,
+    level_filter: str,
+    query: str,
+    recent_lines: list[str],
+) -> str:
+    """Construit un diagnostic texte prêt à partager depuis le panneau Logs."""
+    lines: list[str] = [
+        "HowIMetYourCorpus - Diagnostic logs",
+        f"Preset: {preset_label or 'Personnalisé'}",
+        f"Niveau min: {(level_filter or 'ALL').upper()}",
+        f"Recherche: {query or '—'}",
+        f"Épisode détecté: {episode_id or '—'}",
+        "",
+        "Ligne sélectionnée:",
+        selected_line or "—",
+        "",
+        "Dernières lignes pertinentes:",
+    ]
+    if recent_lines:
+        lines.extend(f"- {line}" for line in recent_lines)
+    else:
+        lines.append("- —")
+    return "\n".join(lines)

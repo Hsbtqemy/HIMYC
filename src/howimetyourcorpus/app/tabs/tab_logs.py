@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from howimetyourcorpus.app.feedback import show_info, warn_precondition
 from howimetyourcorpus.app.logs_utils import (
+    build_logs_diagnostic_report,
     LogEntry,
     extract_episode_id,
     matches_log_filters,
@@ -125,6 +126,12 @@ class LogsTabWidget(QWidget):
         copy_episode_btn.setToolTip("Copie l'episode_id SxxExx détecté dans la ligne sélectionnée.")
         copy_episode_btn.clicked.connect(self._copy_episode_id_from_selected_log)
         row.addWidget(copy_episode_btn)
+        copy_diagnostic_btn = QPushButton("Copier diagnostic")
+        copy_diagnostic_btn.setToolTip(
+            "Copie un diagnostic complet (ligne, épisode, filtres, extraits récents) pour QA."
+        )
+        copy_diagnostic_btn.clicked.connect(self._copy_logs_diagnostic)
+        row.addWidget(copy_diagnostic_btn)
         load_file_tail_btn = QPushButton("Charger extrait fichier")
         load_file_tail_btn.setToolTip("Charge les dernières lignes du fichier log projet (si disponible).")
         load_file_tail_btn.clicked.connect(self._load_file_tail_from_button)
@@ -299,6 +306,23 @@ class LogsTabWidget(QWidget):
             return ""
         return all_text.splitlines()[-1].strip()
 
+    def _selected_preset_label(self) -> str:
+        label = (self.preset_combo.currentText() or "").strip()
+        return label or "Personnalisé"
+
+    def _collect_recent_matching_lines(self, *, max_lines: int = 25) -> list[str]:
+        if max_lines <= 0:
+            return []
+        selected: list[str] = []
+        for entry in reversed(self._entries):
+            if not self._entry_matches_current_filters(entry):
+                continue
+            selected.append(entry.formatted_line)
+            if len(selected) >= max_lines:
+                break
+        selected.reverse()
+        return selected
+
     def _open_episode_from_selected_log(self) -> None:
         if not self._on_open_inspector:
             warn_precondition(
@@ -384,6 +408,35 @@ class LogsTabWidget(QWidget):
             )
             return
         show_info(self, "Logs", f"Épisode copié: {episode_id}")
+
+    def _copy_logs_diagnostic(self) -> None:
+        selected_line = self._selected_log_text()
+        if not selected_line:
+            warn_precondition(
+                self,
+                "Logs",
+                "Aucune ligne de log disponible pour le diagnostic.",
+                next_step="Sélectionnez une ligne de log puis réessayez.",
+            )
+            return
+        episode_id = extract_episode_id(selected_line)
+        report = build_logs_diagnostic_report(
+            selected_line=selected_line,
+            episode_id=episode_id,
+            preset_label=self._selected_preset_label(),
+            level_filter=self._current_level_filter(),
+            query=self._current_query(),
+            recent_lines=self._collect_recent_matching_lines(max_lines=25),
+        )
+        if not self._copy_to_clipboard(report):
+            warn_precondition(
+                self,
+                "Logs",
+                "Impossible d'accéder au presse-papiers.",
+                next_step="Réessayez après avoir activé le focus de l'application.",
+            )
+            return
+        show_info(self, "Logs", "Diagnostic complet copié dans le presse-papiers.")
 
     def closeEvent(self, event) -> None:
         self.save_state()

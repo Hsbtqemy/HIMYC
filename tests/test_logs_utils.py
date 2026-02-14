@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from howimetyourcorpus.app.logs_utils import (
+    build_logs_diagnostic_report,
     LogEntry,
     extract_episode_id,
     matches_log_filters,
@@ -49,3 +50,37 @@ def test_parse_formatted_log_line_falls_back_to_info_when_level_missing() -> Non
     entry = parse_formatted_log_line(line)
     assert entry.level == "INFO"
     assert entry.message == line
+
+
+def test_build_logs_diagnostic_report_contains_core_fields() -> None:
+    report = build_logs_diagnostic_report(
+        selected_line="2026 [ERROR] Failed S01E02",
+        episode_id="S01E02",
+        preset_label="Erreurs (ERROR+)",
+        level_filter="ERROR",
+        query="index",
+        recent_lines=[
+            "2026 [INFO] start",
+            "2026 [ERROR] Failed S01E02",
+        ],
+    )
+    assert "HowIMetYourCorpus - Diagnostic logs" in report
+    assert "Preset: Erreurs (ERROR+)" in report
+    assert "Niveau min: ERROR" in report
+    assert "Épisode détecté: S01E02" in report
+    assert "- 2026 [ERROR] Failed S01E02" in report
+
+
+def test_build_logs_diagnostic_report_handles_empty_recent_lines() -> None:
+    report = build_logs_diagnostic_report(
+        selected_line="line",
+        episode_id=None,
+        preset_label="Personnalisé",
+        level_filter="ALL",
+        query="",
+        recent_lines=[],
+    )
+    assert "Épisode détecté: —" in report
+    assert "Recherche: —" in report
+    assert "Dernières lignes pertinentes:" in report
+    assert "- —" in report
