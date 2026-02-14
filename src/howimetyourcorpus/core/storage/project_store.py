@@ -302,6 +302,10 @@ class ProjectStore:
         for e in obj.get("episodes", []):
             if not isinstance(e, dict):
                 continue
+            episode_id = str(e.get("episode_id", "")).strip().upper()
+            if not episode_id:
+                logger.warning("Skipping series-index episode without episode_id in %s: %r", path, e)
+                continue
             try:
                 season = int(e.get("season", 0))
                 episode_num = int(e.get("episode", 0))
@@ -310,7 +314,7 @@ class ProjectStore:
                 continue
             episodes.append(
                 EpisodeRef(
-                    episode_id=e.get("episode_id", ""),
+                    episode_id=episode_id,
                     season=season,
                     episode=episode_num,
                     title=e.get("title", "") or "",

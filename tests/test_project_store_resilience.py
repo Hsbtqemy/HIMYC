@@ -62,6 +62,40 @@ def test_load_series_index_skips_malformed_episode_rows(tmp_path: Path) -> None:
     assert [e.episode_id for e in index.episodes] == ["S01E01"]
 
 
+def test_load_series_index_skips_missing_episode_id_rows(tmp_path: Path) -> None:
+    store = _init_store(tmp_path)
+    (tmp_path / "series_index.json").write_text(
+        json.dumps(
+            {
+                "series_title": "T",
+                "series_url": "u",
+                "episodes": [
+                    {
+                        "episode_id": "s01e01",
+                        "season": 1,
+                        "episode": 1,
+                        "title": "ok",
+                        "url": "u1",
+                    },
+                    {
+                        "episode_id": "",
+                        "season": 1,
+                        "episode": 2,
+                        "title": "bad",
+                        "url": "u2",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    index = store.load_series_index()
+
+    assert index is not None
+    assert [e.episode_id for e in index.episodes] == ["S01E01"]
+
+
 def test_load_episode_transform_meta_returns_none_on_invalid_json(tmp_path: Path) -> None:
     store = _init_store(tmp_path)
     episode_dir = tmp_path / "episodes" / "S01E01"
