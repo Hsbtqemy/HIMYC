@@ -95,6 +95,7 @@ class CorpusTabWidget(QWidget):
         self._on_open_alignment = on_open_alignment
         self._workflow_service = WorkflowService()
         self._primary_action: Callable[[], None] | None = None
+        self._cached_index: SeriesIndex | None = None
 
         layout = QVBoxLayout(self)
         filter_row = QHBoxLayout()
@@ -132,6 +133,9 @@ class CorpusTabWidget(QWidget):
             "Périmètre unifié des actions batch : épisode courant, sélection, saison filtrée ou tout le corpus."
         )
         filter_row.addWidget(self.batch_scope_combo)
+        self.scope_preview_label = QLabel("Périmètre: 0 épisode")
+        self.scope_preview_label.setStyleSheet("color: #666;")
+        filter_row.addWidget(self.scope_preview_label)
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
@@ -162,6 +166,13 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree.setColumnWidth(0, 32)
         self.episodes_tree.setToolTip("Double-clic sur un épisode : ouvrir dans l'Inspecteur (raw/clean, segments).")
         self.episodes_tree.doubleClicked.connect(self._on_episode_double_clicked)
+        selection_model = self.episodes_tree.selectionModel()
+        if selection_model is not None:
+            selection_model.selectionChanged.connect(self._refresh_scope_preview_from_ui)
+        self.episodes_tree_model.dataChanged.connect(self._refresh_scope_preview_from_ui)
+        self.episodes_tree_model.modelReset.connect(self._refresh_scope_preview_from_ui)
+        self.episodes_tree_model.layoutChanged.connect(self._refresh_scope_preview_from_ui)
+        self.batch_scope_combo.currentIndexChanged.connect(self._refresh_scope_preview_from_ui)
         layout.addWidget(self.episodes_tree)
 
         # Bloc 1 — Import (constitution du corpus) §14
@@ -172,9 +183,9 @@ class CorpusTabWidget(QWidget):
         )
         btn_row1 = QHBoxLayout()
         self.check_all_btn = QPushButton("Tout cocher")
-        self.check_all_btn.clicked.connect(lambda: self.episodes_tree_model.set_all_checked(True))
+        self.check_all_btn.clicked.connect(self._check_all_episodes)
         self.uncheck_all_btn = QPushButton("Tout décocher")
-        self.uncheck_all_btn.clicked.connect(lambda: self.episodes_tree_model.set_all_checked(False))
+        self.uncheck_all_btn.clicked.connect(self._uncheck_all_episodes)
         btn_row1.addWidget(self.check_all_btn)
         btn_row1.addWidget(self.uncheck_all_btn)
         self.discover_btn = QPushButton("Découvrir épisodes")
@@ -349,6 +360,7 @@ class CorpusTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not store:
+            self._cached_index = None
             self.season_filter_combo.clear()
             self.season_filter_combo.addItem("Toutes les saisons", None)
             self.corpus_status_label.setText("")
@@ -360,9 +372,11 @@ class CorpusTabWidget(QWidget):
             self.index_btn.setEnabled(False)
             self._refresh_error_panel(index=None, error_ids=[])
             self._set_primary_action("Ouvrez un projet", None)
+            self._refresh_scope_preview(index=None)
             return
         index = store.load_series_index()
         if not index or not index.episodes:
+            self._cached_index = None
             self.season_filter_combo.clear()
             self.season_filter_combo.addItem("Toutes les saisons", None)
             self.corpus_status_label.setText("")
@@ -374,7 +388,9 @@ class CorpusTabWidget(QWidget):
             self.index_btn.setEnabled(False)
             self._refresh_error_panel(index=None, error_ids=[])
             self._set_primary_action("Découvrir épisodes", self._discover_episodes)
+            self._refresh_scope_preview(index=None)
             return
+        self._cached_index = index
         n_total = len(index.episodes)
         episode_ids = [e.episode_id for e in index.episodes]
         n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
@@ -448,6 +464,7 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree_model.set_db(db)
         self.episodes_tree_model.set_episodes(index.episodes)
         self._refresh_season_filter_combo()
+        self._refresh_scope_preview(index)
 
     def refresh_profile_combo(self, profile_ids: list[str], current: str | None) -> None:
         """Met à jour le combo profil batch (après ouverture projet ou dialogue profils)."""
@@ -481,10 +498,49 @@ class CorpusTabWidget(QWidget):
                     self.episodes_tree.expand(proxy_ix)
             except (ValueError, AttributeError):
                 pass
+        self._refresh_scope_preview_from_ui()
 
     def _on_status_filter_changed(self) -> None:
         status = self.status_filter_combo.currentData()
         self.episodes_tree_proxy.set_status_filter(status)
+
+    def _check_all_episodes(self) -> None:
+        self.episodes_tree_model.set_all_checked(True)
+        self._refresh_scope_preview_from_ui()
+
+    def _uncheck_all_episodes(self) -> None:
+        self.episodes_tree_model.set_all_checked(False)
+        self._refresh_scope_preview_from_ui()
+
+    def _refresh_scope_preview_from_ui(self, *_args) -> None:
+        self._refresh_scope_preview(self._cached_index)
+
+    def _refresh_scope_preview(self, index: SeriesIndex | None) -> None:
+        if index is None or not index.episodes:
+            self.scope_preview_label.setText("Périmètre: 0 épisode")
+            return
+        mode = (self.batch_scope_combo.currentData() or "selection").lower()
+        if mode == "all":
+            n = len(index.episodes)
+            self.scope_preview_label.setText(f"Périmètre: {n} épisode(s)")
+            return
+        if mode == "season":
+            season = self.season_filter_combo.currentData()
+            if season is None:
+                self.scope_preview_label.setText("Périmètre: choisissez une saison")
+                return
+            n = len(self.episodes_tree_model.get_episode_ids_for_season(season))
+            self.scope_preview_label.setText(f"Périmètre: {n} épisode(s)")
+            return
+        if mode == "current":
+            n = 1 if self._resolve_current_episode_id() else 0
+            if n == 0:
+                self.scope_preview_label.setText("Périmètre: sélectionnez un épisode")
+                return
+            self.scope_preview_label.setText("Périmètre: 1 épisode")
+            return
+        n = len(self._resolve_selected_episode_ids())
+        self.scope_preview_label.setText(f"Périmètre: {n} épisode(s)")
 
     def _on_episode_double_clicked(self, proxy_index: QModelIndex) -> None:
         """Double-clic sur un épisode : ouvrir l'Inspecteur sur cet épisode (comme Concordance)."""
@@ -517,6 +573,7 @@ class CorpusTabWidget(QWidget):
         if not ids:
             return
         self.episodes_tree_model.set_checked(set(ids), True)
+        self._refresh_scope_preview_from_ui()
 
     def _discover_episodes(self) -> None:
         resolved = self._resolve_project_context(require_db=True)
