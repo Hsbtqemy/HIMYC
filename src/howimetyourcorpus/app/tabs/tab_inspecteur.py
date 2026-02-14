@@ -342,7 +342,11 @@ class InspectorTabWidget(QWidget):
         db = self._get_db()
         if not db:
             return
-        segments = db.get_segments_for_episode(episode_id)
+        try:
+            segments = db.get_segments_for_episode(episode_id)
+        except Exception:
+            logger.exception("Failed to load segments in inspector view")
+            return
         for s in segments:
             kind = s.get("kind", "")
             n = s.get("n", 0)
