@@ -217,8 +217,12 @@ class InspectorTabWidget(QWidget):
         """Sélectionne l'épisode donné et charge son contenu (ex. depuis Concordance « Ouvrir dans Inspecteur »)."""
         for i in range(self.inspect_episode_combo.count()):
             if self.inspect_episode_combo.itemData(i) == episode_id:
-                self.inspect_episode_combo.setCurrentIndex(i)
-                break
+                if self.inspect_episode_combo.currentIndex() != i:
+                    # Le signal currentIndexChanged déclenche déjà _load_episode.
+                    self.inspect_episode_combo.setCurrentIndex(i)
+                else:
+                    self._load_episode()
+                return
         self._load_episode()
 
     def _load_episode(self) -> None:

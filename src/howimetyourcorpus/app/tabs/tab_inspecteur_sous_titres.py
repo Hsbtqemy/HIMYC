@@ -138,8 +138,13 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         """Sélectionne l'épisode et charge les deux panneaux (ex. depuis Concordance)."""
         for i in range(self.episode_combo.count()):
             if self.episode_combo.itemData(i) == episode_id:
-                self.episode_combo.setCurrentIndex(i)
-                break
+                if self.episode_combo.currentIndex() != i:
+                    # Le signal currentIndexChanged déclenche _on_episode_changed.
+                    self.episode_combo.setCurrentIndex(i)
+                else:
+                    self.inspector_tab.set_episode_and_load(episode_id)
+                    self.subtitles_tab.set_episode_and_load(episode_id)
+                return
         self.inspector_tab.set_episode_and_load(episode_id)
         self.subtitles_tab.set_episode_and_load(episode_id)
 
