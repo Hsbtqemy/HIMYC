@@ -40,6 +40,7 @@ from howimetyourcorpus.core.export_utils import (
 from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
+from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 
 logger = logging.getLogger(__name__)
 
@@ -288,25 +289,26 @@ class AlignmentTabWidget(QWidget):
     def refresh(self) -> None:
         """Recharge la liste des épisodes et des runs (appelé après ouverture projet / alignement)."""
         current_episode = self._current_episode_id()
-        self.align_episode_combo.blockSignals(True)
-        self.align_episode_combo.clear()
-        target_index = -1
         store = self._get_store()
         if not store:
-            self.align_episode_combo.blockSignals(False)
+            refill_combo_preserve_selection(
+                self.align_episode_combo,
+                items=[],
+                current_data=None,
+            )
             self._refresh_target_lang_combo(None)
             self._on_episode_changed()
             self._refresh_general_controls_state()
             return
         index = store.load_series_index()
+        items: list[tuple[str, str]] = []
         if index and index.episodes:
-            for idx, e in enumerate(index.episodes):
-                self.align_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
-                if current_episode and e.episode_id == current_episode:
-                    target_index = idx
-        if target_index >= 0:
-            self.align_episode_combo.setCurrentIndex(target_index)
-        self.align_episode_combo.blockSignals(False)
+            items = [(f"{e.episode_id} - {e.title}", e.episode_id) for e in index.episodes]
+        refill_combo_preserve_selection(
+            self.align_episode_combo,
+            items=items,
+            current_data=current_episode,
+        )
         self._on_episode_changed()
         self._refresh_general_controls_state()
 
@@ -430,15 +432,16 @@ class AlignmentTabWidget(QWidget):
 
     def _on_episode_changed(self) -> None:
         current_run_id = self._current_run_id()
-        self.align_run_combo.blockSignals(True)
-        self.align_run_combo.clear()
-        target_run_index = -1
         self._set_run_actions_enabled(False, reason="Sélectionnez d'abord un run d'alignement.")
         eid = self._current_episode_id()
         db = self._get_db()
         self._refresh_target_lang_combo(eid if eid else None)
         if not eid or not db:
-            self.align_run_combo.blockSignals(False)
+            refill_combo_preserve_selection(
+                self.align_run_combo,
+                items=[],
+                current_data=None,
+            )
             self._fill_links()
             self._refresh_general_controls_state()
             return
@@ -447,15 +450,16 @@ class AlignmentTabWidget(QWidget):
         except Exception:
             logger.exception("Failed to load alignment runs")
             runs = []
-        for idx, r in enumerate(runs):
-            run_id = r.get("align_run_id", "")
+        run_items: list[tuple[str, str]] = []
+        for r in runs:
+            run_id = str(r.get("align_run_id", "") or "")
             created = r.get("created_at", "")[:19] if r.get("created_at") else ""
-            self.align_run_combo.addItem(f"{run_id} ({created})", run_id)
-            if current_run_id and str(run_id) == str(current_run_id):
-                target_run_index = idx
-        if target_run_index >= 0:
-            self.align_run_combo.setCurrentIndex(target_run_index)
-        self.align_run_combo.blockSignals(False)
+            run_items.append((f"{run_id} ({created})", run_id))
+        refill_combo_preserve_selection(
+            self.align_run_combo,
+            items=run_items,
+            current_data=current_run_id,
+        )
         self._on_run_changed()
         self._refresh_general_controls_state()
 

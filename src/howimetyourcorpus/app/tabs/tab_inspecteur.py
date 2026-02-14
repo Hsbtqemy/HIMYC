@@ -33,6 +33,7 @@ from howimetyourcorpus.core.export_utils import (
 from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
 from howimetyourcorpus.core.workflow import (
     WorkflowActionError,
     WorkflowActionId,
@@ -187,24 +188,25 @@ class InspectorTabWidget(QWidget):
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et l'épisode courant."""
-        current_episode = self.inspect_episode_combo.currentData()
-        self.inspect_episode_combo.blockSignals(True)
-        self.inspect_episode_combo.clear()
-        target_index = -1
         store = self._get_store()
         if not store:
-            self.inspect_episode_combo.blockSignals(False)
+            refill_combo_preserve_selection(
+                self.inspect_episode_combo,
+                items=[],
+                current_data=None,
+            )
             self._refresh_action_buttons(episode_id=None, store=None)
             return
         index = store.load_series_index()
+        current_episode = self.inspect_episode_combo.currentData()
+        items: list[tuple[str, str]] = []
         if index and index.episodes:
-            for idx, e in enumerate(index.episodes):
-                self.inspect_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
-                if current_episode and e.episode_id == current_episode:
-                    target_index = idx
-        if target_index >= 0:
-            self.inspect_episode_combo.setCurrentIndex(target_index)
-        self.inspect_episode_combo.blockSignals(False)
+            items = [(f"{e.episode_id} - {e.title}", e.episode_id) for e in index.episodes]
+        refill_combo_preserve_selection(
+            self.inspect_episode_combo,
+            items=items,
+            current_data=current_episode,
+        )
         self._load_episode()
 
     def refresh_profile_combo(self, profile_ids: list[str], current: str | None) -> None:
