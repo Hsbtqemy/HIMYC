@@ -141,6 +141,11 @@ Conclusion: la dette ergonomique "mac readability / overlap / pilotage framing" 
 - `MATRICE_OWNERSHIP_UI.md`
 - `PLAYBOOK_ROLLBACK_UI.md`
 
+Etat 2026-02-14:
+- `BASELINE_UI_PERF.md` cree (avec mesures initiales + protocole)
+- `MATRICE_OWNERSHIP_UI.md` cree
+- `PLAYBOOK_ROLLBACK_UI.md` cree
+
 ### Acceptance criteria
 - Baseline chiffree disponible pour:
   - KWIC petit corpus / gros corpus
@@ -294,7 +299,7 @@ Conclusion: la dette ergonomique "mac readability / overlap / pilotage framing" 
 | Lot | Dev owner | Reviewer tech | Validateur UX/Produit | Statut |
 |---|---|---|---|---|
 | Lot -1 | hsmy + codex | TBD | TBD | Fait |
-| Lot 0 | TBD | TBD | TBD | A faire |
+| Lot 0 | hsmy + codex | TBD | TBD | En cours |
 | Lot 1 | TBD | TBD | TBD | A faire |
 | Lot 2 | TBD | TBD | TBD | A faire |
 | Lot 3 | TBD | TBD | TBD | A faire |
