@@ -1373,12 +1373,20 @@ class CorpusTabWidget(QWidget):
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
         if resolved is None:
             return
-        _store, _db, context, index, scope, ids = resolved
+        _store, _db, context, index, _scope, ids = resolved
         episode_url_by_id = self._build_episode_url_by_id(index)
         ids_with_url = self._filter_ids_with_source_url(
             ids=ids,
             episode_url_by_id=episode_url_by_id,
         )
+        if not ids_with_url:
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode du scope choisi n'a d'URL source.",
+                next_step="Lancez « Découvrir épisodes » ou ajoutez des épisodes avec URL valide.",
+            )
+            return
         skipped = len(ids) - len(ids_with_url)
         self._show_skipped_ids(
             prefix="Téléchargement",
@@ -1388,7 +1396,7 @@ class CorpusTabWidget(QWidget):
         self._run_action_for_scope(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
-            scope=scope,
+            scope=WorkflowScope.selection(ids_with_url),
             episode_refs=index.episodes,
             options={
                 "episode_url_by_id": episode_url_by_id
@@ -1450,6 +1458,12 @@ class CorpusTabWidget(QWidget):
                 next_step="Lancez « Normaliser » sur ce scope puis relancez la segmentation.",
             )
             return
+        skipped = len(ids) - len(eids_with_clean)
+        self._show_skipped_ids(
+            prefix="Segmentation",
+            skipped=skipped,
+            reason="sans CLEAN dans le scope",
+        )
         self._run_action_for_scope(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
             context=context,
@@ -1542,11 +1556,26 @@ class CorpusTabWidget(QWidget):
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
         if resolved is None:
             return
-        _store, _db, context, index, scope, _ids = resolved
+        store, _db, context, index, _scope, ids = resolved
+        ids_with_clean = self._filter_ids_with_clean(ids=ids, store=store)
+        if not ids_with_clean:
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode CLEAN à indexer pour ce scope.",
+                next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
+            )
+            return
+        skipped = len(ids) - len(ids_with_clean)
+        self._show_skipped_ids(
+            prefix="Indexation",
+            skipped=skipped,
+            reason="sans CLEAN dans le scope",
+        )
         self._run_action_for_scope(
             action_id=WorkflowActionId.BUILD_DB_INDEX,
             context=context,
-            scope=scope,
+            scope=WorkflowScope.selection(ids_with_clean),
             episode_refs=index.episodes,
             options=None,
             empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
@@ -1567,6 +1596,12 @@ class CorpusTabWidget(QWidget):
                 next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
             )
             return
+        skipped = len(ids) - len(ids_with_clean)
+        self._show_skipped_ids(
+            prefix="Segmenter+Indexer",
+            skipped=skipped,
+            reason="sans CLEAN dans le scope",
+        )
         scope = WorkflowScope.selection(ids_with_clean)
         segment_steps = self._build_action_steps_or_warn(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
