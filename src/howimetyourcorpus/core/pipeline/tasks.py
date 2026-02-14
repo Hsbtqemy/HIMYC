@@ -313,14 +313,18 @@ class BuildDbIndexStep(Step):
                         to_index.append(d.name)
         n = len(to_index)
         is_cancelled = context.get("is_cancelled")
+        indexed_ids: set[str] = set()
+        if not force:
+            indexed_ids = set(db.get_episode_ids_indexed())
         for i, eid in enumerate(to_index):
             if is_cancelled and is_cancelled():
                 return StepResult(False, "Cancelled")
-            if not force and eid in db.get_episode_ids_indexed():
+            if not force and eid in indexed_ids:
                 continue
             clean = store.load_episode_text(eid, kind="clean")
             if clean:
                 db.index_episode_text(eid, clean)
+                indexed_ids.add(eid)
             if on_progress and n:
                 on_progress(self.name, (i + 1) / n, f"Indexed {eid}")
         if on_progress:
