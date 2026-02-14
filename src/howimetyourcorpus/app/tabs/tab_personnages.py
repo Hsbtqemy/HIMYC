@@ -358,18 +358,12 @@ class PersonnagesTabWidget(QWidget):
                     text = (s.get("text") or "")[:80]
                     if len((s.get("text") or "")) > 80:
                         text += "…"
-                    row = self.personnages_assign_table.rowCount()
-                    self.personnages_assign_table.insertRow(row)
-                    self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(sid))
-                    self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
-                    combo = QComboBox()
-                    combo.addItem("—", "")
-                    for cid in character_ids:
-                        combo.addItem(cid, cid)
-                    idx = combo.findData(assign_map.get(sid, ""))
-                    if idx >= 0:
-                        combo.setCurrentIndex(idx)
-                    self.personnages_assign_table.setCellWidget(row, 2, combo)
+                    self._insert_assignment_row(
+                        source_id=sid,
+                        text=text,
+                        character_ids=character_ids,
+                        assigned_character_id=assign_map.get(sid, ""),
+                    )
             else:
                 lang = source_key.replace("cues_", "")
                 cues = db.get_cues_for_episode_lang(eid, lang)
@@ -378,18 +372,12 @@ class PersonnagesTabWidget(QWidget):
                     text = (c.get("text_clean") or c.get("text_raw") or "")[:80]
                     if len((c.get("text_clean") or c.get("text_raw") or "")) > 80:
                         text += "…"
-                    row = self.personnages_assign_table.rowCount()
-                    self.personnages_assign_table.insertRow(row)
-                    self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(cid))
-                    self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
-                    combo = QComboBox()
-                    combo.addItem("—", "")
-                    for char_id in character_ids:
-                        combo.addItem(char_id, char_id)
-                    idx = combo.findData(assign_map.get(cid, ""))
-                    if idx >= 0:
-                        combo.setCurrentIndex(idx)
-                    self.personnages_assign_table.setCellWidget(row, 2, combo)
+                    self._insert_assignment_row(
+                        source_id=cid,
+                        text=text,
+                        character_ids=character_ids,
+                        assigned_character_id=assign_map.get(cid, ""),
+                    )
         except Exception as e:
             show_error(self, title="Assignation", exc=e, context="Chargement assignations personnages")
             return
@@ -440,9 +428,30 @@ class PersonnagesTabWidget(QWidget):
             if not (a.get("episode_id") == eid and a.get("source_type") == source_type)
         ]
         all_assignments.extend(new_assignments)
-        store.save_character_assignments(all_assignments)
-        self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
-        self._apply_controls_enabled()
+            store.save_character_assignments(all_assignments)
+            self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
+            self._apply_controls_enabled()
+
+    def _insert_assignment_row(
+        self,
+        *,
+        source_id: str,
+        text: str,
+        character_ids: list[str],
+        assigned_character_id: str,
+    ) -> None:
+        row = self.personnages_assign_table.rowCount()
+        self.personnages_assign_table.insertRow(row)
+        self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(source_id))
+        self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
+        combo = QComboBox()
+        combo.addItem("—", "")
+        for char_id in character_ids:
+            combo.addItem(char_id, char_id)
+        idx = combo.findData(assigned_character_id)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        self.personnages_assign_table.setCellWidget(row, 2, combo)
 
     def _propagate(self) -> None:
         resolved = self._resolve_episode_store_db_or_warn(
