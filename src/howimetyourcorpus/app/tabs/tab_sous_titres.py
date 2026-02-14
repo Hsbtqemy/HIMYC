@@ -450,10 +450,9 @@ class SubtitleTabWidget(QWidget):
             return
         folder_path = Path(folder)
         rows: list[tuple[str, str | None, str | None]] = []
-        for p in folder_path.glob("*.srt"):
-            ep, lang = _parse_subtitle_filename(p)
-            rows.append((str(p.resolve()), ep, lang))
-        for p in folder_path.glob("*.vtt"):
+        for p in sorted(folder_path.iterdir()):
+            if not p.is_file() or p.suffix.lower() not in {".srt", ".vtt"}:
+                continue
             ep, lang = _parse_subtitle_filename(p)
             rows.append((str(p.resolve()), ep, lang))
         if not rows:
