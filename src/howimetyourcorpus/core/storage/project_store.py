@@ -437,6 +437,10 @@ class ProjectStore:
         """Répertoire episodes/<id>/subs/ pour les sous-titres."""
         return self._episode_dir(episode_id) / "subs"
 
+    def _subtitle_normalize_meta_path(self, episode_id: str, lang: str) -> Path:
+        lang_norm = (lang or "").strip().lower()
+        return self._subs_dir(episode_id) / f"{lang_norm}_normalize_meta.json"
+
     def save_episode_subtitles(
         self,
         episode_id: str,
@@ -483,12 +487,13 @@ class ProjectStore:
         return (best, "srt" if best.suffix.lower() == ".srt" else "vtt")
 
     def remove_episode_subtitle(self, episode_id: str, lang: str) -> None:
-        """Supprime les fichiers sous-titres pour cet épisode et langue (.srt/.vtt et _cues.jsonl)."""
+        """Supprime les fichiers sous-titres pour cet épisode et langue (.srt/.vtt, _cues.jsonl, meta)."""
         d = self._subs_dir(episode_id)
         if not d.exists():
             return
         lang_norm = (lang or "").strip().lower()
         cue_stem = f"{lang_norm}_cues"
+        normalize_meta_stem = f"{lang_norm}_normalize_meta"
         for p in d.iterdir():
             if not p.is_file():
                 continue
@@ -497,6 +502,8 @@ class ProjectStore:
             if stem == lang_norm and suffix in {".srt", ".vtt"}:
                 p.unlink()
             elif stem == cue_stem and suffix == ".jsonl":
+                p.unlink()
+            elif stem == normalize_meta_stem and suffix == ".json":
                 p.unlink()
 
     def load_episode_subtitle_content(self, episode_id: str, lang: str) -> tuple[str, str] | None:
@@ -515,6 +522,14 @@ class ProjectStore:
         path = d / f"{lang}.{ext}"
         path.write_text(content, encoding="utf-8")
         return path
+
+    def load_subtitle_normalize_meta(self, episode_id: str, lang: str) -> dict[str, Any] | None:
+        """Charge la meta de normalisation d'une piste (profile_id, timestamp, compteurs)."""
+        path = self._subtitle_normalize_meta_path(episode_id, lang)
+        if not path.exists():
+            return None
+        obj = _load_json_with_default(path, default=None, context="subtitle normalize meta")
+        return obj if isinstance(obj, dict) else None
 
     def normalize_subtitle_track(
         self,
@@ -553,6 +568,22 @@ class ProjectStore:
             if cues:
                 srt_content = cues_to_srt(cues)
                 self.save_episode_subtitle_content(episode_id, lang, srt_content, "srt")
+        if nb > 0:
+            meta_path = self._subtitle_normalize_meta_path(episode_id, lang)
+            meta_path.parent.mkdir(parents=True, exist_ok=True)
+            meta_path.write_text(
+                json.dumps(
+                    {
+                        "profile_id": profile_id,
+                        "updated_cues": nb,
+                        "rewrite_srt": bool(rewrite_srt),
+                        "normalized_at_utc": datetime.now(timezone.utc).isoformat(),
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
         return nb
 
     # ----- Phase 4: alignement (audit) -----

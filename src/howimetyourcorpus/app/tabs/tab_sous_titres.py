@@ -142,6 +142,10 @@ class SubtitleTabWidget(QWidget):
         row_norm.addWidget(self.subs_rewrite_srt_check)
         row_norm.addStretch()
         layout.addLayout(row_norm)
+        self.subs_norm_meta_label = QLabel("Normalisation piste: —")
+        self.subs_norm_meta_label.setStyleSheet("color: #666;")
+        self.subs_norm_meta_label.setWordWrap(True)
+        layout.addWidget(self.subs_norm_meta_label)
         self.subs_tracks_list = QListWidget()
         self.subs_tracks_list.currentItemChanged.connect(self._on_track_selected)
         layout.addWidget(self.subs_tracks_list)
@@ -215,6 +219,7 @@ class SubtitleTabWidget(QWidget):
         self.subs_content_edit.clear()
         self._editing_lang = None
         self._editing_fmt = None
+        self.subs_norm_meta_label.setText("Normalisation piste: —")
         store = self._get_store()
         custom = store.load_custom_profiles() if store else {}
         profile_ids = get_all_profile_ids(custom)
@@ -288,6 +293,17 @@ class SubtitleTabWidget(QWidget):
         self._editing_lang = lang
         self._editing_fmt = detected_fmt
         self.subs_content_edit.setPlainText(content)
+        meta = store.load_subtitle_normalize_meta(eid, lang)
+        if meta:
+            profile = str(meta.get("profile_id") or "").strip() or "—"
+            updated = int(meta.get("updated_cues") or 0)
+            ts = str(meta.get("normalized_at_utc") or "").strip()
+            ts_pretty = ts.replace("T", " ") if ts else "—"
+            self.subs_norm_meta_label.setText(
+                f"Normalisation piste: profil={profile}, cues={updated}, date={ts_pretty}"
+            )
+        else:
+            self.subs_norm_meta_label.setText("Normalisation piste: jamais normalisée")
         self._refresh_action_buttons()
 
     def _refresh_action_buttons(self) -> None:
