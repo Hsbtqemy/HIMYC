@@ -124,7 +124,7 @@ Voir **example/README.md** pour les instructions détaillées.
    - **« Exporter résultats »** : exporte en **CSV**, **TSV**, **JSON** ou **JSONL** (segments : `segment_id`, `kind` ; cues : `cue_id`, `lang`).  
    - Double-clic : ouvre l’Inspecteur sur l’épisode concerné.
 
-7. **Logs** (menu **Vue → Journal d’exécution**)  
+7. **Logs** (menu **Outils → Journal d’exécution (live)**)  
    - Ouvrir le journal live et/ou le fichier de log du projet.
 
 ## Configuration et profils

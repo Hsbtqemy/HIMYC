@@ -298,7 +298,7 @@ class CorpusTabWidget(QWidget):
         recovery_btn_row.addWidget(self.refresh_errors_btn)
         recovery_btn_row.addStretch()
         recovery_layout.addLayout(recovery_btn_row)
-        recovery_hint = QLabel("Astuce: pour les détails d'erreur complets, ouvrez le Journal d'exécution (menu Vue).")
+        recovery_hint = QLabel("Astuce: pour les détails d'erreur complets, ouvrez le Journal d'exécution (menu Outils).")
         recovery_hint.setStyleSheet("color: gray; font-size: 0.9em;")
         recovery_hint.setWordWrap(True)
         recovery_layout.addWidget(recovery_hint)

@@ -98,14 +98,18 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
     def _build_menu_bar(self):
-        """Barre de menu : Vue (journal) + Aide."""
+        """Barre de menu : Outils (journaux) + Aide."""
         menu_bar = QMenuBar(self)
         self.setMenuBar(menu_bar)
-        view_menu = menu_bar.addMenu("&Vue")
-        logs_act = QAction("Journal d'exécution", self)
-        logs_act.setToolTip("Afficher les logs applicatifs sans surcharger les onglets.")
-        logs_act.triggered.connect(self._open_logs_panel)
-        view_menu.addAction(logs_act)
+        tools_menu = menu_bar.addMenu("&Outils")
+        logs_panel_act = QAction("Journal d'exécution (live)", self)
+        logs_panel_act.setToolTip("Afficher le panneau des logs applicatifs sans surcharger les onglets.")
+        logs_panel_act.triggered.connect(self._open_logs_panel)
+        tools_menu.addAction(logs_panel_act)
+        logs_file_act = QAction("Ouvrir fichier journal", self)
+        logs_file_act.setToolTip("Ouvrir le fichier log du projet courant.")
+        logs_file_act.triggered.connect(self._open_log_file)
+        tools_menu.addAction(logs_file_act)
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
         about_act.triggered.connect(self._show_about)
@@ -463,6 +467,9 @@ class MainWindow(QMainWindow):
         if index == TAB_PILOTAGE and self._store is not None:
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
             QTimer.singleShot(50, self._refresh_episodes_from_store)
+        # L'onglet Logs est un panneau temporaire: on le masque quand on revient au workflow.
+        if index != TAB_LOGS and self.tabs.count() > TAB_LOGS and self.tabs.isTabVisible(TAB_LOGS):
+            self.tabs.setTabVisible(TAB_LOGS, False)
 
     def _refresh_episodes_from_store(self):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
@@ -564,7 +571,7 @@ class MainWindow(QMainWindow):
     def _build_tab_logs(self):
         w = LogsTabWidget(on_open_log=self._open_log_file)
         self.tabs.addTab(w, "Logs")
-        # Réduit la surcharge visuelle: logs accessibles via menu Vue.
+        # Réduit la surcharge visuelle: logs accessibles via menu Outils.
         self.tabs.setTabVisible(TAB_LOGS, False)
 
     def _open_logs_panel(self) -> None:
