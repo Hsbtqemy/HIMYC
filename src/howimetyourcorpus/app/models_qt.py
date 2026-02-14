@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from PySide6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex, QSortFilterProxyModel
@@ -9,6 +10,8 @@ from PySide6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIn
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus
 from howimetyourcorpus.core.storage.db import CorpusDB, KwicHit
 from howimetyourcorpus.core.storage.project_store import ProjectStore
+
+logger = logging.getLogger(__name__)
 
 
 def _node_season(node: tuple) -> int | None:
@@ -92,11 +95,28 @@ class EpisodesTreeModel(QAbstractItemModel):
         self._align_map.clear()
         if not self._episodes:
             return
-        indexed = set(self._db.get_episode_ids_indexed()) if self._db else set()
         episode_ids = [ref.episode_id for ref in self._episodes]
-        db_status_by_ep = self._db.get_episode_statuses(episode_ids) if self._db else {}
-        tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
-        runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
+        indexed: set[str] = set()
+        db_status_by_ep: dict[str, str] = {}
+        tracks_by_ep: dict[str, list[dict]] = {}
+        runs_by_ep: dict[str, list[dict]] = {}
+        if self._db:
+            try:
+                indexed = set(self._db.get_episode_ids_indexed())
+            except Exception:
+                logger.exception("Failed to load indexed episode ids for tree model")
+            try:
+                db_status_by_ep = self._db.get_episode_statuses(episode_ids)
+            except Exception:
+                logger.exception("Failed to load episode statuses for tree model")
+            try:
+                tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids)
+            except Exception:
+                logger.exception("Failed to load subtitle tracks for tree model")
+            try:
+                runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids)
+            except Exception:
+                logger.exception("Failed to load align runs for tree model")
         for ref in self._episodes:
             s = _resolve_episode_processing_status(
                 episode_id=ref.episode_id,
