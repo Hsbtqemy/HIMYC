@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QModelIndex, QSettings
+from PySide6.QtCore import QModelIndex, QSettings, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QTableView,
     QTreeView,
     QVBoxLayout,
@@ -114,7 +116,15 @@ class CorpusTabWidget(QWidget):
         self._episode_scope_capabilities: dict[str, tuple[bool, bool, bool, bool]] = {}
         self._workflow_busy = False
 
-        layout = QVBoxLayout(self)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
         view_filter_row = QHBoxLayout()
@@ -499,6 +509,9 @@ class CorpusTabWidget(QWidget):
         layout.addWidget(scope_label)
         self._restore_force_reprocess_state()
         self._update_episodes_empty_state()
+        layout.addStretch()
+        scroll.setWidget(content)
+        root_layout.addWidget(scroll)
 
     def _save_force_reprocess_state(self, checked: bool) -> None:
         settings = QSettings()
