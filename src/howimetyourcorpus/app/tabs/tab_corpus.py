@@ -775,7 +775,12 @@ class CorpusTabWidget(QWidget):
             return
         lines = [ln.strip().upper() for ln in text_edit.toPlainText().strip().splitlines() if ln.strip()]
         if not lines:
-            QMessageBox.information(self, "Corpus", "Aucun episode_id saisi.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun episode_id saisi.",
+                next_step="Saisissez un identifiant par ligne, ex. S01E01.",
+            )
             return
         new_refs = []
         for ln in lines:
@@ -1196,7 +1201,7 @@ class CorpusTabWidget(QWidget):
         if steps is None:
             return False
         if not steps:
-            QMessageBox.information(self, "Corpus", empty_message)
+            warn_precondition(self, "Corpus", empty_message)
             return False
         self._run_job(steps)
         return True
@@ -1341,7 +1346,12 @@ class CorpusTabWidget(QWidget):
                 return
         steps = fetch_steps + normalize_steps + segment_steps + index_steps
         if not steps:
-            QMessageBox.information(self, "Corpus", "Aucune opération à exécuter.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucune opération à exécuter.",
+                next_step="Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
+            )
             return
         self._run_job(steps)
 
@@ -1486,7 +1496,12 @@ class CorpusTabWidget(QWidget):
             return
         error_ids = self._get_error_episode_ids(index)
         if not error_ids:
-            QMessageBox.information(self, "Corpus", "Aucun épisode en erreur à relancer.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucun épisode en erreur à relancer.",
+                next_step="Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
+            )
             return
         self._run_all_for_episode_ids(
             ids=error_ids,
@@ -1500,7 +1515,12 @@ class CorpusTabWidget(QWidget):
             return
         eid = self._selected_error_episode_id()
         if not eid:
-            QMessageBox.information(self, "Corpus", "Sélectionnez un épisode à ouvrir.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Sélectionnez un épisode à ouvrir.",
+                next_step="Cliquez une ligne dans le panneau erreurs, puis réessayez.",
+            )
             return
         self._on_open_inspector(eid)
 
@@ -1553,7 +1573,12 @@ class CorpusTabWidget(QWidget):
             return
         steps = segment_steps + index_steps
         if not steps:
-            QMessageBox.information(self, "Corpus", "Aucune opération à exécuter.")
+            warn_precondition(
+                self,
+                "Corpus",
+                "Aucune opération à exécuter.",
+                next_step="Préparez d'abord des épisodes CLEAN dans le scope courant.",
+            )
             return
         self._run_job(steps)
 
