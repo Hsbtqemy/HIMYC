@@ -225,14 +225,7 @@ class MainWindow(QMainWindow):
             self.project_tab.refresh_languages_list()
             self._refresh_profile_combos()
             self._refresh_language_combos()
-            def _deferred_refresh_after_init() -> None:
-                self._refresh_episodes_from_store()
-                self._refresh_inspecteur_episodes()
-                self._refresh_subs_tracks()
-                self._refresh_align_runs()
-                self._refresh_personnages()
-
-            QTimer.singleShot(0, _deferred_refresh_after_init)
+            QTimer.singleShot(0, self._refresh_after_project_loaded)
             QMessageBox.information(self, "Projet", "Projet initialisé.")
         except Exception as e:
             logger.exception("Init project failed")
@@ -265,14 +258,7 @@ class MainWindow(QMainWindow):
         self._refresh_language_combos()
         QMessageBox.information(self, "Projet", "Projet ouvert.")
         # Refresh différé pour éviter les crashes Qt/macOS observés sur certains chargements.
-        def _deferred_refresh() -> None:
-            self._refresh_episodes_from_store()
-            self._refresh_inspecteur_episodes()
-            self._refresh_subs_tracks()
-            self._refresh_align_runs()
-            self._refresh_personnages()
-
-        QTimer.singleShot(0, _deferred_refresh)
+        QTimer.singleShot(0, self._refresh_after_project_loaded)
 
     def _setup_logging_for_project(self):
         corpus_logger = logging.getLogger("howimetyourcorpus")
@@ -293,11 +279,7 @@ class MainWindow(QMainWindow):
             get_context=self._get_context,
             run_job=self._run_job,
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
-            refresh_after_episodes_added=lambda: (
-                self._refresh_episodes_from_store(),
-                self._refresh_inspecteur_episodes(),
-                self._refresh_personnages(),
-            ),
+            refresh_after_episodes_added=self._refresh_after_episodes_added,
             on_cancel_job=self._cancel_job,
             on_open_inspector=self._kwic_open_inspector_impl,
             on_open_alignment=self._open_alignment_in_validation,
@@ -333,6 +315,20 @@ class MainWindow(QMainWindow):
         if hasattr(self, "validation_tab") and self.validation_tab:
             self.validation_tab.focus_alignment()
         self._refresh_align_runs()
+
+    def _refresh_after_episodes_added(self) -> None:
+        """Rafraîchit les vues dépendantes après ajout manuel d'épisodes."""
+        self._refresh_episodes_from_store()
+        self._refresh_inspecteur_episodes()
+        self._refresh_personnages()
+
+    def _refresh_after_project_loaded(self) -> None:
+        """Rafraîchit les vues dépendantes après ouverture/initialisation projet."""
+        self._refresh_episodes_from_store()
+        self._refresh_inspecteur_episodes()
+        self._refresh_subs_tracks()
+        self._refresh_align_runs()
+        self._refresh_personnages()
 
     def _open_concordance_tab(self) -> None:
         self.tabs.setCurrentIndex(TAB_CONCORDANCE)
@@ -441,10 +437,7 @@ class MainWindow(QMainWindow):
         else:
             self.statusBar().showMessage(msg, 5000)
         self._append_job_summary_to_log(msg)
-        self._refresh_episodes_from_store()
-        self._refresh_inspecteur_episodes()
-        self._refresh_subs_tracks()
-        self._refresh_align_runs()
+        self._refresh_after_project_loaded()
         self._job_runner = None
 
     def _on_job_cancelled(self):
