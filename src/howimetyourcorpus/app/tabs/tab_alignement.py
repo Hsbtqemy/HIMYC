@@ -287,16 +287,28 @@ class AlignmentTabWidget(QWidget):
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et des runs (appelé après ouverture projet / alignement)."""
+        current_episode = self._current_episode_id()
+        self.align_episode_combo.blockSignals(True)
         self.align_episode_combo.clear()
+        target_index = -1
         store = self._get_store()
         if not store:
+            self.align_episode_combo.blockSignals(False)
             self._refresh_target_lang_combo(None)
+            self._on_episode_changed()
+            self._refresh_general_controls_state()
             return
         index = store.load_series_index()
         if index and index.episodes:
-            for e in index.episodes:
+            for idx, e in enumerate(index.episodes):
                 self.align_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+                if current_episode and e.episode_id == current_episode:
+                    target_index = idx
+        if target_index >= 0:
+            self.align_episode_combo.setCurrentIndex(target_index)
+        self.align_episode_combo.blockSignals(False)
         self._on_episode_changed()
+        self._refresh_general_controls_state()
 
     def _resolve_target_langs(self, episode_id: str | None) -> list[str]:
         project_langs: list[str] = []
@@ -417,24 +429,35 @@ class AlignmentTabWidget(QWidget):
         return len(missing) == 0, missing
 
     def _on_episode_changed(self) -> None:
+        current_run_id = self._current_run_id()
+        self.align_run_combo.blockSignals(True)
         self.align_run_combo.clear()
+        target_run_index = -1
         self._set_run_actions_enabled(False, reason="Sélectionnez d'abord un run d'alignement.")
         eid = self._current_episode_id()
         db = self._get_db()
         self._refresh_target_lang_combo(eid if eid else None)
         if not eid or not db:
+            self.align_run_combo.blockSignals(False)
             self._fill_links()
+            self._refresh_general_controls_state()
             return
         try:
             runs = db.get_align_runs_for_episode(eid)
         except Exception:
             logger.exception("Failed to load alignment runs")
             runs = []
-        for r in runs:
+        for idx, r in enumerate(runs):
             run_id = r.get("align_run_id", "")
             created = r.get("created_at", "")[:19] if r.get("created_at") else ""
             self.align_run_combo.addItem(f"{run_id} ({created})", run_id)
+            if current_run_id and str(run_id) == str(current_run_id):
+                target_run_index = idx
+        if target_run_index >= 0:
+            self.align_run_combo.setCurrentIndex(target_run_index)
+        self.align_run_combo.blockSignals(False)
         self._on_run_changed()
+        self._refresh_general_controls_state()
 
     def _on_run_changed(self) -> None:
         run_id = self._current_run_id()
@@ -443,6 +466,7 @@ class AlignmentTabWidget(QWidget):
             reason="Sélectionnez d'abord un run d'alignement.",
         )
         self._fill_links()
+        self._refresh_general_controls_state()
 
     def _on_target_lang_changed(self, *_args) -> None:
         self._refresh_run_button_state(self._current_episode_id())
@@ -472,27 +496,31 @@ class AlignmentTabWidget(QWidget):
         self.align_report_btn.setToolTip(hint)
         self.align_stats_btn.setToolTip(hint)
 
+    def _refresh_general_controls_state(self) -> None:
+        controls_enabled = not self._job_busy
+        has_episode_items = self.align_episode_combo.count() > 0
+        has_episode = bool(self._current_episode_id())
+        has_runs = self.align_run_combo.count() > 0
+        has_rows = False
+        model = self.align_table.model()
+        if model is not None:
+            try:
+                has_rows = model.rowCount() > 0
+            except Exception:
+                has_rows = False
+        self.align_episode_combo.setEnabled(controls_enabled and has_episode_items)
+        self.align_run_combo.setEnabled(controls_enabled and has_runs)
+        self.align_by_similarity_cb.setEnabled(controls_enabled and has_episode)
+        self.align_accepted_only_cb.setEnabled(controls_enabled and has_episode)
+        self.align_table.setEnabled(controls_enabled and has_rows)
+
     def set_job_busy(self, busy: bool) -> None:
         """Désactive les actions interactives pendant un job en cours."""
         self._job_busy = busy
-        controls = (
-            self.align_episode_combo,
-            self.align_run_combo,
-            self.align_target_lang_combo,
-            self.align_run_btn,
-            self.align_delete_run_btn,
-            self.align_by_similarity_cb,
-            self.export_align_btn,
-            self.export_parallel_btn,
-            self.align_report_btn,
-            self.align_stats_btn,
-            self.align_accepted_only_cb,
-            self.align_table,
-        )
-        for widget in controls:
-            widget.setEnabled(not busy)
         if busy:
             self._set_run_actions_enabled(False, reason="Action indisponible pendant l'exécution d'un job.")
+            self._refresh_run_button_state(self._current_episode_id())
+            self._refresh_general_controls_state()
             return
         # Restaurer l'état normal selon les données courantes.
         eid = self._current_episode_id()
@@ -501,11 +529,7 @@ class AlignmentTabWidget(QWidget):
             bool(self._current_run_id()),
             reason="Sélectionnez d'abord un run d'alignement.",
         )
-        self.align_episode_combo.setEnabled(True)
-        self.align_run_combo.setEnabled(True)
-        self.align_by_similarity_cb.setEnabled(True)
-        self.align_accepted_only_cb.setEnabled(True)
-        self.align_table.setEnabled(True)
+        self._refresh_general_controls_state()
 
     def _delete_current_run(self) -> None:
         run_id = self.align_run_combo.currentData()
