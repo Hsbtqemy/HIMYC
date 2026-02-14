@@ -35,6 +35,8 @@ class LogsTabWidget(QWidget):
         layout = QVBoxLayout(self)
         self.logs_edit = QPlainTextEdit()
         self.logs_edit.setReadOnly(True)
+        # Empêche une croissance mémoire infinie pendant les longues sessions.
+        self.logs_edit.document().setMaximumBlockCount(5000)
         layout.addWidget(self.logs_edit)
         row = QHBoxLayout()
         open_log_btn = QPushButton("Ouvrir fichier log")
@@ -42,6 +44,13 @@ class LogsTabWidget(QWidget):
         row.addWidget(open_log_btn)
         layout.addLayout(row)
         # Connect app logger to this widget
-        h = TextEditHandler(self.logs_edit)
-        h.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-        logging.getLogger("howimetyourcorpus").addHandler(h)
+        self._logger = logging.getLogger("howimetyourcorpus")
+        self._handler: logging.Handler | None = TextEditHandler(self.logs_edit)
+        self._handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        self._logger.addHandler(self._handler)
+
+    def closeEvent(self, event) -> None:
+        if self._handler is not None:
+            self._logger.removeHandler(self._handler)
+            self._handler = None
+        super().closeEvent(event)
