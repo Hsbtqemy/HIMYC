@@ -194,7 +194,8 @@ class CorpusTabWidget(QWidget):
         group_norm = QGroupBox("2. Transformer / Indexer — Après import")
         group_norm.setToolTip(
             "Workflow §14 : Mise au propre des transcripts (RAW → CLEAN) et segmentation. "
-            "Prérequis : au moins un épisode téléchargé (Bloc 1). L'alignement (Bloc 3) est dans les onglets Alignement, Concordance, Personnages."
+            "Prérequis : au moins un épisode téléchargé (Bloc 1). "
+            "Le Bloc 3 se fait dans Validation & Annotation (alignement/personnages) et Concordance."
         )
         btn_row2 = QHBoxLayout()
         btn_row2.addWidget(QLabel("Profil (batch):"))
@@ -300,7 +301,8 @@ class CorpusTabWidget(QWidget):
         self.corpus_status_label = QLabel("")
         self.corpus_status_label.setToolTip(
             "Workflow §14 (3 blocs) : Bloc 1 = Découverts → Téléchargés → SRT (import). "
-            "Bloc 2 = Normalisés (CLEAN) → Segmentés (DB). Bloc 3 = Alignés (onglets Alignement, Concordance, Personnages)."
+            "Bloc 2 = Normalisés (CLEAN) → Segmentés (DB). "
+            "Bloc 3 = Alignés/annotés (Validation & Annotation + Concordance)."
         )
         layout.addWidget(self.corpus_status_label)
         self.corpus_next_step_label = QLabel("")
@@ -424,15 +426,15 @@ class CorpusTabWidget(QWidget):
                 self._set_primary_action("Importer SRT (Inspecteur)", None)
         elif n_aligned < n_with_srt:
             self.corpus_next_step_label.setText(
-                "Prochaine action: lancer l'alignement des épisodes avec SRT (onglet Alignement), puis vérifier Personnages."
+                "Prochaine action: lancer l'alignement des épisodes avec SRT dans Validation & Annotation, puis vérifier les personnages."
             )
             if self._on_open_alignment:
-                self._set_primary_action("Aller à Alignement", self._open_alignment_tab)
+                self._set_primary_action("Aller à Validation", self._open_alignment_tab)
             else:
-                self._set_primary_action("Passer à Alignement", None)
+                self._set_primary_action("Passer à Validation", None)
         else:
             self.corpus_next_step_label.setText(
-                "Corpus prêt: passez aux onglets Alignement, Concordance et Personnages pour l'analyse."
+                "Corpus prêt: passez à Validation & Annotation puis Concordance pour l'analyse."
             )
             self._set_primary_action("Corpus prêt", None)
         self.norm_sel_btn.setEnabled(n_fetched > 0)

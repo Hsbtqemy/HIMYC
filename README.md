@@ -81,12 +81,12 @@ Voir **example/README.md** pour les instructions détaillées.
 
 ## Utilisation rapide
 
-1. **Créer ou ouvrir un projet** (onglet Projet)  
+1. **Créer ou ouvrir un projet** (onglet Pilotage, section Projet)  
    - Choisir un dossier pour le projet (ou en ouvrir un existant).  
    - Renseigner la source (ex. `subslikescript`) et l’URL de la page série.  
    - Valider et initialiser.
 
-2. **Construire le corpus** (onglet Corpus)  
+2. **Construire le corpus** (onglet Pilotage, section Corpus)  
    - « Découvrir épisodes » : récupère la liste des épisodes depuis la source.  
    - **Filtre Saison** : choisir « Toutes les saisons » ou « Saison 1 », « Saison 2 », etc. pour afficher uniquement les épisodes d’une saison ; **« Cocher la saison »** coche tous les épisodes de la saison affichée (ou tout si « Toutes les saisons »).  
    - « Télécharger sélection » / « Télécharger tout » : récupère les pages HTML et extrait le texte brut.  
@@ -103,17 +103,18 @@ Voir **example/README.md** pour les instructions détaillées.
    - **Vue Segments** (Phase 2) : basculer sur « Segments » pour afficher la liste des phrases/tours de parole ; cliquer sur un segment pour le surligner dans le texte CLEAN.  
    - **« Segmente l'épisode »** : produit les segments (phrases + tours) et les indexe en DB (écrit `episodes/<id>/segments.jsonl`).
 
-4. **Sous-titres** (onglet Sous-titres, Phase 3)  
+4. **Sous-titres** (dans l’onglet Inspecteur, panneau Sous-titres, Phase 3)  
    - Choisir un épisode et une langue (en/fr/it), puis **« Importer SRT/VTT... »** pour importer un fichier .srt ou .vtt.  
    - **« Importer SRT en masse... »** : scan d’un dossier, mapping fichier → épisode/langue, import en lot.  
    - **« Télécharger depuis OpenSubtitles… »** : téléchargement de sous-titres depuis l’API OpenSubtitles (clé API gratuite sur opensubtitles.com ; IMDb ID de la série requis).  
    - La liste des pistes pour l’épisode affiche langues, format et nombre de cues.
 
-5. **Alignement** (onglet Alignement, Phase 4–5)  
+5. **Alignement et annotation** (onglet Validation & Annotation, section Alignement, Phase 4–5)  
    - Choisir un épisode et un run d’alignement (ou **« Lancer alignement »** pour en créer un).  
-   - L’alignement associe les segments (phrases) au transcript aux cues EN, puis les cues EN aux cues FR par recouvrement temporel.  
+   - L’alignement associe les segments (phrases) au transcript aux cues EN, puis les cues EN à la langue cible choisie par recouvrement temporel/similarité.  
    - Table des liens (segment, cue, cue target, confiance, statut) ; menu contextuel **Accepter / Rejeter** ; **« Exporter aligné »** en CSV ou JSONL.  
-   - **Phase 5** : **« Exporter concordancier parallèle »** (CSV / TSV / JSONL : segment + EN + FR) ; **« Rapport HTML »** (stats + échantillon) ; **« Stats »** (nb liens, pivot/target, confiance moyenne, par statut).
+   - **Phase 5** : **« Exporter concordancier parallèle »** (CSV / TSV / JSONL : segment + EN + langue cible) ; **« Rapport HTML »** (stats + échantillon) ; **« Stats »** (nb liens, pivot/target, confiance moyenne, par statut).
+   - La section Personnages du même onglet permet l’assignation et la propagation.
 
 6. **Concordance** (onglet Concordance)  
    - Saisir un terme, filtrer par saison/épisode, afficher les résultats KWIC.  
@@ -121,8 +122,8 @@ Voir **example/README.md** pour les instructions détaillées.
    - **« Exporter résultats »** : exporte en **CSV**, **TSV**, **JSON** ou **JSONL** (segments : `segment_id`, `kind` ; cues : `cue_id`, `lang`).  
    - Double-clic : ouvre l’Inspecteur sur l’épisode concerné.
 
-7. **Logs** (onglet Logs)  
-   - Consulter les logs en direct ou ouvrir le fichier de log.
+7. **Logs** (menu **Vue → Journal d’exécution**)  
+   - Ouvrir le journal live et/ou le fichier de log du projet.
 
 ## Configuration et profils
 

@@ -554,7 +554,7 @@ class MainWindow(QMainWindow):
             on_open_inspector=self._kwic_open_inspector_impl,
         )
         self.tabs.addTab(self.concordance_tab, "Concordance")
-        self.tabs.setTabToolTip(TAB_CONCORDANCE, "Workflow §14 — Bloc 3 : Concordancier parallèle (segment | EN | FR…), export KWIC.")
+        self.tabs.setTabToolTip(TAB_CONCORDANCE, "Workflow §14 — Bloc 3 : Concordancier parallèle (segment | EN | langue cible), export KWIC.")
 
     def _build_tab_personnages(self):
         self.personnages_tab = PersonnagesTabWidget(
