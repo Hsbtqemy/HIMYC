@@ -294,12 +294,17 @@ class AlignmentTabWidget(QWidget):
             try:
                 project_langs = [(lng or "").lower() for lng in store.load_project_languages()]
             except Exception:
+                logger.exception("Failed to load project languages for alignment")
                 project_langs = []
         track_langs: list[str] = []
         db = self._get_db()
         if db and episode_id:
-            tracks = db.get_tracks_for_episode(episode_id)
-            track_langs = [(t.get("lang") or "").lower() for t in tracks]
+            try:
+                tracks = db.get_tracks_for_episode(episode_id)
+                track_langs = [(t.get("lang") or "").lower() for t in tracks]
+            except Exception:
+                logger.exception("Failed to load subtitle tracks for alignment")
+                track_langs = []
         # Priorité aux langues réellement disponibles pour l'épisode.
         langs = track_langs or project_langs
         dedup: list[str] = []
@@ -382,7 +387,11 @@ class AlignmentTabWidget(QWidget):
         if not eid or not db:
             self._fill_links()
             return
-        runs = db.get_align_runs_for_episode(eid)
+        try:
+            runs = db.get_align_runs_for_episode(eid)
+        except Exception:
+            logger.exception("Failed to load alignment runs")
+            runs = []
         for r in runs:
             run_id = r.get("align_run_id", "")
             created = r.get("created_at", "")[:19] if r.get("created_at") else ""
@@ -473,7 +482,13 @@ class AlignmentTabWidget(QWidget):
         if not db or not eid:
             self.align_table.setModel(model)
             return
-        links = db.query_alignment_for_episode(eid, run_id=run_id)
+        try:
+            links = db.query_alignment_for_episode(eid, run_id=run_id)
+        except Exception as e:
+            logger.exception("Failed to load alignment links")
+            self.align_table.setModel(model)
+            show_error(self, exc=e, context="Chargement alignement")
+            return
         model.set_links(links, db, episode_id=eid)
         self.align_table.setModel(model)
 
