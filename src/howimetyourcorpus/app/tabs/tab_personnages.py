@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Callable
 
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -19,6 +20,8 @@ from PySide6.QtWidgets import (
 
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.qt_helpers import refill_combo_preserve_selection
+
+_RUN_SELECTIONS_BY_PROJECT_KEY = "personnages/runSelectionsByProject"
 
 
 class PersonnagesTabWidget(QWidget):
@@ -37,6 +40,7 @@ class PersonnagesTabWidget(QWidget):
         self._show_status = show_status
         self._job_busy = False
         self._selected_run_by_episode: dict[str, str] = {}
+        self._current_project_key: str | None = None
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(
@@ -135,6 +139,7 @@ class PersonnagesTabWidget(QWidget):
         store = self._get_store()
         if not store:
             self._selected_run_by_episode.clear()
+            self._current_project_key = None
             refill_combo_preserve_selection(
                 self.personnages_episode_combo,
                 items=[],
@@ -152,6 +157,7 @@ class PersonnagesTabWidget(QWidget):
             )
             self._apply_controls_enabled()
             return
+        self._load_run_selection_state_for_current_project()
         langs = store.load_project_languages()
         self.personnages_table.setColumnCount(2 + len(langs))
         self.personnages_table.setHorizontalHeaderLabels(
@@ -202,6 +208,7 @@ class PersonnagesTabWidget(QWidget):
             self._selected_run_by_episode[str(episode_id)] = str(run_id)
         elif episode_id:
             self._selected_run_by_episode.pop(str(episode_id), None)
+        self._save_run_selection_state_for_current_project()
         self._apply_controls_enabled()
 
     def set_episode_and_run_context(self, episode_id: str | None, run_id: str | None) -> None:
@@ -276,6 +283,90 @@ class PersonnagesTabWidget(QWidget):
             self.personnages_run_combo,
             items=items,
             current_data=current_run,
+        )
+
+    @staticmethod
+    def _decode_run_selections_payload(raw: object) -> dict[str, dict[str, str]]:
+        """Decode QSettings -> mapping project_key -> {episode_id: run_id}."""
+        payload = raw
+        if isinstance(raw, str):
+            text = raw.strip()
+            if not text:
+                return {}
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError:
+                return {}
+        if not isinstance(payload, dict):
+            return {}
+        out: dict[str, dict[str, str]] = {}
+        for project_key, episode_map in payload.items():
+            pkey = str(project_key or "").strip()
+            if not pkey or not isinstance(episode_map, dict):
+                continue
+            cleaned: dict[str, str] = {}
+            for episode_id, run_id in episode_map.items():
+                eid = str(episode_id or "").strip()
+                rid = str(run_id or "").strip()
+                if eid and rid:
+                    cleaned[eid] = rid
+            if cleaned:
+                out[pkey] = cleaned
+        return out
+
+    @staticmethod
+    def _encode_run_selections_payload(data: dict[str, dict[str, str]]) -> str:
+        """Encode mapping project_key -> {episode_id: run_id} for QSettings."""
+        payload: dict[str, dict[str, str]] = {}
+        for project_key, episode_map in data.items():
+            pkey = str(project_key or "").strip()
+            if not pkey or not isinstance(episode_map, dict):
+                continue
+            cleaned: dict[str, str] = {}
+            for episode_id, run_id in episode_map.items():
+                eid = str(episode_id or "").strip()
+                rid = str(run_id or "").strip()
+                if eid and rid:
+                    cleaned[eid] = rid
+            if cleaned:
+                payload[pkey] = cleaned
+        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+    def _project_key_from_store(self) -> str | None:
+        store = self._get_store()
+        root_dir = getattr(store, "root_dir", None)
+        if root_dir is None:
+            return None
+        try:
+            return str(root_dir)
+        except Exception:
+            return None
+
+    def _load_run_selection_state_for_current_project(self) -> None:
+        project_key = self._project_key_from_store()
+        self._current_project_key = project_key
+        if not project_key:
+            self._selected_run_by_episode = {}
+            return
+        settings = QSettings()
+        raw = settings.value(_RUN_SELECTIONS_BY_PROJECT_KEY, "")
+        all_projects = self._decode_run_selections_payload(raw)
+        self._selected_run_by_episode = dict(all_projects.get(project_key, {}))
+
+    def _save_run_selection_state_for_current_project(self) -> None:
+        project_key = self._current_project_key or self._project_key_from_store()
+        if not project_key:
+            return
+        settings = QSettings()
+        raw = settings.value(_RUN_SELECTIONS_BY_PROJECT_KEY, "")
+        all_projects = self._decode_run_selections_payload(raw)
+        if self._selected_run_by_episode:
+            all_projects[project_key] = dict(self._selected_run_by_episode)
+        else:
+            all_projects.pop(project_key, None)
+        settings.setValue(
+            _RUN_SELECTIONS_BY_PROJECT_KEY,
+            self._encode_run_selections_payload(all_projects),
         )
 
     def _apply_controls_enabled(self, *_args) -> None:

@@ -23,3 +23,27 @@ def test_format_run_label_handles_invalid_json() -> None:
     }
     label = PersonnagesTabWidget._format_run_label(run)
     assert label == "run-42"
+
+
+def test_decode_run_selections_payload_filters_invalid_entries() -> None:
+    raw = {
+        "/tmp/proj1": {"S01E01": "run-1", "": "run-x", "S01E02": ""},
+        "/tmp/proj2": {"S02E01": "run-2"},
+        "": {"S99E99": "run-z"},
+        "/tmp/proj3": ["bad"],
+    }
+    decoded = PersonnagesTabWidget._decode_run_selections_payload(raw)
+    assert decoded == {
+        "/tmp/proj1": {"S01E01": "run-1"},
+        "/tmp/proj2": {"S02E01": "run-2"},
+    }
+
+
+def test_encode_decode_run_selections_payload_roundtrip() -> None:
+    data = {
+        "/tmp/projA": {"S01E01": "run-a1", "S01E02": "run-a2"},
+        "/tmp/projB": {"S02E03": "run-b3"},
+    }
+    encoded = PersonnagesTabWidget._encode_run_selections_payload(data)
+    decoded = PersonnagesTabWidget._decode_run_selections_payload(encoded)
+    assert decoded == data

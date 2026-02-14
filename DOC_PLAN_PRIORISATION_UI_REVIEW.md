@@ -166,6 +166,11 @@ Etat 2026-02-14:
 2. Regle stricte: propagation impossible sans run selectionne.
 3. Restauration etat: dernier run choisi par episode.
 
+Etat 2026-02-14:
+- Regle stricte run explicite: deja en place (propagation bloquee sans run).
+- Restauration dernier run par episode: implementee (QSettings, par projet) dans `tab_personnages.py`.
+- Reste a faire: contrat global d'etat machine transversal (`idle/running/cancelling/done/error`).
+
 ### Acceptance criteria
 - Zero propagation sur mauvais run en test manuel cible.
 - Job visible et annulable depuis chaque onglet principal.
