@@ -694,6 +694,7 @@ class MainWindow(QMainWindow):
             get_store=lambda: self._store,
             get_db=lambda: self._db,
             run_job=self._run_job,
+            on_active_run_changed=self._on_alignment_active_run_changed,
         )
 
     def _refresh_align_runs(self):
@@ -732,6 +733,12 @@ class MainWindow(QMainWindow):
     def _refresh_personnages(self):
         if hasattr(self, "personnages_tab") and self.personnages_tab:
             self.personnages_tab.refresh()
+
+    def _on_alignment_active_run_changed(self, episode_id: str | None, run_id: str | None) -> None:
+        """Synchronise Personnages sur le contexte actif sélectionné en Alignement."""
+        if hasattr(self, "personnages_tab") and self.personnages_tab:
+            if hasattr(self.personnages_tab, "set_episode_and_run_context"):
+                self.personnages_tab.set_episode_and_run_context(episode_id, run_id)
 
     def _kwic_open_inspector_impl(
         self,

@@ -135,12 +135,14 @@ class AlignmentTabWidget(QWidget):
         get_store: Callable[[], object],
         get_db: Callable[[], object],
         run_job: Callable[[list], None],
+        on_active_run_changed: Callable[[str | None, str | None], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._get_store = get_store
         self._get_db = get_db
         self._run_job = run_job
+        self._on_active_run_changed = on_active_run_changed
         self._job_busy = False
 
         layout = QVBoxLayout(self)
@@ -466,6 +468,7 @@ class AlignmentTabWidget(QWidget):
         )
         self._on_run_changed()
         self._refresh_general_controls_state()
+        self._emit_active_run_changed()
 
     def _on_run_changed(self) -> None:
         run_id = self._current_run_id()
@@ -475,6 +478,12 @@ class AlignmentTabWidget(QWidget):
         )
         self._fill_links()
         self._refresh_general_controls_state()
+        self._emit_active_run_changed()
+
+    def _emit_active_run_changed(self) -> None:
+        if self._on_active_run_changed is None:
+            return
+        self._on_active_run_changed(self._current_episode_id(), self._current_run_id())
 
     def _on_target_lang_changed(self, *_args) -> None:
         self._refresh_run_button_state(self._current_episode_id())

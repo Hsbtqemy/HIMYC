@@ -204,6 +204,23 @@ class PersonnagesTabWidget(QWidget):
             self._selected_run_by_episode.pop(str(episode_id), None)
         self._apply_controls_enabled()
 
+    def set_episode_and_run_context(self, episode_id: str | None, run_id: str | None) -> None:
+        """Synchronise le contexte depuis Alignement (épisode + run actif)."""
+        target_episode = str(episode_id or "").strip()
+        target_run = str(run_id or "").strip()
+        if not target_episode:
+            return
+        episode_index = self.personnages_episode_combo.findData(target_episode)
+        if episode_index >= 0 and self.personnages_episode_combo.currentIndex() != episode_index:
+            self.personnages_episode_combo.setCurrentIndex(episode_index)
+        else:
+            self._refresh_align_runs_for_current_episode()
+        if not target_run:
+            return
+        run_index = self.personnages_run_combo.findData(target_run)
+        if run_index >= 0 and self.personnages_run_combo.currentIndex() != run_index:
+            self.personnages_run_combo.setCurrentIndex(run_index)
+
     @staticmethod
     def _format_run_label(run: dict) -> str:
         run_id = str(run.get("align_run_id") or "").strip()
