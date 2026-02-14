@@ -376,6 +376,10 @@ class MainWindow(QMainWindow):
         self._set_job_ui_busy(True)
         if force:
             self.statusBar().showMessage("Traitement lancé en mode force (re-traitement explicite).", 4000)
+        self._on_job_log(
+            "info",
+            f"Job démarré: {len(steps)} étape(s), force={'oui' if force else 'non'}",
+        )
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_progress(0)
         self._job_runner.run_async()
