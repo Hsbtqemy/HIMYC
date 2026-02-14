@@ -201,6 +201,13 @@ class MainWindow(QMainWindow):
         )
         self.logs_pin_action.toggled.connect(self._set_logs_panel_pinned)
         logs_menu.addAction(self.logs_pin_action)
+        tools_menu.addSeparator()
+        reset_pilotage_layout_act = QAction("Réinitialiser la mise en page Pilotage", self)
+        reset_pilotage_layout_act.setToolTip(
+            "Restaure la répartition Projet/Corpus à sa disposition par défaut."
+        )
+        reset_pilotage_layout_act.triggered.connect(self._reset_pilotage_layout)
+        tools_menu.addAction(reset_pilotage_layout_act)
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
         about_act.triggered.connect(self._show_about)
@@ -385,6 +392,7 @@ class MainWindow(QMainWindow):
             on_open_inspector=self._kwic_open_inspector_impl,
             on_open_alignment=self._open_alignment_in_validation,
             on_open_concordance=self._open_concordance_tab,
+            on_open_logs_for_episode=self._open_logs_panel_for_episode,
         )
 
     def _build_tab_pilotage(self) -> None:
@@ -404,6 +412,7 @@ class MainWindow(QMainWindow):
             "Pilotage workflow : configuration projet + import/normalisation/indexation du corpus.",
         )
         self.project_tab.set_open_corpus_callback(self._open_corpus_in_pilotage)
+        self.pilotage_tab.refresh_state_banner()
 
     def _open_corpus_in_pilotage(self) -> None:
         """Conserve le raccourci Projet -> Corpus dans le nouvel onglet fusionné."""
@@ -626,6 +635,8 @@ class MainWindow(QMainWindow):
 
     def _on_tab_changed(self, index: int) -> None:
         """Remplit le Corpus au passage sur Pilotage (évite segfault Qt/macOS au chargement du projet)."""
+        if index == TAB_PILOTAGE:
+            self._refresh_pilotage_state_banner()
         if index == TAB_PILOTAGE and self._store is not None:
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
             QTimer.singleShot(50, self._refresh_episodes_from_store)
@@ -641,6 +652,18 @@ class MainWindow(QMainWindow):
     def _refresh_episodes_from_store(self):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.refresh()
+        self._refresh_pilotage_state_banner()
+
+    def _refresh_pilotage_state_banner(self) -> None:
+        if hasattr(self, "pilotage_tab") and self.pilotage_tab:
+            self.pilotage_tab.refresh_state_banner()
+
+    def _reset_pilotage_layout(self) -> None:
+        if not (hasattr(self, "pilotage_tab") and self.pilotage_tab):
+            return
+        self.pilotage_tab.reset_layout()
+        self.pilotage_tab.refresh_state_banner()
+        self.statusBar().showMessage("Mise en page Pilotage réinitialisée.", 3000)
 
     def _refresh_profile_combos(self):
         """Met à jour les listes de profils (prédéfinis + personnalisés projet) dans les combos."""
@@ -798,6 +821,12 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentIndex(TAB_LOGS)
         if hasattr(self, "logs_tab") and self.logs_tab:
             self.logs_tab.load_file_tail(max_lines=500, clear_existing=True)
+
+    def _open_logs_panel_for_episode(self, episode_id: str) -> None:
+        """Ouvre les logs et applique un filtre rapide ERROR + episode_id."""
+        self._open_logs_panel()
+        if hasattr(self, "logs_tab") and self.logs_tab and hasattr(self.logs_tab, "focus_on_episode"):
+            self.logs_tab.focus_on_episode(episode_id, level="ERROR")
 
     def _open_log_file(self):
         log_path = self._current_log_path()

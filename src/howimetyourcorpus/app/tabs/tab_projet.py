@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -38,6 +38,8 @@ from howimetyourcorpus.core.acquisition.profiles import (
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 
+_PROJECT_DETAILS_EXPANDED_KEY = "project/detailsExpanded"
+
 
 class ProjectTabWidget(QWidget):
     """Widget de l'onglet Projet : formulaire dossier/source/URL, profils, langues."""
@@ -60,9 +62,11 @@ class ProjectTabWidget(QWidget):
         self._refresh_language_combos_callback = on_refresh_language_combos
         self._show_status = show_status
         self._on_open_corpus: Callable[[], None] | None = None
+        self._details_expanded = False
 
         main = QVBoxLayout(self)
         main.setSpacing(12)
+        main.setContentsMargins(8, 8, 8, 8)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -70,11 +74,14 @@ class ProjectTabWidget(QWidget):
         content = QWidget()
         layout = QVBoxLayout(content)
         layout.setSpacing(10)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         # —— 1. Projet (ouvrir / créer) ——
-        group_projet = QGroupBox("Projet")
-        group_projet.setToolTip("Choisir un dossier pour créer un nouveau projet ou ouvrir un projet existant.")
-        form_projet = QFormLayout(group_projet)
+        self.group_projet = QGroupBox("Projet")
+        self.group_projet.setToolTip("Choisir un dossier pour créer un nouveau projet ou ouvrir un projet existant.")
+        form_projet = QFormLayout(self.group_projet)
+        form_projet.setHorizontalSpacing(8)
+        form_projet.setVerticalSpacing(6)
         self.proj_root_edit = QLineEdit()
         self.proj_root_edit.setPlaceholderText("C:\\...\\MonProjet ou /path/to/project")
         browse_btn = QPushButton("Parcourir…")
@@ -85,9 +92,11 @@ class ProjectTabWidget(QWidget):
         form_projet.addRow("Dossier:", row_root)
         btn_row = QHBoxLayout()
         validate_btn = QPushButton("Ouvrir / créer le projet")
+        validate_btn.setMinimumHeight(30)
         validate_btn.clicked.connect(self._emit_validate)
         validate_btn.setDefault(True)
         self.save_config_btn = QPushButton("Enregistrer la config.")
+        self.save_config_btn.setMinimumHeight(30)
         self.save_config_btn.setToolTip(
             "Sauvegarde source, URL série, profil, etc. dans config.toml (projet déjà ouvert)."
         )
@@ -97,12 +106,44 @@ class ProjectTabWidget(QWidget):
         btn_row.addWidget(self.save_config_btn)
         btn_row.addStretch()
         form_projet.addRow("", btn_row)
-        layout.addWidget(group_projet)
+        layout.addWidget(self.group_projet)
+
+        self.project_summary_group = QGroupBox("Résumé projet")
+        self.project_summary_group.setToolTip("Vue compacte du projet actif avec accès direct au workflow corpus.")
+        summary_layout = QVBoxLayout(self.project_summary_group)
+        summary_layout.setContentsMargins(8, 8, 8, 8)
+        summary_layout.setSpacing(6)
+        self.project_summary_label = QLabel("")
+        self.project_summary_label.setWordWrap(True)
+        self.project_summary_label.setStyleSheet("color: #505050;")
+        summary_layout.addWidget(self.project_summary_label)
+        summary_actions = QHBoxLayout()
+        self.project_toggle_details_btn = QPushButton("Modifier détails")
+        self.project_toggle_details_btn.setMinimumHeight(28)
+        self.project_toggle_details_btn.setToolTip(
+            "Affiche/masque les sections avancées (Source, Normalisation, Langues)."
+        )
+        self.project_toggle_details_btn.clicked.connect(self._toggle_project_details)
+        summary_actions.addWidget(self.project_toggle_details_btn)
+        self.open_corpus_compact_btn = QPushButton("Aller à la section Corpus")
+        self.open_corpus_compact_btn.setMinimumHeight(30)
+        self.open_corpus_compact_btn.setStyleSheet("font-weight: 600;")
+        self.open_corpus_compact_btn.setToolTip(
+            "Aller à la section Corpus du Pilotage pour exécuter les opérations Import/Transformer/Indexer."
+        )
+        self.open_corpus_compact_btn.clicked.connect(self._on_open_corpus_clicked)
+        summary_actions.addWidget(self.open_corpus_compact_btn)
+        summary_actions.addStretch()
+        summary_layout.addLayout(summary_actions)
+        self.project_summary_group.setVisible(False)
+        layout.addWidget(self.project_summary_group)
 
         # —— 2. Source et série ——
-        group_source = QGroupBox("Source et série")
-        group_source.setToolTip("D’où viennent les épisodes et les transcripts (ignoré si projet SRT uniquement).")
-        form_source = QFormLayout(group_source)
+        self.group_source = QGroupBox("Source et série")
+        self.group_source.setToolTip("D’où viennent les épisodes et les transcripts (ignoré si projet SRT uniquement).")
+        form_source = QFormLayout(self.group_source)
+        form_source.setHorizontalSpacing(8)
+        form_source.setVerticalSpacing(6)
         self.source_id_combo = QComboBox()
         self.source_id_combo.addItems(AdapterRegistry.list_ids() or ["subslikescript"])
         form_source.addRow("Source:", self.source_id_combo)
@@ -142,33 +183,39 @@ class ProjectTabWidget(QWidget):
         self.acquisition_profile_combo.currentTextChanged.connect(self._on_acquisition_profile_changed)
         self.rate_limit_spin.valueChanged.connect(self._refresh_acquisition_runtime_preview)
         self._refresh_acquisition_runtime_preview()
-        layout.addWidget(group_source)
+        layout.addWidget(self.group_source)
 
         # —— 3. Workflow corpus (§refonte) ——
-        group_acquisition = QGroupBox("Workflow corpus")
-        group_acquisition.setToolTip(
+        self.group_acquisition = QGroupBox("Workflow corpus")
+        self.group_acquisition.setToolTip(
             "Les opérations de workflow (découvrir, télécharger, normaliser, segmenter, indexer) sont centralisées dans l'onglet Pilotage."
         )
-        acq_row = QHBoxLayout(group_acquisition)
+        acq_row = QHBoxLayout(self.group_acquisition)
         self.open_corpus_btn = QPushButton("Aller à la section Corpus")
+        self.open_corpus_btn.setMinimumHeight(30)
+        self.open_corpus_btn.setStyleSheet("font-weight: 600;")
         self.open_corpus_btn.setToolTip(
             "Aller à la section Corpus du Pilotage pour exécuter les opérations Import/Transformer/Indexer."
         )
         self.open_corpus_btn.clicked.connect(self._on_open_corpus_clicked)
         acq_row.addWidget(self.open_corpus_btn)
         acq_row.addStretch()
-        layout.addWidget(group_acquisition)
+        layout.addWidget(self.group_acquisition)
         self.open_corpus_btn.setEnabled(False)
+        self.open_corpus_compact_btn.setEnabled(False)
         self.save_config_btn.setEnabled(False)
 
         # —— 4. Normalisation ——
-        group_norm = QGroupBox("Normalisation")
-        group_norm.setToolTip("Profil utilisé pour RAW → CLEAN (transcripts et sous-titres).")
-        form_norm = QFormLayout(group_norm)
+        self.group_norm = QGroupBox("Normalisation")
+        self.group_norm.setToolTip("Profil utilisé pour RAW → CLEAN (transcripts et sous-titres).")
+        form_norm = QFormLayout(self.group_norm)
+        form_norm.setHorizontalSpacing(8)
+        form_norm.setVerticalSpacing(6)
         self.normalize_profile_combo = QComboBox()
         self.normalize_profile_combo.addItems(list(PROFILES.keys()))
         form_norm.addRow("Profil:", self.normalize_profile_combo)
         profiles_btn = QPushButton("Gérer les profils…")
+        profiles_btn.setMinimumHeight(28)
         profiles_btn.setToolTip("Créer, modifier ou supprimer les profils personnalisés (profiles.json).")
         profiles_btn.clicked.connect(self._emit_open_profiles)
         form_norm.addRow("", profiles_btn)
@@ -180,32 +227,46 @@ class ProjectTabWidget(QWidget):
         norm_policy.setWordWrap(True)
         norm_policy.setStyleSheet("color: #666;")
         form_norm.addRow("", norm_policy)
-        layout.addWidget(group_norm)
+        layout.addWidget(self.group_norm)
 
         # —— 5. Langues ——
-        group_lang = QGroupBox("Langues du projet")
-        group_lang.setToolTip("Langues pour sous-titres, personnages et concordancier (ex. en, fr, it).")
-        form_lang = QFormLayout(group_lang)
+        self.group_lang = QGroupBox("Langues du projet")
+        self.group_lang.setToolTip("Langues pour sous-titres, personnages et concordancier (ex. en, fr, it).")
+        form_lang = QFormLayout(self.group_lang)
+        form_lang.setHorizontalSpacing(8)
+        form_lang.setVerticalSpacing(6)
         self.languages_list = QListWidget()
         self.languages_list.setMaximumHeight(100)
         self.languages_list.currentRowChanged.connect(self._on_languages_selection_changed)
         form_lang.addRow("Codes langue:", self.languages_list)
         lang_btn_row = QHBoxLayout()
         self.add_lang_btn = QPushButton("Ajouter…")
+        self.add_lang_btn.setMinimumHeight(28)
         self.add_lang_btn.setToolTip("Ajouter un code langue (ex. de, es).")
         self.add_lang_btn.clicked.connect(self._add_language)
         self.remove_lang_btn = QPushButton("Supprimer")
+        self.remove_lang_btn.setMinimumHeight(28)
         self.remove_lang_btn.setToolTip("Retirer la langue sélectionnée (n’affecte pas les fichiers déjà importés).")
         self.remove_lang_btn.clicked.connect(self._remove_language)
         lang_btn_row.addWidget(self.add_lang_btn)
         lang_btn_row.addWidget(self.remove_lang_btn)
         lang_btn_row.addStretch()
         form_lang.addRow("", lang_btn_row)
-        layout.addWidget(group_lang)
+        layout.addWidget(self.group_lang)
 
         layout.addStretch()
         scroll.setWidget(content)
         main.addWidget(scroll)
+
+        self.proj_root_edit.textChanged.connect(self._refresh_project_summary)
+        self.source_id_combo.currentTextChanged.connect(self._refresh_project_summary)
+        self.series_url_edit.textChanged.connect(self._refresh_project_summary)
+        self.acquisition_profile_combo.currentTextChanged.connect(self._refresh_project_summary)
+        self.normalize_profile_combo.currentTextChanged.connect(self._refresh_project_summary)
+        self.rate_limit_spin.valueChanged.connect(self._refresh_project_summary)
+        self._details_expanded = self._read_details_expanded_setting()
+        self._set_project_details_expanded(True, persist=False)
+        self._refresh_project_summary()
 
     def set_open_corpus_callback(
         self,
@@ -268,6 +329,7 @@ class ProjectTabWidget(QWidget):
         self.rate_limit_spin.setValue(int(config.rate_limit_s))
         self.source_id_combo.setCurrentText(config.source_id)
         self._refresh_acquisition_runtime_preview()
+        self._refresh_project_summary()
 
     def refresh_languages_list(self) -> None:
         """Remplit la liste des langues depuis le store (appelé après ouverture projet)."""
@@ -278,12 +340,17 @@ class ProjectTabWidget(QWidget):
                 self.languages_list.addItem(lang)
         self.add_lang_btn.setEnabled(bool(store))
         self.open_corpus_btn.setEnabled(bool(store))
+        self.open_corpus_compact_btn.setEnabled(bool(store))
         self.save_config_btn.setEnabled(bool(store))
+        self.project_summary_group.setVisible(bool(store))
         if store:
             self.save_config_btn.setToolTip(self._save_config_btn_tooltip_default)
+            self._set_project_details_expanded(self._details_expanded, persist=False)
         else:
             self.save_config_btn.setToolTip("Action indisponible: ouvrez un projet d'abord.")
+            self._set_project_details_expanded(True, persist=False)
         self._on_languages_selection_changed()
+        self._refresh_project_summary()
 
     def _browse(self) -> None:
         d = QFileDialog.getExistingDirectory(self, "Choisir le dossier projet")
@@ -336,6 +403,49 @@ class ProjectTabWidget(QWidget):
         )
         self.acquisition_runtime_preview.setText(
             f"Runtime acquisition (prévisualisation): {format_http_options_summary(options)}"
+        )
+        self._refresh_project_summary()
+
+    @staticmethod
+    def _read_details_expanded_setting() -> bool:
+        settings = QSettings()
+        raw = settings.value(_PROJECT_DETAILS_EXPANDED_KEY, False)
+        if isinstance(raw, str):
+            return raw.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(raw)
+
+    def _set_project_details_expanded(self, expanded: bool, *, persist: bool = True) -> None:
+        self._details_expanded = bool(expanded)
+        for widget in (self.group_source, self.group_acquisition, self.group_norm, self.group_lang):
+            widget.setVisible(self._details_expanded)
+        self.project_toggle_details_btn.setText("Masquer détails" if self._details_expanded else "Modifier détails")
+        if persist:
+            settings = QSettings()
+            settings.setValue(_PROJECT_DETAILS_EXPANDED_KEY, self._details_expanded)
+
+    def _toggle_project_details(self) -> None:
+        self._set_project_details_expanded(not self._details_expanded, persist=True)
+
+    def _refresh_project_summary(self, *_args) -> None:
+        root = self.proj_root_edit.text().strip() or "—"
+        source = self.source_id_combo.currentText().strip() or "—"
+        acq = self.acquisition_profile_combo.currentText().strip() or "—"
+        norm = self.normalize_profile_combo.currentText().strip() or "—"
+        rate = int(self.rate_limit_spin.value())
+        series_url = (self.series_url_edit.text() or "").strip()
+        source_desc = "SRT only" if not series_url else f"URL: {series_url}"
+        langs = self.languages_list.count()
+        self.project_summary_label.setText(
+            " | ".join(
+                (
+                    f"Dossier: {root}",
+                    f"Source: {source}",
+                    f"Acquisition: {acq} ({rate}s)",
+                    f"Normalisation: {norm}",
+                    f"{source_desc}",
+                    f"Langues: {langs}",
+                )
+            )
         )
 
     def _add_language(self) -> None:

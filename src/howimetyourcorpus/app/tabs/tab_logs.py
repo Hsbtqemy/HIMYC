@@ -610,6 +610,31 @@ class LogsTabWidget(QWidget):
             return
         show_info(self, "Logs", "Diagnostic complet copié dans le presse-papiers.")
 
+    def focus_on_episode(
+        self,
+        episode_id: str,
+        *,
+        level: str = "ERROR",
+    ) -> None:
+        """Applique des filtres logs centrés sur un épisode (usage: reprise d'erreur)."""
+        episode = (episode_id or "").strip().upper()
+        if not episode:
+            return
+        self._applying_preset = True
+        try:
+            level_idx = self.level_filter_combo.findData(level)
+            if level_idx < 0:
+                level_idx = self.level_filter_combo.findData("ALL")
+            if level_idx >= 0:
+                self.level_filter_combo.setCurrentIndex(level_idx)
+            self.search_edit.setText(episode)
+        finally:
+            self._applying_preset = False
+        self._sync_preset_with_filters()
+        self._save_filters_state()
+        self._refresh_view()
+        self.logs_edit.setFocus()
+
     def closeEvent(self, event) -> None:
         self.save_state()
         self._refresh_debounce.stop()

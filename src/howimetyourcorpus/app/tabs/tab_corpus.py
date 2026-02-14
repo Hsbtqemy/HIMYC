@@ -93,6 +93,7 @@ class CorpusTabWidget(QWidget):
         on_open_inspector: Callable[[str], None] | None = None,
         on_open_alignment: Callable[[], None] | None = None,
         on_open_concordance: Callable[[], None] | None = None,
+        on_open_logs_for_episode: Callable[[str], None] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -106,6 +107,7 @@ class CorpusTabWidget(QWidget):
         self._on_open_inspector = on_open_inspector
         self._on_open_alignment = on_open_alignment
         self._on_open_concordance = on_open_concordance
+        self._on_open_logs_for_episode = on_open_logs_for_episode
         self._workflow_service = WorkflowService()
         self._primary_action: Callable[[], None] | None = None
         self._cached_index: SeriesIndex | None = None
@@ -113,13 +115,17 @@ class CorpusTabWidget(QWidget):
         self._workflow_busy = False
 
         layout = QVBoxLayout(self)
-        filter_row = QHBoxLayout()
-        filter_row.addWidget(QLabel("Saison:"))
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
+        view_filter_row = QHBoxLayout()
+        view_filter_row.setContentsMargins(0, 0, 0, 0)
+        view_filter_row.setSpacing(8)
+        view_filter_row.addWidget(QLabel("Saison:"))
         self.season_filter_combo = QComboBox()
         self.season_filter_combo.setMinimumWidth(140)
         self.season_filter_combo.currentIndexChanged.connect(self._on_season_filter_changed)
-        filter_row.addWidget(self.season_filter_combo)
-        filter_row.addWidget(QLabel("Statut:"))
+        view_filter_row.addWidget(self.season_filter_combo)
+        view_filter_row.addWidget(QLabel("Statut:"))
         self.status_filter_combo = QComboBox()
         self.status_filter_combo.setMinimumWidth(160)
         self.status_filter_combo.addItem("Tous", None)
@@ -129,14 +135,20 @@ class CorpusTabWidget(QWidget):
         self.status_filter_combo.addItem("Indexés", EpisodeStatus.INDEXED.value)
         self.status_filter_combo.addItem("En erreur", EpisodeStatus.ERROR.value)
         self.status_filter_combo.currentIndexChanged.connect(self._on_status_filter_changed)
-        filter_row.addWidget(self.status_filter_combo)
+        view_filter_row.addWidget(self.status_filter_combo)
         self.check_season_btn = QPushButton("Cocher la saison")
         self.check_season_btn.setToolTip(
             "Coche tous les épisodes de la saison choisie dans le filtre (ou tout si « Toutes les saisons »)."
         )
         self.check_season_btn.clicked.connect(self._on_check_season_clicked)
-        filter_row.addWidget(self.check_season_btn)
-        filter_row.addWidget(QLabel("Périmètre action:"))
+        view_filter_row.addWidget(self.check_season_btn)
+        view_filter_row.addStretch()
+        layout.addLayout(view_filter_row)
+
+        scope_row = QHBoxLayout()
+        scope_row.setContentsMargins(0, 0, 0, 0)
+        scope_row.setSpacing(8)
+        scope_row.addWidget(QLabel("Périmètre action:"))
         self.batch_scope_combo = QComboBox()
         self.batch_scope_combo.setMinimumWidth(200)
         self.batch_scope_combo.addItem("Épisode courant", "current")
@@ -147,12 +159,31 @@ class CorpusTabWidget(QWidget):
         self.batch_scope_combo.setToolTip(
             "Périmètre unifié des actions batch : épisode courant, sélection, saison filtrée ou tout le corpus."
         )
-        filter_row.addWidget(self.batch_scope_combo)
+        scope_row.addWidget(self.batch_scope_combo)
         self.scope_preview_label = QLabel("Périmètre: 0 épisode")
         self.scope_preview_label.setStyleSheet("color: #666;")
-        filter_row.addWidget(self.scope_preview_label)
-        filter_row.addStretch()
-        layout.addLayout(filter_row)
+        scope_row.addWidget(self.scope_preview_label)
+        scope_row.addStretch()
+        layout.addLayout(scope_row)
+
+        self.primary_action_row = QHBoxLayout()
+        self.primary_action_row.setContentsMargins(0, 0, 0, 2)
+        self.primary_action_row.setSpacing(8)
+        primary_action_title = QLabel("Action recommandée:")
+        primary_action_title.setStyleSheet("font-weight: 600;")
+        self.primary_action_row.addWidget(primary_action_title)
+        self.primary_action_btn = QPushButton("—")
+        self.primary_action_btn.clicked.connect(self._run_primary_action)
+        self.primary_action_btn.setEnabled(False)
+        self.primary_action_btn.setMinimumWidth(240)
+        self.primary_action_btn.setMinimumHeight(32)
+        self.primary_action_btn.setStyleSheet("font-weight: 600;")
+        self.primary_action_btn.setToolTip(
+            "Exécute l'action suggérée selon l'état actuel du workflow."
+        )
+        self.primary_action_row.addWidget(self.primary_action_btn)
+        self.primary_action_row.addStretch()
+        layout.addLayout(self.primary_action_row)
 
         # Sur macOS, QTreeView + proxy provoque des segfaults ; on utilise une table plate (QTableView).
         _use_table = sys.platform == "darwin"
@@ -175,10 +206,30 @@ class CorpusTabWidget(QWidget):
             self.episodes_tree_proxy = EpisodesTreeFilterProxyModel()
             self.episodes_tree_proxy.setSourceModel(self.episodes_tree_model)
             self.episodes_tree.setModel(self.episodes_tree_proxy)
-        _header = self.episodes_tree.horizontalHeader() if _use_table else self.episodes_tree.header()
-        _header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        _header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        self.episodes_tree.setColumnWidth(0, 32)
+        self.episodes_tree.setMinimumHeight(220)
+        if _use_table:
+            _header = self.episodes_tree.horizontalHeader()
+            _header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+            _header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+            _header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+            _header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+            _header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+            _header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+            _header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+            _header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)
+            self.episodes_tree.setColumnWidth(0, 32)
+            self.episodes_tree.setColumnWidth(1, 94)
+            self.episodes_tree.setColumnWidth(2, 74)
+            self.episodes_tree.setColumnWidth(3, 74)
+            self.episodes_tree.setColumnWidth(5, 115)
+            self.episodes_tree.setColumnWidth(6, 125)
+            self.episodes_tree.setColumnWidth(7, 92)
+            self.episodes_tree.setSortingEnabled(True)
+        else:
+            _header = self.episodes_tree.header()
+            _header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+            _header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+            self.episodes_tree.setColumnWidth(0, 32)
         self.episodes_tree.setToolTip("Double-clic sur un épisode : ouvrir dans l'Inspecteur (raw/clean, segments).")
         self.episodes_tree.doubleClicked.connect(self._on_episode_double_clicked)
         selection_model = self.episodes_tree.selectionModel()
@@ -189,6 +240,11 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree_model.layoutChanged.connect(self._refresh_scope_preview_from_ui)
         self.batch_scope_combo.currentIndexChanged.connect(self._refresh_scope_preview_from_ui)
         layout.addWidget(self.episodes_tree)
+        self.episodes_empty_label = QLabel("")
+        self.episodes_empty_label.setStyleSheet("color: #666; font-style: italic;")
+        self.episodes_empty_label.setWordWrap(True)
+        self.episodes_empty_label.setVisible(False)
+        layout.addWidget(self.episodes_empty_label)
 
         # Bloc 1 — Import (constitution du corpus) §14
         group_import = QGroupBox("1. Importer — Constituer le corpus")
@@ -196,35 +252,66 @@ class CorpusTabWidget(QWidget):
             "Workflow §14 : Découvrir les épisodes, télécharger les transcripts (RAW), importer les SRT (panneau Sous-titres de l'Inspecteur). "
             "Pas de normalisation ni d'alignement ici."
         )
-        btn_row1 = QHBoxLayout()
-        self.check_all_btn = QPushButton("Tout cocher")
-        self.check_all_btn.clicked.connect(self._check_all_episodes)
-        self.uncheck_all_btn = QPushButton("Tout décocher")
-        self.uncheck_all_btn.clicked.connect(self._uncheck_all_episodes)
-        btn_row1.addWidget(self.check_all_btn)
-        btn_row1.addWidget(self.uncheck_all_btn)
+        import_layout = QVBoxLayout(group_import)
+        import_layout.setContentsMargins(8, 8, 8, 8)
+        import_layout.setSpacing(6)
+        import_primary_row = QHBoxLayout()
+        import_primary_row.setContentsMargins(0, 0, 0, 0)
+        import_primary_row.setSpacing(6)
+        import_primary_row.addWidget(QLabel("Actions principales:"))
         self.discover_btn = QPushButton("Découvrir épisodes")
         self.discover_btn.setToolTip("Récupère la liste des épisodes depuis la source (tout le projet).")
         self.discover_btn.clicked.connect(self._discover_episodes)
-        self.add_episodes_btn = QPushButton("Ajouter épisodes\n(SRT only)")
-        self.add_episodes_btn.setToolTip(
-            "Ajoute des épisodes à la main (un par ligne, ex. S01E01). Pour projet SRT uniquement."
-        )
-        self.add_episodes_btn.clicked.connect(self._add_episodes_manually)
-        self.discover_merge_btn = QPushButton("Découvrir (fusionner\nune autre source)...")
-        self.discover_merge_btn.setToolTip(
-            "Découvre une série depuis une autre source/URL et fusionne avec l'index existant (sans écraser les épisodes déjà présents)."
-        )
-        self.discover_merge_btn.clicked.connect(self._discover_merge)
+        self.discover_btn.setMinimumHeight(30)
+        self.discover_btn.setStyleSheet("font-weight: 600;")
         self.fetch_btn = QPushButton("Télécharger")
         self.fetch_btn.setToolTip(
             "Télécharge selon le scope sélectionné (épisode courant, sélection, saison ou tout)."
         )
         self.fetch_btn.clicked.connect(self._fetch_episodes)
-        for b in (self.discover_btn, self.add_episodes_btn, self.discover_merge_btn, self.fetch_btn):
-            btn_row1.addWidget(b)
-        btn_row1.addStretch()
-        group_import.setLayout(btn_row1)
+        self.fetch_btn.setMinimumHeight(30)
+        self.fetch_btn.setStyleSheet("font-weight: 600;")
+        import_primary_row.addWidget(self.discover_btn)
+        import_primary_row.addWidget(self.fetch_btn)
+        import_primary_row.addStretch()
+        import_layout.addLayout(import_primary_row)
+
+        import_secondary_row = QHBoxLayout()
+        import_secondary_row.setContentsMargins(0, 0, 0, 0)
+        import_secondary_row.setSpacing(6)
+        secondary_import_label = QLabel("Actions secondaires:")
+        secondary_import_label.setStyleSheet("color: #666;")
+        import_secondary_row.addWidget(secondary_import_label)
+        self.check_all_btn = QPushButton("Tout cocher")
+        self.check_all_btn.setMinimumHeight(28)
+        self.check_all_btn.clicked.connect(self._check_all_episodes)
+        self.uncheck_all_btn = QPushButton("Tout décocher")
+        self.uncheck_all_btn.setMinimumHeight(28)
+        self.uncheck_all_btn.clicked.connect(self._uncheck_all_episodes)
+        import_secondary_row.addWidget(self.check_all_btn)
+        import_secondary_row.addWidget(self.uncheck_all_btn)
+        self.add_episodes_btn = QPushButton("Ajouter épisodes\n(SRT only)")
+        self.add_episodes_btn.setMinimumHeight(28)
+        self.add_episodes_btn.setToolTip(
+            "Ajoute des épisodes à la main (un par ligne, ex. S01E01). Pour projet SRT uniquement."
+        )
+        self.add_episodes_btn.clicked.connect(self._add_episodes_manually)
+        self.discover_merge_btn = QPushButton("Découvrir (fusionner\nune autre source)...")
+        self.discover_merge_btn.setMinimumHeight(28)
+        self.discover_merge_btn.setToolTip(
+            "Découvre une série depuis une autre source/URL et fusionne avec l'index existant (sans écraser les épisodes déjà présents)."
+        )
+        self.discover_merge_btn.clicked.connect(self._discover_merge)
+        import_secondary_row.addWidget(self.add_episodes_btn)
+        import_secondary_row.addWidget(self.discover_merge_btn)
+        import_secondary_row.addStretch()
+        import_layout.addLayout(import_secondary_row)
+        import_outputs_label = QLabel(
+            "Sorties du bloc 1: index d'épisodes + transcripts RAW (et fusion d'index si « Découvrir (fusionner) »)."
+        )
+        import_outputs_label.setStyleSheet("color: #666; font-size: 0.9em;")
+        import_outputs_label.setWordWrap(True)
+        import_layout.addWidget(import_outputs_label)
         layout.addWidget(group_import)
 
         # Bloc 2 — Normalisation / segmentation (après import) §14
@@ -234,62 +321,95 @@ class CorpusTabWidget(QWidget):
             "Prérequis : au moins un épisode téléchargé (Bloc 1). "
             "Le Bloc 3 se fait dans Validation & Annotation (alignement/personnages) et Concordance."
         )
-        btn_row2 = QHBoxLayout()
-        btn_row2.addWidget(QLabel("Profil (batch):"))
+        norm_layout = QVBoxLayout(group_norm)
+        norm_layout.setContentsMargins(8, 8, 8, 8)
+        norm_layout.setSpacing(6)
+        norm_settings_row = QHBoxLayout()
+        norm_settings_row.setContentsMargins(0, 0, 0, 0)
+        norm_settings_row.setSpacing(6)
+        norm_settings_row.addWidget(QLabel("Profil (batch):"))
         self.norm_batch_profile_combo = QComboBox()
         self.norm_batch_profile_combo.addItems(list(PROFILES.keys()))
         self.norm_batch_profile_combo.setToolTip(
             "Profil par défaut pour « Normaliser » (scope courant). "
             "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce profil."
         )
-        btn_row2.addWidget(self.norm_batch_profile_combo)
+        norm_settings_row.addWidget(self.norm_batch_profile_combo)
         self.force_reprocess_check = QCheckBox("Forcer re-traitement")
         self.force_reprocess_check.setToolTip(
             "Relance les étapes idempotentes même si les artefacts existent déjà (CLEAN, segments, index DB)."
         )
         self.force_reprocess_check.toggled.connect(self._save_force_reprocess_state)
-        btn_row2.addWidget(self.force_reprocess_check)
+        norm_settings_row.addWidget(self.force_reprocess_check)
+        norm_settings_row.addStretch()
+        norm_layout.addLayout(norm_settings_row)
+
+        norm_primary_row = QHBoxLayout()
+        norm_primary_row.setContentsMargins(0, 0, 0, 0)
+        norm_primary_row.setSpacing(6)
+        norm_primary_row.addWidget(QLabel("Actions principales:"))
         self.norm_btn = QPushButton("Normaliser")
         self.norm_btn.setToolTip(
             "Bloc 2 — Normalise selon le scope sélectionné. Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
         )
         self.norm_btn.clicked.connect(self._normalize_episodes)
+        self.norm_btn.setMinimumHeight(30)
+        self.norm_btn.setStyleSheet("font-weight: 600;")
         self.segment_btn = QPushButton("Segmenter")
         self.segment_btn.setToolTip(
             "Bloc 2 — Segmente selon le scope sélectionné (épisodes ayant un fichier CLEAN)."
         )
         self.segment_btn.clicked.connect(self._segment_episodes)
-        self.all_in_one_btn = QPushButton("Tout faire")
-        self.all_in_one_btn.setToolTip(
-            "§5 — Enchaînement selon le scope : Télécharger → Normaliser → Segmenter → Indexer DB."
-        )
-        self.all_in_one_btn.clicked.connect(self._run_all_for_scope)
+        self.segment_btn.setMinimumHeight(30)
+        self.segment_btn.setStyleSheet("font-weight: 600;")
         self.index_btn = QPushButton("Indexer DB")
         self.index_btn.setToolTip(
             "Bloc 2 — Indexe en base selon le scope sélectionné (épisodes ayant CLEAN)."
         )
         self.index_btn.clicked.connect(self._index_db)
+        self.index_btn.setMinimumHeight(30)
+        self.index_btn.setStyleSheet("font-weight: 600;")
+        norm_primary_row.addWidget(self.norm_btn)
+        norm_primary_row.addWidget(self.segment_btn)
+        norm_primary_row.addWidget(self.index_btn)
+        norm_primary_row.addStretch()
+        norm_layout.addLayout(norm_primary_row)
+
+        norm_secondary_row = QHBoxLayout()
+        norm_secondary_row.setContentsMargins(0, 0, 0, 0)
+        norm_secondary_row.setSpacing(6)
+        secondary_norm_label = QLabel("Actions secondaires:")
+        secondary_norm_label.setStyleSheet("color: #666;")
+        norm_secondary_row.addWidget(secondary_norm_label)
+        self.all_in_one_btn = QPushButton("Tout faire")
+        self.all_in_one_btn.setMinimumHeight(28)
+        self.all_in_one_btn.setToolTip(
+            "§5 — Enchaînement selon le scope : Télécharger → Normaliser → Segmenter → Indexer DB."
+        )
+        self.all_in_one_btn.clicked.connect(self._run_all_for_scope)
         self._fetch_btn_tooltip_default = self.fetch_btn.toolTip()
         self._norm_btn_tooltip_default = self.norm_btn.toolTip()
         self._segment_btn_tooltip_default = self.segment_btn.toolTip()
         self._all_in_one_btn_tooltip_default = self.all_in_one_btn.toolTip()
         self._index_btn_tooltip_default = self.index_btn.toolTip()
         self.export_corpus_btn = QPushButton("Exporter corpus")
+        self.export_corpus_btn.setMinimumHeight(28)
         self.export_corpus_btn.clicked.connect(self._export_corpus)
         self.cancel_job_btn = QPushButton("Annuler")
+        self.cancel_job_btn.setMinimumHeight(28)
         self.cancel_job_btn.clicked.connect(self._emit_cancel_job)
         self.cancel_job_btn.setEnabled(False)
-        for b in (
-            self.norm_btn,
-            self.segment_btn,
-            self.all_in_one_btn,
-            self.index_btn,
-            self.export_corpus_btn,
-        ):
-            btn_row2.addWidget(b)
-        btn_row2.addWidget(self.cancel_job_btn)
-        btn_row2.addStretch()
-        group_norm.setLayout(btn_row2)
+        norm_secondary_row.addWidget(self.all_in_one_btn)
+        norm_secondary_row.addWidget(self.export_corpus_btn)
+        norm_secondary_row.addWidget(self.cancel_job_btn)
+        norm_secondary_row.addStretch()
+        norm_layout.addLayout(norm_secondary_row)
+        norm_outputs_label = QLabel(
+            "Sorties du bloc 2: fichiers CLEAN, segments et index DB (selon l'action lancée)."
+        )
+        norm_outputs_label.setStyleSheet("color: #666; font-size: 0.9em;")
+        norm_outputs_label.setWordWrap(True)
+        norm_layout.addWidget(norm_outputs_label)
         layout.addWidget(group_norm)
 
         group_recovery = QGroupBox("3. Reprise — Erreurs")
@@ -297,6 +417,8 @@ class CorpusTabWidget(QWidget):
             "Liste les épisodes en statut ERROR, permet une relance ciblée et l'ouverture directe dans l'Inspecteur."
         )
         recovery_layout = QVBoxLayout(group_recovery)
+        recovery_layout.setContentsMargins(8, 8, 8, 8)
+        recovery_layout.setSpacing(6)
         self.error_summary_label = QLabel("Épisodes en erreur: 0")
         recovery_layout.addWidget(self.error_summary_label)
         self.error_list = QListWidget()
@@ -304,23 +426,37 @@ class CorpusTabWidget(QWidget):
         self.error_list.currentRowChanged.connect(self._on_error_selection_changed)
         recovery_layout.addWidget(self.error_list)
         recovery_btn_row = QHBoxLayout()
+        recovery_btn_row.setContentsMargins(0, 0, 0, 0)
+        recovery_btn_row.setSpacing(6)
         self.retry_selected_error_btn = QPushButton("Relancer épisode")
+        self.retry_selected_error_btn.setMinimumHeight(28)
         self.retry_selected_error_btn.setToolTip("Relance l'épisode sélectionné (workflow complet).")
         self.retry_selected_error_btn.clicked.connect(self._retry_selected_error_episode)
         self.retry_selected_error_btn.setEnabled(False)
         self.retry_all_errors_btn = QPushButton("Relancer toutes les erreurs")
+        self.retry_all_errors_btn.setMinimumHeight(28)
         self.retry_all_errors_btn.setToolTip("Relance tous les épisodes actuellement en erreur.")
         self.retry_all_errors_btn.clicked.connect(self._retry_error_episodes)
         self.retry_all_errors_btn.setEnabled(False)
         self.inspect_error_btn = QPushButton("Ouvrir dans Inspecteur")
+        self.inspect_error_btn.setMinimumHeight(28)
         self.inspect_error_btn.setToolTip("Ouvre l'épisode sélectionné dans l'Inspecteur pour diagnostic.")
         self.inspect_error_btn.clicked.connect(self._open_selected_error_in_inspector)
         self.inspect_error_btn.setEnabled(False)
+        self.logs_error_btn = QPushButton("Ouvrir logs épisode")
+        self.logs_error_btn.setMinimumHeight(28)
+        self.logs_error_btn.setToolTip(
+            "Ouvre le panneau Logs et filtre automatiquement sur l'épisode sélectionné."
+        )
+        self.logs_error_btn.clicked.connect(self._open_selected_error_in_logs)
+        self.logs_error_btn.setEnabled(False)
         self.refresh_errors_btn = QPushButton("Rafraîchir liste")
+        self.refresh_errors_btn.setMinimumHeight(28)
         self.refresh_errors_btn.clicked.connect(self._refresh_error_panel_from_ui)
         recovery_btn_row.addWidget(self.retry_selected_error_btn)
         recovery_btn_row.addWidget(self.retry_all_errors_btn)
         recovery_btn_row.addWidget(self.inspect_error_btn)
+        recovery_btn_row.addWidget(self.logs_error_btn)
         recovery_btn_row.addWidget(self.refresh_errors_btn)
         recovery_btn_row.addStretch()
         recovery_layout.addLayout(recovery_btn_row)
@@ -352,14 +488,6 @@ class CorpusTabWidget(QWidget):
             "Paramètres d'acquisition HTTP effectivement appliqués au dernier job."
         )
         layout.addWidget(self.acquisition_runtime_label)
-        self.primary_action_row = QHBoxLayout()
-        self.primary_action_row.addWidget(QLabel("Action recommandée:"))
-        self.primary_action_btn = QPushButton("—")
-        self.primary_action_btn.clicked.connect(self._run_primary_action)
-        self.primary_action_btn.setEnabled(False)
-        self.primary_action_row.addWidget(self.primary_action_btn)
-        self.primary_action_row.addStretch()
-        layout.addLayout(self.primary_action_row)
         scope_label = QLabel(
             "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (panneau Sous-titres dans Inspecteur). "
             "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
@@ -370,6 +498,7 @@ class CorpusTabWidget(QWidget):
         scope_label.setWordWrap(True)
         layout.addWidget(scope_label)
         self._restore_force_reprocess_state()
+        self._update_episodes_empty_state()
 
     def _save_force_reprocess_state(self, checked: bool) -> None:
         settings = QSettings()
@@ -461,6 +590,7 @@ class CorpusTabWidget(QWidget):
             self.retry_selected_error_btn,
             self.retry_all_errors_btn,
             self.inspect_error_btn,
+            self.logs_error_btn,
             self.refresh_errors_btn,
             self.primary_action_btn,
         )
@@ -485,6 +615,14 @@ class CorpusTabWidget(QWidget):
         self.primary_action_btn.setText(label)
         self._primary_action = action
         self.primary_action_btn.setEnabled(action is not None)
+        if action is None:
+            self.primary_action_btn.setToolTip(
+                "Aucune action recommandée disponible pour l'état courant."
+            )
+        else:
+            self.primary_action_btn.setToolTip(
+                "Exécute l'action suggérée selon l'état actuel du workflow."
+            )
 
     def _run_primary_action(self) -> None:
         if self._primary_action is None:
@@ -509,6 +647,9 @@ class CorpusTabWidget(QWidget):
     ) -> None:
         self._cached_index = None
         self._episode_scope_capabilities = {}
+        self.episodes_tree_model.set_store(None)
+        self.episodes_tree_model.set_db(None)
+        self.episodes_tree_model.set_episodes([])
         self.season_filter_combo.clear()
         self.season_filter_combo.addItem("Toutes les saisons", None)
         self.corpus_status_label.setText("")
@@ -531,6 +672,7 @@ class CorpusTabWidget(QWidget):
         self._refresh_error_panel(index=None, error_ids=[])
         self._set_primary_action(primary_label, primary_action)
         self._refresh_scope_preview(index=None)
+        self._update_episodes_empty_state()
 
     def _apply_workflow_advice(self, action_id: str, label: str) -> None:
         if action_id == "retry_errors":
@@ -627,6 +769,7 @@ class CorpusTabWidget(QWidget):
         self._refresh_season_filter_combo()
         self._refresh_scope_preview(index)
         self._refresh_scope_action_states(index)
+        self._update_episodes_empty_state()
         if self._workflow_busy:
             self.set_workflow_busy(True)
 
@@ -667,6 +810,7 @@ class CorpusTabWidget(QWidget):
     def _on_status_filter_changed(self) -> None:
         status = self.status_filter_combo.currentData()
         self.episodes_tree_proxy.set_status_filter(status)
+        self._refresh_scope_preview_from_ui()
 
     def _check_all_episodes(self) -> None:
         self.episodes_tree_model.set_all_checked(True)
@@ -679,6 +823,24 @@ class CorpusTabWidget(QWidget):
     def _refresh_scope_preview_from_ui(self, *_args) -> None:
         self._refresh_scope_preview(self._cached_index)
         self._refresh_scope_action_states(self._cached_index)
+        self._update_episodes_empty_state()
+
+    def _update_episodes_empty_state(self, *_args) -> None:
+        total = len(self._cached_index.episodes) if self._cached_index and self._cached_index.episodes else 0
+        visible = int(self.episodes_tree_proxy.rowCount()) if self.episodes_tree_proxy else 0
+        if total <= 0:
+            self.episodes_empty_label.setText(
+                "Aucun épisode dans le corpus. Cliquez sur « Découvrir épisodes » pour démarrer."
+            )
+            self.episodes_empty_label.setVisible(True)
+            return
+        if visible <= 0:
+            self.episodes_empty_label.setText(
+                "Aucun épisode visible avec les filtres actuels. Ajustez Saison/Statut."
+            )
+            self.episodes_empty_label.setVisible(True)
+            return
+        self.episodes_empty_label.setVisible(False)
 
     def _refresh_scope_preview(self, index: SeriesIndex | None) -> None:
         if index is None or not index.episodes:
@@ -1279,6 +1441,7 @@ class CorpusTabWidget(QWidget):
         has_selection = self._selected_error_episode_id() is not None
         self.retry_selected_error_btn.setEnabled(has_selection)
         self.inspect_error_btn.setEnabled(has_selection and self._on_open_inspector is not None)
+        self.logs_error_btn.setEnabled(has_selection and self._on_open_logs_for_episode is not None)
         self.retry_all_errors_btn.setEnabled(self.error_list.count() > 0)
 
     def _refresh_error_panel(
@@ -1593,6 +1756,20 @@ class CorpusTabWidget(QWidget):
             )
             return
         self._on_open_inspector(eid)
+
+    def _open_selected_error_in_logs(self) -> None:
+        if not self._on_open_logs_for_episode:
+            return
+        eid = self._selected_error_episode_id()
+        if not eid:
+            warn_precondition(
+                self,
+                "Corpus",
+                "Sélectionnez un épisode à filtrer dans les logs.",
+                next_step="Cliquez une ligne dans le panneau erreurs, puis relancez.",
+            )
+            return
+        self._on_open_logs_for_episode(eid)
 
     def _index_db(self, scope_mode: str | None = None) -> None:
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
