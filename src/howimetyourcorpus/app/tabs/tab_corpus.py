@@ -59,6 +59,7 @@ from howimetyourcorpus.core.workflow import (
 )
 from howimetyourcorpus.app.feedback import show_error, warn_precondition
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.workflow_advice import WorkflowStatusCounts, build_workflow_advice
 from howimetyourcorpus.app.models_qt import (
     EpisodesTreeModel,
     EpisodesTreeFilterProxyModel,
@@ -476,79 +477,58 @@ class CorpusTabWidget(QWidget):
         self.corpus_status_label.setText(
             f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_segmented} | Indexés {n_indexed} | Erreurs {n_error} | SRT {n_with_srt} | Alignés {n_aligned}"
         )
-        if n_error > 0:
-            self.corpus_next_step_label.setText(
-                "Prochaine action: relancer les épisodes en erreur avec « Relancer toutes les erreurs » (ou ciblé via « Relancer épisode »)."
+        advice = build_workflow_advice(
+            WorkflowStatusCounts(
+                n_total=n_total,
+                n_fetched=n_fetched,
+                n_norm=n_norm,
+                n_segmented=n_segmented,
+                n_indexed=n_indexed,
+                n_error=n_error,
+                n_with_srt=n_with_srt,
+                n_aligned=n_aligned,
             )
-            self._set_primary_action("Relancer toutes les erreurs", self._retry_error_episodes)
-        elif (
-            n_with_srt > 0
-            and n_fetched == 0
-            and n_norm == 0
-            and n_segmented == 0
-            and n_indexed == 0
-        ):
-            self.corpus_next_step_label.setText(
-                "Mode SRT-first détecté: vous pouvez déjà explorer les sous-titres dans Concordance (scope « Cues »). "
-                "Pour l'alignement segment↔cues, ajoutez ensuite les transcripts (Télécharger → Normaliser → Segmenter)."
-            )
+        )
+        self.corpus_next_step_label.setText(advice.message)
+        if advice.action_id == "retry_errors":
+            self._set_primary_action(advice.label, self._retry_error_episodes)
+        elif advice.action_id == "open_concordance_cues":
             if self._on_open_concordance:
-                self._set_primary_action("Ouvrir Concordance (Cues)", self._open_concordance_tab)
+                self._set_primary_action(advice.label, self._open_concordance_tab)
             else:
                 self._set_primary_action("Concordance (Cues)", None)
-        elif n_fetched < n_total:
-            self.corpus_next_step_label.setText(
-                "Prochaine action: importer les transcripts manquants avec « Télécharger » (scope « Tout le corpus »)."
-            )
+        elif advice.action_id == "fetch_all":
             self._set_primary_action(
-                "Télécharger tout",
+                advice.label,
                 lambda: self._run_action_with_scope("all", self._fetch_episodes),
             )
-        elif n_norm < n_fetched:
-            self.corpus_next_step_label.setText(
-                "Prochaine action: normaliser les épisodes FETCHED avec « Normaliser » (scope « Tout le corpus »)."
-            )
+        elif advice.action_id == "normalize_all":
             self._set_primary_action(
-                "Normaliser tout",
+                advice.label,
                 lambda: self._run_action_with_scope("all", self._normalize_episodes),
             )
-        elif n_segmented < n_norm:
-            self.corpus_next_step_label.setText(
-                "Prochaine action: segmenter et indexer les épisodes NORMALIZED (boutons Segmenter / Indexer DB)."
-            )
+        elif advice.action_id == "segment_and_index":
             self._set_primary_action(
-                "Segmenter + Indexer",
+                advice.label,
                 lambda: self._run_action_with_scope("all", self._segment_and_index_scope),
             )
-        elif n_indexed < n_segmented:
-            self.corpus_next_step_label.setText(
-                "Prochaine action: indexer les épisodes déjà segmentés avec « Indexer DB » (scope « Tout le corpus »)."
-            )
+        elif advice.action_id == "index_all":
             self._set_primary_action(
-                "Indexer tout",
+                advice.label,
                 lambda: self._run_action_with_scope("all", self._index_db),
             )
-        elif n_with_srt == 0:
-            self.corpus_next_step_label.setText(
-                "Prochaine action: importer des sous-titres (SRT/VTT) dans l'Inspecteur pour préparer l'alignement."
-            )
+        elif advice.action_id == "open_inspector_srt":
             if self._on_open_inspector:
-                self._set_primary_action("Ouvrir Inspecteur (SRT)", self._open_selected_or_first_episode_in_inspector)
+                self._set_primary_action(advice.label, self._open_selected_or_first_episode_in_inspector)
             else:
                 self._set_primary_action("Importer SRT (Inspecteur)", None)
-        elif n_aligned < n_with_srt:
-            self.corpus_next_step_label.setText(
-                "Prochaine action: lancer l'alignement des épisodes avec SRT dans Validation & Annotation, puis vérifier les personnages."
-            )
+        elif advice.action_id == "open_validation_alignment":
             if self._on_open_alignment:
-                self._set_primary_action("Aller à Validation", self._open_alignment_tab)
+                self._set_primary_action(advice.label, self._open_alignment_tab)
             else:
                 self._set_primary_action("Passer à Validation", None)
         else:
-            self.corpus_next_step_label.setText(
-                "Corpus prêt: passez à Validation & Annotation puis Concordance pour l'analyse."
-            )
-            self._set_primary_action("Corpus prêt", None)
+            self._set_primary_action(advice.label, None)
         self.fetch_btn.setEnabled(n_total > 0)
         self.norm_btn.setEnabled(n_fetched > 0)
         self.segment_btn.setEnabled(n_norm > 0)
