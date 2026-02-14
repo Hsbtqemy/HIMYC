@@ -33,8 +33,6 @@ from howimetyourcorpus.app.feedback import warn_precondition
 from howimetyourcorpus.core.acquisition.profiles import (
     DEFAULT_ACQUISITION_PROFILE_ID,
     PROFILES as ACQUISITION_PROFILES,
-    format_http_options_summary,
-    resolve_http_options,
 )
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.normalize.profiles import PROFILES
@@ -66,12 +64,13 @@ class ProjectTabWidget(QWidget):
         self._details_expanded = False
 
         main = QVBoxLayout(self)
-        main.setSpacing(12)
-        main.setContentsMargins(8, 8, 8, 8)
+        main.setSpacing(8)
+        main.setContentsMargins(0, 0, 0, 0)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         content = QWidget()
         layout = QVBoxLayout(content)
         layout.setSpacing(10)
@@ -194,13 +193,6 @@ class ProjectTabWidget(QWidget):
         self.rate_limit_spin.setSuffix(" s")
         self.rate_limit_spin.setToolTip("Délai minimal entre requêtes vers la source.")
         form_source.addRow("Rate limit:", self.rate_limit_spin)
-        self.acquisition_runtime_preview = QLabel("")
-        self.acquisition_runtime_preview.setStyleSheet("color: #505050; font-size: 0.9em;")
-        self.acquisition_runtime_preview.setWordWrap(True)
-        self.acquisition_runtime_preview.setToolTip(
-            "Aperçu des paramètres HTTP qui seront appliqués aux jobs réseau."
-        )
-        form_source.addRow("", self.acquisition_runtime_preview)
         self._last_applied_acquisition_profile_id = DEFAULT_ACQUISITION_PROFILE_ID
         self.acquisition_profile_combo.currentTextChanged.connect(self._on_acquisition_profile_changed)
         self.rate_limit_spin.valueChanged.connect(self._refresh_acquisition_runtime_preview)
@@ -425,7 +417,7 @@ class ProjectTabWidget(QWidget):
         self._refresh_acquisition_runtime_preview()
 
     def _refresh_acquisition_runtime_preview(self) -> None:
-        """Met à jour l'aperçu des options runtime acquisition depuis le formulaire Projet."""
+        """Met à jour les détails du profil d'acquisition depuis le formulaire Projet."""
         profile_id = self.acquisition_profile_combo.currentText() or DEFAULT_ACQUISITION_PROFILE_ID
         profile = ACQUISITION_PROFILES.get(profile_id)
         if profile is not None:
@@ -434,14 +426,6 @@ class ProjectTabWidget(QWidget):
             )
         else:
             self.acquisition_profile_details.setText("")
-        options = resolve_http_options(
-            acquisition_profile_id=profile_id,
-            user_agent=None,
-            rate_limit_s=float(self.rate_limit_spin.value()),
-        )
-        self.acquisition_runtime_preview.setText(
-            f"Runtime acquisition (prévisualisation): {format_http_options_summary(options)}"
-        )
         self._refresh_project_summary()
 
     @staticmethod

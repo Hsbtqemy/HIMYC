@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtCore import Qt, QSettings
+from PySide6.QtCore import QEvent, Qt, QSettings
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -22,6 +22,9 @@ _HELP_EXPANDED_KEY = "pilotage/helpExpanded"
 _SPLITTER_KEY = "pilotage/splitter_hcols"
 _PROJECT_PANEL_VISIBLE_KEY = "pilotage/projectPanelVisible"
 _DEFAULT_SPLITTER_SIZES = [820, 560]
+_RIGHT_PANEL_BOX_BASE_WIDTH = 440
+_RIGHT_PANEL_BOX_EXPANDED_MAX_WIDTH = 860
+_RIGHT_PANEL_BOX_SIDE_PADDING = 72
 
 
 class PilotageTabWidget(QWidget):
@@ -44,6 +47,7 @@ class PilotageTabWidget(QWidget):
         self._on_open_validation = on_open_validation
         self._on_open_concordance = on_open_concordance
         self._project_panel_sizes = list(_DEFAULT_SPLITTER_SIZES)
+        self._right_column_boxes: list[QWidget] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -132,17 +136,33 @@ class PilotageTabWidget(QWidget):
         right_layout = QVBoxLayout(self._right_column_content)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(8)
-        right_layout.addWidget(self._project_widget)
+        self._right_column_boxes.append(self._project_widget)
+        project_row = QHBoxLayout()
+        project_row.setContentsMargins(0, 0, 0, 0)
+        project_row.setSpacing(0)
+        project_row.addStretch()
+        project_row.addWidget(self._project_widget)
+        project_row.addStretch()
+        right_layout.addLayout(project_row)
         take_sidebar_sections = getattr(self._corpus_widget, "take_right_column_sections", None)
         if callable(take_sidebar_sections):
             for section in take_sidebar_sections():
-                right_layout.addWidget(section)
+                self._right_column_boxes.append(section)
+                section_row = QHBoxLayout()
+                section_row.setContentsMargins(0, 0, 0, 0)
+                section_row.setSpacing(0)
+                section_row.addStretch()
+                section_row.addWidget(section)
+                section_row.addStretch()
+                right_layout.addLayout(section_row)
         right_layout.addStretch()
         self._right_column_scroll = QScrollArea(self)
         self._right_column_scroll.setWidgetResizable(True)
         self._right_column_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._right_column_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._right_column_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._right_column_scroll.setWidget(self._right_column_content)
+        self._right_column_scroll.viewport().installEventFilter(self)
 
         self._splitter = QSplitter(Qt.Orientation.Horizontal)
         self._splitter.addWidget(self._corpus_widget)
@@ -153,11 +173,23 @@ class PilotageTabWidget(QWidget):
         self._splitter.setStretchFactor(0, 1)
         self._splitter.setStretchFactor(1, 0)
         self._splitter.setSizes(list(_DEFAULT_SPLITTER_SIZES))
+        self._splitter.splitterMoved.connect(self._on_splitter_moved)
         layout.addWidget(self._splitter, 1)
         self._restore_help_expanded()
         self._restore_splitter_sizes()
         self._restore_project_panel_visibility()
+        self._update_right_panel_box_widths()
         self.refresh_state_banner()
+
+    def eventFilter(self, obj, event):  # type: ignore[override]
+        viewport = self._right_column_scroll.viewport() if hasattr(self, "_right_column_scroll") else None
+        if obj is viewport and event.type() == QEvent.Type.Resize:
+            self._update_right_panel_box_widths()
+        return super().eventFilter(obj, event)
+
+    def resizeEvent(self, event):  # type: ignore[override]
+        super().resizeEvent(event)
+        self._update_right_panel_box_widths()
 
     def focus_corpus(self) -> None:
         """Met l'accent sur la zone Corpus quand l'utilisateur vient de la section Projet."""
@@ -196,6 +228,7 @@ class PilotageTabWidget(QWidget):
         self._project_panel_sizes = list(_DEFAULT_SPLITTER_SIZES)
         self._set_project_panel_visible(True)
         self._splitter.setSizes(list(_DEFAULT_SPLITTER_SIZES))
+        self._update_right_panel_box_widths()
         self.save_state()
 
     def _open_inspector(self) -> None:
@@ -250,6 +283,7 @@ class PilotageTabWidget(QWidget):
         else:
             total = max(1, sum(self._splitter.sizes()))
             self._splitter.setSizes([total, 0])
+        self._update_right_panel_box_widths()
         if persist:
             settings = QSettings()
             settings.setValue(_PROJECT_PANEL_VISIBLE_KEY, panel_visible)
@@ -273,7 +307,31 @@ class PilotageTabWidget(QWidget):
                 return
             if len(sizes) >= 2:
                 self._splitter.setSizes(sizes)
+                self._update_right_panel_box_widths()
 
     def save_state(self) -> None:
         settings = QSettings()
         settings.setValue(_SPLITTER_KEY, self._splitter.sizes())
+
+    def _on_splitter_moved(self, *_args) -> None:
+        self._update_right_panel_box_widths()
+
+    def _update_right_panel_box_widths(self) -> None:
+        if not self._right_column_boxes or not self._right_column_scroll.isVisible():
+            return
+        viewport = self._right_column_scroll.viewport()
+        available = viewport.width() if viewport is not None else 0
+        if available <= 0:
+            available = self._right_column_scroll.width()
+        if available <= 0:
+            return
+        target = max(
+            _RIGHT_PANEL_BOX_BASE_WIDTH,
+            min(
+                _RIGHT_PANEL_BOX_EXPANDED_MAX_WIDTH,
+                available - _RIGHT_PANEL_BOX_SIDE_PADDING,
+            ),
+        )
+        for box in self._right_column_boxes:
+            box.setMinimumWidth(target)
+            box.setMaximumWidth(target)

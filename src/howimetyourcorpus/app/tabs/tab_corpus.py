@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QTableView,
     QTreeView,
     QVBoxLayout,
@@ -218,7 +219,11 @@ class CorpusTabWidget(QWidget):
             self.episodes_tree_proxy = EpisodesTreeFilterProxyModel()
             self.episodes_tree_proxy.setSourceModel(self.episodes_tree_model)
             self.episodes_tree.setModel(self.episodes_tree_proxy)
-        self.episodes_tree.setMinimumHeight(220)
+        self.episodes_tree.setMinimumHeight(340)
+        self.episodes_tree.setSizePolicy(
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Expanding,
+        )
         if _use_table:
             _header = self.episodes_tree.horizontalHeader()
             _header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
@@ -251,7 +256,7 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree_model.modelReset.connect(self._refresh_scope_preview_from_ui)
         self.episodes_tree_model.layoutChanged.connect(self._refresh_scope_preview_from_ui)
         self.batch_scope_combo.currentIndexChanged.connect(self._refresh_scope_preview_from_ui)
-        layout.addWidget(self.episodes_tree)
+        layout.addWidget(self.episodes_tree, 1)
         self.episodes_empty_label = QLabel("")
         self.episodes_empty_label.setStyleSheet("color: #666; font-style: italic;")
         self.episodes_empty_label.setWordWrap(True)
