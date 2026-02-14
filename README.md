@@ -96,6 +96,7 @@ Voir **example/README.md** pour les instructions détaillées.
    - « Tout faire » : enchaîne Télécharger → Normaliser → Segmenter → Indexer DB sur le périmètre choisi.  
    - **« Exporter corpus »** : exporte les épisodes normalisés en **TXT**, **CSV**, **JSON**, **Word (.docx)**, ou en **segmenté** : **JSONL** / **CSV** par **utterances** (tours de parole) ou par **phrases**.
    - Pendant un job (Télécharger / Normaliser / Segmenter / Indexer / Tout faire), les actions Pilotage sont temporairement verrouillées pour éviter les doubles lancements ; utilisez **« Annuler »** si nécessaire.
+   - Le haut de l’onglet Pilotage rappelle la politique de profils (acquisition vs normalisation vs export) et propose des raccourcis vers **Inspecteur**, **Validation & Annotation** et **Concordance**.
 
    **Workflow recommandé (batch par saison)**  
    - **Option A — Saison par saison** : pour chaque saison, sélectionner « Saison N » + `Périmètre action = Saison filtrée` → « Télécharger » → « Normaliser » → « Indexer DB » (ou segmenter / importer SRT / aligner selon vos besoins), puis passer à la saison suivante.  
@@ -106,6 +107,7 @@ Voir **example/README.md** pour les instructions détaillées.
    - Choisir un épisode et comparer RAW vs CLEAN, stats et exemples de fusions.  
    - **Vue Segments** (Phase 2) : basculer sur « Segments » pour afficher la liste des phrases/tours de parole ; cliquer sur un segment pour le surligner dans le texte CLEAN.  
    - **« Segmente l'épisode »** : produit les segments (phrases + tours) et les indexe en DB (écrit `episodes/<id>/segments.jsonl`).
+   - Depuis l’Inspecteur, un accès direct vers **Validation & Annotation** est disponible pour enchaîner sur l’alignement puis l’annotation personnages.
 
 4. **Sous-titres** (dans l’onglet Inspecteur, panneau Sous-titres, Phase 3)  
    - Choisir un épisode et une langue (en/fr/it), puis **« Importer SRT/VTT... »** pour importer un fichier .srt ou .vtt.  
