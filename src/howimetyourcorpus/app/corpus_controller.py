@@ -544,12 +544,12 @@ class CorpusWorkflowController:
         index: SeriesIndex,
     ) -> list[str] | None:
         """Valide l'épisode sélectionné pour une relance ciblée."""
-        eid = (selected_episode_id or "").strip()
-        if not eid:
-            self._warn_user(
-                "Sélectionnez un épisode en erreur à relancer.",
-                "Choisissez une ligne dans la liste « Reprise — Erreurs ».",
-            )
+        eid = self.resolve_selected_error_episode_id_or_warn(
+            selected_episode_id=selected_episode_id,
+            empty_message="Sélectionnez un épisode en erreur à relancer.",
+            empty_next_step="Choisissez une ligne dans la liste « Reprise — Erreurs ».",
+        )
+        if eid is None:
             return None
         known_ids = {e.episode_id for e in index.episodes}
         if eid not in known_ids:
@@ -575,6 +575,20 @@ class CorpusWorkflowController:
             )
             return None
         return error_ids
+
+    def resolve_selected_error_episode_id_or_warn(
+        self,
+        *,
+        selected_episode_id: str | None,
+        empty_message: str,
+        empty_next_step: str | None = None,
+    ) -> str | None:
+        """Valide qu'un épisode est sélectionné dans la liste d'erreurs."""
+        eid = (selected_episode_id or "").strip()
+        if not eid:
+            self._warn_user(empty_message, empty_next_step)
+            return None
+        return eid
 
     def build_full_workflow_steps(
         self,

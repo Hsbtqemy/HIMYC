@@ -348,6 +348,7 @@ Etat 2026-02-14:
 - Flux import local deplace cote controller:
   - construction des steps "Decouvrir" / "Decouvrir+fusionner",
   - parsing/validation/fusion des episode_id saisis manuellement.
+- Validation de selection d'episode erreur factorisee dans le controller (reutilisee par relance + ouverture inspecteur/logs).
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

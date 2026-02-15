@@ -595,6 +595,27 @@ def test_resolve_all_error_retry_ids_or_warn() -> None:
     )
 
 
+def test_resolve_selected_error_episode_id_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    assert controller.resolve_selected_error_episode_id_or_warn(
+        selected_episode_id=" S01E02 ",
+        empty_message="missing",
+        empty_next_step="pick one",
+    ) == "S01E02"
+    assert controller.resolve_selected_error_episode_id_or_warn(
+        selected_episode_id=None,
+        empty_message="missing",
+        empty_next_step="pick one",
+    ) is None
+    assert warned[-1] == ("missing", "pick one")
+
+
 def test_resolve_clean_episodes_for_export_or_warn_filters_clean_only() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(
