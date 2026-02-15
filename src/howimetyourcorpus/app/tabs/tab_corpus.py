@@ -1272,58 +1272,14 @@ class CorpusTabWidget(QWidget):
         *,
         scope_mode: str | None = None,
     ) -> tuple[WorkflowScope, list[str]] | None:
-        mode = normalize_scope_mode(scope_mode or self.batch_scope_combo.currentData())
-        if mode == "current":
-            eid = self._resolve_current_episode_id()
-            if not eid:
-                warn_precondition(
-                    self,
-                    "Corpus",
-                    "Scope « Épisode courant »: sélectionnez une ligne (ou cochez un épisode).",
-                    next_step="Sélectionnez un épisode dans la liste ou cochez sa case.",
-                )
-                return None
-            return WorkflowScope.current(eid), [eid]
-        if mode == "selection":
-            ids = self._resolve_selected_episode_ids()
-            if not ids:
-                warn_precondition(
-                    self,
-                    "Corpus",
-                    "Scope « Sélection »: cochez au moins un épisode ou sélectionnez des lignes.",
-                    next_step="Utilisez « Tout cocher » ou choisissez des épisodes manuellement.",
-                )
-                return None
-            return WorkflowScope.selection(ids), ids
-        if mode == "season":
-            season = self.season_filter_combo.currentData()
-            if season is None:
-                warn_precondition(
-                    self,
-                    "Corpus",
-                    "Scope « Saison filtrée »: choisissez d'abord une saison (pas « Toutes les saisons »).",
-                    next_step="Choisissez une saison dans le filtre « Saison ».",
-                )
-                return None
-            ids = self.episodes_tree_model.get_episode_ids_for_season(season)
-            if not ids:
-                warn_precondition(
-                    self,
-                    "Corpus",
-                    f"Aucun épisode trouvé pour la saison {season}.",
-                    next_step="Ajustez le filtre « Saison » ou lancez « Découvrir épisodes » pour recharger l'index.",
-                )
-                return None
-            return WorkflowScope.season_scope(int(season)), ids
-        if mode == "all":
-            return WorkflowScope.all(), [e.episode_id for e in index.episodes]
-        warn_precondition(
-            self,
-            "Corpus",
-            f"Scope inconnu: {mode}",
-            next_step="Utilisez un périmètre valide: Épisode courant, Sélection, Saison filtrée ou Tout le corpus.",
+        return self._workflow_controller.resolve_scope_and_ids_or_warn(
+            scope_mode=scope_mode or self.batch_scope_combo.currentData(),
+            all_episode_ids=[e.episode_id for e in index.episodes],
+            current_episode_id=self._resolve_current_episode_id(),
+            selected_episode_ids=self._resolve_selected_episode_ids(),
+            season=self.season_filter_combo.currentData(),
+            get_episode_ids_for_season=self.episodes_tree_model.get_episode_ids_for_season,
         )
-        return None
 
     @staticmethod
     def _resolve_lang_hint(context: dict[str, Any]) -> str:

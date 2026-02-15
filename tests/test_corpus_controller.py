@@ -180,3 +180,57 @@ def test_build_segment_and_index_steps_returns_none_on_builder_failure() -> None
     )
 
     assert steps is None
+
+
+def test_resolve_scope_and_ids_or_warn_selection_and_all() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    resolved_selection = controller.resolve_scope_and_ids_or_warn(
+        scope_mode="selection",
+        all_episode_ids=["S01E01", "S01E02"],
+        current_episode_id=None,
+        selected_episode_ids=["S01E02"],
+        season=None,
+        get_episode_ids_for_season=lambda _season: [],
+    )
+    resolved_all = controller.resolve_scope_and_ids_or_warn(
+        scope_mode="all",
+        all_episode_ids=["S01E01", "S01E02"],
+        current_episode_id=None,
+        selected_episode_ids=[],
+        season=None,
+        get_episode_ids_for_season=lambda _season: [],
+    )
+    assert resolved_selection == (WorkflowScope.selection(["S01E02"]), ["S01E02"])
+    assert resolved_all == (WorkflowScope.all(), ["S01E01", "S01E02"])
+    assert warned == []
+
+
+def test_resolve_scope_and_ids_or_warn_reports_missing_current() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    resolved = controller.resolve_scope_and_ids_or_warn(
+        scope_mode="current",
+        all_episode_ids=["S01E01", "S01E02"],
+        current_episode_id=None,
+        selected_episode_ids=["S01E02"],
+        season=None,
+        get_episode_ids_for_season=lambda _season: [],
+    )
+    assert resolved is None
+    assert warned == [
+        (
+            "Scope « Épisode courant »: sélectionnez une ligne (ou cochez un épisode).",
+            "Sélectionnez un épisode dans la liste ou cochez sa case.",
+        )
+    ]

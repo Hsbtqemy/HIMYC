@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from howimetyourcorpus.app.corpus_scope import normalize_scope_mode
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 from howimetyourcorpus.core.models import EpisodeRef
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope, WorkflowService
@@ -69,6 +70,58 @@ class CorpusWorkflowController:
             return False
         self._run_steps(steps)
         return True
+
+    def resolve_scope_and_ids_or_warn(
+        self,
+        *,
+        scope_mode: str | None,
+        all_episode_ids: list[str],
+        current_episode_id: str | None,
+        selected_episode_ids: list[str],
+        season: int | None,
+        get_episode_ids_for_season: Callable[[int], list[str]],
+    ) -> tuple[WorkflowScope, list[str]] | None:
+        """Résout le scope workflow avec messages d'erreur utilisateur cohérents."""
+        mode = normalize_scope_mode(scope_mode)
+        if mode == "current":
+            if not current_episode_id:
+                self._warn_user(
+                    "Scope « Épisode courant »: sélectionnez une ligne (ou cochez un épisode).",
+                    "Sélectionnez un épisode dans la liste ou cochez sa case.",
+                )
+                return None
+            return WorkflowScope.current(current_episode_id), [current_episode_id]
+        if mode == "selection":
+            ids = list(selected_episode_ids)
+            if not ids:
+                self._warn_user(
+                    "Scope « Sélection »: cochez au moins un épisode ou sélectionnez des lignes.",
+                    "Utilisez « Tout cocher » ou choisissez des épisodes manuellement.",
+                )
+                return None
+            return WorkflowScope.selection(ids), ids
+        if mode == "season":
+            if season is None:
+                self._warn_user(
+                    "Scope « Saison filtrée »: choisissez d'abord une saison (pas « Toutes les saisons »).",
+                    "Choisissez une saison dans le filtre « Saison ».",
+                )
+                return None
+            ids = list(get_episode_ids_for_season(int(season)))
+            if not ids:
+                self._warn_user(
+                    f"Aucun épisode trouvé pour la saison {season}.",
+                    "Ajustez le filtre « Saison » ou lancez « Découvrir épisodes » pour recharger l'index.",
+                )
+                return None
+            return WorkflowScope.season_scope(int(season)), ids
+        if mode == "all":
+            return WorkflowScope.all(), list(all_episode_ids)
+        self._warn_user(
+            f"Scope inconnu: {mode}",
+            "Utilisez un périmètre valide: Épisode courant, Sélection, Saison filtrée ou Tout le corpus.",
+        )
+        return None
 
     def build_full_workflow_steps(
         self,
