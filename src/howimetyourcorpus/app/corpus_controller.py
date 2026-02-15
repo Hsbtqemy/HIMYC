@@ -781,6 +781,42 @@ class CorpusWorkflowController:
             return None
         return list(steps), skipped
 
+    def prepare_segment_and_index_scope_plan_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+        lang_hint: str,
+        clean_empty_message: str,
+        clean_empty_next_step: str,
+    ) -> tuple[list[Any], int] | None:
+        """
+        Prépare le plan "Segmenter+Indexer" pour un scope CLEAN:
+        - filtre les épisodes ayant CLEAN,
+        - compose les steps segment -> index,
+        - retourne `(steps, skipped)`.
+        """
+        prepared_clean = self.prepare_clean_scope_ids_or_warn(
+            ids=ids,
+            has_episode_clean=store.has_episode_clean,
+            empty_message=clean_empty_message,
+            empty_next_step=clean_empty_next_step,
+        )
+        if prepared_clean is None:
+            return None
+        ids_with_clean, skipped = prepared_clean
+        steps = self.build_segment_and_index_steps(
+            context=context,
+            episode_refs=index.episodes,
+            ids_with_clean=ids_with_clean,
+            lang_hint=lang_hint,
+        )
+        if steps is None:
+            return None
+        return list(steps), skipped
+
     @staticmethod
     def load_status_map_for_index(
         *,

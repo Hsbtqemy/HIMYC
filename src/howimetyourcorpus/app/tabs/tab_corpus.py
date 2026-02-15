@@ -1481,25 +1481,22 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        prepared = self._workflow_controller.prepare_clean_scope_ids_or_warn(
+        prepared = self._workflow_controller.prepare_segment_and_index_scope_plan_or_warn(
             ids=ids,
-            has_episode_clean=store.has_episode_clean,
-            empty_message="Aucun épisode CLEAN à segmenter/indexer pour ce scope.",
-            empty_next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
+            index=index,
+            store=store,
+            context=context,
+            lang_hint=self._resolve_lang_hint(context),
+            clean_empty_message="Aucun épisode CLEAN à segmenter/indexer pour ce scope.",
+            clean_empty_next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
         )
         if prepared is None:
             return
-        ids_with_clean, skipped = prepared
+        steps, skipped = prepared
         self._show_skipped_ids(
             prefix="Segmenter+Indexer",
             skipped=skipped,
             reason="sans CLEAN dans le scope",
-        )
-        steps = self._workflow_controller.build_segment_and_index_steps(
-            context=context,
-            episode_refs=index.episodes,
-            ids_with_clean=ids_with_clean,
-            lang_hint=self._resolve_lang_hint(context),
         )
         self._workflow_controller.run_composed_steps_or_warn(
             steps=steps,

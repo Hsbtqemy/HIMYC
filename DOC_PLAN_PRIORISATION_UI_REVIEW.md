@@ -365,6 +365,7 @@ Etat 2026-02-14:
 - Preparation des scopes "Normaliser" (RAW+profils) et "CLEAN-required" (segment/index) centralisee dans le controller.
 - Preparation du scope "Telecharger" (URL source + skipped + map URL) centralisee dans le controller.
 - Orchestration des actions `selection(ids)` factorisee dans le controller (`run_action_for_episode_ids_or_warn`).
+- Preparation du plan "Segmenter+Indexer" (CLEAN + composition des steps) centralisee dans le controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

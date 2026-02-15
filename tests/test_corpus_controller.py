@@ -464,6 +464,92 @@ def test_prepare_full_workflow_scope_plan_or_warn_returns_none_when_no_runnable(
     ]
 
 
+def test_prepare_segment_and_index_scope_plan_or_warn_returns_steps_and_skipped() -> None:
+    calls: list[WorkflowActionId] = []
+
+    def _step_builder(**kwargs):
+        action_id = kwargs["action_id"]
+        calls.append(action_id)
+        return [f"step:{action_id.value}"]
+
+    warned: list[tuple[str, str | None]] = []
+
+    class _Store:
+        def has_episode_clean(self, episode_id: str) -> bool:
+            return episode_id == "S01E01"
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=_step_builder,
+    )
+    index = SeriesIndex(
+        series_title="Test",
+        series_url="https://series",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1"),
+            EpisodeRef("S01E02", 1, 2, "Second", "https://src/2"),
+        ],
+    )
+
+    prepared = controller.prepare_segment_and_index_scope_plan_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        lang_hint="en",
+        clean_empty_message="no clean",
+        clean_empty_next_step="normalize first",
+    )
+
+    assert prepared is not None
+    steps, skipped = prepared
+    assert steps == [
+        "step:segment_episodes",
+        "step:build_db_index",
+    ]
+    assert skipped == 1
+    assert calls == [
+        WorkflowActionId.SEGMENT_EPISODES,
+        WorkflowActionId.BUILD_DB_INDEX,
+    ]
+    assert warned == []
+
+
+def test_prepare_segment_and_index_scope_plan_or_warn_returns_none_when_no_clean() -> None:
+    warned: list[tuple[str, str | None]] = []
+
+    class _Store:
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: ["unused"],
+    )
+    index = SeriesIndex(
+        series_title="Test",
+        series_url="https://series",
+        episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "")],
+    )
+
+    prepared = controller.prepare_segment_and_index_scope_plan_or_warn(
+        ids=["S01E01"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        lang_hint="en",
+        clean_empty_message="no clean",
+        clean_empty_next_step="normalize first",
+    )
+
+    assert prepared is None
+    assert warned == [("no clean", "normalize first")]
+
+
 def test_build_full_workflow_steps_composes_expected_order() -> None:
     calls: list[WorkflowActionId] = []
 
