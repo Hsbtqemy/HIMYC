@@ -813,12 +813,13 @@ class CorpusTabWidget(QWidget):
         )
         self.corpus_next_step_label.setText(advice.message)
         self._apply_workflow_advice(advice.action_id, advice.label)
+        default_enabled = self._workflow_controller.resolve_default_scope_action_enabled_from_counts(counts)
         self._set_scope_action_buttons_enabled(
-            fetch=counts.n_total > 0,
-            normalize=counts.n_fetched > 0,
-            segment=counts.n_norm > 0,
-            run_all=counts.n_total > 0,
-            index=counts.n_norm > 0,
+            fetch=default_enabled["fetch"],
+            normalize=default_enabled["normalize"],
+            segment=default_enabled["segment"],
+            run_all=default_enabled["run_all"],
+            index=default_enabled["index"],
         )
         self._refresh_error_panel(index=index, error_ids=error_ids)
         # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)

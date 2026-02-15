@@ -635,6 +635,17 @@ class CorpusWorkflowController:
         )
 
     @staticmethod
+    def resolve_default_scope_action_enabled_from_counts(counts: Any) -> dict[str, bool]:
+        """Règle d'activation par défaut des actions selon les compteurs workflow globaux."""
+        return {
+            "fetch": bool(getattr(counts, "n_total", 0) > 0),
+            "normalize": bool(getattr(counts, "n_fetched", 0) > 0),
+            "segment": bool(getattr(counts, "n_norm", 0) > 0),
+            "run_all": bool(getattr(counts, "n_total", 0) > 0),
+            "index": bool(getattr(counts, "n_norm", 0) > 0),
+        }
+
+    @staticmethod
     def resolve_error_episode_ids(
         *,
         index: SeriesIndex,

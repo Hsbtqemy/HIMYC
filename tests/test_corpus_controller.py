@@ -749,6 +749,36 @@ def test_build_workflow_status_line_formats_all_counters() -> None:
     )
 
 
+def test_resolve_default_scope_action_enabled_from_counts() -> None:
+    class _Counts:
+        n_total = 3
+        n_fetched = 2
+        n_norm = 1
+
+    enabled = CorpusWorkflowController.resolve_default_scope_action_enabled_from_counts(_Counts())
+    assert enabled == {
+        "fetch": True,
+        "normalize": True,
+        "segment": True,
+        "run_all": True,
+        "index": True,
+    }
+
+    class _EmptyCounts:
+        n_total = 0
+        n_fetched = 0
+        n_norm = 0
+
+    empty_enabled = CorpusWorkflowController.resolve_default_scope_action_enabled_from_counts(_EmptyCounts())
+    assert empty_enabled == {
+        "fetch": False,
+        "normalize": False,
+        "segment": False,
+        "run_all": False,
+        "index": False,
+    }
+
+
 def test_resolve_error_episode_ids_from_index_uses_loader() -> None:
     controller = CorpusWorkflowController(
         workflow_service=object(),  # type: ignore[arg-type]
