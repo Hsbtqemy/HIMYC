@@ -34,3 +34,4 @@ Date: 2026-02-14
 | 2026-02-14 | Lot 3 | Baseline perf enrichie avec metrique `logs_render_10k_ms` | Suivi perf logs plus representatif | hsmy + codex |
 | 2026-02-15 | Lot 4 | Validation propagation completee (priorite assignation cue + idempotence) via tests store | Cloture parite metier Personnages sans regression | hsmy + codex |
 | 2026-02-15 | Lot 6 | Export corpus refactore dans `CorpusWorkflowController` (preconditions + dispatch format) | `tab_corpus` allege et logique export testee hors UI | hsmy + codex |
+| 2026-02-15 | Lot 6 | Flux import local refactore dans `CorpusWorkflowController` (decouverte + merge + ajout manuel) | Moins de logique metier dans l'UI, preconditions unifiees et testees | hsmy + codex |

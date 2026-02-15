@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any, Callable, Mapping
 
 from howimetyourcorpus.app.corpus_scope import (
@@ -25,6 +26,7 @@ from howimetyourcorpus.core.export_utils import (
     export_corpus_utterances_jsonl,
 )
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, SeriesIndex
+from howimetyourcorpus.core.pipeline.tasks import FetchAndMergeSeriesIndexStep, FetchSeriesIndexStep
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope, WorkflowService
 
 
@@ -138,6 +140,121 @@ class CorpusWorkflowController:
         if index_ok is None:
             return None
         return store_ok, db_ok, context_ok, index_ok
+
+    @staticmethod
+    def build_discover_series_steps(*, context: dict[str, Any]) -> list[Any]:
+        """Construit le step de découverte d'index principal."""
+        config = context["config"]
+        return [FetchSeriesIndexStep(config.series_url, config.user_agent)]
+
+    def build_discover_merge_steps_or_warn(
+        self,
+        *,
+        context: dict[str, Any],
+        series_url: str | None,
+        source_id: str | None,
+    ) -> list[Any] | None:
+        """Construit le step de découverte/fusion depuis une autre source."""
+        url = (series_url or "").strip()
+        if not url:
+            self._warn_user(
+                "Indiquez l'URL de la série.",
+                "Renseignez une URL source puis relancez « Découvrir (fusionner) ».",
+            )
+            return None
+        source = (source_id or "").strip() or "subslikescript"
+        config = context["config"]
+        return [FetchAndMergeSeriesIndexStep(url, source, config.user_agent)]
+
+    def resolve_manual_episode_refs_or_warn(
+        self,
+        *,
+        raw_text: str | None,
+    ) -> tuple[list[EpisodeRef], int] | None:
+        """Parse les episode_id saisis manuellement (format S01E01)."""
+        lines = [
+            ln.strip().upper()
+            for ln in str(raw_text or "").strip().splitlines()
+            if ln and ln.strip()
+        ]
+        if not lines:
+            self._warn_user(
+                "Aucun episode_id saisi.",
+                "Saisissez un identifiant par ligne, ex. S01E01.",
+            )
+            return None
+        new_refs_by_id: dict[str, EpisodeRef] = {}
+        invalid_count = 0
+        for ln in lines:
+            mm = re.fullmatch(r"S(\d+)E(\d+)", ln, re.IGNORECASE)
+            if not mm:
+                invalid_count += 1
+                continue
+            ep_id = f"S{int(mm.group(1)):02d}E{int(mm.group(2)):02d}"
+            if ep_id in new_refs_by_id:
+                continue
+            new_refs_by_id[ep_id] = EpisodeRef(
+                episode_id=ep_id,
+                season=int(mm.group(1)),
+                episode=int(mm.group(2)),
+                title="",
+                url="",
+            )
+        if not new_refs_by_id:
+            self._warn_user(
+                "Aucun episode_id valide (format S01E01).",
+                "Saisissez un identifiant par ligne, ex. S01E01.",
+            )
+            return None
+        return list(new_refs_by_id.values()), invalid_count
+
+    def merge_manual_episode_refs_or_warn(
+        self,
+        *,
+        index: SeriesIndex | None,
+        new_refs: list[EpisodeRef],
+    ) -> tuple[SeriesIndex, int, int] | None:
+        """Fusionne les épisodes saisis à la main dans l'index existant."""
+        existing_ids = {e.episode_id for e in (index.episodes or [])} if index else set()
+        episodes = list(index.episodes or []) if index else []
+        added_count = 0
+        skipped_existing = 0
+        for ref in new_refs:
+            if ref.episode_id not in existing_ids:
+                episodes.append(ref)
+                existing_ids.add(ref.episode_id)
+                added_count += 1
+            else:
+                skipped_existing += 1
+        if added_count <= 0:
+            self._warn_user(
+                "Tous les épisodes saisis existent déjà.",
+                "Saisissez de nouveaux IDs (format S01E01).",
+            )
+            return None
+        return (
+            SeriesIndex(
+                series_title=index.series_title if index else "",
+                series_url=index.series_url if index else "",
+                episodes=episodes,
+            ),
+            added_count,
+            skipped_existing,
+        )
+
+    @staticmethod
+    def build_manual_add_status_message(
+        *,
+        added_count: int,
+        skipped_existing: int,
+        invalid_count: int,
+    ) -> str:
+        parts = [f"{added_count} épisode(s) ajouté(s)"]
+        if skipped_existing > 0:
+            parts.append(f"{skipped_existing} déjà présent(s)")
+        if invalid_count > 0:
+            parts.append(f"{invalid_count} ignoré(s) (format invalide)")
+        return "Ajout manuel: " + ", ".join(parts) + "."
 
     def resolve_clean_episodes_for_export_or_warn(
         self,

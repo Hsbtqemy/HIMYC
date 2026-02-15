@@ -345,6 +345,9 @@ Etat 2026-02-14:
 - Resolution des episodes en erreur centralisee dans le controller (reuse panneau reprise + relances).
 - Validation des relances d'erreur (episode selectionne / toutes erreurs) deplacee dans le controller.
 - Export corpus deplace cote controller (resolution episodes CLEAN + selection writer par format/filtre).
+- Flux import local deplace cote controller:
+  - construction des steps "Decouvrir" / "Decouvrir+fusionner",
+  - parsing/validation/fusion des episode_id saisis manuellement.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

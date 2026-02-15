@@ -6,6 +6,7 @@ from pathlib import Path
 
 from howimetyourcorpus.app.corpus_controller import CorpusWorkflowController
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
+from howimetyourcorpus.core.pipeline.tasks import FetchAndMergeSeriesIndexStep, FetchSeriesIndexStep
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope
 
 
@@ -731,3 +732,137 @@ def test_export_episodes_data_or_warn_warns_when_writer_missing(tmp_path: Path) 
         "Format non reconnu. Utilisez .txt, .csv, .json, .jsonl ou .docx.",
         None,
     )
+
+
+def test_build_discover_series_steps_returns_fetch_index_step() -> None:
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda _msg, _next_step=None: None,
+        step_builder=lambda **_kwargs: [],
+    )
+
+    class _Config:
+        series_url = "https://src/series"
+        user_agent = "ua-test"
+
+    steps = controller.build_discover_series_steps(context={"config": _Config()})
+    assert len(steps) == 1
+    assert isinstance(steps[0], FetchSeriesIndexStep)
+    assert steps[0].series_url == "https://src/series"
+    assert steps[0].user_agent == "ua-test"
+
+
+def test_build_discover_merge_steps_or_warn_validates_url() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+
+    class _Config:
+        user_agent = "ua-test"
+
+    steps = controller.build_discover_merge_steps_or_warn(
+        context={"config": _Config()},
+        series_url="",
+        source_id="subslikescript",
+    )
+    assert steps is None
+    assert warned[-1] == (
+        "Indiquez l'URL de la série.",
+        "Renseignez une URL source puis relancez « Découvrir (fusionner) ».",
+    )
+
+    valid_steps = controller.build_discover_merge_steps_or_warn(
+        context={"config": _Config()},
+        series_url=" https://src/other ",
+        source_id="",
+    )
+    assert valid_steps is not None
+    assert len(valid_steps) == 1
+    assert isinstance(valid_steps[0], FetchAndMergeSeriesIndexStep)
+    assert valid_steps[0].series_url == "https://src/other"
+    assert valid_steps[0].source_id == "subslikescript"
+    assert valid_steps[0].user_agent == "ua-test"
+
+
+def test_resolve_manual_episode_refs_or_warn_parses_and_deduplicates() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    resolved = controller.resolve_manual_episode_refs_or_warn(
+        raw_text="S01E01\ns1e1\nbad\nS02E03\n",
+    )
+    assert resolved is not None
+    refs, invalid_count = resolved
+    assert [r.episode_id for r in refs] == ["S01E01", "S02E03"]
+    assert invalid_count == 1
+    assert warned == []
+
+
+def test_merge_manual_episode_refs_or_warn_builds_new_index() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "title",
+        "url",
+        episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "u")],
+    )
+    merged = controller.merge_manual_episode_refs_or_warn(
+        index=index,
+        new_refs=[
+            EpisodeRef("S01E01", 1, 1, "", ""),
+            EpisodeRef("S01E02", 1, 2, "", ""),
+        ],
+    )
+    assert merged is not None
+    merged_index, added_count, skipped_existing = merged
+    assert [e.episode_id for e in merged_index.episodes] == ["S01E01", "S01E02"]
+    assert added_count == 1
+    assert skipped_existing == 1
+    assert warned == []
+
+
+def test_merge_manual_episode_refs_or_warn_warns_when_nothing_added() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "title",
+        "url",
+        episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "u")],
+    )
+    merged = controller.merge_manual_episode_refs_or_warn(
+        index=index,
+        new_refs=[EpisodeRef("S01E01", 1, 1, "", "")],
+    )
+    assert merged is None
+    assert warned[-1] == (
+        "Tous les épisodes saisis existent déjà.",
+        "Saisissez de nouveaux IDs (format S01E01).",
+    )
+
+
+def test_build_manual_add_status_message_includes_all_counts() -> None:
+    msg = CorpusWorkflowController.build_manual_add_status_message(
+        added_count=2,
+        skipped_existing=1,
+        invalid_count=3,
+    )
+    assert msg == "Ajout manuel: 2 épisode(s) ajouté(s), 1 déjà présent(s), 3 ignoré(s) (format invalide)."

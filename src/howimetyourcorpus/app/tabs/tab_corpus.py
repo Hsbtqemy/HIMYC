@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -36,12 +35,8 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
-from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, SeriesIndex
+from howimetyourcorpus.core.models import EpisodeStatus, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import PROFILES, resolve_lang_hint_from_profile_id
-from howimetyourcorpus.core.pipeline.tasks import (
-    FetchSeriesIndexStep,
-    FetchAndMergeSeriesIndexStep,
-)
 from howimetyourcorpus.core.workflow import (
     WorkflowActionId,
     WorkflowScope,
@@ -994,9 +989,10 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         _store, _db, context = resolved
-        config = context["config"]
-        step = FetchSeriesIndexStep(config.series_url, config.user_agent)
-        self._run_job_with_force([step], force=False)
+        self._run_job_with_force(
+            self._workflow_controller.build_discover_series_steps(context=context),
+            force=False,
+        )
 
     def _discover_merge(self) -> None:
         resolved = self._workflow_controller.resolve_project_context_or_warn(
@@ -1026,29 +1022,25 @@ class CorpusTabWidget(QWidget):
         layout.addRow(bbox)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
-        url = url_edit.text().strip()
-        if not url:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Indiquez l'URL de la série.",
-                next_step="Renseignez une URL source puis relancez « Découvrir (fusionner) ».",
-            )
+        steps = self._workflow_controller.build_discover_merge_steps_or_warn(
+            context=context,
+            series_url=url_edit.text(),
+            source_id=source_combo.currentText(),
+        )
+        if steps is None:
             return
-        source_id = source_combo.currentText() or "subslikescript"
-        step = FetchAndMergeSeriesIndexStep(url, source_id, config.user_agent)
-        self._run_job_with_force([step], force=False)
+        self._run_job_with_force(steps, force=False)
 
     def _add_episodes_manually(self) -> None:
-        store = self._get_store()
-        if not store:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
-            )
+        resolved = self._workflow_controller.resolve_project_context_or_warn(
+            store=self._get_store(),
+            db=self._get_db(),
+            context=self._get_context(),
+            require_db=False,
+        )
+        if resolved is None:
             return
+        store, _db, _context = resolved
         dlg = QDialog(self)
         dlg.setWindowTitle("Ajouter des épisodes")
         layout = QVBoxLayout(dlg)
@@ -1065,75 +1057,30 @@ class CorpusTabWidget(QWidget):
         layout.addWidget(bbox)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
-        lines = [ln.strip().upper() for ln in text_edit.toPlainText().strip().splitlines() if ln.strip()]
-        if not lines:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun episode_id saisi.",
-                next_step="Saisissez un identifiant par ligne, ex. S01E01.",
-            )
-            return
-        new_refs_by_id: dict[str, EpisodeRef] = {}
-        invalid_count = 0
-        for ln in lines:
-            mm = re.fullmatch(r"S(\d+)E(\d+)", ln, re.IGNORECASE)
-            if not mm:
-                invalid_count += 1
-                continue
-            ep_id = f"S{int(mm.group(1)):02d}E{int(mm.group(2)):02d}"
-            if ep_id in new_refs_by_id:
-                continue
-            new_refs_by_id[ep_id] = EpisodeRef(
-                episode_id=ep_id,
-                season=int(mm.group(1)),
-                episode=int(mm.group(2)),
-                title="",
-                url="",
-            )
-        if not new_refs_by_id:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun episode_id valide (format S01E01).",
-                next_step="Saisissez un identifiant par ligne, ex. S01E01.",
-            )
-            return
-        index = store.load_series_index()
-        existing_ids = {e.episode_id for e in (index.episodes or [])} if index else set()
-        episodes = list(index.episodes or []) if index else []
-        added_count = 0
-        skipped_existing = 0
-        for ref in new_refs_by_id.values():
-            if ref.episode_id not in existing_ids:
-                episodes.append(ref)
-                existing_ids.add(ref.episode_id)
-                added_count += 1
-            else:
-                skipped_existing += 1
-        if added_count <= 0:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Tous les épisodes saisis existent déjà.",
-                next_step="Saisissez de nouveaux IDs (format S01E01).",
-            )
-            return
-        store.save_series_index(
-            SeriesIndex(
-                series_title=index.series_title if index else "",
-                series_url=index.series_url if index else "",
-                episodes=episodes,
-            )
+        parsed = self._workflow_controller.resolve_manual_episode_refs_or_warn(
+            raw_text=text_edit.toPlainText(),
         )
+        if parsed is None:
+            return
+        new_refs, invalid_count = parsed
+        merged = self._workflow_controller.merge_manual_episode_refs_or_warn(
+            index=store.load_series_index(),
+            new_refs=new_refs,
+        )
+        if merged is None:
+            return
+        merged_index, added_count, skipped_existing = merged
+        store.save_series_index(merged_index)
         self.refresh()
         self._refresh_after_episodes_added()
-        parts = [f"{added_count} épisode(s) ajouté(s)"]
-        if skipped_existing > 0:
-            parts.append(f"{skipped_existing} déjà présent(s)")
-        if invalid_count > 0:
-            parts.append(f"{invalid_count} ignoré(s) (format invalide)")
-        self._show_status("Ajout manuel: " + ", ".join(parts) + ".", 5000)
+        self._show_status(
+            self._workflow_controller.build_manual_add_status_message(
+                added_count=added_count,
+                skipped_existing=skipped_existing,
+                invalid_count=invalid_count,
+            ),
+            5000,
+        )
 
     def _resolve_selected_episode_ids(self) -> list[str]:
         """Résout les episode_id via cases cochées puis sélection de lignes."""
