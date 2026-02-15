@@ -222,6 +222,78 @@ def test_resolve_scope_action_availability_sets_unavailable_reasons() -> None:
     }
 
 
+def test_resolve_scope_action_ui_state_handles_global_unavailable_cases() -> None:
+    enabled, reasons, unavailable = CorpusWorkflowController.resolve_scope_action_ui_state(
+        has_index=False,
+        has_store=True,
+        ids=[],
+        capabilities={},
+    )
+    assert enabled == {
+        "fetch": False,
+        "normalize": False,
+        "segment": False,
+        "run_all": False,
+        "index": False,
+    }
+    assert reasons == {}
+    assert unavailable == "Action indisponible: aucun épisode dans le corpus."
+
+    enabled, reasons, unavailable = CorpusWorkflowController.resolve_scope_action_ui_state(
+        has_index=True,
+        has_store=False,
+        ids=["S01E01"],
+        capabilities={},
+    )
+    assert enabled == {
+        "fetch": False,
+        "normalize": False,
+        "segment": False,
+        "run_all": False,
+        "index": False,
+    }
+    assert reasons == {}
+    assert unavailable == "Action indisponible: ouvrez un projet d'abord."
+
+    enabled, reasons, unavailable = CorpusWorkflowController.resolve_scope_action_ui_state(
+        has_index=True,
+        has_store=True,
+        ids=[],
+        capabilities={},
+    )
+    assert enabled == {
+        "fetch": False,
+        "normalize": False,
+        "segment": False,
+        "run_all": False,
+        "index": False,
+    }
+    assert reasons == {}
+    assert unavailable == "Action indisponible: aucun épisode dans le scope courant."
+
+
+def test_resolve_scope_action_ui_state_delegates_to_availability_when_ready() -> None:
+    enabled, reasons, unavailable = CorpusWorkflowController.resolve_scope_action_ui_state(
+        has_index=True,
+        has_store=True,
+        ids=["S01E01"],
+        capabilities={"S01E01": (True, False, False, True)},
+    )
+    assert enabled == {
+        "fetch": True,
+        "normalize": False,
+        "segment": False,
+        "run_all": True,
+        "index": False,
+    }
+    assert reasons["fetch"] is None
+    assert reasons["run_all"] is None
+    assert reasons["normalize"] == "Action indisponible: aucun transcript RAW dans le scope."
+    assert reasons["segment"] == "Action indisponible: aucun fichier CLEAN dans le scope."
+    assert reasons["index"] == "Action indisponible: aucun fichier CLEAN dans le scope."
+    assert unavailable is None
+
+
 def test_build_full_workflow_steps_composes_expected_order() -> None:
     calls: list[WorkflowActionId] = []
 

@@ -355,6 +355,7 @@ Etat 2026-02-14:
 - Validation de selection d'episode erreur factorisee dans le controller (reutilisee par relance + ouverture inspecteur/logs).
 - Execution de steps composes + message "episodes ignores" factorises dans le controller.
 - Availability des actions scope (fetch/normalize/segment/index/run_all + raisons) centralisee dans le controller.
+- Resolution de l'etat UI global des actions scope (preconditions index/store/ids) centralisee dans le controller.
 - Resolution des episodes en erreur depuis `index+db` deplacee dans le controller (refresh panneau + reprise bulk).
 - Chargement de `status_map` (index+db) centralise dans le controller et reutilise pour le statut workflow global.
 - Snapshot workflow (`counts + error_ids + advice`) centralise dans le controller et reutilise dans `refresh()` Corpus.

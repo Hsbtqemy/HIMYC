@@ -1142,26 +1142,19 @@ class CorpusTabWidget(QWidget):
     def _refresh_scope_action_states(self, index: SeriesIndex | None) -> None:
         if self._workflow_busy:
             return
-
-        if index is None or not index.episodes:
-            self._set_scope_actions_unavailable("Action indisponible: aucun épisode dans le corpus.")
-            return
-
         store = self._get_store()
-        if not store:
-            self._set_scope_actions_unavailable("Action indisponible: ouvrez un projet d'abord.")
-            return
-
-        ids = self._resolve_scope_ids_silent(index)
-        if not ids:
-            self._set_scope_actions_unavailable("Action indisponible: aucun épisode dans le scope courant.")
-            return
-
-        capabilities = self._get_episode_scope_capabilities(index=index, store=store)
-        enabled, reasons = self._workflow_controller.resolve_scope_action_availability(
+        has_index = bool(index and index.episodes)
+        ids = self._resolve_scope_ids_silent(index) if has_index else []
+        capabilities = self._get_episode_scope_capabilities(index=index, store=store) if (has_index and store) else {}
+        enabled, reasons, unavailable_reason = self._workflow_controller.resolve_scope_action_ui_state(
+            has_index=has_index,
+            has_store=bool(store),
             ids=ids,
             capabilities=capabilities,
         )
+        if unavailable_reason is not None:
+            self._set_scope_actions_unavailable(unavailable_reason)
+            return
         self._set_scope_action_buttons_enabled(
             fetch=enabled["fetch"],
             normalize=enabled["normalize"],

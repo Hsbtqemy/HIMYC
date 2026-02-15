@@ -152,6 +152,53 @@ class CorpusWorkflowController:
         }
         return enabled, reasons
 
+    @staticmethod
+    def resolve_scope_action_ui_state(
+        *,
+        has_index: bool,
+        has_store: bool,
+        ids: list[str],
+        capabilities: dict[str, tuple[bool, bool, bool, bool]],
+    ) -> tuple[dict[str, bool], dict[str, str | None], str | None]:
+        """
+        Résout l'état UI des actions de scope.
+
+        Retourne `(enabled, reasons, unavailable_reason)` où `unavailable_reason` est
+        renseigné quand toutes les actions doivent être désactivées pour précondition globale.
+        """
+        if not has_index:
+            disabled = {
+                "fetch": False,
+                "normalize": False,
+                "segment": False,
+                "run_all": False,
+                "index": False,
+            }
+            return disabled, {}, "Action indisponible: aucun épisode dans le corpus."
+        if not has_store:
+            disabled = {
+                "fetch": False,
+                "normalize": False,
+                "segment": False,
+                "run_all": False,
+                "index": False,
+            }
+            return disabled, {}, "Action indisponible: ouvrez un projet d'abord."
+        if not ids:
+            disabled = {
+                "fetch": False,
+                "normalize": False,
+                "segment": False,
+                "run_all": False,
+                "index": False,
+            }
+            return disabled, {}, "Action indisponible: aucun épisode dans le scope courant."
+        enabled, reasons = CorpusWorkflowController.resolve_scope_action_availability(
+            ids=ids,
+            capabilities=capabilities,
+        )
+        return enabled, reasons, None
+
     def resolve_project_context_or_warn(
         self,
         *,
