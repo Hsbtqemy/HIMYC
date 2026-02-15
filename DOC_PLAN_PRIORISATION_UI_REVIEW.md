@@ -35,6 +35,7 @@ Statut confirme au commit `560c3a8` (et commits precedents de la meme serie):
 7. Box Projet/Source simplifiee: retrait du detail runtime HTTP dans le formulaire.
 8. Scrolls verticaux parasites supprimes sur panneau projet/colonne droite.
 9. Stabilisation du mode compact projet (resume + onglets details + fix crash init).
+10. Stabilisation hauteur entete Pilotage (resume d'etat compact mono-ligne, tooltip complet).
 
 Conclusion: la dette ergonomique "mac readability / overlap / pilotage framing" est en grande partie traitee.
 

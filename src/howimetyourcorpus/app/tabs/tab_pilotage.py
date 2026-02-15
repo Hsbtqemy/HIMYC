@@ -64,7 +64,8 @@ class PilotageTabWidget(QWidget):
 
         self._state_summary_label = QLabel("")
         self._state_summary_label.setStyleSheet("color: #505050; font-weight: 600;")
-        self._state_summary_label.setWordWrap(True)
+        # Ligne compacte pour éviter l'expansion verticale excessive du header sur macOS.
+        self._state_summary_label.setWordWrap(False)
         self._state_summary_label.setSizePolicy(
             QSizePolicy.Policy.Preferred,
             QSizePolicy.Policy.Maximum,
@@ -211,18 +212,24 @@ class PilotageTabWidget(QWidget):
         if not project_open:
             if not self._right_column_scroll.isVisible():
                 self._set_project_panel_visible(True, persist=False)
-            self._state_summary_label.setText(
+            self._set_state_summary_text(
                 "État rapide: projet non ouvert. Commencez par « Ouvrir / créer le projet »."
             )
             return
         if n_episodes <= 0:
-            self._state_summary_label.setText(
+            self._set_state_summary_text(
                 "État rapide: projet ouvert, 0 épisode. Prochaine action: « Découvrir épisodes »."
             )
             return
-        self._state_summary_label.setText(
+        self._set_state_summary_text(
             f"État rapide: projet ouvert, {n_episodes} épisode(s) dans le corpus."
         )
+
+    def _set_state_summary_text(self, text: str) -> None:
+        summary = str(text or "").strip()
+        self._state_summary_label.setText(summary)
+        # Le texte complet reste accessible même si l'espace horizontal est réduit.
+        self._state_summary_label.setToolTip(summary)
 
     def reset_layout(self) -> None:
         """Réinitialise la répartition Projet/Corpus à la configuration par défaut."""
