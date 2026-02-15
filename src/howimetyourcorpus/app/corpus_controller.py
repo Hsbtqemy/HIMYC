@@ -156,6 +156,47 @@ class CorpusWorkflowController:
         )
         return None
 
+    def resolve_scope_context_or_warn(
+        self,
+        *,
+        store: Any,
+        db: Any,
+        context: dict[str, Any],
+        index: SeriesIndex | None,
+        require_db: bool,
+        scope_mode: str | None,
+        all_episode_ids: list[str],
+        current_episode_id: str | None,
+        selected_episode_ids: list[str],
+        season: int | None,
+        get_episode_ids_for_season: Callable[[int], list[str]],
+    ) -> tuple[Any, Any, dict[str, Any], SeriesIndex, WorkflowScope, list[str]] | None:
+        """Résout tout le contexte nécessaire à une action workflow Corpus."""
+        resolved_project = self.resolve_project_context_or_warn(
+            store=store,
+            db=db,
+            context=context,
+            require_db=require_db,
+        )
+        if resolved_project is None:
+            return None
+        store_ok, db_ok, context_ok = resolved_project
+        index_ok = self.resolve_index_or_warn(index=index)
+        if index_ok is None:
+            return None
+        resolved_scope = self.resolve_scope_and_ids_or_warn(
+            scope_mode=scope_mode,
+            all_episode_ids=all_episode_ids,
+            current_episode_id=current_episode_id,
+            selected_episode_ids=selected_episode_ids,
+            season=season,
+            get_episode_ids_for_season=get_episode_ids_for_season,
+        )
+        if resolved_scope is None:
+            return None
+        scope, ids = resolved_scope
+        return store_ok, db_ok, context_ok, index_ok, scope, ids
+
     def resolve_ids_with_source_url_or_warn(
         self,
         *,

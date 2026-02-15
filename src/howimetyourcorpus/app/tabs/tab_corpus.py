@@ -1308,18 +1308,23 @@ class CorpusTabWidget(QWidget):
         scope_mode: str | None = None,
         require_db: bool = False,
     ) -> tuple[Any, Any, dict[str, Any], SeriesIndex, WorkflowScope, list[str]] | None:
-        resolved_context = self._resolve_project_context(require_db=require_db)
-        if resolved_context is None:
-            return None
-        store, db, context = resolved_context
-        index = self._load_index_or_warn(store)
-        if index is None:
-            return None
-        resolved_scope = self._resolve_scope_and_ids(index, scope_mode=scope_mode)
-        if resolved_scope is None:
-            return None
-        scope, ids = resolved_scope
-        return store, db, context, index, scope, ids
+        store = self._get_store()
+        db = self._get_db()
+        context = self._get_context()
+        index = store.load_series_index() if store else None
+        return self._workflow_controller.resolve_scope_context_or_warn(
+            store=store,
+            db=db,
+            context=context,
+            index=index,
+            require_db=require_db,
+            scope_mode=scope_mode or self.batch_scope_combo.currentData(),
+            all_episode_ids=[e.episode_id for e in index.episodes] if index and index.episodes else [],
+            current_episode_id=self._resolve_current_episode_id(),
+            selected_episode_ids=self._resolve_selected_episode_ids(),
+            season=self.season_filter_combo.currentData(),
+            get_episode_ids_for_season=self.episodes_tree_model.get_episode_ids_for_season,
+        )
 
     def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
         return load_episode_status_map(self._get_db(), episode_ids)

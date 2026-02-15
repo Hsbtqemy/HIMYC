@@ -333,6 +333,7 @@ Etat 2026-02-14:
 - Resolution de scope avec warnings utilisateur deplacee dans le controller.
 - Validation des prerequis projet/index deplacee dans le controller.
 - Filtrages scope (`URL`, `RAW`, `CLEAN`, `runnable`) + warnings de precondition deplaces dans le controller.
+- Resolution contextuelle complete (projet + index + scope) centralisee dans le controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

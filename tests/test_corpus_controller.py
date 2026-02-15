@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from howimetyourcorpus.app.corpus_controller import CorpusWorkflowController
-from howimetyourcorpus.core.models import EpisodeRef
+from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope
 
 
@@ -386,3 +386,68 @@ def test_resolve_runnable_ids_for_full_workflow_or_warn() -> None:
     )
     assert no_ids is None
     assert none_runnable is None
+
+
+def test_resolve_scope_context_or_warn_success() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    store = object()
+    db = object()
+    context = {"config": object()}
+    index = SeriesIndex("s", "u", episodes=_sample_episode_refs())
+    resolved = controller.resolve_scope_context_or_warn(
+        store=store,
+        db=db,
+        context=context,
+        index=index,
+        require_db=True,
+        scope_mode="all",
+        all_episode_ids=["S01E01"],
+        current_episode_id=None,
+        selected_episode_ids=[],
+        season=None,
+        get_episode_ids_for_season=lambda _season: [],
+    )
+    assert resolved is not None
+    assert resolved[0] is store
+    assert resolved[1] is db
+    assert resolved[2] is context
+    assert resolved[3] is index
+    assert resolved[4] == WorkflowScope.all()
+    assert resolved[5] == ["S01E01"]
+    assert warned == []
+
+
+def test_resolve_scope_context_or_warn_fails_on_empty_index() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    resolved = controller.resolve_scope_context_or_warn(
+        store=object(),
+        db=object(),
+        context={"config": object()},
+        index=SeriesIndex("s", "u", episodes=[]),
+        require_db=False,
+        scope_mode="all",
+        all_episode_ids=[],
+        current_episode_id=None,
+        selected_episode_ids=[],
+        season=None,
+        get_episode_ids_for_season=lambda _season: [],
+    )
+    assert resolved is None
+    assert warned == [
+        (
+            "Découvrez d'abord les épisodes.",
+            "Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+        )
+    ]
