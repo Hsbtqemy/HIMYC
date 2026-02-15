@@ -949,6 +949,47 @@ def test_prepare_fetch_scope_plan_or_warn_returns_none_when_no_url() -> None:
     ]
 
 
+def test_run_fetch_scope_or_warn_returns_skipped_message() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+    seen_options: list[dict[str, object] | None] = []
+    seen_actions: list[WorkflowActionId] = []
+
+    def _step_builder(**kwargs):
+        seen_actions.append(kwargs["action_id"])
+        seen_options.append(kwargs["options"])
+        return ["fetch-step"]
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=_step_builder,
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1"),
+            EpisodeRef("S01E02", 1, 2, "Purple", ""),
+        ],
+    )
+
+    skipped_message = controller.run_fetch_scope_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        context={"config": object()},
+        empty_message="Aucun épisode à télécharger.",
+        empty_next_step="next",
+    )
+
+    assert skipped_message == "Téléchargement: 1 épisode(s) ignoré(s) (URL source absente)."
+    assert seen_actions == [WorkflowActionId.FETCH_EPISODES]
+    assert seen_options == [{"episode_url_by_id": {"S01E01": "https://src/1", "S01E02": ""}}]
+    assert ran == [["fetch-step"]]
+    assert warned == []
+
+
 def test_resolve_ids_with_raw_and_clean_or_warn() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(
@@ -984,6 +1025,64 @@ def test_resolve_ids_with_raw_and_clean_or_warn() -> None:
         "Pilotage > Corpus: lancez « Télécharger » sur ce scope.",
     )
     assert warned[-1] == ("no clean", "normalize first")
+
+
+def test_run_normalize_scope_or_warn_returns_skipped_message() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+    seen_options: list[dict[str, object] | None] = []
+    seen_actions: list[WorkflowActionId] = []
+
+    class _Store:
+        def has_episode_raw(self, episode_id: str) -> bool:
+            return episode_id == "S01E02"
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {"S01E02": "custom_ep_profile"}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    def _step_builder(**kwargs):
+        seen_actions.append(kwargs["action_id"])
+        seen_options.append(kwargs["options"])
+        return ["normalize-step"]
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=_step_builder,
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+
+    skipped_message = controller.run_normalize_scope_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        batch_profile="default_en_v1",
+        empty_message="Aucun épisode à normaliser.",
+        empty_next_step="next",
+    )
+
+    assert skipped_message == "Normalisation: 1 épisode(s) ignoré(s) (sans RAW dans le scope)."
+    assert seen_actions == [WorkflowActionId.NORMALIZE_EPISODES]
+    assert seen_options == [
+        {
+            "default_profile_id": "default_en_v1",
+            "profile_by_episode": {"S01E02": "custom_ep_profile"},
+        }
+    ]
+    assert ran == [["normalize-step"]]
+    assert warned == []
 
 
 def test_prepare_normalize_scope_plan_or_warn() -> None:
@@ -1089,6 +1188,51 @@ def test_prepare_clean_scope_ids_or_warn() -> None:
     )
     assert none_prepared is None
     assert warned == [("no clean", "normalize first")]
+
+
+def test_run_index_scope_or_warn_returns_skipped_message() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+    seen_actions: list[WorkflowActionId] = []
+
+    class _Store:
+        def has_episode_clean(self, episode_id: str) -> bool:
+            return episode_id == "S01E01"
+
+    def _step_builder(**kwargs):
+        seen_actions.append(kwargs["action_id"])
+        return ["index-step"]
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=_step_builder,
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+
+    skipped_message = controller.run_index_scope_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        clean_empty_message="no clean",
+        clean_empty_next_step="normalize first",
+        empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
+        empty_next_step="next",
+    )
+
+    assert skipped_message == "Indexation: 1 épisode(s) ignoré(s) (sans CLEAN dans le scope)."
+    assert seen_actions == [WorkflowActionId.BUILD_DB_INDEX]
+    assert ran == [["index-step"]]
+    assert warned == []
 
 
 def test_resolve_runnable_ids_for_full_workflow_or_warn() -> None:

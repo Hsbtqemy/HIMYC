@@ -367,6 +367,7 @@ Etat 2026-02-14:
 - Orchestration des actions `selection(ids)` factorisee dans le controller (`run_action_for_episode_ids_or_warn`).
 - Preparation du plan "Segmenter+Indexer" (CLEAN + composition des steps) centralisee dans le controller.
 - Execution des plans composes (`Tout faire`, `Segmenter+Indexer`) centralisee dans le controller, avec message "episodes ignores" retourne a l'UI.
+- Execution complete des actions scope simples (`Telecharger`, `Normaliser`, `Segmenter`, `Indexer`) centralisee dans le controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

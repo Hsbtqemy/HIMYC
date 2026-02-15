@@ -621,6 +621,43 @@ class CorpusWorkflowController:
         skipped = len(ids) - len(ids_with_url)
         return ids_with_url, episode_url_by_id, skipped
 
+    def run_fetch_scope_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        context: dict[str, Any],
+        empty_message: str,
+        empty_next_step: str | None = None,
+        skipped_prefix: str = "Téléchargement",
+        skipped_reason: str = "URL source absente",
+    ) -> str | None:
+        """
+        Prépare puis exécute l'action de téléchargement pour un scope.
+
+        Retourne le message de statut "épisodes ignorés" (ou `None` si aucun).
+        """
+        prepared = self.prepare_fetch_scope_plan_or_warn(ids=ids, index=index)
+        if prepared is None:
+            return None
+        ids_with_url, episode_url_by_id, skipped = prepared
+        ok = self.run_action_for_episode_ids_or_warn(
+            action_id=WorkflowActionId.FETCH_EPISODES,
+            context=context,
+            episode_ids=ids_with_url,
+            episode_refs=index.episodes,
+            options={"episode_url_by_id": episode_url_by_id},
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if not ok:
+            return None
+        return self.build_skipped_scope_status_message(
+            prefix=skipped_prefix,
+            skipped=skipped,
+            reason=skipped_reason,
+        )
+
     def resolve_ids_with_raw_or_warn(
         self,
         *,
@@ -680,6 +717,53 @@ class CorpusWorkflowController:
         skipped = len(ids) - len(ids_with_raw)
         return ids_with_raw, profile_by_episode, skipped
 
+    def run_normalize_scope_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+        batch_profile: str,
+        empty_message: str,
+        empty_next_step: str | None = None,
+        skipped_prefix: str = "Normalisation",
+        skipped_reason: str = "sans RAW dans le scope",
+    ) -> str | None:
+        """
+        Prépare puis exécute l'action de normalisation pour un scope.
+
+        Retourne le message de statut "épisodes ignorés" (ou `None` si aucun).
+        """
+        prepared = self.prepare_normalize_scope_plan_or_warn(
+            ids=ids,
+            index=index,
+            store=store,
+            batch_profile=batch_profile,
+        )
+        if prepared is None:
+            return None
+        ids_with_raw, profile_by_episode, skipped = prepared
+        ok = self.run_action_for_episode_ids_or_warn(
+            action_id=WorkflowActionId.NORMALIZE_EPISODES,
+            context=context,
+            episode_ids=ids_with_raw,
+            episode_refs=index.episodes,
+            options={
+                "default_profile_id": batch_profile,
+                "profile_by_episode": profile_by_episode,
+            },
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if not ok:
+            return None
+        return self.build_skipped_scope_status_message(
+            prefix=skipped_prefix,
+            skipped=skipped,
+            reason=skipped_reason,
+        )
+
     def prepare_clean_scope_ids_or_warn(
         self,
         *,
@@ -703,6 +787,97 @@ class CorpusWorkflowController:
             return None
         skipped = len(ids) - len(ids_with_clean)
         return ids_with_clean, skipped
+
+    def run_segment_scope_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+        lang_hint: str,
+        clean_empty_message: str,
+        clean_empty_next_step: str,
+        empty_message: str,
+        empty_next_step: str | None = None,
+        skipped_prefix: str = "Segmentation",
+        skipped_reason: str = "sans CLEAN dans le scope",
+    ) -> str | None:
+        """
+        Prépare puis exécute l'action de segmentation pour un scope CLEAN.
+
+        Retourne le message de statut "épisodes ignorés" (ou `None` si aucun).
+        """
+        prepared = self.prepare_clean_scope_ids_or_warn(
+            ids=ids,
+            has_episode_clean=store.has_episode_clean,
+            empty_message=clean_empty_message,
+            empty_next_step=clean_empty_next_step,
+        )
+        if prepared is None:
+            return None
+        ids_with_clean, skipped = prepared
+        ok = self.run_action_for_episode_ids_or_warn(
+            action_id=WorkflowActionId.SEGMENT_EPISODES,
+            context=context,
+            episode_ids=ids_with_clean,
+            episode_refs=index.episodes,
+            options={"lang_hint": lang_hint},
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if not ok:
+            return None
+        return self.build_skipped_scope_status_message(
+            prefix=skipped_prefix,
+            skipped=skipped,
+            reason=skipped_reason,
+        )
+
+    def run_index_scope_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+        clean_empty_message: str,
+        clean_empty_next_step: str,
+        empty_message: str,
+        empty_next_step: str | None = None,
+        skipped_prefix: str = "Indexation",
+        skipped_reason: str = "sans CLEAN dans le scope",
+    ) -> str | None:
+        """
+        Prépare puis exécute l'action d'indexation DB pour un scope CLEAN.
+
+        Retourne le message de statut "épisodes ignorés" (ou `None` si aucun).
+        """
+        prepared = self.prepare_clean_scope_ids_or_warn(
+            ids=ids,
+            has_episode_clean=store.has_episode_clean,
+            empty_message=clean_empty_message,
+            empty_next_step=clean_empty_next_step,
+        )
+        if prepared is None:
+            return None
+        ids_with_clean, skipped = prepared
+        ok = self.run_action_for_episode_ids_or_warn(
+            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            context=context,
+            episode_ids=ids_with_clean,
+            episode_refs=index.episodes,
+            options=None,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if not ok:
+            return None
+        return self.build_skipped_scope_status_message(
+            prefix=skipped_prefix,
+            skipped=skipped,
+            reason=skipped_reason,
+        )
 
     def resolve_runnable_ids_for_full_workflow_or_warn(
         self,

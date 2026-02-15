@@ -38,7 +38,6 @@ from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeStatus, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import PROFILES, resolve_lang_hint_from_profile_id
 from howimetyourcorpus.core.workflow import (
-    WorkflowActionId,
     WorkflowScope,
     WorkflowService,
 )
@@ -1096,16 +1095,6 @@ class CorpusTabWidget(QWidget):
     def _warn_corpus_precondition(self, message: str, next_step: str | None = None) -> None:
         warn_precondition(self, "Corpus", message, next_step=next_step)
 
-    def _show_skipped_ids(self, *, prefix: str, skipped: int, reason: str) -> None:
-        message = self._workflow_controller.build_skipped_scope_status_message(
-            prefix=prefix,
-            skipped=skipped,
-            reason=reason,
-        )
-        if not message:
-            return
-        self._show_status(message, 5000)
-
     def _get_episode_scope_capabilities(
         self,
         *,
@@ -1270,62 +1259,32 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         _store, _db, context, index, _scope, ids = resolved
-        prepared = self._workflow_controller.prepare_fetch_scope_plan_or_warn(
+        skipped_message = self._workflow_controller.run_fetch_scope_or_warn(
             ids=ids,
             index=index,
-        )
-        if prepared is None:
-            return
-        ids_with_url, episode_url_by_id, skipped = prepared
-        self._show_skipped_ids(
-            prefix="Téléchargement",
-            skipped=skipped,
-            reason="URL source absente",
-        )
-        self._workflow_controller.run_action_for_episode_ids_or_warn(
-            action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
-            episode_ids=ids_with_url,
-            episode_refs=index.episodes,
-            options={
-                "episode_url_by_id": episode_url_by_id
-            },
             empty_message="Aucun épisode à télécharger.",
             empty_next_step="Vérifiez que les épisodes du scope ont une URL source valide.",
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _normalize_episodes(self, scope_mode: str | None = None) -> None:
         resolved = self._resolve_scope_context(scope_mode=scope_mode)
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        prepared = self._workflow_controller.prepare_normalize_scope_plan_or_warn(
+        skipped_message = self._workflow_controller.run_normalize_scope_or_warn(
             ids=ids,
             index=index,
             store=store,
-            batch_profile=batch_profile,
-        )
-        if prepared is None:
-            return
-        ids_with_raw, profile_by_episode, skipped = prepared
-        self._show_skipped_ids(
-            prefix="Normalisation",
-            skipped=skipped,
-            reason="sans RAW dans le scope",
-        )
-        self._workflow_controller.run_action_for_episode_ids_or_warn(
-            action_id=WorkflowActionId.NORMALIZE_EPISODES,
             context=context,
-            episode_ids=ids_with_raw,
-            episode_refs=index.episodes,
-            options={
-                "default_profile_id": batch_profile,
-                "profile_by_episode": profile_by_episode,
-            },
+            batch_profile=self.norm_batch_profile_combo.currentText() or "default_en_v1",
             empty_message="Aucun épisode à normaliser.",
             empty_next_step="Téléchargez d'abord des transcripts RAW pour ce scope.",
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _segment_episodes(self, scope_mode: str | None = None) -> None:
         """Bloc 2 — Segmente les épisodes du scope sélectionné ayant clean.txt."""
@@ -1333,29 +1292,19 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        prepared = self._workflow_controller.prepare_clean_scope_ids_or_warn(
+        skipped_message = self._workflow_controller.run_segment_scope_or_warn(
             ids=ids,
-            has_episode_clean=store.has_episode_clean,
-            empty_message="Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope.",
-            empty_next_step="Lancez « Normaliser » sur ce scope puis relancez la segmentation.",
-        )
-        if prepared is None:
-            return
-        eids_with_clean, skipped = prepared
-        self._show_skipped_ids(
-            prefix="Segmentation",
-            skipped=skipped,
-            reason="sans CLEAN dans le scope",
-        )
-        self._workflow_controller.run_action_for_episode_ids_or_warn(
-            action_id=WorkflowActionId.SEGMENT_EPISODES,
+            index=index,
+            store=store,
             context=context,
-            episode_ids=eids_with_clean,
-            episode_refs=index.episodes,
-            options={"lang_hint": self._resolve_lang_hint(context)},
+            lang_hint=self._resolve_lang_hint(context),
+            clean_empty_message="Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope.",
+            clean_empty_next_step="Lancez « Normaliser » sur ce scope puis relancez la segmentation.",
             empty_message="Aucun épisode à segmenter.",
             empty_next_step="Normalisez d'abord les épisodes du scope pour produire des fichiers CLEAN.",
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _run_all_for_scope(self) -> None:
         """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB sur le scope choisi."""
@@ -1441,29 +1390,18 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        prepared = self._workflow_controller.prepare_clean_scope_ids_or_warn(
+        skipped_message = self._workflow_controller.run_index_scope_or_warn(
             ids=ids,
-            has_episode_clean=store.has_episode_clean,
-            empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
-            empty_next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
-        )
-        if prepared is None:
-            return
-        ids_with_clean, skipped = prepared
-        self._show_skipped_ids(
-            prefix="Indexation",
-            skipped=skipped,
-            reason="sans CLEAN dans le scope",
-        )
-        self._workflow_controller.run_action_for_episode_ids_or_warn(
-            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            index=index,
+            store=store,
             context=context,
-            episode_ids=ids_with_clean,
-            episode_refs=index.episodes,
-            options=None,
+            clean_empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
+            clean_empty_next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
             empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
             empty_next_step="Vérifiez que le scope contient des épisodes normalisés (CLEAN).",
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _segment_and_index_scope(self, scope_mode: str | None = None) -> None:
         """Chaîne segmenter puis indexer pour les épisodes CLEAN du scope choisi."""

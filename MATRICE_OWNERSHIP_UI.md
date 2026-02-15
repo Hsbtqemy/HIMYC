@@ -51,3 +51,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Orchestration des actions `selection(ids)` factorisee (`run_action_for_episode_ids_or_warn`) | Moins de duplication fetch/normalize/segment/index dans `tab_corpus` | hsmy + codex |
 | 2026-02-15 | Lot 6 | Preparation du plan "Segmenter+Indexer" centralisee (CLEAN + composition steps) | `tab_corpus` allege sur l'orchestration composee et couverture unitaire renforcee | hsmy + codex |
 | 2026-02-15 | Lot 6 | Execution des plans composes (`Tout faire`, `Segmenter+Indexer`) centralisee | `tab_corpus` recentre sur l'UI; messages "episodes ignores" homogènes et testables | hsmy + codex |
+| 2026-02-15 | Lot 6 | Execution complete des actions scope simples (`Telecharger`, `Normaliser`, `Segmenter`, `Indexer`) centralisee | Reduction forte de logique metier residuelle dans `tab_corpus` et tests controller etendus | hsmy + codex |
