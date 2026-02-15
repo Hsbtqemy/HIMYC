@@ -50,3 +50,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Preparation du scope "Telecharger" (URL source + skipped + map URL) centralisee | Simplification du bloc fetch UI et regles de precondition testables hors widget | hsmy + codex |
 | 2026-02-15 | Lot 6 | Orchestration des actions `selection(ids)` factorisee (`run_action_for_episode_ids_or_warn`) | Moins de duplication fetch/normalize/segment/index dans `tab_corpus` | hsmy + codex |
 | 2026-02-15 | Lot 6 | Preparation du plan "Segmenter+Indexer" centralisee (CLEAN + composition steps) | `tab_corpus` allege sur l'orchestration composee et couverture unitaire renforcee | hsmy + codex |
+| 2026-02-15 | Lot 6 | Execution des plans composes (`Tout faire`, `Segmenter+Indexer`) centralisee | `tab_corpus` recentre sur l'UI; messages "episodes ignores" homogènes et testables | hsmy + codex |

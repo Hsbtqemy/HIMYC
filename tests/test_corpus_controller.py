@@ -550,6 +550,94 @@ def test_prepare_segment_and_index_scope_plan_or_warn_returns_none_when_no_clean
     assert warned == [("no clean", "normalize first")]
 
 
+def test_run_full_workflow_scope_or_warn_returns_skipped_message() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+
+    class _Store:
+        def has_episode_raw(self, episode_id: str) -> bool:
+            return episode_id == "S01E01"
+
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **kwargs: [f"step:{kwargs['action_id'].value}"],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1"),
+            EpisodeRef("S01E02", 1, 2, "Purple", ""),
+        ],
+    )
+
+    skipped_message = controller.run_full_workflow_scope_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        batch_profile="default_en_v1",
+        lang_hint="en",
+        empty_message="Aucune opération à exécuter.",
+        empty_next_step="next",
+    )
+
+    assert skipped_message == "Tout faire: 1 épisode(s) ignoré(s) (sans URL source, RAW ni CLEAN)."
+    assert len(ran) == 1
+    assert warned == []
+
+
+def test_run_segment_and_index_scope_or_warn_returns_skipped_message() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+
+    class _Store:
+        def has_episode_clean(self, episode_id: str) -> bool:
+            return episode_id == "S01E01"
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **kwargs: [f"step:{kwargs['action_id'].value}"],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "https://src/2"),
+        ],
+    )
+
+    skipped_message = controller.run_segment_and_index_scope_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        lang_hint="en",
+        clean_empty_message="no clean",
+        clean_empty_next_step="normalize first",
+        empty_message="Aucune opération à exécuter.",
+        empty_next_step="next",
+    )
+
+    assert skipped_message == "Segmenter+Indexer: 1 épisode(s) ignoré(s) (sans CLEAN dans le scope)."
+    assert len(ran) == 1
+    assert warned == []
+
+
 def test_build_full_workflow_steps_composes_expected_order() -> None:
     calls: list[WorkflowActionId] = []
 

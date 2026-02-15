@@ -817,6 +817,94 @@ class CorpusWorkflowController:
             return None
         return list(steps), skipped
 
+    def run_full_workflow_scope_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+        batch_profile: str,
+        lang_hint: str,
+        empty_message: str,
+        empty_next_step: str | None = None,
+        skipped_prefix: str = "Tout faire",
+        skipped_reason: str = "sans URL source, RAW ni CLEAN",
+    ) -> str | None:
+        """
+        Prépare puis exécute le plan "Tout faire" pour un scope.
+
+        Retourne le message de statut "épisodes ignorés" (ou `None` si aucun).
+        """
+        prepared = self.prepare_full_workflow_scope_plan_or_warn(
+            ids=ids,
+            index=index,
+            store=store,
+            context=context,
+            batch_profile=batch_profile,
+            lang_hint=lang_hint,
+        )
+        if prepared is None:
+            return None
+        steps, skipped = prepared
+        ok = self.run_composed_steps_or_warn(
+            steps=steps,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if not ok:
+            return None
+        return self.build_skipped_scope_status_message(
+            prefix=skipped_prefix,
+            skipped=skipped,
+            reason=skipped_reason,
+        )
+
+    def run_segment_and_index_scope_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+        lang_hint: str,
+        clean_empty_message: str,
+        clean_empty_next_step: str,
+        empty_message: str,
+        empty_next_step: str | None = None,
+        skipped_prefix: str = "Segmenter+Indexer",
+        skipped_reason: str = "sans CLEAN dans le scope",
+    ) -> str | None:
+        """
+        Prépare puis exécute le plan composé "Segmenter+Indexer" pour un scope CLEAN.
+
+        Retourne le message de statut "épisodes ignorés" (ou `None` si aucun).
+        """
+        prepared = self.prepare_segment_and_index_scope_plan_or_warn(
+            ids=ids,
+            index=index,
+            store=store,
+            context=context,
+            lang_hint=lang_hint,
+            clean_empty_message=clean_empty_message,
+            clean_empty_next_step=clean_empty_next_step,
+        )
+        if prepared is None:
+            return None
+        steps, skipped = prepared
+        ok = self.run_composed_steps_or_warn(
+            steps=steps,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if not ok:
+            return None
+        return self.build_skipped_scope_status_message(
+            prefix=skipped_prefix,
+            skipped=skipped,
+            reason=skipped_reason,
+        )
+
     @staticmethod
     def load_status_map_for_index(
         *,

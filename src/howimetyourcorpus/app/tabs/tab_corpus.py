@@ -1252,28 +1252,18 @@ class CorpusTabWidget(QWidget):
         store: Any,
         context: dict[str, Any],
     ) -> None:
-        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        prepared = self._workflow_controller.prepare_full_workflow_scope_plan_or_warn(
+        skipped_message = self._workflow_controller.run_full_workflow_scope_or_warn(
             ids=ids,
             index=index,
             store=store,
             context=context,
-            batch_profile=batch_profile,
+            batch_profile=self.norm_batch_profile_combo.currentText() or "default_en_v1",
             lang_hint=self._resolve_lang_hint(context),
-        )
-        if prepared is None:
-            return
-        steps, skipped = prepared
-        self._show_skipped_ids(
-            prefix="Tout faire",
-            skipped=skipped,
-            reason="sans URL source, RAW ni CLEAN",
-        )
-        self._workflow_controller.run_composed_steps_or_warn(
-            steps=steps,
             empty_message="Aucune opération à exécuter.",
             empty_next_step="Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _fetch_episodes(self, scope_mode: str | None = None) -> None:
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
@@ -1481,7 +1471,7 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        prepared = self._workflow_controller.prepare_segment_and_index_scope_plan_or_warn(
+        skipped_message = self._workflow_controller.run_segment_and_index_scope_or_warn(
             ids=ids,
             index=index,
             store=store,
@@ -1489,20 +1479,11 @@ class CorpusTabWidget(QWidget):
             lang_hint=self._resolve_lang_hint(context),
             clean_empty_message="Aucun épisode CLEAN à segmenter/indexer pour ce scope.",
             clean_empty_next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
-        )
-        if prepared is None:
-            return
-        steps, skipped = prepared
-        self._show_skipped_ids(
-            prefix="Segmenter+Indexer",
-            skipped=skipped,
-            reason="sans CLEAN dans le scope",
-        )
-        self._workflow_controller.run_composed_steps_or_warn(
-            steps=steps,
             empty_message="Aucune opération à exécuter.",
             empty_next_step="Préparez d'abord des épisodes CLEAN dans le scope courant.",
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _export_corpus(self) -> None:
         store = self._get_store()
