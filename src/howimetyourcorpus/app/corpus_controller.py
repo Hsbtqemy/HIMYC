@@ -14,6 +14,7 @@ from howimetyourcorpus.app.corpus_scope import (
     normalize_scope_mode,
 )
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.workflow_status import load_episode_status_map
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 from howimetyourcorpus.core.export_utils import (
     export_corpus_csv,
@@ -595,6 +596,20 @@ class CorpusWorkflowController:
             if (status_map.get(eid) or "").lower() == EpisodeStatus.ERROR.value
         ]
 
+    def resolve_error_episode_ids_from_index(
+        self,
+        *,
+        index: SeriesIndex | None,
+        db: Any,
+        status_map_loader: Callable[[Any, list[str]], dict[str, str]] = load_episode_status_map,
+    ) -> list[str]:
+        """Résout les épisodes en erreur à partir de l'index et de la DB de statut."""
+        if not index or not index.episodes:
+            return []
+        episode_ids = [e.episode_id for e in index.episodes]
+        status_map = status_map_loader(db, episode_ids) if db else {}
+        return self.resolve_error_episode_ids(index=index, status_map=status_map)
+
     def resolve_selected_retry_ids_or_warn(
         self,
         *,
@@ -626,6 +641,27 @@ class CorpusWorkflowController:
     ) -> list[str] | None:
         """Résout les épisodes en erreur à relancer (mode bulk)."""
         error_ids = self.resolve_error_episode_ids(index=index, status_map=status_map)
+        if not error_ids:
+            self._warn_user(
+                "Aucun épisode en erreur à relancer.",
+                "Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
+            )
+            return None
+        return error_ids
+
+    def resolve_all_error_retry_ids_from_index_db_or_warn(
+        self,
+        *,
+        index: SeriesIndex,
+        db: Any,
+        status_map_loader: Callable[[Any, list[str]], dict[str, str]] = load_episode_status_map,
+    ) -> list[str] | None:
+        """Résout et valide les épisodes en erreur à relancer depuis la DB."""
+        error_ids = self.resolve_error_episode_ids_from_index(
+            index=index,
+            db=db,
+            status_map_loader=status_map_loader,
+        )
         if not error_ids:
             self._warn_user(
                 "Aucun épisode en erreur à relancer.",

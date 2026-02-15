@@ -633,6 +633,71 @@ def test_resolve_error_episode_ids_filters_only_error_status() -> None:
     assert error_ids == ["S01E02", "S01E03"]
 
 
+def test_resolve_error_episode_ids_from_index_uses_loader() -> None:
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda _msg, _next_step=None: None,
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+    calls: list[tuple[object, list[str]]] = []
+
+    def _loader(db: object, ids: list[str]) -> dict[str, str]:
+        calls.append((db, list(ids)))
+        return {"S01E01": "indexed", "S01E02": "error"}
+
+    db = object()
+    error_ids = controller.resolve_error_episode_ids_from_index(
+        index=index,
+        db=db,
+        status_map_loader=_loader,
+    )
+    assert error_ids == ["S01E02"]
+    assert calls == [(db, ["S01E01", "S01E02"])]
+
+
+def test_resolve_all_error_retry_ids_from_index_db_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+    ids = controller.resolve_all_error_retry_ids_from_index_db_or_warn(
+        index=index,
+        db=object(),
+        status_map_loader=lambda _db, _ids: {"S01E01": "indexed", "S01E02": "error"},
+    )
+    assert ids == ["S01E02"]
+    none_ids = controller.resolve_all_error_retry_ids_from_index_db_or_warn(
+        index=index,
+        db=object(),
+        status_map_loader=lambda _db, _ids: {"S01E01": "indexed", "S01E02": "normalized"},
+    )
+    assert none_ids is None
+    assert warned[-1] == (
+        "Aucun épisode en erreur à relancer.",
+        "Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
+    )
+
+
 def test_resolve_selected_retry_ids_or_warn() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(

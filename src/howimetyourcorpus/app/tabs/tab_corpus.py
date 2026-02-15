@@ -1241,15 +1241,10 @@ class CorpusTabWidget(QWidget):
     ) -> None:
         previous = self._selected_error_episode_id()
         if error_ids is None:
-            if index:
-                episode_ids = [e.episode_id for e in index.episodes]
-                statuses = load_episode_status_map(self._get_db(), episode_ids)
-                error_ids = self._workflow_controller.resolve_error_episode_ids(
-                    index=index,
-                    status_map=statuses,
-                )
-            else:
-                error_ids = []
+            error_ids = self._workflow_controller.resolve_error_episode_ids_from_index(
+                index=index,
+                db=self._get_db(),
+            )
         self.error_list.blockSignals(True)
         self.error_list.clear()
         for eid in error_ids:
@@ -1457,11 +1452,9 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index = resolved
-        episode_ids = [e.episode_id for e in index.episodes]
-        statuses = load_episode_status_map(self._get_db(), episode_ids)
-        error_ids = self._workflow_controller.resolve_all_error_retry_ids_or_warn(
+        error_ids = self._workflow_controller.resolve_all_error_retry_ids_from_index_db_or_warn(
             index=index,
-            status_map=statuses,
+            db=self._get_db(),
         )
         if error_ids is None:
             return
