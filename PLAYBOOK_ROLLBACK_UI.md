@@ -26,7 +26,8 @@ Definir un rollback rapide et previsible pour chaque lot UI, sans casser:
 | Lot 3 | Flag `logs_incremental_refresh_enabled` | debounce seul |
 | Lot 4 | Flag `personnages_model_view_enabled` | vue legacy QTableWidget |
 | Lot 5 | Rollback commit UI (shortcuts/styles/focus) | desactiver raccourcis nouveaux |
-| Lot 6 | Migration par phases (A/B) + revert phase courante | garder logique dans `tab_corpus.py` |
+| Lot 6 | Revert serie de commits lot6 (`e60922f^..b2c4a8d`) | revenir a l'ancre pre-lot6 `3216dcc` |
+| QA smoke CI | Revert workflow smoke (`2d8e783`) | conserver validation locale manuelle temporaire |
 
 ## Procedure de rollback standard
 
