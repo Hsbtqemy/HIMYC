@@ -282,6 +282,45 @@ class CorpusWorkflowController:
             if (status_map.get(eid) or "").lower() == EpisodeStatus.ERROR.value
         ]
 
+    def resolve_selected_retry_ids_or_warn(
+        self,
+        *,
+        selected_episode_id: str | None,
+        index: SeriesIndex,
+    ) -> list[str] | None:
+        """Valide l'épisode sélectionné pour une relance ciblée."""
+        eid = (selected_episode_id or "").strip()
+        if not eid:
+            self._warn_user(
+                "Sélectionnez un épisode en erreur à relancer.",
+                "Choisissez une ligne dans la liste « Reprise — Erreurs ».",
+            )
+            return None
+        known_ids = {e.episode_id for e in index.episodes}
+        if eid not in known_ids:
+            self._warn_user(
+                f"Épisode introuvable dans l'index: {eid}",
+                "Rafraîchissez la liste des erreurs puis réessayez.",
+            )
+            return None
+        return [eid]
+
+    def resolve_all_error_retry_ids_or_warn(
+        self,
+        *,
+        index: SeriesIndex,
+        status_map: dict[str, str],
+    ) -> list[str] | None:
+        """Résout les épisodes en erreur à relancer (mode bulk)."""
+        error_ids = self.resolve_error_episode_ids(index=index, status_map=status_map)
+        if not error_ids:
+            self._warn_user(
+                "Aucun épisode en erreur à relancer.",
+                "Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
+            )
+            return None
+        return error_ids
+
     def build_full_workflow_steps(
         self,
         *,

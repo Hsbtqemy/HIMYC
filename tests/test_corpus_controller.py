@@ -473,3 +473,66 @@ def test_resolve_error_episode_ids_filters_only_error_status() -> None:
         status_map=status_map,
     )
     assert error_ids == ["S01E02", "S01E03"]
+
+
+def test_resolve_selected_retry_ids_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex("s", "u", episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "u")])
+    assert controller.resolve_selected_retry_ids_or_warn(
+        selected_episode_id="S01E01",
+        index=index,
+    ) == ["S01E01"]
+    assert controller.resolve_selected_retry_ids_or_warn(
+        selected_episode_id=None,
+        index=index,
+    ) is None
+    assert controller.resolve_selected_retry_ids_or_warn(
+        selected_episode_id="S99E99",
+        index=index,
+    ) is None
+    assert warned[-2] == (
+        "Sélectionnez un épisode en erreur à relancer.",
+        "Choisissez une ligne dans la liste « Reprise — Erreurs ».",
+    )
+    assert warned[-1] == (
+        "Épisode introuvable dans l'index: S99E99",
+        "Rafraîchissez la liste des erreurs puis réessayez.",
+    )
+
+
+def test_resolve_all_error_retry_ids_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+    ids = controller.resolve_all_error_retry_ids_or_warn(
+        index=index,
+        status_map={"S01E01": "indexed", "S01E02": "error"},
+    )
+    assert ids == ["S01E02"]
+    none_ids = controller.resolve_all_error_retry_ids_or_warn(
+        index=index,
+        status_map={"S01E01": "indexed", "S01E02": "normalized"},
+    )
+    assert none_ids is None
+    assert warned[-1] == (
+        "Aucun épisode en erreur à relancer.",
+        "Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
+    )

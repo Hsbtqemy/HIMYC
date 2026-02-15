@@ -336,6 +336,7 @@ Etat 2026-02-14:
 - Resolution contextuelle complete (projet + index + scope) centralisee dans le controller.
 - Wrappers redondants retires de `tab_corpus.py` (reduction de couplage UI/workflow).
 - Resolution des episodes en erreur centralisee dans le controller (reuse panneau reprise + relances).
+- Validation des relances d'erreur (episode selectionne / toutes erreurs) deplacee dans le controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

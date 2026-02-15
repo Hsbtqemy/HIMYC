@@ -1525,25 +1525,14 @@ class CorpusTabWidget(QWidget):
         index = self._workflow_controller.resolve_index_or_warn(index=store.load_series_index())
         if index is None:
             return
-        eid = self._selected_error_episode_id()
-        if not eid:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Sélectionnez un épisode en erreur à relancer.",
-                next_step="Choisissez une ligne dans la liste « Reprise — Erreurs ».",
-            )
-            return
-        if eid not in {e.episode_id for e in index.episodes}:
-            warn_precondition(
-                self,
-                "Corpus",
-                f"Épisode introuvable dans l'index: {eid}",
-                next_step="Rafraîchissez la liste des erreurs puis réessayez.",
-            )
+        retry_ids = self._workflow_controller.resolve_selected_retry_ids_or_warn(
+            selected_episode_id=self._selected_error_episode_id(),
+            index=index,
+        )
+        if retry_ids is None:
             return
         self._run_all_for_episode_ids(
-            ids=[eid],
+            ids=retry_ids,
             index=index,
             store=store,
             context=context,
@@ -1565,17 +1554,11 @@ class CorpusTabWidget(QWidget):
             return
         episode_ids = [e.episode_id for e in index.episodes]
         statuses = load_episode_status_map(self._get_db(), episode_ids)
-        error_ids = self._workflow_controller.resolve_error_episode_ids(
+        error_ids = self._workflow_controller.resolve_all_error_retry_ids_or_warn(
             index=index,
             status_map=statuses,
         )
-        if not error_ids:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode en erreur à relancer.",
-                next_step="Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
-            )
+        if error_ids is None:
             return
         self._run_all_for_episode_ids(
             ids=error_ids,
