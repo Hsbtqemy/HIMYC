@@ -41,13 +41,20 @@ Parcours cible:
 6. Ouvrir Inspecteur/Logs depuis panneau erreurs.
 7. Rechercher en Concordance.
 
-## 3) Tag propose
+## 3) Tag(s)
 
-Tag recommande:
+Tag initial:
 
 ```bash
 git tag v0.5.2-ui-jalon-20260215
 git push origin v0.5.2-ui-jalon-20260215
+```
+
+Tag de relance (workflow release corrige pour asset macOS zip):
+
+```bash
+git tag v0.5.2-ui-jalon-20260215-r1
+git push origin v0.5.2-ui-jalon-20260215-r1
 ```
 
 Note: le workflow release (`.github/workflows/release.yml`) se declenche sur `v*`.
@@ -72,14 +79,18 @@ git revert --no-edit 2d8e783
 
 ## 5) Etat
 
-Statut jalon: **Pret a tagger** apres validation manuelle mac.
+Statut jalon: **Publie (r1)**.
 
 ## 6) Execution (trace)
 
 - Tag cree et pousse: `v0.5.2-ui-jalon-20260215`.
 - Run release: `https://github.com/Hsbtqemy/HIMYC/actions/runs/22033528601` (success).
 - Release publiee: `https://github.com/Hsbtqemy/HIMYC/releases/tag/v0.5.2-ui-jalon-20260215`.
+- Tag de relance cree et pousse: `v0.5.2-ui-jalon-20260215-r1`.
+- Run release (r1): `https://github.com/Hsbtqemy/HIMYC/actions/runs/22033988724` (success).
+- Release publiee (r1): `https://github.com/Hsbtqemy/HIMYC/releases/tag/v0.5.2-ui-jalon-20260215-r1`.
 
 Note operationnelle:
 - seul l'asset Windows (`HowIMetYourCorpus.exe`) est apparu sur cette release.
 - correctif workflow applique ensuite pour les prochains tags: archive du bundle macOS en `.zip` avant upload + `fail_on_unmatched_files: true`.
+- verification r1: assets presents `HowIMetYourCorpus.exe` et `HowIMetYourCorpus.app.zip`.

@@ -430,6 +430,7 @@ Etat 2026-02-14:
 Execution conseillee (mise a jour 2026-02-15):
 1. Finaliser validation visuelle Pilotage mac sur 2 resolutions (13" + ecran large), apres stabilisation entete/2 colonnes.
 2. Consolider QA: smoke CI ajoute (`.github/workflows/ui-smoke.yml`) et execution manuelle mac du parcours critique.
-3. Figer un jalon de release UI (tag + notes de rollback) sur la base des lots -1..6: notes pretes dans `NOTES_RELEASE_UI_JALON_2026-02-15.md`.
+3. Jalon release UI fige et publie: `v0.5.2-ui-jalon-20260215-r1` (exe + app zip), details dans `NOTES_RELEASE_UI_JALON_2026-02-15.md`.
+4. Stabiliser les runs `UI Smoke Tests` sur GitHub runner (investigation des echecs recents en CI).
 
 Ce sequencing conserve un bon ratio impact/risque en capitalisant sur les lots P0 deja livres.

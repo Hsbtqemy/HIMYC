@@ -56,5 +56,5 @@ Resultat: toutes vertes.
 
 ## 6) Suite recommandee
 
-1. Ouvrir un lot de consolidation QA (parcours utilisateur complet + checklist de non-regression visuelle).
-2. Figer un jalon de release UI avec notes de rollback.
+1. Consolider QA (parcours utilisateur complet + checklist de non-regression visuelle) et stabiliser les runs CI smoke.
+2. Jalon release UI deja publie: `v0.5.2-ui-jalon-20260215-r1` (voir `NOTES_RELEASE_UI_JALON_2026-02-15.md`).

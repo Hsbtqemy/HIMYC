@@ -27,6 +27,14 @@ Application desktop Windows pour construire, normaliser, indexer et explorer des
 
 Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l’avez téléchargé) ; il n’est pas extrait d’une archive.
 
+### Option A bis — macOS (.app.zip)
+
+Sur les releases récentes, un asset **HowIMetYourCorpus.app.zip** est aussi publié.
+
+1. Télécharger `HowIMetYourCorpus.app.zip` depuis la release.
+2. Dézipper l’archive.
+3. Ouvrir `HowIMetYourCorpus.app`.
+
 ### Option B — Depuis les sources (Python)
 
 1. Ouvrir un terminal dans le dossier du projet.
@@ -166,7 +174,11 @@ Pour générer **HowIMetYourCorpus.exe** en local (dossier **dist/** à la racin
 
 Le build utilise **HowIMetYourCorpus.spec** (PyInstaller) qui inclut le schéma SQL et les migrations en données embarquées. Le menu **Aide → À propos** affiche la version ; **Aide → Vérifier les mises à jour** ouvre la page des releases GitHub.
 
-**Publier une release** : créer un tag (ex. `v0.3.0`) et le pousser. Le workflow [.github/workflows/release.yml](.github/workflows/release.yml) build le .exe et l’attache à la release. **Garder `__version__`** (dans `src/howimetyourcorpus/__init__.py`) **et le tag synchronisés** (ex. tag `v0.3.0` ↔ `__version__ = "0.3.0"`) avant de pousser le tag.
+**Publier une release** : créer un tag (ex. `v0.3.0`) et le pousser. Le workflow [.github/workflows/release.yml](.github/workflows/release.yml) build et attache:
+- `HowIMetYourCorpus.exe` (Windows)
+- `HowIMetYourCorpus.app.zip` (macOS)
+
+**Garder `__version__`** (dans `src/howimetyourcorpus/__init__.py`) **et le tag synchronisés** (ex. tag `v0.3.0` ↔ `__version__ = "0.3.0"`) avant de pousser le tag.
 
 ---
 
@@ -185,7 +197,7 @@ src/howimetyourcorpus/
   core/         # Modèles, pipeline, adapters, normalisation, stockage
 tests/          # Tests (adapters, normalisation, DB KWIC)
 scripts/windows/# install.bat, run.bat, build_exe.bat, download_exe.ps1
-.github/workflows/# release.yml (build .exe et release GitHub)
+.github/workflows/# release.yml (build .exe + .app.zip et release GitHub)
 HowIMetYourCorpus.spec  # Spec PyInstaller (Phase 6, datas schema + migrations)
 dist/           # Généré par build_exe : HowIMetYourCorpus.exe (ignoré par git)
 ```
