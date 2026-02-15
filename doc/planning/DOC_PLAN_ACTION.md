@@ -172,7 +172,7 @@ flowchart LR
 4. [x] Implémenter le résumé de fin de job (agrégation StepResult, signal ou log « X réussis, Y échecs »). (→ M6, §3 P1)
 5. [x] Fallback encodage SRT (utf-8 puis cp1252/latin-1) dans le parser ou l’appelant. (→ M7, §3 P1)
 6. [x] Documenter (ou implémenter) rate limit optionnel dans `utils/http.py` pour `get_html`. (→ M5, §3 P1)
-7. [x] Mettre à jour RECAP.md si besoin (nombre de tests, découpage UI, db_kwic). — Fait.
+7. [x] Mettre à jour `doc/recap/RECAP.md` si besoin (nombre de tests, découpage UI, db_kwic). — Fait.
 8. [x] Lors du prochain nettoyage doc : utiliser DOC_NETTOYAGE.md et aligner les libellés backlog avec ce plan.
 9. [x] Tests scraping (P2 item 16) : fixtures structure changée + 2 tests discover/parse. — Fait.
 10. [x] Documenter pourquoi §10 visualiseuse non retenue (Corpus = gestionnaire, Inspecteur = atelier ; double-clic → Inspecteur). — Fait.
@@ -183,7 +183,7 @@ flowchart LR
 
 - **DOC_BACKLOG.md** — Détail de chaque demande (§1–§10, sous-sections). Chaque action du plan pointe vers un § du backlog via la colonne « Réf » dans les tableaux §3.
 - **DOC_NETTOYAGE.md** — Rituel de nettoyage des doc et affinage du backlog.
-- **RECAP.md** — Structure projet, commandes, layout, tests.
+- **doc/recap/RECAP.md** — Structure projet, commandes, layout, tests.
 - **Analyse précédente** (retour sur le programme) — Hypothèses, risques, propositions P0/P1/P2, architecture (data model, modules, migrations/tests).
 
 **Synchronisation avec DOC_BACKLOG :** quand une demande du backlog est réalisée, (1) la marquer dans la section « Réalisé » de DOC_BACKLOG.md ; (2) l’ajouter au tableau §1 « Déjà réalisé » de ce document ; (3) la retirer des tableaux « Reste à faire » (§2) et « Plan priorisé » (§3). Aucun changement de fond dans DOC_BACKLOG : cette consigne permet de garder les deux documents alignés.

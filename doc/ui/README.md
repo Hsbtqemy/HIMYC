@@ -17,5 +17,3 @@ Organisation des documents UI (sans suppression des chemins historiques):
   - `RAPPORT_CLOTURE_LOT6_DECOUPLAGE.md`
 - `release/`
   - `NOTES_RELEASE_UI_JALON_2026-02-15.md`
-
-Les fichiers homonymes a la racine du repository sont conserves comme ponts de compatibilite.

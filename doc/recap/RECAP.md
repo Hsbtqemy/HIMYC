@@ -32,7 +32,7 @@ HowIMetYourCorpus/
 ├── requirements.txt
 ├── preset_himym.toml
 ├── README.md
-├── RECAP.md                    ← ce fichier
+├── doc/recap/RECAP.md          ← ce fichier
 ├── src/howimetyourcorpus/
 │   ├── app/
 │   │   ├── main.py             # Point d’entrée
@@ -151,7 +151,7 @@ projects/<project_name>/
 
 ## Audit workflow 3 blocs (§14)
 
-Référence : DOC_BACKLOG.md §14 (vision Import / Normalisation-segmentation / Alignement-concordance). Ce tableau atteste la conformité du flux actuel.
+Référence : `doc/planning/DOC_BACKLOG.md` §14 (vision Import / Normalisation-segmentation / Alignement-concordance). Ce tableau atteste la conformité du flux actuel.
 
 ### Steps du pipeline → Bloc
 

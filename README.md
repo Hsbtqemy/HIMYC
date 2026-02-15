@@ -208,8 +208,9 @@ dist/           # Généré par build_exe : HowIMetYourCorpus.exe (ignoré par g
 - **doc/ui/README.md** — Documentation UI active (gouvernance, qualité, rapports, release).
 - **doc/planning/** — Backlog, plan d'action, plans de refonte et rituel de nettoyage.
 - **doc/reviews/** — Revues de code et synthèses destinées au dev.
-- **RECAP.md** — Structure, commandes, layout, phases.
-- **DOC_*.md à la racine** — Fichiers ponts de compatibilité vers `doc/`.
+- **doc/recap/RECAP.md** — Structure, commandes, layout, phases.
+- **doc/recap/RECAP_PHASE3.md** — Récapitulatif détaillé de la phase 3.
+- **doc/compat/** — Historique des anciens fichiers de transition.
 - Les revues de phase historiques sont dans `doc/archive/`.
 
 ## Licence

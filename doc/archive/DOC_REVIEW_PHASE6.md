@@ -87,7 +87,7 @@ La Phase 6 ajoute le **packaging Windows** via PyInstaller (exécutable unique `
 | `scripts/windows/download_exe.ps1` | Téléchargement du .exe depuis la dernière release. |
 | `scripts/windows/download_exe.bat` | Lance download_exe.ps1. |
 | `README.md` | Section « Construire le .exe (Phase 6) ». |
-| `RECAP.md` | Phase 6 décrite. |
+| `doc/recap/RECAP.md` | Phase 6 décrite. |
 | `.gitignore` | dist/, build/ ; .spec versionné. |
 
 ---
