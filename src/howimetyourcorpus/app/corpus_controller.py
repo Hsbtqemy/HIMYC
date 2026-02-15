@@ -584,6 +584,19 @@ class CorpusWorkflowController:
         return runnable_ids
 
     @staticmethod
+    def load_status_map_for_index(
+        *,
+        index: SeriesIndex | None,
+        db: Any,
+        status_map_loader: Callable[[Any, list[str]], dict[str, str]] = load_episode_status_map,
+    ) -> dict[str, str]:
+        """Charge la map de statuts pour les épisodes de l'index."""
+        if not db or not index or not index.episodes:
+            return {}
+        episode_ids = [e.episode_id for e in index.episodes]
+        return status_map_loader(db, episode_ids)
+
+    @staticmethod
     def resolve_error_episode_ids(
         *,
         index: SeriesIndex,
@@ -606,8 +619,11 @@ class CorpusWorkflowController:
         """Résout les épisodes en erreur à partir de l'index et de la DB de statut."""
         if not index or not index.episodes:
             return []
-        episode_ids = [e.episode_id for e in index.episodes]
-        status_map = status_map_loader(db, episode_ids) if db else {}
+        status_map = self.load_status_map_for_index(
+            index=index,
+            db=db,
+            status_map_loader=status_map_loader,
+        )
         return self.resolve_error_episode_ids(index=index, status_map=status_map)
 
     def resolve_selected_retry_ids_or_warn(

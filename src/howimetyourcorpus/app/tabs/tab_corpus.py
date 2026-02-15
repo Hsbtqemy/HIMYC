@@ -48,7 +48,6 @@ from howimetyourcorpus.app.export_dialog import build_export_success_message
 from howimetyourcorpus.app.workflow_advice import build_workflow_advice
 from howimetyourcorpus.app.workflow_status import (
     compute_workflow_status,
-    load_episode_status_map,
 )
 from howimetyourcorpus.app.corpus_scope import (
     build_profile_by_episode,
@@ -808,8 +807,10 @@ class CorpusTabWidget(QWidget):
             has_episode_clean=store.has_episode_clean,
             log=logger,
         )
-        episode_ids = [e.episode_id for e in index.episodes]
-        statuses = load_episode_status_map(db, episode_ids) if db else {}
+        statuses = self._workflow_controller.load_status_map_for_index(
+            index=index,
+            db=db,
+        )
         counts, error_ids = compute_workflow_status(
             index=index,
             store=store,

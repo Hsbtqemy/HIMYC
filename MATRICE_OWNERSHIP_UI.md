@@ -39,3 +39,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Execution de plans composes + format message "episodes ignores" centralises dans le controller | Reduction de duplication `tab_corpus` et comportement warning/status unifie | hsmy + codex |
 | 2026-02-15 | Lot 6 | Availability des actions scope centralisee (activations + raisons) dans le controller | UI plus declarative, logique metier testee hors widget | hsmy + codex |
 | 2026-02-15 | Lot 6 | Resolution des episodes en erreur depuis `index+db` centralisee (refresh + reprise bulk) | Moins de plomberie DB dans `tab_corpus`, regles de reprise homogenes | hsmy + codex |
+| 2026-02-15 | Lot 6 | Chargement `status_map` par index centralise dans le controller | Reutilisation unique pour statut workflow global + panneau erreurs | hsmy + codex |

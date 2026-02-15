@@ -633,6 +633,49 @@ def test_resolve_error_episode_ids_filters_only_error_status() -> None:
     assert error_ids == ["S01E02", "S01E03"]
 
 
+def test_load_status_map_for_index_returns_empty_without_db_or_index() -> None:
+    assert CorpusWorkflowController.load_status_map_for_index(index=None, db=object()) == {}
+    assert (
+        CorpusWorkflowController.load_status_map_for_index(
+            index=SeriesIndex("s", "u", episodes=[]),
+            db=object(),
+        )
+        == {}
+    )
+    assert (
+        CorpusWorkflowController.load_status_map_for_index(
+            index=SeriesIndex("s", "u", episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "u")]),
+            db=None,
+        )
+        == {}
+    )
+
+
+def test_load_status_map_for_index_uses_loader() -> None:
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+    calls: list[tuple[object, list[str]]] = []
+
+    def _loader(db: object, ids: list[str]) -> dict[str, str]:
+        calls.append((db, list(ids)))
+        return {"S01E01": "indexed", "S01E02": "error"}
+
+    db = object()
+    status_map = CorpusWorkflowController.load_status_map_for_index(
+        index=index,
+        db=db,
+        status_map_loader=_loader,
+    )
+    assert status_map == {"S01E01": "indexed", "S01E02": "error"}
+    assert calls == [(db, ["S01E01", "S01E02"])]
+
+
 def test_resolve_error_episode_ids_from_index_uses_loader() -> None:
     controller = CorpusWorkflowController(
         workflow_service=object(),  # type: ignore[arg-type]
