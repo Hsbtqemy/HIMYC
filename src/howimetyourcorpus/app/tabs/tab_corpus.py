@@ -1302,23 +1302,6 @@ class CorpusTabWidget(QWidget):
             get_episode_ids_for_season=self.episodes_tree_model.get_episode_ids_for_season,
         )
 
-    def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
-        return load_episode_status_map(self._get_db(), episode_ids)
-
-    def _get_error_episode_ids(
-        self,
-        index: SeriesIndex,
-        *,
-        status_map: dict[str, str] | None = None,
-    ) -> list[str]:
-        episode_ids = [e.episode_id for e in index.episodes]
-        statuses = status_map if status_map is not None else self._get_episode_status_map(episode_ids)
-        return [
-            eid
-            for eid in episode_ids
-            if (statuses.get(eid) or "").lower() == EpisodeStatus.ERROR.value
-        ]
-
     def _selected_error_episode_id(self) -> str | None:
         item = self.error_list.currentItem()
         if not item:
@@ -1341,7 +1324,15 @@ class CorpusTabWidget(QWidget):
     ) -> None:
         previous = self._selected_error_episode_id()
         if error_ids is None:
-            error_ids = self._get_error_episode_ids(index) if index else []
+            if index:
+                episode_ids = [e.episode_id for e in index.episodes]
+                statuses = load_episode_status_map(self._get_db(), episode_ids)
+                error_ids = self._workflow_controller.resolve_error_episode_ids(
+                    index=index,
+                    status_map=statuses,
+                )
+            else:
+                error_ids = []
         self.error_list.blockSignals(True)
         self.error_list.clear()
         for eid in error_ids:
@@ -1572,7 +1563,12 @@ class CorpusTabWidget(QWidget):
         index = self._workflow_controller.resolve_index_or_warn(index=store.load_series_index())
         if index is None:
             return
-        error_ids = self._get_error_episode_ids(index)
+        episode_ids = [e.episode_id for e in index.episodes]
+        statuses = load_episode_status_map(self._get_db(), episode_ids)
+        error_ids = self._workflow_controller.resolve_error_episode_ids(
+            index=index,
+            status_map=statuses,
+        )
         if not error_ids:
             warn_precondition(
                 self,

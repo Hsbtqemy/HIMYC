@@ -12,7 +12,7 @@ from howimetyourcorpus.app.corpus_scope import (
     normalize_scope_mode,
 )
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
-from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
+from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, SeriesIndex
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope, WorkflowService
 
 
@@ -268,6 +268,19 @@ class CorpusWorkflowController:
             )
             return None
         return runnable_ids
+
+    @staticmethod
+    def resolve_error_episode_ids(
+        *,
+        index: SeriesIndex,
+        status_map: dict[str, str],
+    ) -> list[str]:
+        episode_ids = [e.episode_id for e in index.episodes]
+        return [
+            eid
+            for eid in episode_ids
+            if (status_map.get(eid) or "").lower() == EpisodeStatus.ERROR.value
+        ]
 
     def build_full_workflow_steps(
         self,

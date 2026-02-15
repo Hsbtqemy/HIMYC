@@ -451,3 +451,25 @@ def test_resolve_scope_context_or_warn_fails_on_empty_index() -> None:
             "Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
         )
     ]
+
+
+def test_resolve_error_episode_ids_filters_only_error_status() -> None:
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+            EpisodeRef("S01E03", 1, 3, "Liberty", "u"),
+        ],
+    )
+    status_map = {
+        "S01E01": "indexed",
+        "S01E02": "ERROR",
+        "S01E03": "error",
+    }
+    error_ids = CorpusWorkflowController.resolve_error_episode_ids(
+        index=index,
+        status_map=status_map,
+    )
+    assert error_ids == ["S01E02", "S01E03"]

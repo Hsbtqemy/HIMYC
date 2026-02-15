@@ -335,6 +335,7 @@ Etat 2026-02-14:
 - Filtrages scope (`URL`, `RAW`, `CLEAN`, `runnable`) + warnings de precondition deplaces dans le controller.
 - Resolution contextuelle complete (projet + index + scope) centralisee dans le controller.
 - Wrappers redondants retires de `tab_corpus.py` (reduction de couplage UI/workflow).
+- Resolution des episodes en erreur centralisee dans le controller (reuse panneau reprise + relances).
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria
