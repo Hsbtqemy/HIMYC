@@ -5,6 +5,10 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip("PySide6.QtWidgets", reason="Runtime Qt non disponible")
+
 from howimetyourcorpus.app.tabs.tab_alignement import AlignmentTabWidget
 from howimetyourcorpus.app.tabs.tab_concordance import ConcordanceTabWidget
 from howimetyourcorpus.app.tabs.tab_corpus import CorpusTabWidget

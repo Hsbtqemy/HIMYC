@@ -1,5 +1,9 @@
 """Tests du contrat d'état global job (idle/running/cancelling/done/error)."""
 
+import pytest
+
+pytest.importorskip("PySide6.QtWidgets", reason="Runtime Qt non disponible")
+
 from howimetyourcorpus.app import ui_mainwindow as mw
 
 
