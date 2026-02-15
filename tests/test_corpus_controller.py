@@ -116,3 +116,67 @@ def test_run_action_for_scope_stops_when_step_builder_returns_none() -> None:
     assert ok is False
     assert ran == []
     assert warned == []
+
+
+def test_build_full_workflow_steps_composes_expected_order() -> None:
+    calls: list[WorkflowActionId] = []
+
+    def _step_builder(**kwargs):
+        action_id = kwargs["action_id"]
+        calls.append(action_id)
+        return [f"step:{action_id.value}"]
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda _msg, _next_step=None: None,
+        step_builder=_step_builder,
+    )
+
+    steps = controller.build_full_workflow_steps(
+        context={"config": object()},
+        episode_refs=_sample_episode_refs(),
+        all_scope_ids=["S01E01"],
+        runnable_ids=["S01E01"],
+        episode_url_by_id={"S01E01": "https://src/1"},
+        batch_profile="default_en_v1",
+        profile_by_episode={"S01E01": "default_en_v1"},
+        lang_hint="en",
+    )
+
+    assert steps == [
+        "step:fetch_episodes",
+        "step:normalize_episodes",
+        "step:segment_episodes",
+        "step:build_db_index",
+    ]
+    assert calls == [
+        WorkflowActionId.FETCH_EPISODES,
+        WorkflowActionId.NORMALIZE_EPISODES,
+        WorkflowActionId.SEGMENT_EPISODES,
+        WorkflowActionId.BUILD_DB_INDEX,
+    ]
+
+
+def test_build_segment_and_index_steps_returns_none_on_builder_failure() -> None:
+    def _step_builder(**kwargs):
+        action_id = kwargs["action_id"]
+        if action_id == WorkflowActionId.BUILD_DB_INDEX:
+            return None
+        return ["segment-step"]
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda _msg, _next_step=None: None,
+        step_builder=_step_builder,
+    )
+
+    steps = controller.build_segment_and_index_steps(
+        context={"config": object()},
+        episode_refs=_sample_episode_refs(),
+        ids_with_clean=["S01E01"],
+        lang_hint="en",
+    )
+
+    assert steps is None

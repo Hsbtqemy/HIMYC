@@ -329,6 +329,7 @@ Etat 2026-02-14:
 - Couverture dediee ajoutee: `tests/test_corpus_scope.py`.
 - Phase B demarree: `CorpusWorkflowController` introduit pour centraliser build/run des actions workflow.
 - `tab_corpus.py` delegue build/execution de steps au controller.
+- Composition des plans multi-etapes (`Tout faire`, `Segmenter+Indexer`) deplacee dans le controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

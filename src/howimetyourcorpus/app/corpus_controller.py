@@ -69,3 +69,91 @@ class CorpusWorkflowController:
             return False
         self._run_steps(steps)
         return True
+
+    def build_full_workflow_steps(
+        self,
+        *,
+        context: dict[str, Any],
+        episode_refs: list[EpisodeRef],
+        all_scope_ids: list[str],
+        runnable_ids: list[str],
+        episode_url_by_id: dict[str, str],
+        batch_profile: str,
+        profile_by_episode: dict[str, str],
+        lang_hint: str,
+    ) -> list[Any] | None:
+        """Construit le plan composé fetch -> normalize -> segment -> index pour un scope."""
+        fetch_scope = WorkflowScope.selection(all_scope_ids)
+        fetch_steps = self.build_action_steps_or_warn(
+            action_id=WorkflowActionId.FETCH_EPISODES,
+            context=context,
+            scope=fetch_scope,
+            episode_refs=episode_refs,
+            options={"episode_url_by_id": episode_url_by_id},
+        )
+        if fetch_steps is None:
+            return None
+        if not runnable_ids:
+            return list(fetch_steps)
+        runnable_scope = WorkflowScope.selection(runnable_ids)
+        normalize_steps = self.build_action_steps_or_warn(
+            action_id=WorkflowActionId.NORMALIZE_EPISODES,
+            context=context,
+            scope=runnable_scope,
+            episode_refs=episode_refs,
+            options={
+                "default_profile_id": batch_profile,
+                "profile_by_episode": profile_by_episode,
+            },
+        )
+        if normalize_steps is None:
+            return None
+        segment_steps = self.build_action_steps_or_warn(
+            action_id=WorkflowActionId.SEGMENT_EPISODES,
+            context=context,
+            scope=runnable_scope,
+            episode_refs=episode_refs,
+            options={"lang_hint": lang_hint},
+        )
+        if segment_steps is None:
+            return None
+        index_steps = self.build_action_steps_or_warn(
+            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            context=context,
+            scope=runnable_scope,
+            episode_refs=episode_refs,
+            options=None,
+        )
+        if index_steps is None:
+            return None
+        return list(fetch_steps) + list(normalize_steps) + list(segment_steps) + list(index_steps)
+
+    def build_segment_and_index_steps(
+        self,
+        *,
+        context: dict[str, Any],
+        episode_refs: list[EpisodeRef],
+        ids_with_clean: list[str],
+        lang_hint: str,
+    ) -> list[Any] | None:
+        """Construit le plan composé segment -> index sur un scope CLEAN."""
+        scope = WorkflowScope.selection(ids_with_clean)
+        segment_steps = self.build_action_steps_or_warn(
+            action_id=WorkflowActionId.SEGMENT_EPISODES,
+            context=context,
+            scope=scope,
+            episode_refs=episode_refs,
+            options={"lang_hint": lang_hint},
+        )
+        if segment_steps is None:
+            return None
+        index_steps = self.build_action_steps_or_warn(
+            action_id=WorkflowActionId.BUILD_DB_INDEX,
+            context=context,
+            scope=scope,
+            episode_refs=episode_refs,
+            options=None,
+        )
+        if index_steps is None:
+            return None
+        return list(segment_steps) + list(index_steps)
