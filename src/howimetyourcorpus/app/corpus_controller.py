@@ -14,7 +14,9 @@ from howimetyourcorpus.app.corpus_scope import (
     normalize_scope_mode,
 )
 from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
+from howimetyourcorpus.app.workflow_advice import build_workflow_advice
 from howimetyourcorpus.app.workflow_status import load_episode_status_map
+from howimetyourcorpus.app.workflow_status import compute_workflow_status
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 from howimetyourcorpus.core.export_utils import (
     export_corpus_csv,
@@ -595,6 +597,31 @@ class CorpusWorkflowController:
             return {}
         episode_ids = [e.episode_id for e in index.episodes]
         return status_map_loader(db, episode_ids)
+
+    def resolve_workflow_snapshot(
+        self,
+        *,
+        index: SeriesIndex,
+        store: Any,
+        db: Any,
+        status_map_loader: Callable[[Any, list[str]], dict[str, str]] = load_episode_status_map,
+        compute_status_fn: Callable[..., tuple[Any, list[str]]] = compute_workflow_status,
+        advice_builder: Callable[[Any], Any] = build_workflow_advice,
+    ) -> tuple[Any, list[str], Any]:
+        """Calcule le snapshot workflow (counts, erreurs, advice) pour l'UI Corpus."""
+        status_map = self.load_status_map_for_index(
+            index=index,
+            db=db,
+            status_map_loader=status_map_loader,
+        )
+        counts, error_ids = compute_status_fn(
+            index=index,
+            store=store,
+            db=db,
+            status_map=status_map,
+        )
+        advice = advice_builder(counts)
+        return counts, error_ids, advice
 
     @staticmethod
     def resolve_error_episode_ids(

@@ -676,6 +676,58 @@ def test_load_status_map_for_index_uses_loader() -> None:
     assert calls == [(db, ["S01E01", "S01E02"])]
 
 
+def test_resolve_workflow_snapshot_delegates_loader_compute_and_advice() -> None:
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda _msg, _next_step=None: None,
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+    store = object()
+    db = object()
+    calls: dict[str, object] = {}
+
+    def _loader(db_arg: object, ids: list[str]) -> dict[str, str]:
+        calls["loader"] = (db_arg, list(ids))
+        return {"S01E01": "indexed", "S01E02": "error"}
+
+    def _compute_status_fn(**kwargs):
+        calls["compute"] = kwargs
+        return ("counts-object", ["S01E02"])
+
+    def _advice_builder(counts: object):
+        calls["advice"] = counts
+        return {"action_id": "retry_errors"}
+
+    counts, error_ids, advice = controller.resolve_workflow_snapshot(
+        index=index,
+        store=store,
+        db=db,
+        status_map_loader=_loader,
+        compute_status_fn=_compute_status_fn,
+        advice_builder=_advice_builder,
+    )
+    assert counts == "counts-object"
+    assert error_ids == ["S01E02"]
+    assert advice == {"action_id": "retry_errors"}
+    assert calls["loader"] == (db, ["S01E01", "S01E02"])
+    assert calls["advice"] == "counts-object"
+    compute_args = calls["compute"]
+    assert isinstance(compute_args, dict)
+    assert compute_args["index"] is index
+    assert compute_args["store"] is store
+    assert compute_args["db"] is db
+    assert compute_args["status_map"] == {"S01E01": "indexed", "S01E02": "error"}
+
+
 def test_resolve_error_episode_ids_from_index_uses_loader() -> None:
     controller = CorpusWorkflowController(
         workflow_service=object(),  # type: ignore[arg-type]

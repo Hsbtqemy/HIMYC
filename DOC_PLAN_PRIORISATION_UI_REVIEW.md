@@ -353,6 +353,7 @@ Etat 2026-02-14:
 - Availability des actions scope (fetch/normalize/segment/index/run_all + raisons) centralisee dans le controller.
 - Resolution des episodes en erreur depuis `index+db` deplacee dans le controller (refresh panneau + reprise bulk).
 - Chargement de `status_map` (index+db) centralise dans le controller et reutilise pour le statut workflow global.
+- Snapshot workflow (`counts + error_ids + advice`) centralise dans le controller et reutilise dans `refresh()` Corpus.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

@@ -45,10 +45,6 @@ from howimetyourcorpus.core.workflow import (
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.corpus_controller import CorpusWorkflowController
 from howimetyourcorpus.app.export_dialog import build_export_success_message
-from howimetyourcorpus.app.workflow_advice import build_workflow_advice
-from howimetyourcorpus.app.workflow_status import (
-    compute_workflow_status,
-)
 from howimetyourcorpus.app.corpus_scope import (
     build_profile_by_episode,
     build_episode_scope_capabilities,
@@ -807,15 +803,10 @@ class CorpusTabWidget(QWidget):
             has_episode_clean=store.has_episode_clean,
             log=logger,
         )
-        statuses = self._workflow_controller.load_status_map_for_index(
-            index=index,
-            db=db,
-        )
-        counts, error_ids = compute_workflow_status(
+        counts, error_ids, advice = self._workflow_controller.resolve_workflow_snapshot(
             index=index,
             store=store,
             db=db,
-            status_map=statuses,
         )
         self.corpus_status_label.setText(
             "Workflow : "
@@ -824,7 +815,6 @@ class CorpusTabWidget(QWidget):
             f"Indexés {counts.n_indexed} | Erreurs {counts.n_error} | "
             f"SRT {counts.n_with_srt} | Alignés {counts.n_aligned}"
         )
-        advice = build_workflow_advice(counts)
         self.corpus_next_step_label.setText(advice.message)
         self._apply_workflow_advice(advice.action_id, advice.label)
         self._set_scope_action_buttons_enabled(
