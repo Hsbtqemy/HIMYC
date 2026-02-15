@@ -123,9 +123,8 @@ class CorpusTabWidget(QWidget):
         self._on_open_alignment = on_open_alignment
         self._on_open_concordance = on_open_concordance
         self._on_open_logs_for_episode = on_open_logs_for_episode
-        self._workflow_service = WorkflowService()
         self._workflow_controller = CorpusWorkflowController(
-            workflow_service=self._workflow_service,
+            workflow_service=WorkflowService(),
             run_steps=lambda steps: self._run_job_with_force(steps),
             warn_user=self._warn_corpus_precondition,
         )
