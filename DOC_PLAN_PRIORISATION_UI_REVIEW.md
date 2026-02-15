@@ -353,13 +353,13 @@ Etat 2026-02-14:
 | Lot | Dev owner | Reviewer tech | Validateur UX/Produit | Statut |
 |---|---|---|---|---|
 | Lot -1 | hsmy + codex | TBD | TBD | Fait |
-| Lot 0 | hsmy + codex | TBD | TBD | En cours |
-| Lot 1 | TBD | TBD | TBD | A faire |
-| Lot 2 | TBD | TBD | TBD | A faire |
-| Lot 3 | TBD | TBD | TBD | A faire |
-| Lot 4 | TBD | TBD | TBD | En cours |
-| Lot 5 | TBD | TBD | TBD | En cours |
-| Lot 6 | TBD | TBD | TBD | En cours |
+| Lot 0 | hsmy + codex | TBD | TBD | Fait |
+| Lot 1 | hsmy + codex | TBD | TBD | Fait |
+| Lot 2 | hsmy + codex | TBD | TBD | Fait |
+| Lot 3 | hsmy + codex | TBD | TBD | Fait |
+| Lot 4 | hsmy + codex | TBD | TBD | En cours |
+| Lot 5 | hsmy + codex | TBD | TBD | En cours |
+| Lot 6 | hsmy + codex | TBD | TBD | En cours |
 
 ## 6) KPI instrumentes (definitifs)
 
@@ -393,14 +393,11 @@ Etat 2026-02-14:
 
 ## 8) Recommandation immediate
 
-Execution conseillee:
-1. Valider visuellement Lot -1 sur 2 resolutions mac (13" et ecran large),
-2. Lot 0 (cadrage+baseline),
-3. Lot 1 (fiabilite critique),
-4. Lot 2 (KWIC async),
-5. Lot 3 (logs perf),
-6. Lot 4 (personnages model/view),
-7. Lot 5 (accessibilite+clarte),
-8. Lot 6 (decouplage).
+Execution conseillee (mise a jour 2026-02-15):
+1. Finaliser validation visuelle Pilotage mac sur 2 resolutions (13" + ecran large), apres stabilisation entete/2 colonnes.
+2. Clore Lot 4: verifier parite UX complete Personnages (edition massive + propagation) et capturer preuves de non-regression.
+3. Clore Lot 5: validation clavier/HDPI/contraste en manuel guide via checklist.
+4. Continuer Lot 6 par micro-PRs: extractions restantes de logique workflow hors `tab_corpus` + tests.
+5. Figer un jalon de release UI (tag + notes de rollback) une fois 2-4 passes.
 
-C'est le meilleur ratio impact/risque pour reduire les frictions majeures sans destabiliser le pipeline coeur.
+Ce sequencing conserve un bon ratio impact/risque en capitalisant sur les lots P0 deja livres.
