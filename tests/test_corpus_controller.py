@@ -1563,6 +1563,184 @@ def test_resolve_all_error_retry_ids_from_index_db_or_warn() -> None:
     )
 
 
+def test_run_retry_selected_error_or_warn_runs_full_workflow() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+
+    class _Store:
+        def load_series_index(self):
+            return SeriesIndex(
+                "s",
+                "u",
+                episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1")],
+            )
+
+        def has_episode_raw(self, _episode_id: str) -> bool:
+            return False
+
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **kwargs: [f"step:{kwargs['action_id'].value}"],
+    )
+    skipped_message = controller.run_retry_selected_error_or_warn(
+        store=_Store(),
+        db=object(),
+        context={"config": object()},
+        selected_episode_id="S01E01",
+        batch_profile="default_en_v1",
+        lang_hint="en",
+    )
+    assert skipped_message is None
+    assert len(ran) == 1
+    assert warned == []
+
+
+def test_run_retry_selected_error_or_warn_warns_on_missing_selection() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+
+    class _Store:
+        def load_series_index(self):
+            return SeriesIndex(
+                "s",
+                "u",
+                episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1")],
+            )
+
+        def has_episode_raw(self, _episode_id: str) -> bool:
+            return False
+
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **kwargs: [f"step:{kwargs['action_id'].value}"],
+    )
+    skipped_message = controller.run_retry_selected_error_or_warn(
+        store=_Store(),
+        db=object(),
+        context={"config": object()},
+        selected_episode_id=None,
+        batch_profile="default_en_v1",
+        lang_hint="en",
+    )
+    assert skipped_message is None
+    assert ran == []
+    assert warned[-1] == (
+        "Sélectionnez un épisode en erreur à relancer.",
+        "Choisissez une ligne dans la liste « Reprise — Erreurs ».",
+    )
+
+
+def test_run_retry_all_errors_or_warn_runs_full_workflow() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+
+    class _Store:
+        def load_series_index(self):
+            return SeriesIndex(
+                "s",
+                "u",
+                episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1")],
+            )
+
+        def has_episode_raw(self, _episode_id: str) -> bool:
+            return False
+
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **kwargs: [f"step:{kwargs['action_id'].value}"],
+    )
+    skipped_message = controller.run_retry_all_errors_or_warn(
+        store=_Store(),
+        db=object(),
+        context={"config": object()},
+        batch_profile="default_en_v1",
+        lang_hint="en",
+        status_map_loader=lambda _db, _ids: {"S01E01": "error"},
+    )
+    assert skipped_message is None
+    assert len(ran) == 1
+    assert warned == []
+
+
+def test_run_retry_all_errors_or_warn_warns_when_no_error() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+
+    class _Store:
+        def load_series_index(self):
+            return SeriesIndex(
+                "s",
+                "u",
+                episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1")],
+            )
+
+        def has_episode_raw(self, _episode_id: str) -> bool:
+            return False
+
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **kwargs: [f"step:{kwargs['action_id'].value}"],
+    )
+    skipped_message = controller.run_retry_all_errors_or_warn(
+        store=_Store(),
+        db=object(),
+        context={"config": object()},
+        batch_profile="default_en_v1",
+        lang_hint="en",
+        status_map_loader=lambda _db, _ids: {"S01E01": "indexed"},
+    )
+    assert skipped_message is None
+    assert ran == []
+    assert warned[-1] == (
+        "Aucun épisode en erreur à relancer.",
+        "Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
+    )
+
+
 def test_resolve_selected_retry_ids_or_warn() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(

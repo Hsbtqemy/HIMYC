@@ -1315,51 +1315,30 @@ class CorpusTabWidget(QWidget):
         self._run_all_for_episode_ids(ids=ids, index=index, store=store, context=context)
 
     def _retry_selected_error_episode(self) -> None:
-        resolved = self._workflow_controller.resolve_project_with_index_or_warn(
+        context = self._get_context()
+        skipped_message = self._workflow_controller.run_retry_selected_error_or_warn(
             store=self._get_store(),
             db=self._get_db(),
-            context=self._get_context(),
-            require_db=True,
-        )
-        if resolved is None:
-            return
-        store, _db, context, index = resolved
-        retry_ids = self._workflow_controller.resolve_selected_retry_ids_or_warn(
-            selected_episode_id=self._selected_error_episode_id(),
-            index=index,
-        )
-        if retry_ids is None:
-            return
-        self._run_all_for_episode_ids(
-            ids=retry_ids,
-            index=index,
-            store=store,
             context=context,
+            selected_episode_id=self._selected_error_episode_id(),
+            batch_profile=self.norm_batch_profile_combo.currentText() or "default_en_v1",
+            lang_hint=self._resolve_lang_hint(context),
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _retry_error_episodes(self) -> None:
         """Relance les épisodes en erreur avec un enchaînement complet."""
-        resolved = self._workflow_controller.resolve_project_with_index_or_warn(
+        context = self._get_context()
+        skipped_message = self._workflow_controller.run_retry_all_errors_or_warn(
             store=self._get_store(),
             db=self._get_db(),
-            context=self._get_context(),
-            require_db=True,
-        )
-        if resolved is None:
-            return
-        store, _db, context, index = resolved
-        error_ids = self._workflow_controller.resolve_all_error_retry_ids_from_index_db_or_warn(
-            index=index,
-            db=self._get_db(),
-        )
-        if error_ids is None:
-            return
-        self._run_all_for_episode_ids(
-            ids=error_ids,
-            index=index,
-            store=store,
             context=context,
+            batch_profile=self.norm_batch_profile_combo.currentText() or "default_en_v1",
+            lang_hint=self._resolve_lang_hint(context),
         )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _open_selected_error_in_inspector(self) -> None:
         if not self._on_open_inspector:

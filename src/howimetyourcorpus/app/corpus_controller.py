@@ -1244,6 +1244,85 @@ class CorpusWorkflowController:
             return None
         return eid
 
+    def run_retry_selected_error_or_warn(
+        self,
+        *,
+        store: Any,
+        db: Any,
+        context: dict[str, Any],
+        selected_episode_id: str | None,
+        batch_profile: str,
+        lang_hint: str,
+        empty_message: str = "Aucune opération à exécuter.",
+        empty_next_step: str | None = "Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
+    ) -> str | None:
+        """Relance un épisode en erreur sélectionné avec le workflow complet."""
+        resolved = self.resolve_project_with_index_or_warn(
+            store=store,
+            db=db,
+            context=context,
+            require_db=True,
+        )
+        if resolved is None:
+            return None
+        store_ok, _db_ok, context_ok, index_ok = resolved
+        retry_ids = self.resolve_selected_retry_ids_or_warn(
+            selected_episode_id=selected_episode_id,
+            index=index_ok,
+        )
+        if retry_ids is None:
+            return None
+        return self.run_full_workflow_scope_or_warn(
+            ids=retry_ids,
+            index=index_ok,
+            store=store_ok,
+            context=context_ok,
+            batch_profile=batch_profile,
+            lang_hint=lang_hint,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+
+    def run_retry_all_errors_or_warn(
+        self,
+        *,
+        store: Any,
+        db: Any,
+        context: dict[str, Any],
+        batch_profile: str,
+        lang_hint: str,
+        status_map_loader: Callable[[Any, list[str]], dict[str, str]] = load_episode_status_map,
+        empty_message: str = "Aucune opération à exécuter.",
+        empty_next_step: str | None = "Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
+    ) -> str | None:
+        """Relance tous les épisodes en erreur (depuis index+DB) avec le workflow complet."""
+        resolved = self.resolve_project_with_index_or_warn(
+            store=store,
+            db=db,
+            context=context,
+            require_db=True,
+        )
+        if resolved is None:
+            return None
+        store_ok, db_ok, context_ok, index_ok = resolved
+        retry_ids = self.resolve_all_error_retry_ids_from_index_db_or_warn(
+            index=index_ok,
+            db=db_ok,
+            status_map_loader=status_map_loader,
+        )
+        if retry_ids is None:
+            return None
+        return self.run_full_workflow_scope_or_warn(
+            ids=retry_ids,
+            index=index_ok,
+            store=store_ok,
+            context=context_ok,
+            batch_profile=batch_profile,
+            lang_hint=lang_hint,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+
     def build_full_workflow_steps(
         self,
         *,
