@@ -73,3 +73,13 @@ git revert --no-edit 2d8e783
 ## 5) Etat
 
 Statut jalon: **Pret a tagger** apres validation manuelle mac.
+
+## 6) Execution (trace)
+
+- Tag cree et pousse: `v0.5.2-ui-jalon-20260215`.
+- Run release: `https://github.com/Hsbtqemy/HIMYC/actions/runs/22033528601` (success).
+- Release publiee: `https://github.com/Hsbtqemy/HIMYC/releases/tag/v0.5.2-ui-jalon-20260215`.
+
+Note operationnelle:
+- seul l'asset Windows (`HowIMetYourCorpus.exe`) est apparu sur cette release.
+- correctif workflow applique ensuite pour les prochains tags: archive du bundle macOS en `.zip` avant upload + `fail_on_unmatched_files: true`.

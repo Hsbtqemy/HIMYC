@@ -58,3 +58,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Cloture documentaire du lot (`RAPPORT_CLOTURE_LOT6_DECOUPLAGE.md`) | Validation, risques residuels et prochaines actions formalises | hsmy + codex |
 | 2026-02-15 | QA consolidation | Workflow CI smoke UI ajoute (`.github/workflows/ui-smoke.yml`) | Garde-fou automatique sur regressions UI/workflow critiques | hsmy + codex |
 | 2026-02-15 | Release prep | Notes de jalon UI + rollback commit-range formalises (`NOTES_RELEASE_UI_JALON_2026-02-15.md`) | Passage vers release tag plus previsible et reversible | hsmy + codex |
+| 2026-02-15 | Release hardening | Workflow release fiabilise (zip `.app` + `fail_on_unmatched_files`) | Evite les releases "success" sans asset macOS publiable | hsmy + codex |

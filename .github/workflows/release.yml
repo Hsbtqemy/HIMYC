@@ -36,6 +36,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/HowIMetYourCorpus.exe
+          fail_on_unmatched_files: true
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,11 +66,16 @@ jobs:
         run: |
           pyinstaller --noconfirm HowIMetYourCorpus.spec
 
+      - name: Archive .app bundle
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/HowIMetYourCorpus.app dist/HowIMetYourCorpus.app.zip
+
       - name: Upload .app to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: dist/HowIMetYourCorpus.app
+          files: dist/HowIMetYourCorpus.app.zip
+          fail_on_unmatched_files: true
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
