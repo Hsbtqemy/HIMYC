@@ -13,13 +13,13 @@ Date: 2026-02-14
 | Lot | Scope court | Dev owner | Reviewer tech | Validateur UX/Produit | Statut |
 |---|---|---|---|---|---|
 | Lot -1 | Refonte ergonomique Pilotage mac (2 colonnes, boxes droite, table corpus) | hsmy + codex | TBD | TBD | Fait |
-| Lot 0 | Baseline KPI + gouvernance + rollback | hsmy + codex | TBD | TBD | En cours |
-| Lot 1 | Fiabilite critique workflow (run explicite + etat global job) | hsmy + codex | TBD | TBD | En cours |
+| Lot 0 | Baseline KPI + gouvernance + rollback | hsmy + codex | TBD | TBD | Fait |
+| Lot 1 | Fiabilite critique workflow (run explicite + etat global job) | hsmy + codex | TBD | TBD | Fait |
 | Lot 2 | Concordance async + cancel + pagination stable | hsmy + codex | TBD | TBD | Fait |
 | Lot 3 | Logs perf (debounce + incremental/tail + pin UX) | hsmy + codex | TBD | TBD | Fait |
-| Lot 4 | Personnages model/view + parite I/O | TBD | TBD | TBD | A faire |
-| Lot 5 | Accessibilite/HDPI/shortcuts + clarte visuelle | TBD | TBD | TBD | A faire |
-| Lot 6 | Decouplage tab_corpus -> controller | TBD | TBD | TBD | A faire |
+| Lot 4 | Personnages model/view + parite I/O | hsmy + codex | TBD | TBD | Fait |
+| Lot 5 | Accessibilite/HDPI/shortcuts + clarte visuelle | hsmy + codex | TBD | TBD | En cours |
+| Lot 6 | Decouplage tab_corpus -> controller | hsmy + codex | TBD | TBD | En cours |
 
 ## Decision log minimal (a renseigner a chaque lot)
 
@@ -32,3 +32,4 @@ Date: 2026-02-14
 | 2026-02-14 | Lot 2 | Telemetrie KWIC (status/hits/duree) ajoutee dans la UI + logs | Visibilite perf/diagnostic continue | hsmy + codex |
 | 2026-02-14 | Lot 3 | Refresh logs optimise (rendu bloc + ingestion incremental tail) | Filtrage plus fluide sur gros buffers | hsmy + codex |
 | 2026-02-14 | Lot 3 | Baseline perf enrichie avec metrique `logs_render_10k_ms` | Suivi perf logs plus representatif | hsmy + codex |
+| 2026-02-15 | Lot 4 | Validation propagation completee (priorite assignation cue + idempotence) via tests store | Cloture parite metier Personnages sans regression | hsmy + codex |

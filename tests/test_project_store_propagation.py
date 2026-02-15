@@ -175,3 +175,84 @@ def test_character_files_load_returns_empty_list_on_invalid_payload(tmp_path: Pa
 
     assert store.load_character_names() == []
     assert store.load_character_assignments() == []
+
+
+def test_propagate_character_names_prefers_explicit_cue_assignment_over_pivot(tmp_path: Path) -> None:
+    store = _init_store(tmp_path)
+    store.save_character_names(
+        [
+            {
+                "id": "ted",
+                "canonical": "Ted",
+                "names_by_lang": {"en": "Ted", "fr": "Ted (FR)"},
+            },
+            {
+                "id": "lily",
+                "canonical": "Lily",
+                "names_by_lang": {"en": "Lily", "fr": "Lily (FR)"},
+            },
+        ]
+    )
+    store.save_character_assignments(
+        [
+            {
+                "episode_id": "S01E01",
+                "source_type": "segment",
+                "source_id": "S01E01:sentence:0",
+                "character_id": "ted",
+            },
+            {
+                "episode_id": "S01E01",
+                "source_type": "cue",
+                "source_id": "S01E01:en:0",
+                "character_id": "lily",
+            },
+        ]
+    )
+    db = _PropagationDbStub()
+
+    nb_seg, nb_cue = store.propagate_character_names(db, "S01E01", "run-1")
+
+    assert nb_seg == 1
+    assert nb_cue == 2
+    # Le segment garde son assignation dédiée.
+    assert db.segment_updates == [("S01E01:sentence:0", "ted")]
+    # Les cues utilisent l'assignation explicite cue (Lily), pas la propagation pivot (Ted).
+    assert db._cues_by_lang["en"][0]["text_clean"].startswith("Lily: ")
+    assert db._cues_by_lang["fr"][0]["text_clean"].startswith("Lily (FR): ")
+
+
+def test_propagate_character_names_is_idempotent_when_prefix_already_present(tmp_path: Path) -> None:
+    store = _init_store(tmp_path)
+    store.save_character_names(
+        [
+            {
+                "id": "ted",
+                "canonical": "Ted",
+                "names_by_lang": {"en": "Ted", "fr": "Ted (FR)"},
+            }
+        ]
+    )
+    store.save_character_assignments(
+        [
+            {
+                "episode_id": "S01E01",
+                "source_type": "segment",
+                "source_id": "S01E01:sentence:0",
+                "character_id": "ted",
+            }
+        ]
+    )
+    db = _PropagationDbStub()
+    db._cues_by_lang["en"][0]["text_clean"] = "Ted: Hello there"
+    db._cues_by_lang["fr"][0]["text_clean"] = "Ted (FR): Salut"
+
+    nb_seg, nb_cue = store.propagate_character_names(db, "S01E01", "run-1")
+
+    assert nb_seg == 1
+    assert nb_cue == 0
+    assert db.bulk_updates_calls == 0
+    assert db.single_update_calls == 0
+    # Aucun rewrite SRT si aucun changement de cue.
+    assert not (tmp_path / "episodes" / "S01E01" / "subs" / "en.srt").exists()
+    assert not (tmp_path / "episodes" / "S01E01" / "subs" / "fr.srt").exists()

@@ -270,6 +270,11 @@ Etat 2026-02-14:
 - Parite I/O JSON (noms + assignations) verrouillee via `tests/test_project_store_propagation.py`.
 - Chargement assignations optimise en remplissage batch (moins de freeze UI sur gros episodes).
 
+Etat 2026-02-15:
+- Validation propagation completee: priorite assignation explicite `cue` sur propagation pivot `segment` testee.
+- Idempotence de propagation testee: pas de double prefixage, pas de rewrite SRT inutile quand aucun changement.
+- Couverture complementaire ajoutee dans `tests/test_project_store_propagation.py`.
+
 ### Acceptance criteria
 - Parite fonctionnelle charge/edit/save/propager.
 - Pas de regression sur payloads sauvegardes.
@@ -357,7 +362,7 @@ Etat 2026-02-14:
 | Lot 1 | hsmy + codex | TBD | TBD | Fait |
 | Lot 2 | hsmy + codex | TBD | TBD | Fait |
 | Lot 3 | hsmy + codex | TBD | TBD | Fait |
-| Lot 4 | hsmy + codex | TBD | TBD | En cours |
+| Lot 4 | hsmy + codex | TBD | TBD | Fait |
 | Lot 5 | hsmy + codex | TBD | TBD | En cours |
 | Lot 6 | hsmy + codex | TBD | TBD | En cours |
 
@@ -395,9 +400,8 @@ Etat 2026-02-14:
 
 Execution conseillee (mise a jour 2026-02-15):
 1. Finaliser validation visuelle Pilotage mac sur 2 resolutions (13" + ecran large), apres stabilisation entete/2 colonnes.
-2. Clore Lot 4: verifier parite UX complete Personnages (edition massive + propagation) et capturer preuves de non-regression.
-3. Clore Lot 5: validation clavier/HDPI/contraste en manuel guide via checklist.
-4. Continuer Lot 6 par micro-PRs: extractions restantes de logique workflow hors `tab_corpus` + tests.
-5. Figer un jalon de release UI (tag + notes de rollback) une fois 2-4 passes.
+2. Clore Lot 5: validation clavier/HDPI/contraste en manuel guide via checklist.
+3. Continuer Lot 6 par micro-PRs: extractions restantes de logique workflow hors `tab_corpus` + tests.
+4. Figer un jalon de release UI (tag + notes de rollback) une fois 1-3 passes.
 
 Ce sequencing conserve un bon ratio impact/risque en capitalisant sur les lots P0 deja livres.
