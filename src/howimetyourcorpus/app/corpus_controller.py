@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 from howimetyourcorpus.app.corpus_scope import normalize_scope_mode
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
-from howimetyourcorpus.core.models import EpisodeRef
+from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope, WorkflowService
 
 
@@ -70,6 +70,33 @@ class CorpusWorkflowController:
             return False
         self._run_steps(steps)
         return True
+
+    def resolve_project_context_or_warn(
+        self,
+        *,
+        store: Any,
+        db: Any,
+        context: dict[str, Any],
+        require_db: bool = False,
+    ) -> tuple[Any, Any, dict[str, Any]] | None:
+        """Valide le contexte projet requis pour lancer des actions Corpus."""
+        if not context.get("config") or not store or (require_db and not db):
+            self._warn_user(
+                "Ouvrez un projet d'abord.",
+                "Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
+            return None
+        return store, db, context
+
+    def resolve_index_or_warn(self, *, index: SeriesIndex | None) -> SeriesIndex | None:
+        """Valide que l'index série est présent et non vide."""
+        if not index or not index.episodes:
+            self._warn_user(
+                "Découvrez d'abord les épisodes.",
+                "Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+            )
+            return None
+        return index
 
     def resolve_scope_and_ids_or_warn(
         self,

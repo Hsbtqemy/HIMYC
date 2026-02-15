@@ -1295,27 +1295,16 @@ class CorpusTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         context = self._get_context()
-        if not context.get("config") or not store or (require_db and not db):
-            warn_precondition(
-                self,
-                "Corpus",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
-            )
-            return None
-        return store, db, context
+        return self._workflow_controller.resolve_project_context_or_warn(
+            store=store,
+            db=db,
+            context=context,
+            require_db=require_db,
+        )
 
     def _load_index_or_warn(self, store: Any) -> SeriesIndex | None:
         index = store.load_series_index()
-        if not index or not index.episodes:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Découvrez d'abord les épisodes.",
-                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
-            )
-            return None
-        return index
+        return self._workflow_controller.resolve_index_or_warn(index=index)
 
     def _resolve_scope_context(
         self,

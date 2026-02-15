@@ -234,3 +234,64 @@ def test_resolve_scope_and_ids_or_warn_reports_missing_current() -> None:
             "Sélectionnez un épisode dans la liste ou cochez sa case.",
         )
     ]
+
+
+def test_resolve_project_context_or_warn_requires_config_and_store() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    resolved = controller.resolve_project_context_or_warn(
+        store=None,
+        db=object(),
+        context={},
+        require_db=False,
+    )
+    assert resolved is None
+    assert warned == [
+        (
+            "Ouvrez un projet d'abord.",
+            "Pilotage > Projet: ouvrez ou initialisez un projet.",
+        )
+    ]
+
+
+def test_resolve_project_context_or_warn_allows_without_db_when_not_required() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    store = object()
+    context = {"config": object()}
+    resolved = controller.resolve_project_context_or_warn(
+        store=store,
+        db=None,
+        context=context,
+        require_db=False,
+    )
+    assert resolved == (store, None, context)
+    assert warned == []
+
+
+def test_resolve_index_or_warn_requires_non_empty_index() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    resolved = controller.resolve_index_or_warn(index=None)
+    assert resolved is None
+    assert warned == [
+        (
+            "Découvrez d'abord les épisodes.",
+            "Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
+        )
+    ]
