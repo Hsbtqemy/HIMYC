@@ -728,6 +728,27 @@ def test_resolve_workflow_snapshot_delegates_loader_compute_and_advice() -> None
     assert compute_args["status_map"] == {"S01E01": "indexed", "S01E02": "error"}
 
 
+def test_build_workflow_status_line_formats_all_counters() -> None:
+    class _Counts:
+        n_total = 12
+        n_fetched = 10
+        n_norm = 8
+        n_segmented = 7
+        n_indexed = 6
+        n_error = 1
+        n_with_srt = 9
+        n_aligned = 5
+
+    line = CorpusWorkflowController.build_workflow_status_line(_Counts())
+    assert line == (
+        "Workflow : "
+        "Découverts 12 | Téléchargés 10 | "
+        "Normalisés 8 | Segmentés 7 | "
+        "Indexés 6 | Erreurs 1 | "
+        "SRT 9 | Alignés 5"
+    )
+
+
 def test_resolve_error_episode_ids_from_index_uses_loader() -> None:
     controller = CorpusWorkflowController(
         workflow_service=object(),  # type: ignore[arg-type]

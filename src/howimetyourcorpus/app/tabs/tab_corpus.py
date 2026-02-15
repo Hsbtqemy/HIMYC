@@ -809,11 +809,7 @@ class CorpusTabWidget(QWidget):
             db=db,
         )
         self.corpus_status_label.setText(
-            "Workflow : "
-            f"Découverts {counts.n_total} | Téléchargés {counts.n_fetched} | "
-            f"Normalisés {counts.n_norm} | Segmentés {counts.n_segmented} | "
-            f"Indexés {counts.n_indexed} | Erreurs {counts.n_error} | "
-            f"SRT {counts.n_with_srt} | Alignés {counts.n_aligned}"
+            self._workflow_controller.build_workflow_status_line(counts)
         )
         self.corpus_next_step_label.setText(advice.message)
         self._apply_workflow_advice(advice.action_id, advice.label)

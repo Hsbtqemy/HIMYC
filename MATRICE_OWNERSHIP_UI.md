@@ -41,3 +41,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Resolution des episodes en erreur depuis `index+db` centralisee (refresh + reprise bulk) | Moins de plomberie DB dans `tab_corpus`, regles de reprise homogenes | hsmy + codex |
 | 2026-02-15 | Lot 6 | Chargement `status_map` par index centralise dans le controller | Reutilisation unique pour statut workflow global + panneau erreurs | hsmy + codex |
 | 2026-02-15 | Lot 6 | Snapshot workflow (counts + erreurs + advice) centralise dans le controller | `refresh()` corpus simplifie et pipeline de decision testable hors UI | hsmy + codex |
+| 2026-02-15 | Lot 6 | Formatage de la ligne de statut workflow centralise dans le controller | Uniformisation affichage et retrait de string-building UI | hsmy + codex |

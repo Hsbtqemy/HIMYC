@@ -624,6 +624,17 @@ class CorpusWorkflowController:
         return counts, error_ids, advice
 
     @staticmethod
+    def build_workflow_status_line(counts: Any) -> str:
+        """Construit la ligne de statut workflow affichée dans l'onglet Corpus."""
+        return (
+            "Workflow : "
+            f"Découverts {counts.n_total} | Téléchargés {counts.n_fetched} | "
+            f"Normalisés {counts.n_norm} | Segmentés {counts.n_segmented} | "
+            f"Indexés {counts.n_indexed} | Erreurs {counts.n_error} | "
+            f"SRT {counts.n_with_srt} | Alignés {counts.n_aligned}"
+        )
+
+    @staticmethod
     def resolve_error_episode_ids(
         *,
         index: SeriesIndex,
