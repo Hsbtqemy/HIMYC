@@ -204,6 +204,8 @@ dist/           # Généré par build_exe : HowIMetYourCorpus.exe (ignoré par g
 
 ## Documentation projet
 
+- **doc/README.md** — Point d'entrée de la documentation structurée.
+- **doc/ui/README.md** — Documentation UI active (gouvernance, qualité, rapports, release).
 - **RECAP.md** — Structure, commandes, layout, phases.
 - **DOC_BACKLOG.md** — Demandes et idées (réalisé / à faire).
 - **DOC_PLAN_ACTION.md** — Plan priorisé et checklist (P0/P1/P2).
