@@ -1111,9 +1111,14 @@ class CorpusTabWidget(QWidget):
         warn_precondition(self, "Corpus", message, next_step=next_step)
 
     def _show_skipped_ids(self, *, prefix: str, skipped: int, reason: str) -> None:
-        if skipped <= 0:
+        message = self._workflow_controller.build_skipped_scope_status_message(
+            prefix=prefix,
+            skipped=skipped,
+            reason=reason,
+        )
+        if not message:
             return
-        self._show_status(f"{prefix}: {skipped} épisode(s) ignoré(s) ({reason}).", 5000)
+        self._show_status(message, 5000)
 
     def _get_episode_scope_capabilities(
         self,
@@ -1327,17 +1332,11 @@ class CorpusTabWidget(QWidget):
             profile_by_episode=profile_by_episode,
             lang_hint=self._resolve_lang_hint(context),
         )
-        if steps is None:
-            return
-        if not steps:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucune opération à exécuter.",
-                next_step="Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
-            )
-            return
-        self._run_job_with_force(steps)
+        self._workflow_controller.run_composed_steps_or_warn(
+            steps=steps,
+            empty_message="Aucune opération à exécuter.",
+            empty_next_step="Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
+        )
 
     def _fetch_episodes(self, scope_mode: str | None = None) -> None:
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
@@ -1573,17 +1572,11 @@ class CorpusTabWidget(QWidget):
             ids_with_clean=ids_with_clean,
             lang_hint=self._resolve_lang_hint(context),
         )
-        if steps is None:
-            return
-        if not steps:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucune opération à exécuter.",
-                next_step="Préparez d'abord des épisodes CLEAN dans le scope courant.",
-            )
-            return
-        self._run_job_with_force(steps)
+        self._workflow_controller.run_composed_steps_or_warn(
+            steps=steps,
+            empty_message="Aucune opération à exécuter.",
+            empty_next_step="Préparez d'abord des épisodes CLEAN dans le scope courant.",
+        )
 
     def _export_corpus(self) -> None:
         store = self._get_store()

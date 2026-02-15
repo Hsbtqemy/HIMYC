@@ -91,6 +91,33 @@ class CorpusWorkflowController:
         self._run_steps(steps)
         return True
 
+    def run_composed_steps_or_warn(
+        self,
+        *,
+        steps: list[Any] | None,
+        empty_message: str,
+        empty_next_step: str | None = None,
+    ) -> bool:
+        """Exécute des steps déjà composés (ou avertit si la composition est vide)."""
+        if steps is None:
+            return False
+        if not steps:
+            self._warn_user(empty_message, empty_next_step)
+            return False
+        self._run_steps(steps)
+        return True
+
+    @staticmethod
+    def build_skipped_scope_status_message(
+        *,
+        prefix: str,
+        skipped: int,
+        reason: str,
+    ) -> str | None:
+        if skipped <= 0:
+            return None
+        return f"{prefix}: {skipped} épisode(s) ignoré(s) ({reason})."
+
     def resolve_project_context_or_warn(
         self,
         *,

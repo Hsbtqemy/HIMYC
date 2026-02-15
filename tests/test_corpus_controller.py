@@ -121,6 +121,62 @@ def test_run_action_for_scope_stops_when_step_builder_returns_none() -> None:
     assert warned == []
 
 
+def test_run_composed_steps_or_warn_executes_when_non_empty() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    ok = controller.run_composed_steps_or_warn(
+        steps=["s1", "s2"],
+        empty_message="unused",
+    )
+    assert ok is True
+    assert ran == [["s1", "s2"]]
+    assert warned == []
+
+
+def test_run_composed_steps_or_warn_warns_when_empty() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    ok = controller.run_composed_steps_or_warn(
+        steps=[],
+        empty_message="Aucune opération à exécuter.",
+        empty_next_step="Préparez des épisodes.",
+    )
+    assert ok is False
+    assert ran == []
+    assert warned == [("Aucune opération à exécuter.", "Préparez des épisodes.")]
+
+
+def test_build_skipped_scope_status_message() -> None:
+    assert (
+        CorpusWorkflowController.build_skipped_scope_status_message(
+            prefix="Téléchargement",
+            skipped=2,
+            reason="URL source absente",
+        )
+        == "Téléchargement: 2 épisode(s) ignoré(s) (URL source absente)."
+    )
+    assert (
+        CorpusWorkflowController.build_skipped_scope_status_message(
+            prefix="Téléchargement",
+            skipped=0,
+            reason="URL source absente",
+        )
+        is None
+    )
+
+
 def test_build_full_workflow_steps_composes_expected_order() -> None:
     calls: list[WorkflowActionId] = []
 
