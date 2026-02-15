@@ -373,6 +373,7 @@ Etat 2026-02-14:
 - Ouverture depuis panneau erreurs (`Inspecteur` / `Logs`) factorisee via callback controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 - Lot 6 considere cloture: logique workflow metier concentree dans `CorpusWorkflowController`, `tab_corpus` recentre sur l'assemblage UI.
+- Rapport de cloture ajoute: `RAPPORT_CLOTURE_LOT6_DECOUPLAGE.md`.
 
 ### Acceptance criteria
 - UI conserve le meme comportement observable.
