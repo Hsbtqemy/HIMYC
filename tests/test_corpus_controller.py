@@ -297,6 +297,60 @@ def test_resolve_index_or_warn_requires_non_empty_index() -> None:
     ]
 
 
+def test_resolve_project_with_index_or_warn_success() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex("s", "u", episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "u")])
+
+    class _Store:
+        def load_series_index(self):
+            return index
+
+    store = _Store()
+    db = object()
+    context = {"config": object()}
+    resolved = controller.resolve_project_with_index_or_warn(
+        store=store,
+        db=db,
+        context=context,
+        require_db=True,
+    )
+    assert resolved is not None
+    assert resolved[0] is store
+    assert resolved[1] is db
+    assert resolved[2] is context
+    assert resolved[3] is index
+    assert warned == []
+
+
+def test_resolve_project_with_index_or_warn_reports_missing_project() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    resolved = controller.resolve_project_with_index_or_warn(
+        store=None,
+        db=object(),
+        context={},
+        require_db=True,
+    )
+    assert resolved is None
+    assert warned == [
+        (
+            "Ouvrez un projet d'abord.",
+            "Pilotage > Projet: ouvrez ou initialisez un projet.",
+        )
+    ]
+
+
 def test_resolve_ids_with_source_url_or_warn() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(

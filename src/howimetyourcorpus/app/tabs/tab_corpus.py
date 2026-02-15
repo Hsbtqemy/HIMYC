@@ -1513,7 +1513,7 @@ class CorpusTabWidget(QWidget):
         self._run_all_for_episode_ids(ids=ids, index=index, store=store, context=context)
 
     def _retry_selected_error_episode(self) -> None:
-        resolved = self._workflow_controller.resolve_project_context_or_warn(
+        resolved = self._workflow_controller.resolve_project_with_index_or_warn(
             store=self._get_store(),
             db=self._get_db(),
             context=self._get_context(),
@@ -1521,10 +1521,7 @@ class CorpusTabWidget(QWidget):
         )
         if resolved is None:
             return
-        store, _db, context = resolved
-        index = self._workflow_controller.resolve_index_or_warn(index=store.load_series_index())
-        if index is None:
-            return
+        store, _db, context, index = resolved
         retry_ids = self._workflow_controller.resolve_selected_retry_ids_or_warn(
             selected_episode_id=self._selected_error_episode_id(),
             index=index,
@@ -1540,7 +1537,7 @@ class CorpusTabWidget(QWidget):
 
     def _retry_error_episodes(self) -> None:
         """Relance les épisodes en erreur avec un enchaînement complet."""
-        resolved = self._workflow_controller.resolve_project_context_or_warn(
+        resolved = self._workflow_controller.resolve_project_with_index_or_warn(
             store=self._get_store(),
             db=self._get_db(),
             context=self._get_context(),
@@ -1548,10 +1545,7 @@ class CorpusTabWidget(QWidget):
         )
         if resolved is None:
             return
-        store, _db, context = resolved
-        index = self._workflow_controller.resolve_index_or_warn(index=store.load_series_index())
-        if index is None:
-            return
+        store, _db, context, index = resolved
         episode_ids = [e.episode_id for e in index.episodes]
         statuses = load_episode_status_map(self._get_db(), episode_ids)
         error_ids = self._workflow_controller.resolve_all_error_retry_ids_or_warn(

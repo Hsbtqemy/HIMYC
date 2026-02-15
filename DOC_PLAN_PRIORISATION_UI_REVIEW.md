@@ -334,6 +334,7 @@ Etat 2026-02-14:
 - Validation des prerequis projet/index deplacee dans le controller.
 - Filtrages scope (`URL`, `RAW`, `CLEAN`, `runnable`) + warnings de precondition deplaces dans le controller.
 - Resolution contextuelle complete (projet + index + scope) centralisee dans le controller.
+- Resolution combinee projet+index factorisee (reutilisee par les relances d'erreurs).
 - Wrappers redondants retires de `tab_corpus.py` (reduction de couplage UI/workflow).
 - Resolution des episodes en erreur centralisee dans le controller (reuse panneau reprise + relances).
 - Validation des relances d'erreur (episode selectionne / toutes erreurs) deplacee dans le controller.

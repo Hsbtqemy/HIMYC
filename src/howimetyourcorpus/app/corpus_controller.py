@@ -104,6 +104,29 @@ class CorpusWorkflowController:
             return None
         return index
 
+    def resolve_project_with_index_or_warn(
+        self,
+        *,
+        store: Any,
+        db: Any,
+        context: dict[str, Any],
+        require_db: bool = False,
+    ) -> tuple[Any, Any, dict[str, Any], SeriesIndex] | None:
+        """Valide le contexte projet puis charge/valide l'index série."""
+        resolved_project = self.resolve_project_context_or_warn(
+            store=store,
+            db=db,
+            context=context,
+            require_db=require_db,
+        )
+        if resolved_project is None:
+            return None
+        store_ok, db_ok, context_ok = resolved_project
+        index_ok = self.resolve_index_or_warn(index=store_ok.load_series_index())
+        if index_ok is None:
+            return None
+        return store_ok, db_ok, context_ok, index_ok
+
     def resolve_scope_and_ids_or_warn(
         self,
         *,
