@@ -295,3 +295,94 @@ def test_resolve_index_or_warn_requires_non_empty_index() -> None:
             "Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
         )
     ]
+
+
+def test_resolve_ids_with_source_url_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    ok = controller.resolve_ids_with_source_url_or_warn(
+        ids=["S01E01", "S01E02"],
+        episode_url_by_id={"S01E01": "https://src/1", "S01E02": ""},
+    )
+    assert ok == ["S01E01"]
+    ko = controller.resolve_ids_with_source_url_or_warn(
+        ids=["S01E02"],
+        episode_url_by_id={"S01E02": ""},
+    )
+    assert ko is None
+    assert warned[-1] == (
+        "Aucun épisode du scope choisi n'a d'URL source.",
+        "Lancez « Découvrir épisodes » ou ajoutez des épisodes avec URL valide.",
+    )
+
+
+def test_resolve_ids_with_raw_and_clean_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    assert controller.resolve_ids_with_raw_or_warn(
+        ids=["S01E01", "S01E02"],
+        has_episode_raw=lambda eid: eid == "S01E02",
+    ) == ["S01E02"]
+    assert controller.resolve_ids_with_clean_or_warn(
+        ids=["S01E01", "S01E02"],
+        has_episode_clean=lambda eid: eid == "S01E01",
+        empty_message="no clean",
+        empty_next_step="normalize first",
+    ) == ["S01E01"]
+    no_raw = controller.resolve_ids_with_raw_or_warn(
+        ids=["S01E03"],
+        has_episode_raw=lambda _eid: False,
+    )
+    no_clean = controller.resolve_ids_with_clean_or_warn(
+        ids=["S01E03"],
+        has_episode_clean=lambda _eid: False,
+        empty_message="no clean",
+        empty_next_step="normalize first",
+    )
+    assert no_raw is None
+    assert no_clean is None
+    assert warned[-2] == (
+        "Aucun épisode du scope choisi n'a de transcript RAW. Téléchargez d'abord ce scope.",
+        "Pilotage > Corpus: lancez « Télécharger » sur ce scope.",
+    )
+    assert warned[-1] == ("no clean", "normalize first")
+
+
+def test_resolve_runnable_ids_for_full_workflow_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    assert controller.resolve_runnable_ids_for_full_workflow_or_warn(
+        ids=["S01E01", "S01E02"],
+        episode_url_by_id={"S01E01": "", "S01E02": "https://src/2"},
+        has_episode_raw=lambda _eid: False,
+        has_episode_clean=lambda _eid: False,
+    ) == ["S01E02"]
+    no_ids = controller.resolve_runnable_ids_for_full_workflow_or_warn(
+        ids=[],
+        episode_url_by_id={},
+        has_episode_raw=lambda _eid: False,
+        has_episode_clean=lambda _eid: False,
+    )
+    none_runnable = controller.resolve_runnable_ids_for_full_workflow_or_warn(
+        ids=["S01E03"],
+        episode_url_by_id={"S01E03": ""},
+        has_episode_raw=lambda _eid: False,
+        has_episode_clean=lambda _eid: False,
+    )
+    assert no_ids is None
+    assert none_runnable is None

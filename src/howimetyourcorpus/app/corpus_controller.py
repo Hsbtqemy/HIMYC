@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from howimetyourcorpus.app.corpus_scope import normalize_scope_mode
+from howimetyourcorpus.app.corpus_scope import (
+    filter_ids_with_clean,
+    filter_ids_with_raw,
+    filter_ids_with_source_url,
+    filter_runnable_ids_for_full_workflow,
+    normalize_scope_mode,
+)
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope, WorkflowService
@@ -149,6 +155,78 @@ class CorpusWorkflowController:
             "Utilisez un périmètre valide: Épisode courant, Sélection, Saison filtrée ou Tout le corpus.",
         )
         return None
+
+    def resolve_ids_with_source_url_or_warn(
+        self,
+        *,
+        ids: list[str],
+        episode_url_by_id: dict[str, str],
+    ) -> list[str] | None:
+        filtered = filter_ids_with_source_url(ids=ids, episode_url_by_id=episode_url_by_id)
+        if not filtered:
+            self._warn_user(
+                "Aucun épisode du scope choisi n'a d'URL source.",
+                "Lancez « Découvrir épisodes » ou ajoutez des épisodes avec URL valide.",
+            )
+            return None
+        return filtered
+
+    def resolve_ids_with_raw_or_warn(
+        self,
+        *,
+        ids: list[str],
+        has_episode_raw: Callable[[str], bool],
+    ) -> list[str] | None:
+        filtered = filter_ids_with_raw(ids=ids, has_episode_raw=has_episode_raw)
+        if not filtered:
+            self._warn_user(
+                "Aucun épisode du scope choisi n'a de transcript RAW. Téléchargez d'abord ce scope.",
+                "Pilotage > Corpus: lancez « Télécharger » sur ce scope.",
+            )
+            return None
+        return filtered
+
+    def resolve_ids_with_clean_or_warn(
+        self,
+        *,
+        ids: list[str],
+        has_episode_clean: Callable[[str], bool],
+        empty_message: str,
+        empty_next_step: str,
+    ) -> list[str] | None:
+        filtered = filter_ids_with_clean(ids=ids, has_episode_clean=has_episode_clean)
+        if not filtered:
+            self._warn_user(empty_message, empty_next_step)
+            return None
+        return filtered
+
+    def resolve_runnable_ids_for_full_workflow_or_warn(
+        self,
+        *,
+        ids: list[str],
+        episode_url_by_id: dict[str, str],
+        has_episode_raw: Callable[[str], bool],
+        has_episode_clean: Callable[[str], bool],
+    ) -> list[str] | None:
+        if not ids:
+            self._warn_user(
+                "Aucun épisode résolu pour le scope choisi.",
+                "Ajustez le scope ou sélectionnez/cochez au moins un épisode.",
+            )
+            return None
+        runnable_ids = filter_runnable_ids_for_full_workflow(
+            ids=ids,
+            episode_url_by_id=episode_url_by_id,
+            has_episode_raw=has_episode_raw,
+            has_episode_clean=has_episode_clean,
+        )
+        if not runnable_ids:
+            self._warn_user(
+                "Aucun épisode exécutable dans le scope choisi (URL source, RAW ou CLEAN manquant).",
+                "Ajoutez des URL source valides ou préparez des fichiers RAW/CLEAN puis relancez.",
+            )
+            return None
+        return runnable_ids
 
     def build_full_workflow_steps(
         self,

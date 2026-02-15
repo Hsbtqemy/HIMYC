@@ -73,10 +73,6 @@ from howimetyourcorpus.app.corpus_scope import (
     build_profile_by_episode,
     build_episode_scope_capabilities,
     build_episode_url_by_id,
-    filter_ids_with_clean,
-    filter_ids_with_raw,
-    filter_ids_with_source_url,
-    filter_runnable_ids_for_full_workflow,
     normalize_scope_mode,
     resolve_scope_ids,
     resolve_episode_scope_capabilities_cache,
@@ -1393,35 +1389,21 @@ class CorpusTabWidget(QWidget):
         store: Any,
         context: dict[str, Any],
     ) -> None:
-        if not ids:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode résolu pour le scope choisi.",
-                next_step="Ajustez le scope ou sélectionnez/cochez au moins un épisode.",
-            )
-            return
         episode_url_by_id = build_episode_url_by_id(index)
-        runnable_ids = filter_runnable_ids_for_full_workflow(
+        runnable_ids = self._workflow_controller.resolve_runnable_ids_for_full_workflow_or_warn(
             ids=ids,
             episode_url_by_id=episode_url_by_id,
             has_episode_raw=store.has_episode_raw,
             has_episode_clean=store.has_episode_clean,
         )
+        if runnable_ids is None:
+            return
         skipped = len(ids) - len(runnable_ids)
         self._show_skipped_ids(
             prefix="Tout faire",
             skipped=skipped,
             reason="sans URL source, RAW ni CLEAN",
         )
-        if not runnable_ids:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode exécutable dans le scope choisi (URL source, RAW ou CLEAN manquant).",
-                next_step="Ajoutez des URL source valides ou préparez des fichiers RAW/CLEAN puis relancez.",
-            )
-            return
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
         profile_by_episode = build_profile_by_episode(
             episode_refs=index.episodes,
@@ -1458,17 +1440,11 @@ class CorpusTabWidget(QWidget):
             return
         _store, _db, context, index, _scope, ids = resolved
         episode_url_by_id = build_episode_url_by_id(index)
-        ids_with_url = filter_ids_with_source_url(
+        ids_with_url = self._workflow_controller.resolve_ids_with_source_url_or_warn(
             ids=ids,
             episode_url_by_id=episode_url_by_id,
         )
-        if not ids_with_url:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode du scope choisi n'a d'URL source.",
-                next_step="Lancez « Découvrir épisodes » ou ajoutez des épisodes avec URL valide.",
-            )
+        if ids_with_url is None:
             return
         skipped = len(ids) - len(ids_with_url)
         self._show_skipped_ids(
@@ -1493,14 +1469,11 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_raw = filter_ids_with_raw(ids=ids, has_episode_raw=store.has_episode_raw)
-        if not ids_with_raw:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode du scope choisi n'a de transcript RAW. Téléchargez d'abord ce scope.",
-                next_step="Pilotage > Corpus: lancez « Télécharger » sur ce scope.",
-            )
+        ids_with_raw = self._workflow_controller.resolve_ids_with_raw_or_warn(
+            ids=ids,
+            has_episode_raw=store.has_episode_raw,
+        )
+        if ids_with_raw is None:
             return
         skipped = len(ids) - len(ids_with_raw)
         self._show_skipped_ids(
@@ -1535,14 +1508,13 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        eids_with_clean = filter_ids_with_clean(ids=ids, has_episode_clean=store.has_episode_clean)
-        if not eids_with_clean:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope.",
-                next_step="Lancez « Normaliser » sur ce scope puis relancez la segmentation.",
-            )
+        eids_with_clean = self._workflow_controller.resolve_ids_with_clean_or_warn(
+            ids=ids,
+            has_episode_clean=store.has_episode_clean,
+            empty_message="Aucun épisode du scope choisi n'a de fichier CLEAN. Normalisez d'abord ce scope.",
+            empty_next_step="Lancez « Normaliser » sur ce scope puis relancez la segmentation.",
+        )
+        if eids_with_clean is None:
             return
         skipped = len(ids) - len(eids_with_clean)
         self._show_skipped_ids(
@@ -1658,14 +1630,13 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_clean = filter_ids_with_clean(ids=ids, has_episode_clean=store.has_episode_clean)
-        if not ids_with_clean:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode CLEAN à indexer pour ce scope.",
-                next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
-            )
+        ids_with_clean = self._workflow_controller.resolve_ids_with_clean_or_warn(
+            ids=ids,
+            has_episode_clean=store.has_episode_clean,
+            empty_message="Aucun épisode CLEAN à indexer pour ce scope.",
+            empty_next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
+        )
+        if ids_with_clean is None:
             return
         skipped = len(ids) - len(ids_with_clean)
         self._show_skipped_ids(
@@ -1689,14 +1660,13 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        ids_with_clean = filter_ids_with_clean(ids=ids, has_episode_clean=store.has_episode_clean)
-        if not ids_with_clean:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode CLEAN à segmenter/indexer pour ce scope.",
-                next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
-            )
+        ids_with_clean = self._workflow_controller.resolve_ids_with_clean_or_warn(
+            ids=ids,
+            has_episode_clean=store.has_episode_clean,
+            empty_message="Aucun épisode CLEAN à segmenter/indexer pour ce scope.",
+            empty_next_step="Lancez « Normaliser » sur ce scope puis réessayez.",
+        )
+        if ids_with_clean is None:
             return
         skipped = len(ids) - len(ids_with_clean)
         self._show_skipped_ids(
