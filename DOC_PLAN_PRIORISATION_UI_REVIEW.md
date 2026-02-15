@@ -306,6 +306,10 @@ Etat 2026-02-14:
 - Checklist accessibilite testable ajoutee: `CHECKLIST_ACCESSIBILITE_UI.md`.
 - Focus order explicite ajoute sur les vues critiques (Pilotage, Projet, Corpus, Validation/Alignement/Personnages).
 
+Etat 2026-02-15:
+- Contrat accessibilite automatise ajoute: `tests/test_ui_accessibility_contract.py`.
+- Validation lot formalisee: `RAPPORT_VALIDATION_LOT5_ACCESSIBILITE.md`.
+
 ### Acceptance criteria
 - Parcours complet possible au clavier sur flux critique.
 - Aucune zone cassée en HDPI.
@@ -375,7 +379,7 @@ Etat 2026-02-14:
 | Lot 2 | hsmy + codex | TBD | TBD | Fait |
 | Lot 3 | hsmy + codex | TBD | TBD | Fait |
 | Lot 4 | hsmy + codex | TBD | TBD | Fait |
-| Lot 5 | hsmy + codex | TBD | TBD | En cours |
+| Lot 5 | hsmy + codex | TBD | TBD | Fait |
 | Lot 6 | hsmy + codex | TBD | TBD | En cours |
 
 ## 6) KPI instrumentes (definitifs)
@@ -412,8 +416,7 @@ Etat 2026-02-14:
 
 Execution conseillee (mise a jour 2026-02-15):
 1. Finaliser validation visuelle Pilotage mac sur 2 resolutions (13" + ecran large), apres stabilisation entete/2 colonnes.
-2. Clore Lot 5: validation clavier/HDPI/contraste en manuel guide via checklist.
-3. Continuer Lot 6 par micro-PRs: extractions restantes de logique workflow hors `tab_corpus` + tests.
-4. Figer un jalon de release UI (tag + notes de rollback) une fois 1-3 passes.
+2. Continuer Lot 6 par micro-PRs: extractions restantes de logique workflow hors `tab_corpus` + tests.
+3. Figer un jalon de release UI (tag + notes de rollback) une fois 1-2 passes.
 
 Ce sequencing conserve un bon ratio impact/risque en capitalisant sur les lots P0 deja livres.

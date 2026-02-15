@@ -18,7 +18,7 @@ Date: 2026-02-14
 | Lot 2 | Concordance async + cancel + pagination stable | hsmy + codex | TBD | TBD | Fait |
 | Lot 3 | Logs perf (debounce + incremental/tail + pin UX) | hsmy + codex | TBD | TBD | Fait |
 | Lot 4 | Personnages model/view + parite I/O | hsmy + codex | TBD | TBD | Fait |
-| Lot 5 | Accessibilite/HDPI/shortcuts + clarte visuelle | hsmy + codex | TBD | TBD | En cours |
+| Lot 5 | Accessibilite/HDPI/shortcuts + clarte visuelle | hsmy + codex | TBD | TBD | Fait |
 | Lot 6 | Decouplage tab_corpus -> controller | hsmy + codex | TBD | TBD | En cours |
 
 ## Decision log minimal (a renseigner a chaque lot)
@@ -33,6 +33,7 @@ Date: 2026-02-14
 | 2026-02-14 | Lot 3 | Refresh logs optimise (rendu bloc + ingestion incremental tail) | Filtrage plus fluide sur gros buffers | hsmy + codex |
 | 2026-02-14 | Lot 3 | Baseline perf enrichie avec metrique `logs_render_10k_ms` | Suivi perf logs plus representatif | hsmy + codex |
 | 2026-02-15 | Lot 4 | Validation propagation completee (priorite assignation cue + idempotence) via tests store | Cloture parite metier Personnages sans regression | hsmy + codex |
+| 2026-02-15 | Lot 5 | Contrat accessibilite automatise + rapport de validation lot (`RAPPORT_VALIDATION_LOT5_ACCESSIBILITE.md`) | Cloture traçable clavier/focus/raccourcis, checklist de release HDPI maintenue | hsmy + codex |
 | 2026-02-15 | Lot 6 | Export corpus refactore dans `CorpusWorkflowController` (preconditions + dispatch format) | `tab_corpus` allege et logique export testee hors UI | hsmy + codex |
 | 2026-02-15 | Lot 6 | Flux import local refactore dans `CorpusWorkflowController` (decouverte + merge + ajout manuel) | Moins de logique metier dans l'UI, preconditions unifiees et testees | hsmy + codex |
 | 2026-02-15 | Lot 6 | Validation de selection d'episode erreur centralisee dans le controller | Suppression de duplication UI et messages precondition homogenes | hsmy + codex |
