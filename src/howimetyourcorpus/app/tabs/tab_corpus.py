@@ -1233,27 +1233,6 @@ class CorpusTabWidget(QWidget):
         index = store.load_series_index()
         self._refresh_error_panel(index=index if index and index.episodes else None)
 
-    def _run_all_for_episode_ids(
-        self,
-        *,
-        ids: list[str],
-        index: SeriesIndex,
-        store: Any,
-        context: dict[str, Any],
-    ) -> None:
-        skipped_message = self._workflow_controller.run_full_workflow_scope_or_warn(
-            ids=ids,
-            index=index,
-            store=store,
-            context=context,
-            batch_profile=self.norm_batch_profile_combo.currentText() or "default_en_v1",
-            lang_hint=self._resolve_lang_hint(context),
-            empty_message="Aucune opération à exécuter.",
-            empty_next_step="Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
-        )
-        if skipped_message:
-            self._show_status(skipped_message, 4000)
-
     def _fetch_episodes(self, scope_mode: str | None = None) -> None:
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)
         if resolved is None:
@@ -1312,7 +1291,18 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         store, _db, context, index, _scope, ids = resolved
-        self._run_all_for_episode_ids(ids=ids, index=index, store=store, context=context)
+        skipped_message = self._workflow_controller.run_full_workflow_scope_or_warn(
+            ids=ids,
+            index=index,
+            store=store,
+            context=context,
+            batch_profile=self.norm_batch_profile_combo.currentText() or "default_en_v1",
+            lang_hint=self._resolve_lang_hint(context),
+            empty_message="Aucune opération à exécuter.",
+            empty_next_step="Ajustez le scope ou préparez des épisodes (URL/RAW/CLEAN) avant relance.",
+        )
+        if skipped_message:
+            self._show_status(skipped_message, 4000)
 
     def _retry_selected_error_episode(self) -> None:
         context = self._get_context()
