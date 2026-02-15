@@ -334,6 +334,7 @@ Etat 2026-02-14:
 - Validation des prerequis projet/index deplacee dans le controller.
 - Filtrages scope (`URL`, `RAW`, `CLEAN`, `runnable`) + warnings de precondition deplaces dans le controller.
 - Resolution contextuelle complete (projet + index + scope) centralisee dans le controller.
+- Wrappers redondants retires de `tab_corpus.py` (reduction de couplage UI/workflow).
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

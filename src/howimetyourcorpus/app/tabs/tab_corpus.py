@@ -999,7 +999,12 @@ class CorpusTabWidget(QWidget):
         self._refresh_scope_preview_from_ui()
 
     def _discover_episodes(self) -> None:
-        resolved = self._resolve_project_context(require_db=True)
+        resolved = self._workflow_controller.resolve_project_context_or_warn(
+            store=self._get_store(),
+            db=self._get_db(),
+            context=self._get_context(),
+            require_db=True,
+        )
         if resolved is None:
             return
         _store, _db, context = resolved
@@ -1008,7 +1013,12 @@ class CorpusTabWidget(QWidget):
         self._run_job_with_force([step], force=False)
 
     def _discover_merge(self) -> None:
-        resolved = self._resolve_project_context(require_db=True)
+        resolved = self._workflow_controller.resolve_project_context_or_warn(
+            store=self._get_store(),
+            db=self._get_db(),
+            context=self._get_context(),
+            require_db=True,
+        )
         if resolved is None:
             return
         _store, _db, context = resolved
@@ -1262,45 +1272,11 @@ class CorpusTabWidget(QWidget):
             ),
         )
 
-    def _resolve_scope_and_ids(
-        self,
-        index: SeriesIndex,
-        *,
-        scope_mode: str | None = None,
-    ) -> tuple[WorkflowScope, list[str]] | None:
-        return self._workflow_controller.resolve_scope_and_ids_or_warn(
-            scope_mode=scope_mode or self.batch_scope_combo.currentData(),
-            all_episode_ids=[e.episode_id for e in index.episodes],
-            current_episode_id=self._resolve_current_episode_id(),
-            selected_episode_ids=self._resolve_selected_episode_ids(),
-            season=self.season_filter_combo.currentData(),
-            get_episode_ids_for_season=self.episodes_tree_model.get_episode_ids_for_season,
-        )
-
     @staticmethod
     def _resolve_lang_hint(context: dict[str, Any]) -> str:
         config = context.get("config")
         profile_id = getattr(config, "normalize_profile", None) if config else None
         return resolve_lang_hint_from_profile_id(profile_id, fallback="en")
-
-    def _resolve_project_context(
-        self,
-        *,
-        require_db: bool = False,
-    ) -> tuple[Any, Any, dict[str, Any]] | None:
-        store = self._get_store()
-        db = self._get_db()
-        context = self._get_context()
-        return self._workflow_controller.resolve_project_context_or_warn(
-            store=store,
-            db=db,
-            context=context,
-            require_db=require_db,
-        )
-
-    def _load_index_or_warn(self, store: Any) -> SeriesIndex | None:
-        index = store.load_series_index()
-        return self._workflow_controller.resolve_index_or_warn(index=index)
 
     def _resolve_scope_context(
         self,
@@ -1546,11 +1522,16 @@ class CorpusTabWidget(QWidget):
         self._run_all_for_episode_ids(ids=ids, index=index, store=store, context=context)
 
     def _retry_selected_error_episode(self) -> None:
-        resolved = self._resolve_project_context(require_db=True)
+        resolved = self._workflow_controller.resolve_project_context_or_warn(
+            store=self._get_store(),
+            db=self._get_db(),
+            context=self._get_context(),
+            require_db=True,
+        )
         if resolved is None:
             return
         store, _db, context = resolved
-        index = self._load_index_or_warn(store)
+        index = self._workflow_controller.resolve_index_or_warn(index=store.load_series_index())
         if index is None:
             return
         eid = self._selected_error_episode_id()
@@ -1579,11 +1560,16 @@ class CorpusTabWidget(QWidget):
 
     def _retry_error_episodes(self) -> None:
         """Relance les épisodes en erreur avec un enchaînement complet."""
-        resolved = self._resolve_project_context(require_db=True)
+        resolved = self._workflow_controller.resolve_project_context_or_warn(
+            store=self._get_store(),
+            db=self._get_db(),
+            context=self._get_context(),
+            require_db=True,
+        )
         if resolved is None:
             return
         store, _db, context = resolved
-        index = self._load_index_or_warn(store)
+        index = self._workflow_controller.resolve_index_or_warn(index=store.load_series_index())
         if index is None:
             return
         error_ids = self._get_error_episode_ids(index)
