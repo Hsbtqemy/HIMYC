@@ -7,6 +7,8 @@ import re
 from typing import Any, Callable, Mapping
 
 from howimetyourcorpus.app.corpus_scope import (
+    build_episode_url_by_id,
+    build_profile_by_episode,
     filter_ids_with_clean,
     filter_ids_with_raw,
     filter_ids_with_source_url,
@@ -631,6 +633,55 @@ class CorpusWorkflowController:
             )
             return None
         return runnable_ids
+
+    def prepare_full_workflow_scope_plan_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        context: dict[str, Any],
+        batch_profile: str,
+        lang_hint: str,
+    ) -> tuple[list[Any], int] | None:
+        """
+        Prepare le plan "Tout faire" pour un scope:
+        - filtre les episodes executables,
+        - construit la map de profils par episode,
+        - compose les steps fetch -> normalize -> segment -> index.
+
+        Retourne `(steps, skipped)` avec `skipped` = episodes hors preconditions executables.
+        """
+        episode_url_by_id = build_episode_url_by_id(index)
+        runnable_ids = self.resolve_runnable_ids_for_full_workflow_or_warn(
+            ids=ids,
+            episode_url_by_id=episode_url_by_id,
+            has_episode_raw=store.has_episode_raw,
+            has_episode_clean=store.has_episode_clean,
+        )
+        if runnable_ids is None:
+            return None
+        skipped = len(ids) - len(runnable_ids)
+        profile_by_episode = build_profile_by_episode(
+            episode_refs=index.episodes,
+            episode_ids=runnable_ids,
+            batch_profile=batch_profile,
+            episode_preferred_profiles=store.load_episode_preferred_profiles(),
+            source_profile_defaults=store.load_source_profile_defaults(),
+        )
+        steps = self.build_full_workflow_steps(
+            context=context,
+            episode_refs=index.episodes,
+            all_scope_ids=ids,
+            runnable_ids=runnable_ids,
+            episode_url_by_id=episode_url_by_id,
+            batch_profile=batch_profile,
+            profile_by_episode=profile_by_episode,
+            lang_hint=lang_hint,
+        )
+        if steps is None:
+            return None
+        return list(steps), skipped
 
     @staticmethod
     def load_status_map_for_index(

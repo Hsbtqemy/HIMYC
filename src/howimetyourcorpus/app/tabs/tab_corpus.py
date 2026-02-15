@@ -1254,38 +1254,22 @@ class CorpusTabWidget(QWidget):
         store: Any,
         context: dict[str, Any],
     ) -> None:
-        episode_url_by_id = build_episode_url_by_id(index)
-        runnable_ids = self._workflow_controller.resolve_runnable_ids_for_full_workflow_or_warn(
+        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
+        prepared = self._workflow_controller.prepare_full_workflow_scope_plan_or_warn(
             ids=ids,
-            episode_url_by_id=episode_url_by_id,
-            has_episode_raw=store.has_episode_raw,
-            has_episode_clean=store.has_episode_clean,
+            index=index,
+            store=store,
+            context=context,
+            batch_profile=batch_profile,
+            lang_hint=self._resolve_lang_hint(context),
         )
-        if runnable_ids is None:
+        if prepared is None:
             return
-        skipped = len(ids) - len(runnable_ids)
+        steps, skipped = prepared
         self._show_skipped_ids(
             prefix="Tout faire",
             skipped=skipped,
             reason="sans URL source, RAW ni CLEAN",
-        )
-        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        profile_by_episode = build_profile_by_episode(
-            episode_refs=index.episodes,
-            episode_ids=runnable_ids,
-            batch_profile=batch_profile,
-            episode_preferred_profiles=store.load_episode_preferred_profiles(),
-            source_profile_defaults=store.load_source_profile_defaults(),
-        )
-        steps = self._workflow_controller.build_full_workflow_steps(
-            context=context,
-            episode_refs=index.episodes,
-            all_scope_ids=ids,
-            runnable_ids=runnable_ids,
-            episode_url_by_id=episode_url_by_id,
-            batch_profile=batch_profile,
-            profile_by_episode=profile_by_episode,
-            lang_hint=self._resolve_lang_hint(context),
         )
         self._workflow_controller.run_composed_steps_or_warn(
             steps=steps,

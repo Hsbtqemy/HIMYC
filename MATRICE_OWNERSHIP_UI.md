@@ -45,3 +45,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Formatage de la ligne de statut workflow centralise dans le controller | Uniformisation affichage et retrait de string-building UI | hsmy + codex |
 | 2026-02-15 | Lot 6 | Regle d'activation par defaut des actions scope (depuis counts) centralisee | Moins de logique derivée dans `refresh()`, coherence des etats boutons | hsmy + codex |
 | 2026-02-15 | Lot 6 | Etat UI global des actions scope (preconditions index/store/ids) centralise | Suppression des gardes UI dupliquees et raisons indisponibles homogenes | hsmy + codex |
+| 2026-02-15 | Lot 6 | Preparation du plan "Tout faire" (runnable IDs + profils + steps composes) centralisee | `tab_corpus` allege sur la relance complete et logique testee hors widget | hsmy + codex |

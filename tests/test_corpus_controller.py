@@ -294,6 +294,117 @@ def test_resolve_scope_action_ui_state_delegates_to_availability_when_ready() ->
     assert unavailable is None
 
 
+def test_prepare_full_workflow_scope_plan_or_warn_returns_steps_and_skipped() -> None:
+    calls: list[WorkflowActionId] = []
+
+    def _step_builder(**kwargs):
+        action_id = kwargs["action_id"]
+        calls.append(action_id)
+        return [f"step:{action_id.value}"]
+
+    warned: list[tuple[str, str | None]] = []
+
+    class _Store:
+        def has_episode_raw(self, episode_id: str) -> bool:
+            return episode_id == "S01E01"
+
+        def has_episode_clean(self, episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=_step_builder,
+    )
+    index = SeriesIndex(
+        series_title="Test",
+        series_url="https://series",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1"),
+            EpisodeRef("S01E02", 1, 2, "Second", ""),
+        ],
+    )
+
+    prepared = controller.prepare_full_workflow_scope_plan_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        batch_profile="default_en_v1",
+        lang_hint="en",
+    )
+
+    assert prepared is not None
+    steps, skipped = prepared
+    assert skipped == 1
+    assert steps == [
+        "step:fetch_episodes",
+        "step:normalize_episodes",
+        "step:segment_episodes",
+        "step:build_db_index",
+    ]
+    assert calls == [
+        WorkflowActionId.FETCH_EPISODES,
+        WorkflowActionId.NORMALIZE_EPISODES,
+        WorkflowActionId.SEGMENT_EPISODES,
+        WorkflowActionId.BUILD_DB_INDEX,
+    ]
+    assert warned == []
+
+
+def test_prepare_full_workflow_scope_plan_or_warn_returns_none_when_no_runnable() -> None:
+    warned: list[tuple[str, str | None]] = []
+
+    class _Store:
+        def has_episode_raw(self, _episode_id: str) -> bool:
+            return False
+
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: ["unused"],
+    )
+    index = SeriesIndex(
+        series_title="Test",
+        series_url="https://series",
+        episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "")],
+    )
+
+    prepared = controller.prepare_full_workflow_scope_plan_or_warn(
+        ids=["S01E01"],
+        index=index,
+        store=_Store(),
+        context={"config": object()},
+        batch_profile="default_en_v1",
+        lang_hint="en",
+    )
+
+    assert prepared is None
+    assert warned == [
+        (
+            "Aucun épisode exécutable dans le scope choisi (URL source, RAW ou CLEAN manquant).",
+            "Ajoutez des URL source valides ou préparez des fichiers RAW/CLEAN puis relancez.",
+        )
+    ]
+
+
 def test_build_full_workflow_steps_composes_expected_order() -> None:
     calls: list[WorkflowActionId] = []
 
