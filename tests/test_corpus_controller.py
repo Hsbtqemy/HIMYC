@@ -121,6 +121,65 @@ def test_run_action_for_scope_stops_when_step_builder_returns_none() -> None:
     assert warned == []
 
 
+def test_run_action_for_episode_ids_or_warn_uses_selection_scope() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+    seen_scope: list[WorkflowScope] = []
+
+    def _step_builder(**kwargs):
+        seen_scope.append(kwargs["scope"])
+        return ["s1"]
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=_step_builder,
+    )
+
+    ok = controller.run_action_for_episode_ids_or_warn(
+        action_id=WorkflowActionId.FETCH_EPISODES,
+        context={"config": object()},
+        episode_ids=["S01E01", "S01E02"],
+        episode_refs=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "https://src/2"),
+        ],
+        options={"episode_url_by_id": {"S01E01": "https://src/1", "S01E02": "https://src/2"}},
+        empty_message="unused",
+    )
+
+    assert ok is True
+    assert ran == [["s1"]]
+    assert warned == []
+    assert seen_scope == [WorkflowScope.selection(["S01E01", "S01E02"])]
+
+
+def test_run_action_for_episode_ids_or_warn_warns_on_empty_steps() -> None:
+    warned: list[tuple[str, str | None]] = []
+    ran: list[list[object]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda steps: ran.append(list(steps)),
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+
+    ok = controller.run_action_for_episode_ids_or_warn(
+        action_id=WorkflowActionId.BUILD_DB_INDEX,
+        context={"config": object()},
+        episode_ids=["S01E01"],
+        episode_refs=_sample_episode_refs(),
+        options=None,
+        empty_message="Aucun step",
+        empty_next_step="Relancer plus tard",
+    )
+
+    assert ok is False
+    assert ran == []
+    assert warned == [("Aucun step", "Relancer plus tard")]
+
+
 def test_run_composed_steps_or_warn_executes_when_non_empty() -> None:
     warned: list[tuple[str, str | None]] = []
     ran: list[list[object]] = []

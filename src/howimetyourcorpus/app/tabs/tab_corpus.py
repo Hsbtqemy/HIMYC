@@ -1292,10 +1292,10 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="URL source absente",
         )
-        self._workflow_controller.run_action_for_scope(
+        self._workflow_controller.run_action_for_episode_ids_or_warn(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
-            scope=WorkflowScope.selection(ids_with_url),
+            episode_ids=ids_with_url,
             episode_refs=index.episodes,
             options={
                 "episode_url_by_id": episode_url_by_id
@@ -1324,10 +1324,10 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="sans RAW dans le scope",
         )
-        self._workflow_controller.run_action_for_scope(
+        self._workflow_controller.run_action_for_episode_ids_or_warn(
             action_id=WorkflowActionId.NORMALIZE_EPISODES,
             context=context,
-            scope=WorkflowScope.selection(ids_with_raw),
+            episode_ids=ids_with_raw,
             episode_refs=index.episodes,
             options={
                 "default_profile_id": batch_profile,
@@ -1357,10 +1357,10 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="sans CLEAN dans le scope",
         )
-        self._workflow_controller.run_action_for_scope(
+        self._workflow_controller.run_action_for_episode_ids_or_warn(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
             context=context,
-            scope=WorkflowScope.selection(eids_with_clean),
+            episode_ids=eids_with_clean,
             episode_refs=index.episodes,
             options={"lang_hint": self._resolve_lang_hint(context)},
             empty_message="Aucun épisode à segmenter.",
@@ -1465,10 +1465,10 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="sans CLEAN dans le scope",
         )
-        self._workflow_controller.run_action_for_scope(
+        self._workflow_controller.run_action_for_episode_ids_or_warn(
             action_id=WorkflowActionId.BUILD_DB_INDEX,
             context=context,
-            scope=WorkflowScope.selection(ids_with_clean),
+            episode_ids=ids_with_clean,
             episode_refs=index.episodes,
             options=None,
             empty_message="Aucun épisode CLEAN à indexer pour ce scope.",

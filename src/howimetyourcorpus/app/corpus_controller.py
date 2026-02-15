@@ -96,6 +96,28 @@ class CorpusWorkflowController:
         self._run_steps(steps)
         return True
 
+    def run_action_for_episode_ids_or_warn(
+        self,
+        *,
+        action_id: WorkflowActionId,
+        context: dict[str, Any],
+        episode_ids: list[str],
+        episode_refs: list[EpisodeRef],
+        options: dict[str, Any] | None,
+        empty_message: str,
+        empty_next_step: str | None = None,
+    ) -> bool:
+        """Version pratique de `run_action_for_scope` pour un scope `selection(ids)`."""
+        return self.run_action_for_scope(
+            action_id=action_id,
+            context=context,
+            scope=WorkflowScope.selection(episode_ids),
+            episode_refs=episode_refs,
+            options=options,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+
     def run_composed_steps_or_warn(
         self,
         *,
