@@ -577,6 +577,28 @@ class CorpusWorkflowController:
             return None
         return filtered
 
+    def prepare_fetch_scope_plan_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+    ) -> tuple[list[str], dict[str, str], int] | None:
+        """
+        Prépare le scope de téléchargement:
+        - construit la map d'URL par épisode,
+        - filtre les épisodes ayant une URL source,
+        - retourne le nombre d'épisodes ignorés.
+        """
+        episode_url_by_id = build_episode_url_by_id(index)
+        ids_with_url = self.resolve_ids_with_source_url_or_warn(
+            ids=ids,
+            episode_url_by_id=episode_url_by_id,
+        )
+        if ids_with_url is None:
+            return None
+        skipped = len(ids) - len(ids_with_url)
+        return ids_with_url, episode_url_by_id, skipped
+
     def resolve_ids_with_raw_or_warn(
         self,
         *,

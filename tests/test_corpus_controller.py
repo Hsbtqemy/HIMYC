@@ -662,6 +662,60 @@ def test_resolve_ids_with_source_url_or_warn() -> None:
     )
 
 
+def test_prepare_fetch_scope_plan_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "https://src/1"),
+            EpisodeRef("S01E02", 1, 2, "Purple", ""),
+        ],
+    )
+    prepared = controller.prepare_fetch_scope_plan_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+    )
+    assert prepared is not None
+    ids_with_url, episode_url_by_id, skipped = prepared
+    assert ids_with_url == ["S01E01"]
+    assert episode_url_by_id == {"S01E01": "https://src/1", "S01E02": ""}
+    assert skipped == 1
+    assert warned == []
+
+
+def test_prepare_fetch_scope_plan_or_warn_returns_none_when_no_url() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "")],
+    )
+    prepared = controller.prepare_fetch_scope_plan_or_warn(
+        ids=["S01E01"],
+        index=index,
+    )
+    assert prepared is None
+    assert warned == [
+        (
+            "Aucun épisode du scope choisi n'a d'URL source.",
+            "Lancez « Découvrir épisodes » ou ajoutez des épisodes avec URL valide.",
+        )
+    ]
+
+
 def test_resolve_ids_with_raw_and_clean_or_warn() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(

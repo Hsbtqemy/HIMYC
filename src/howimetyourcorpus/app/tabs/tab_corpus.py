@@ -47,7 +47,6 @@ from howimetyourcorpus.app.corpus_controller import CorpusWorkflowController
 from howimetyourcorpus.app.export_dialog import build_export_success_message
 from howimetyourcorpus.app.corpus_scope import (
     build_episode_scope_capabilities,
-    build_episode_url_by_id,
     normalize_scope_mode,
     resolve_scope_ids,
     resolve_episode_scope_capabilities_cache,
@@ -1281,14 +1280,13 @@ class CorpusTabWidget(QWidget):
         if resolved is None:
             return
         _store, _db, context, index, _scope, ids = resolved
-        episode_url_by_id = build_episode_url_by_id(index)
-        ids_with_url = self._workflow_controller.resolve_ids_with_source_url_or_warn(
+        prepared = self._workflow_controller.prepare_fetch_scope_plan_or_warn(
             ids=ids,
-            episode_url_by_id=episode_url_by_id,
+            index=index,
         )
-        if ids_with_url is None:
+        if prepared is None:
             return
-        skipped = len(ids) - len(ids_with_url)
+        ids_with_url, episode_url_by_id, skipped = prepared
         self._show_skipped_ids(
             prefix="Téléchargement",
             skipped=skipped,

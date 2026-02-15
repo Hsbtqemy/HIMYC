@@ -47,3 +47,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Etat UI global des actions scope (preconditions index/store/ids) centralise | Suppression des gardes UI dupliquees et raisons indisponibles homogenes | hsmy + codex |
 | 2026-02-15 | Lot 6 | Preparation du plan "Tout faire" (runnable IDs + profils + steps composes) centralisee | `tab_corpus` allege sur la relance complete et logique testee hors widget | hsmy + codex |
 | 2026-02-15 | Lot 6 | Preparation des scopes "Normaliser" (RAW+profils) et "CLEAN-required" centralisee | Reduction de duplication dans `tab_corpus` et preconditions/tests homogenes | hsmy + codex |
+| 2026-02-15 | Lot 6 | Preparation du scope "Telecharger" (URL source + skipped + map URL) centralisee | Simplification du bloc fetch UI et regles de precondition testables hors widget | hsmy + codex |
