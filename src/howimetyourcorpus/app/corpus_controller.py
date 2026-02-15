@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from pathlib import Path
+from typing import Any, Callable, Mapping
 
 from howimetyourcorpus.app.corpus_scope import (
     filter_ids_with_clean,
@@ -11,7 +12,18 @@ from howimetyourcorpus.app.corpus_scope import (
     filter_runnable_ids_for_full_workflow,
     normalize_scope_mode,
 )
+from howimetyourcorpus.app.export_dialog import normalize_export_path, resolve_export_key
 from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
+from howimetyourcorpus.core.export_utils import (
+    export_corpus_csv,
+    export_corpus_docx,
+    export_corpus_json,
+    export_corpus_phrases_csv,
+    export_corpus_phrases_jsonl,
+    export_corpus_txt,
+    export_corpus_utterances_csv,
+    export_corpus_utterances_jsonl,
+)
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, SeriesIndex
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope, WorkflowService
 
@@ -126,6 +138,109 @@ class CorpusWorkflowController:
         if index_ok is None:
             return None
         return store_ok, db_ok, context_ok, index_ok
+
+    def resolve_clean_episodes_for_export_or_warn(
+        self,
+        *,
+        store: Any,
+        index: SeriesIndex | None = None,
+    ) -> list[tuple[EpisodeRef, str]] | None:
+        """Résout les épisodes CLEAN exportables avec préconditions utilisateur homogènes."""
+        if not store:
+            self._warn_user(
+                "Ouvrez un projet d'abord.",
+                "Pilotage > Projet: ouvrez ou initialisez un projet.",
+            )
+            return None
+        index_ok = self.resolve_index_or_warn(index=index or store.load_series_index())
+        if index_ok is None:
+            return None
+        episodes_data: list[tuple[EpisodeRef, str]] = []
+        for ref in index_ok.episodes:
+            if store.has_episode_clean(ref.episode_id):
+                text = store.load_episode_text(ref.episode_id, kind="clean")
+                episodes_data.append((ref, text))
+        if not episodes_data:
+            self._warn_user(
+                "Aucun épisode normalisé (CLEAN) à exporter.",
+                "Lancez « Normaliser » puis réessayez l'export.",
+            )
+            return None
+        return episodes_data
+
+    def export_episodes_data_or_warn(
+        self,
+        *,
+        episodes_data: list[tuple[EpisodeRef, str]],
+        path: Path,
+        selected_filter: str | None,
+        export_writers: Mapping[str, Callable[[list[tuple[EpisodeRef, str]], Path], None]] | None = None,
+    ) -> Path | None:
+        """Exporte les épisodes selon le format résolu (suffixe/filtre) et retourne le chemin final."""
+        if not episodes_data:
+            self._warn_user(
+                "Aucun épisode normalisé (CLEAN) à exporter.",
+                "Lancez « Normaliser » puis réessayez l'export.",
+            )
+            return None
+        output_path = normalize_export_path(
+            path,
+            selected_filter,
+            allowed_suffixes=(".txt", ".csv", ".json", ".jsonl", ".docx"),
+            default_suffix=".txt",
+            filter_to_suffix={
+                "TXT": ".txt",
+                "CSV": ".csv",
+                "JSON": ".json",
+                "JSONL": ".jsonl",
+                "WORD": ".docx",
+            },
+        )
+        selected_upper = (selected_filter or "").upper()
+        if "JSONL - UTTERANCES" in selected_upper:
+            export_key = "utterances_jsonl"
+        elif "JSONL - PHRASES" in selected_upper:
+            export_key = "phrases_jsonl"
+        elif "CSV - UTTERANCES" in selected_upper:
+            export_key = "utterances_csv"
+        elif "CSV - PHRASES" in selected_upper:
+            export_key = "phrases_csv"
+        else:
+            base_key = resolve_export_key(
+                output_path,
+                selected_filter,
+                suffix_to_key={
+                    ".txt": "txt",
+                    ".csv": "csv",
+                    ".json": "json",
+                    ".jsonl": "jsonl",
+                    ".docx": "docx",
+                },
+                default_key="txt",
+            )
+            export_key = "utterances_jsonl" if base_key == "jsonl" else base_key
+        if export_writers is None:
+            writers: Mapping[str, Callable[[list[tuple[EpisodeRef, str]], Path], None]] = {
+                "txt": export_corpus_txt,
+                "csv": export_corpus_csv,
+                "json": export_corpus_json,
+                "docx": export_corpus_docx,
+                "utterances_jsonl": export_corpus_utterances_jsonl,
+                "phrases_jsonl": export_corpus_phrases_jsonl,
+                "utterances_csv": export_corpus_utterances_csv,
+                "phrases_csv": export_corpus_phrases_csv,
+            }
+        else:
+            writers = export_writers
+        writer = writers.get(str(export_key))
+        if writer is None:
+            self._warn_user(
+                "Format non reconnu. Utilisez .txt, .csv, .json, .jsonl ou .docx.",
+                None,
+            )
+            return None
+        writer(episodes_data, output_path)
+        return output_path
 
     def resolve_scope_and_ids_or_warn(
         self,

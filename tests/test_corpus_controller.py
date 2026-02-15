@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from howimetyourcorpus.app.corpus_controller import CorpusWorkflowController
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 from howimetyourcorpus.core.workflow import WorkflowActionId, WorkflowScope
@@ -589,4 +591,143 @@ def test_resolve_all_error_retry_ids_or_warn() -> None:
     assert warned[-1] == (
         "Aucun épisode en erreur à relancer.",
         "Consultez le panneau erreurs après un job en échec, puis utilisez « Reprendre erreurs ».",
+    )
+
+
+def test_resolve_clean_episodes_for_export_or_warn_filters_clean_only() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u1"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u2"),
+        ],
+    )
+
+    class _Store:
+        def load_series_index(self):
+            return index
+
+        def has_episode_clean(self, episode_id: str) -> bool:
+            return episode_id == "S01E02"
+
+        def load_episode_text(self, episode_id: str, *, kind: str) -> str:
+            assert kind == "clean"
+            return f"clean::{episode_id}"
+
+    episodes_data = controller.resolve_clean_episodes_for_export_or_warn(store=_Store())
+    assert episodes_data is not None
+    assert [(ref.episode_id, text) for ref, text in episodes_data] == [("S01E02", "clean::S01E02")]
+    assert warned == []
+
+
+def test_resolve_clean_episodes_for_export_or_warn_warns_when_no_clean() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex("s", "u", episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "u1")])
+
+    class _Store:
+        def load_series_index(self):
+            return index
+
+        def has_episode_clean(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_text(self, episode_id: str, *, kind: str) -> str:
+            assert kind == "clean"
+            return f"clean::{episode_id}"
+
+    episodes_data = controller.resolve_clean_episodes_for_export_or_warn(store=_Store())
+    assert episodes_data is None
+    assert warned[-1] == (
+        "Aucun épisode normalisé (CLEAN) à exporter.",
+        "Lancez « Normaliser » puis réessayez l'export.",
+    )
+
+
+def test_export_episodes_data_or_warn_uses_selected_variant_writer(tmp_path: Path) -> None:
+    warned: list[tuple[str, str | None]] = []
+    calls: list[tuple[str, Path, int]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    episodes_data = [(EpisodeRef("S01E01", 1, 1, "Pilot", "u"), "clean text")]
+
+    def _writer(name: str):
+        def _fn(data: list[tuple[EpisodeRef, str]], path: Path) -> None:
+            calls.append((name, path, len(data)))
+
+        return _fn
+
+    output = controller.export_episodes_data_or_warn(
+        episodes_data=episodes_data,
+        path=tmp_path / "corpus_export",
+        selected_filter="CSV - Phrases (*.csv)",
+        export_writers={"phrases_csv": _writer("phrases_csv")},
+    )
+    assert output == tmp_path / "corpus_export.csv"
+    assert calls == [("phrases_csv", tmp_path / "corpus_export.csv", 1)]
+    assert warned == []
+
+
+def test_export_episodes_data_or_warn_defaults_jsonl_to_utterances(tmp_path: Path) -> None:
+    warned: list[tuple[str, str | None]] = []
+    calls: list[tuple[Path, int]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    episodes_data = [(EpisodeRef("S01E01", 1, 1, "Pilot", "u"), "clean text")]
+
+    def _utterances_writer(data: list[tuple[EpisodeRef, str]], path: Path) -> None:
+        calls.append((path, len(data)))
+
+    output = controller.export_episodes_data_or_warn(
+        episodes_data=episodes_data,
+        path=tmp_path / "corpus_export.jsonl",
+        selected_filter="",
+        export_writers={"utterances_jsonl": _utterances_writer},
+    )
+    assert output == tmp_path / "corpus_export.jsonl"
+    assert calls == [(tmp_path / "corpus_export.jsonl", 1)]
+    assert warned == []
+
+
+def test_export_episodes_data_or_warn_warns_when_writer_missing(tmp_path: Path) -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    episodes_data = [(EpisodeRef("S01E01", 1, 1, "Pilot", "u"), "clean text")]
+
+    output = controller.export_episodes_data_or_warn(
+        episodes_data=episodes_data,
+        path=tmp_path / "corpus_export",
+        selected_filter="CSV - Phrases (*.csv)",
+        export_writers={},
+    )
+    assert output is None
+    assert warned[-1] == (
+        "Format non reconnu. Utilisez .txt, .csv, .json, .jsonl ou .docx.",
+        None,
     )

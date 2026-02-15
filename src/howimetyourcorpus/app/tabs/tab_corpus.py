@@ -36,16 +36,6 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
-from howimetyourcorpus.core.export_utils import (
-    export_corpus_txt,
-    export_corpus_csv,
-    export_corpus_json,
-    export_corpus_docx,
-    export_corpus_utterances_jsonl,
-    export_corpus_utterances_csv,
-    export_corpus_phrases_jsonl,
-    export_corpus_phrases_csv,
-)
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import PROFILES, resolve_lang_hint_from_profile_id
 from howimetyourcorpus.core.pipeline.tasks import (
@@ -59,11 +49,7 @@ from howimetyourcorpus.core.workflow import (
 )
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
 from howimetyourcorpus.app.corpus_controller import CorpusWorkflowController
-from howimetyourcorpus.app.export_dialog import (
-    build_export_success_message,
-    normalize_export_path,
-    resolve_export_key,
-)
+from howimetyourcorpus.app.export_dialog import build_export_success_message
 from howimetyourcorpus.app.workflow_advice import build_workflow_advice
 from howimetyourcorpus.app.workflow_status import (
     compute_workflow_status,
@@ -1658,35 +1644,10 @@ class CorpusTabWidget(QWidget):
 
     def _export_corpus(self) -> None:
         store = self._get_store()
-        if not store:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Ouvrez un projet d'abord.",
-                next_step="Pilotage > Projet: ouvrez ou initialisez un projet.",
-            )
-            return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Découvrez d'abord les épisodes.",
-                next_step="Pilotage > Corpus: cliquez sur « Découvrir épisodes ».",
-            )
-            return
-        episodes_data: list[tuple[EpisodeRef, str]] = []
-        for ref in index.episodes:
-            if store.has_episode_clean(ref.episode_id):
-                text = store.load_episode_text(ref.episode_id, kind="clean")
-                episodes_data.append((ref, text))
+        episodes_data = self._workflow_controller.resolve_clean_episodes_for_export_or_warn(
+            store=store,
+        )
         if not episodes_data:
-            warn_precondition(
-                self,
-                "Corpus",
-                "Aucun épisode normalisé (CLEAN) à exporter.",
-                next_step="Lancez « Normaliser » puis réessayez l'export.",
-            )
             return
         path, selected_filter = QFileDialog.getSaveFileName(
             self,
@@ -1698,62 +1659,14 @@ class CorpusTabWidget(QWidget):
         )
         if not path:
             return
-        path = Path(path)
-        selected_filter = selected_filter or ""
-        path = normalize_export_path(
-            path,
-            selected_filter,
-            allowed_suffixes=(".txt", ".csv", ".json", ".jsonl", ".docx"),
-            default_suffix=".txt",
-            filter_to_suffix={
-                "TXT": ".txt",
-                "CSV": ".csv",
-                "JSON": ".json",
-                "JSONL": ".jsonl",
-                "WORD": ".docx",
-            },
-        )
-        selected_upper = selected_filter.upper()
         try:
-            if "JSONL - UTTERANCES" in selected_upper:
-                export_corpus_utterances_jsonl(episodes_data, path)
-            elif "JSONL - PHRASES" in selected_upper:
-                export_corpus_phrases_jsonl(episodes_data, path)
-            elif "CSV - UTTERANCES" in selected_upper:
-                export_corpus_utterances_csv(episodes_data, path)
-            elif "CSV - PHRASES" in selected_upper:
-                export_corpus_phrases_csv(episodes_data, path)
-            else:
-                export_key = resolve_export_key(
-                    path,
-                    selected_filter,
-                    suffix_to_key={
-                        ".txt": "txt",
-                        ".csv": "csv",
-                        ".json": "json",
-                        ".jsonl": "jsonl",
-                        ".docx": "docx",
-                    },
-                    default_key="txt",
-                )
-                if export_key == "txt":
-                    export_corpus_txt(episodes_data, path)
-                elif export_key == "csv":
-                    export_corpus_csv(episodes_data, path)
-                elif export_key == "json":
-                    export_corpus_json(episodes_data, path)
-                elif export_key == "docx":
-                    export_corpus_docx(episodes_data, path)
-                elif export_key == "jsonl":
-                    # JSONL direct sans variante explicite: valeur par défaut = utterances.
-                    export_corpus_utterances_jsonl(episodes_data, path)
-                else:
-                    warn_precondition(
-                        self,
-                        "Export",
-                        "Format non reconnu. Utilisez .txt, .csv, .json, .jsonl ou .docx.",
-                    )
-                    return
+            output_path = self._workflow_controller.export_episodes_data_or_warn(
+                episodes_data=episodes_data,
+                path=Path(path),
+                selected_filter=selected_filter or "",
+            )
+            if output_path is None:
+                return
             show_info(
                 self,
                 "Export",
@@ -1761,7 +1674,7 @@ class CorpusTabWidget(QWidget):
                     subject="Corpus exporté",
                     count=len(episodes_data),
                     count_label="épisode(s)",
-                    path=path,
+                    path=output_path,
                 ),
                 status_callback=self._show_status,
             )
