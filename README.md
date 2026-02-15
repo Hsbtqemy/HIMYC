@@ -206,10 +206,11 @@ dist/           # Généré par build_exe : HowIMetYourCorpus.exe (ignoré par g
 
 - **doc/README.md** — Point d'entrée de la documentation structurée.
 - **doc/ui/README.md** — Documentation UI active (gouvernance, qualité, rapports, release).
+- **doc/planning/** — Backlog, plan d'action, plans de refonte et rituel de nettoyage.
+- **doc/reviews/** — Revues de code et synthèses destinées au dev.
 - **RECAP.md** — Structure, commandes, layout, phases.
-- **DOC_BACKLOG.md** — Demandes et idées (réalisé / à faire).
-- **DOC_PLAN_ACTION.md** — Plan priorisé et checklist (P0/P1/P2).
-- **DOC_NETTOYAGE.md** — Rituel de nettoyage des doc. Les revues de phase historiques sont dans `doc/archive/`.
+- **DOC_*.md à la racine** — Fichiers ponts de compatibilité vers `doc/`.
+- Les revues de phase historiques sont dans `doc/archive/`.
 
 ## Licence
 

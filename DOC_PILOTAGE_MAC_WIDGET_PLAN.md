@@ -1,6 +1,6 @@
 # Document de transition
 
 Ce document a ete deplace vers:
-- `doc/planning/DOC_NETTOYAGE.md`
+- `doc/ui/governance/DOC_PILOTAGE_MAC_WIDGET_PLAN.md`
 
 Ce fichier est conserve pour compatibilite des liens historiques.
