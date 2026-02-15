@@ -1333,26 +1333,22 @@ class CorpusTabWidget(QWidget):
     def _open_selected_error_in_inspector(self) -> None:
         if not self._on_open_inspector:
             return
-        eid = self._workflow_controller.resolve_selected_error_episode_id_or_warn(
+        self._workflow_controller.run_selected_error_callback_or_warn(
             selected_episode_id=self._selected_error_episode_id(),
+            callback=self._on_open_inspector,
             empty_message="Sélectionnez un épisode à ouvrir.",
             empty_next_step="Cliquez une ligne dans le panneau erreurs, puis réessayez.",
         )
-        if eid is None:
-            return
-        self._on_open_inspector(eid)
 
     def _open_selected_error_in_logs(self) -> None:
         if not self._on_open_logs_for_episode:
             return
-        eid = self._workflow_controller.resolve_selected_error_episode_id_or_warn(
+        self._workflow_controller.run_selected_error_callback_or_warn(
             selected_episode_id=self._selected_error_episode_id(),
+            callback=self._on_open_logs_for_episode,
             empty_message="Sélectionnez un épisode à filtrer dans les logs.",
             empty_next_step="Cliquez une ligne dans le panneau erreurs, puis relancez.",
         )
-        if eid is None:
-            return
-        self._on_open_logs_for_episode(eid)
 
     def _index_db(self, scope_mode: str | None = None) -> None:
         resolved = self._resolve_scope_context(scope_mode=scope_mode, require_db=True)

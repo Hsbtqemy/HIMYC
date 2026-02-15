@@ -1825,6 +1825,46 @@ def test_resolve_selected_error_episode_id_or_warn() -> None:
     assert warned[-1] == ("missing", "pick one")
 
 
+def test_run_selected_error_callback_or_warn_invokes_callback() -> None:
+    warned: list[tuple[str, str | None]] = []
+    opened: list[str] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    ok = controller.run_selected_error_callback_or_warn(
+        selected_episode_id=" S01E02 ",
+        callback=lambda eid: opened.append(eid),
+        empty_message="missing",
+        empty_next_step="pick one",
+    )
+    assert ok is True
+    assert opened == ["S01E02"]
+    assert warned == []
+
+
+def test_run_selected_error_callback_or_warn_warns_when_missing() -> None:
+    warned: list[tuple[str, str | None]] = []
+    opened: list[str] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    ok = controller.run_selected_error_callback_or_warn(
+        selected_episode_id=None,
+        callback=lambda eid: opened.append(eid),
+        empty_message="missing",
+        empty_next_step="pick one",
+    )
+    assert ok is False
+    assert opened == []
+    assert warned == [("missing", "pick one")]
+
+
 def test_resolve_clean_episodes_for_export_or_warn_filters_clean_only() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(

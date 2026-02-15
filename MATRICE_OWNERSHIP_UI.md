@@ -54,3 +54,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Execution complete des actions scope simples (`Telecharger`, `Normaliser`, `Segmenter`, `Indexer`) centralisee | Reduction forte de logique metier residuelle dans `tab_corpus` et tests controller etendus | hsmy + codex |
 | 2026-02-15 | Lot 6 | Orchestration des relances erreurs (episode selectionne / toutes erreurs) centralisee | Suppression de plomberie projet/index/retry dans `tab_corpus`, comportement de reprise homogenise | hsmy + codex |
 | 2026-02-15 | Lot 6 | Suppression du helper UI `_run_all_for_episode_ids` | `tab_corpus` simplifie: appel direct controller pour "Tout faire" | hsmy + codex |
+| 2026-02-15 | Lot 6 | Ouverture depuis panneau erreurs (`Inspecteur`/`Logs`) factorisee via callback controller | Retrait de duplication UI et validation selection centralisee | hsmy + codex |

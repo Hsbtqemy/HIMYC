@@ -370,6 +370,7 @@ Etat 2026-02-14:
 - Execution complete des actions scope simples (`Telecharger`, `Normaliser`, `Segmenter`, `Indexer`) centralisee dans le controller.
 - Orchestration des relances erreurs (`episode selectionne` / `toutes erreurs`) centralisee dans le controller.
 - Nettoyage UI: suppression du helper local `_run_all_for_episode_ids` au profit d'un appel direct controller.
+- Ouverture depuis panneau erreurs (`Inspecteur` / `Logs`) factorisee via callback controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

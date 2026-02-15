@@ -1244,6 +1244,29 @@ class CorpusWorkflowController:
             return None
         return eid
 
+    def run_selected_error_callback_or_warn(
+        self,
+        *,
+        selected_episode_id: str | None,
+        callback: Callable[[str], None],
+        empty_message: str,
+        empty_next_step: str | None = None,
+    ) -> bool:
+        """
+        Résout l'épisode d'erreur sélectionné puis exécute un callback (Inspecteur/Logs...).
+
+        Retourne `True` si le callback a été exécuté.
+        """
+        eid = self.resolve_selected_error_episode_id_or_warn(
+            selected_episode_id=selected_episode_id,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if eid is None:
+            return False
+        callback(eid)
+        return True
+
     def run_retry_selected_error_or_warn(
         self,
         *,
