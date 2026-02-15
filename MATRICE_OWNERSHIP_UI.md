@@ -37,3 +37,4 @@ Date: 2026-02-14
 | 2026-02-15 | Lot 6 | Flux import local refactore dans `CorpusWorkflowController` (decouverte + merge + ajout manuel) | Moins de logique metier dans l'UI, preconditions unifiees et testees | hsmy + codex |
 | 2026-02-15 | Lot 6 | Validation de selection d'episode erreur centralisee dans le controller | Suppression de duplication UI et messages precondition homogenes | hsmy + codex |
 | 2026-02-15 | Lot 6 | Execution de plans composes + format message "episodes ignores" centralises dans le controller | Reduction de duplication `tab_corpus` et comportement warning/status unifie | hsmy + codex |
+| 2026-02-15 | Lot 6 | Availability des actions scope centralisee (activations + raisons) dans le controller | UI plus declarative, logique metier testee hors widget | hsmy + codex |

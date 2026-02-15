@@ -1170,44 +1170,23 @@ class CorpusTabWidget(QWidget):
             return
 
         capabilities = self._get_episode_scope_capabilities(index=index, store=store)
-        fetchable_ids = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[0]]
-        ids_with_raw = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[1]]
-        ids_with_clean = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[2]]
-        runnable_ids = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[3]]
-
+        enabled, reasons = self._workflow_controller.resolve_scope_action_availability(
+            ids=ids,
+            capabilities=capabilities,
+        )
         self._set_scope_action_buttons_enabled(
-            fetch=bool(fetchable_ids),
-            normalize=bool(ids_with_raw),
-            segment=bool(ids_with_clean),
-            run_all=bool(runnable_ids),
-            index=bool(ids_with_clean),
+            fetch=enabled["fetch"],
+            normalize=enabled["normalize"],
+            segment=enabled["segment"],
+            run_all=enabled["run_all"],
+            index=enabled["index"],
         )
         self._set_scope_action_tooltips(
-            fetch_reason=(
-                None
-                if fetchable_ids
-                else "Action indisponible: aucune URL source disponible dans le scope."
-            ),
-            normalize_reason=(
-                None
-                if ids_with_raw
-                else "Action indisponible: aucun transcript RAW dans le scope."
-            ),
-            segment_reason=(
-                None
-                if ids_with_clean
-                else "Action indisponible: aucun fichier CLEAN dans le scope."
-            ),
-            run_all_reason=(
-                None
-                if runnable_ids
-                else "Action indisponible: aucun épisode exécutable (URL source, RAW ou CLEAN) dans le scope."
-            ),
-            index_reason=(
-                None
-                if ids_with_clean
-                else "Action indisponible: aucun fichier CLEAN dans le scope."
-            ),
+            fetch_reason=reasons["fetch"],
+            normalize_reason=reasons["normalize"],
+            segment_reason=reasons["segment"],
+            run_all_reason=reasons["run_all"],
+            index_reason=reasons["index"],
         )
 
     @staticmethod

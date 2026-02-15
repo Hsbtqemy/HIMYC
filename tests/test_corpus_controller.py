@@ -177,6 +177,51 @@ def test_build_skipped_scope_status_message() -> None:
     )
 
 
+def test_resolve_scope_action_availability_returns_enabled_and_reasons() -> None:
+    enabled, reasons = CorpusWorkflowController.resolve_scope_action_availability(
+        ids=["S01E01", "S01E02"],
+        capabilities={
+            "S01E01": (True, False, False, True),
+            "S01E02": (False, True, True, True),
+        },
+    )
+    assert enabled == {
+        "fetch": True,
+        "normalize": True,
+        "segment": True,
+        "run_all": True,
+        "index": True,
+    }
+    assert reasons == {
+        "fetch": None,
+        "normalize": None,
+        "segment": None,
+        "run_all": None,
+        "index": None,
+    }
+
+
+def test_resolve_scope_action_availability_sets_unavailable_reasons() -> None:
+    enabled, reasons = CorpusWorkflowController.resolve_scope_action_availability(
+        ids=["S01E03"],
+        capabilities={"S01E03": (False, False, False, False)},
+    )
+    assert enabled == {
+        "fetch": False,
+        "normalize": False,
+        "segment": False,
+        "run_all": False,
+        "index": False,
+    }
+    assert reasons == {
+        "fetch": "Action indisponible: aucune URL source disponible dans le scope.",
+        "normalize": "Action indisponible: aucun transcript RAW dans le scope.",
+        "segment": "Action indisponible: aucun fichier CLEAN dans le scope.",
+        "run_all": "Action indisponible: aucun épisode exécutable (URL source, RAW ou CLEAN) dans le scope.",
+        "index": "Action indisponible: aucun fichier CLEAN dans le scope.",
+    }
+
+
 def test_build_full_workflow_steps_composes_expected_order() -> None:
     calls: list[WorkflowActionId] = []
 

@@ -118,6 +118,37 @@ class CorpusWorkflowController:
             return None
         return f"{prefix}: {skipped} épisode(s) ignoré(s) ({reason})."
 
+    @staticmethod
+    def resolve_scope_action_availability(
+        *,
+        ids: list[str],
+        capabilities: dict[str, tuple[bool, bool, bool, bool]],
+    ) -> tuple[dict[str, bool], dict[str, str | None]]:
+        """Calcule l'activation des actions de scope et leurs raisons de désactivation."""
+        fetchable_ids = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[0]]
+        ids_with_raw = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[1]]
+        ids_with_clean = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[2]]
+        runnable_ids = [eid for eid in ids if capabilities.get(eid, (False, False, False, False))[3]]
+        enabled = {
+            "fetch": bool(fetchable_ids),
+            "normalize": bool(ids_with_raw),
+            "segment": bool(ids_with_clean),
+            "run_all": bool(runnable_ids),
+            "index": bool(ids_with_clean),
+        }
+        reasons = {
+            "fetch": None if enabled["fetch"] else "Action indisponible: aucune URL source disponible dans le scope.",
+            "normalize": None if enabled["normalize"] else "Action indisponible: aucun transcript RAW dans le scope.",
+            "segment": None if enabled["segment"] else "Action indisponible: aucun fichier CLEAN dans le scope.",
+            "run_all": (
+                None
+                if enabled["run_all"]
+                else "Action indisponible: aucun épisode exécutable (URL source, RAW ou CLEAN) dans le scope."
+            ),
+            "index": None if enabled["index"] else "Action indisponible: aucun fichier CLEAN dans le scope.",
+        }
+        return enabled, reasons
+
     def resolve_project_context_or_warn(
         self,
         *,
