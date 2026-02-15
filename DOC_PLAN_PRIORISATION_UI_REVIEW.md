@@ -362,6 +362,7 @@ Etat 2026-02-14:
 - Formatage de la ligne de statut workflow centralise dans le controller.
 - Regle d'activation par defaut des actions scope (issue des counts) centralisee dans le controller.
 - Preparation du plan "Tout faire" (runnable IDs + profils + steps composes) centralisee dans le controller.
+- Preparation des scopes "Normaliser" (RAW+profils) et "CLEAN-required" (segment/index) centralisee dans le controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria

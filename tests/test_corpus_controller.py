@@ -699,6 +699,111 @@ def test_resolve_ids_with_raw_and_clean_or_warn() -> None:
     assert warned[-1] == ("no clean", "normalize first")
 
 
+def test_prepare_normalize_scope_plan_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+
+    class _Store:
+        def has_episode_raw(self, episode_id: str) -> bool:
+            return episode_id == "S01E02"
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {"S01E02": "custom_ep_profile"}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {"subslikescript": "source_profile"}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[
+            EpisodeRef("S01E01", 1, 1, "Pilot", "u"),
+            EpisodeRef("S01E02", 1, 2, "Purple", "u"),
+        ],
+    )
+    prepared = controller.prepare_normalize_scope_plan_or_warn(
+        ids=["S01E01", "S01E02"],
+        index=index,
+        store=_Store(),
+        batch_profile="default_en_v1",
+    )
+    assert prepared is not None
+    ids_with_raw, profile_by_episode, skipped = prepared
+    assert ids_with_raw == ["S01E02"]
+    assert profile_by_episode == {"S01E02": "custom_ep_profile"}
+    assert skipped == 1
+    assert warned == []
+
+
+def test_prepare_normalize_scope_plan_or_warn_returns_none_when_no_raw() -> None:
+    warned: list[tuple[str, str | None]] = []
+
+    class _Store:
+        def has_episode_raw(self, _episode_id: str) -> bool:
+            return False
+
+        def load_episode_preferred_profiles(self) -> dict[str, str]:
+            return {}
+
+        def load_source_profile_defaults(self) -> dict[str, str]:
+            return {}
+
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    index = SeriesIndex(
+        "s",
+        "u",
+        episodes=[EpisodeRef("S01E01", 1, 1, "Pilot", "u")],
+    )
+    prepared = controller.prepare_normalize_scope_plan_or_warn(
+        ids=["S01E01"],
+        index=index,
+        store=_Store(),
+        batch_profile="default_en_v1",
+    )
+    assert prepared is None
+    assert warned == [
+        (
+            "Aucun épisode du scope choisi n'a de transcript RAW. Téléchargez d'abord ce scope.",
+            "Pilotage > Corpus: lancez « Télécharger » sur ce scope.",
+        )
+    ]
+
+
+def test_prepare_clean_scope_ids_or_warn() -> None:
+    warned: list[tuple[str, str | None]] = []
+    controller = CorpusWorkflowController(
+        workflow_service=object(),  # type: ignore[arg-type]
+        run_steps=lambda _steps: None,
+        warn_user=lambda msg, next_step=None: warned.append((msg, next_step)),
+        step_builder=lambda **_kwargs: [],
+    )
+    prepared = controller.prepare_clean_scope_ids_or_warn(
+        ids=["S01E01", "S01E02"],
+        has_episode_clean=lambda eid: eid == "S01E01",
+        empty_message="no clean",
+        empty_next_step="normalize first",
+    )
+    assert prepared == (["S01E01"], 1)
+    none_prepared = controller.prepare_clean_scope_ids_or_warn(
+        ids=["S01E02"],
+        has_episode_clean=lambda _eid: False,
+        empty_message="no clean",
+        empty_next_step="normalize first",
+    )
+    assert none_prepared is None
+    assert warned == [("no clean", "normalize first")]
+
+
 def test_resolve_runnable_ids_for_full_workflow_or_warn() -> None:
     warned: list[tuple[str, str | None]] = []
     controller = CorpusWorkflowController(

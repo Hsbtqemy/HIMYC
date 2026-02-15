@@ -606,6 +606,60 @@ class CorpusWorkflowController:
             return None
         return filtered
 
+    def prepare_normalize_scope_plan_or_warn(
+        self,
+        *,
+        ids: list[str],
+        index: SeriesIndex,
+        store: Any,
+        batch_profile: str,
+    ) -> tuple[list[str], dict[str, str], int] | None:
+        """
+        Prépare le scope de normalisation:
+        - filtre les épisodes avec RAW,
+        - construit les profils par épisode,
+        - retourne le nombre d'épisodes ignorés.
+        """
+        ids_with_raw = self.resolve_ids_with_raw_or_warn(
+            ids=ids,
+            has_episode_raw=store.has_episode_raw,
+        )
+        if ids_with_raw is None:
+            return None
+        profile_by_episode = build_profile_by_episode(
+            episode_refs=index.episodes,
+            episode_ids=ids_with_raw,
+            batch_profile=batch_profile,
+            episode_preferred_profiles=store.load_episode_preferred_profiles(),
+            source_profile_defaults=store.load_source_profile_defaults(),
+        )
+        skipped = len(ids) - len(ids_with_raw)
+        return ids_with_raw, profile_by_episode, skipped
+
+    def prepare_clean_scope_ids_or_warn(
+        self,
+        *,
+        ids: list[str],
+        has_episode_clean: Callable[[str], bool],
+        empty_message: str,
+        empty_next_step: str,
+    ) -> tuple[list[str], int] | None:
+        """
+        Prépare un scope basé sur les épisodes disposant d'un CLEAN.
+
+        Retourne `(ids_with_clean, skipped)`.
+        """
+        ids_with_clean = self.resolve_ids_with_clean_or_warn(
+            ids=ids,
+            has_episode_clean=has_episode_clean,
+            empty_message=empty_message,
+            empty_next_step=empty_next_step,
+        )
+        if ids_with_clean is None:
+            return None
+        skipped = len(ids) - len(ids_with_clean)
+        return ids_with_clean, skipped
+
     def resolve_runnable_ids_for_full_workflow_or_warn(
         self,
         *,
