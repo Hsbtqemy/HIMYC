@@ -372,6 +372,7 @@ Etat 2026-02-14:
 - Nettoyage UI: suppression du helper local `_run_all_for_episode_ids` au profit d'un appel direct controller.
 - Ouverture depuis panneau erreurs (`Inspecteur` / `Logs`) factorisee via callback controller.
 - Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
+- Lot 6 considere cloture: logique workflow metier concentree dans `CorpusWorkflowController`, `tab_corpus` recentre sur l'assemblage UI.
 
 ### Acceptance criteria
 - UI conserve le meme comportement observable.
@@ -391,7 +392,7 @@ Etat 2026-02-14:
 | Lot 3 | hsmy + codex | TBD | TBD | Fait |
 | Lot 4 | hsmy + codex | TBD | TBD | Fait |
 | Lot 5 | hsmy + codex | TBD | TBD | Fait |
-| Lot 6 | hsmy + codex | TBD | TBD | En cours |
+| Lot 6 | hsmy + codex | TBD | TBD | Fait |
 
 ## 6) KPI instrumentes (definitifs)
 
@@ -427,7 +428,7 @@ Etat 2026-02-14:
 
 Execution conseillee (mise a jour 2026-02-15):
 1. Finaliser validation visuelle Pilotage mac sur 2 resolutions (13" + ecran large), apres stabilisation entete/2 colonnes.
-2. Continuer Lot 6 par micro-PRs: extractions restantes de logique workflow hors `tab_corpus` + tests.
-3. Figer un jalon de release UI (tag + notes de rollback) une fois 1-2 passes.
+2. Figer un jalon de release UI (tag + notes de rollback) sur la base des lots -1..6.
+3. Ouvrir un lot de consolidation QA (validation manuelle UX mac + smoke tests CI additionnels).
 
 Ce sequencing conserve un bon ratio impact/risque en capitalisant sur les lots P0 deja livres.

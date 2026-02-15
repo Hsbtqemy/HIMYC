@@ -19,7 +19,7 @@ Date: 2026-02-14
 | Lot 3 | Logs perf (debounce + incremental/tail + pin UX) | hsmy + codex | TBD | TBD | Fait |
 | Lot 4 | Personnages model/view + parite I/O | hsmy + codex | TBD | TBD | Fait |
 | Lot 5 | Accessibilite/HDPI/shortcuts + clarte visuelle | hsmy + codex | TBD | TBD | Fait |
-| Lot 6 | Decouplage tab_corpus -> controller | hsmy + codex | TBD | TBD | En cours |
+| Lot 6 | Decouplage tab_corpus -> controller | hsmy + codex | TBD | TBD | Fait |
 
 ## Decision log minimal (a renseigner a chaque lot)
 
