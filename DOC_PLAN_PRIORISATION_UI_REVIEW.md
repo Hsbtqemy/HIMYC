@@ -327,6 +327,9 @@ Etat 2026-02-14:
 - Resolution scope mode/ids (`current/selection/season/all`) extraite en fonction pure.
 - Resolution profile par episode (priorite episode > source > batch) extraite en fonction pure.
 - Couverture dediee ajoutee: `tests/test_corpus_scope.py`.
+- Phase B demarree: `CorpusWorkflowController` introduit pour centraliser build/run des actions workflow.
+- `tab_corpus.py` delegue build/execution de steps au controller.
+- Couverture dediee ajoutee: `tests/test_corpus_controller.py`.
 
 ### Acceptance criteria
 - UI conserve le meme comportement observable.

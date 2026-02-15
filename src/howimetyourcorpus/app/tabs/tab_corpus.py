@@ -58,12 +58,12 @@ from howimetyourcorpus.core.workflow import (
     WorkflowService,
 )
 from howimetyourcorpus.app.feedback import show_error, show_info, warn_precondition
+from howimetyourcorpus.app.corpus_controller import CorpusWorkflowController
 from howimetyourcorpus.app.export_dialog import (
     build_export_success_message,
     normalize_export_path,
     resolve_export_key,
 )
-from howimetyourcorpus.app.workflow_ui import build_workflow_steps_or_warn
 from howimetyourcorpus.app.workflow_advice import build_workflow_advice
 from howimetyourcorpus.app.workflow_status import (
     compute_workflow_status,
@@ -124,6 +124,11 @@ class CorpusTabWidget(QWidget):
         self._on_open_concordance = on_open_concordance
         self._on_open_logs_for_episode = on_open_logs_for_episode
         self._workflow_service = WorkflowService()
+        self._workflow_controller = CorpusWorkflowController(
+            workflow_service=self._workflow_service,
+            run_steps=lambda steps: self._run_job_with_force(steps),
+            warn_user=self._warn_corpus_precondition,
+        )
         self._primary_action: Callable[[], None] | None = None
         self._cached_index: SeriesIndex | None = None
         self._episode_scope_capabilities: dict[str, tuple[bool, bool, bool, bool]] = {}
@@ -1164,6 +1169,9 @@ class CorpusTabWidget(QWidget):
             return checked_ids[0]
         return None
 
+    def _warn_corpus_precondition(self, message: str, next_step: str | None = None) -> None:
+        warn_precondition(self, "Corpus", message, next_step=next_step)
+
     def _show_skipped_ids(self, *, prefix: str, skipped: int, reason: str) -> None:
         if skipped <= 0:
             return
@@ -1373,51 +1381,6 @@ class CorpusTabWidget(QWidget):
         scope, ids = resolved_scope
         return store, db, context, index, scope, ids
 
-    def _build_action_steps_or_warn(
-        self,
-        *,
-        action_id: WorkflowActionId,
-        context: dict[str, Any],
-        scope: WorkflowScope,
-        episode_refs: list[EpisodeRef],
-        options: dict[str, Any] | None = None,
-    ) -> list[Any] | None:
-        return build_workflow_steps_or_warn(
-            workflow_service=self._workflow_service,
-            action_id=action_id,
-            context=context,
-            scope=scope,
-            episode_refs=episode_refs,
-            options=options,
-            warn_precondition_message=lambda message: warn_precondition(self, "Corpus", message),
-        )
-
-    def _run_action_for_scope(
-        self,
-        *,
-        action_id: WorkflowActionId,
-        context: dict[str, Any],
-        scope: WorkflowScope,
-        episode_refs: list[EpisodeRef],
-        options: dict[str, Any] | None,
-        empty_message: str,
-        empty_next_step: str | None = None,
-    ) -> bool:
-        steps = self._build_action_steps_or_warn(
-            action_id=action_id,
-            context=context,
-            scope=scope,
-            episode_refs=episode_refs,
-            options=options,
-        )
-        if steps is None:
-            return False
-        if not steps:
-            warn_precondition(self, "Corpus", empty_message, next_step=empty_next_step)
-            return False
-        self._run_job_with_force(steps)
-        return True
-
     def _get_episode_status_map(self, episode_ids: list[str]) -> dict[str, str]:
         return load_episode_status_map(self._get_db(), episode_ids)
 
@@ -1525,7 +1488,7 @@ class CorpusTabWidget(QWidget):
             episode_preferred_profiles=store.load_episode_preferred_profiles(),
             source_profile_defaults=store.load_source_profile_defaults(),
         )
-        fetch_steps = self._build_action_steps_or_warn(
+        fetch_steps = self._workflow_controller.build_action_steps_or_warn(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
             scope=fetch_scope,
@@ -1538,7 +1501,7 @@ class CorpusTabWidget(QWidget):
         segment_steps: list[Any] = []
         index_steps: list[Any] = []
         if runnable_scope is not None:
-            normalize_steps = self._build_action_steps_or_warn(
+            normalize_steps = self._workflow_controller.build_action_steps_or_warn(
                 action_id=WorkflowActionId.NORMALIZE_EPISODES,
                 context=context,
                 scope=runnable_scope,
@@ -1550,7 +1513,7 @@ class CorpusTabWidget(QWidget):
             )
             if normalize_steps is None:
                 return
-            segment_steps = self._build_action_steps_or_warn(
+            segment_steps = self._workflow_controller.build_action_steps_or_warn(
                 action_id=WorkflowActionId.SEGMENT_EPISODES,
                 context=context,
                 scope=runnable_scope,
@@ -1559,7 +1522,7 @@ class CorpusTabWidget(QWidget):
             )
             if segment_steps is None:
                 return
-            index_steps = self._build_action_steps_or_warn(
+            index_steps = self._workflow_controller.build_action_steps_or_warn(
                 action_id=WorkflowActionId.BUILD_DB_INDEX,
                 context=context,
                 scope=runnable_scope,
@@ -1602,7 +1565,7 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="URL source absente",
         )
-        self._run_action_for_scope(
+        self._workflow_controller.run_action_for_scope(
             action_id=WorkflowActionId.FETCH_EPISODES,
             context=context,
             scope=WorkflowScope.selection(ids_with_url),
@@ -1642,7 +1605,7 @@ class CorpusTabWidget(QWidget):
             episode_preferred_profiles=store.load_episode_preferred_profiles(),
             source_profile_defaults=store.load_source_profile_defaults(),
         )
-        self._run_action_for_scope(
+        self._workflow_controller.run_action_for_scope(
             action_id=WorkflowActionId.NORMALIZE_EPISODES,
             context=context,
             scope=WorkflowScope.selection(ids_with_raw),
@@ -1676,7 +1639,7 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="sans CLEAN dans le scope",
         )
-        self._run_action_for_scope(
+        self._workflow_controller.run_action_for_scope(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
             context=context,
             scope=WorkflowScope.selection(eids_with_clean),
@@ -1799,7 +1762,7 @@ class CorpusTabWidget(QWidget):
             skipped=skipped,
             reason="sans CLEAN dans le scope",
         )
-        self._run_action_for_scope(
+        self._workflow_controller.run_action_for_scope(
             action_id=WorkflowActionId.BUILD_DB_INDEX,
             context=context,
             scope=WorkflowScope.selection(ids_with_clean),
@@ -1831,7 +1794,7 @@ class CorpusTabWidget(QWidget):
             reason="sans CLEAN dans le scope",
         )
         scope = WorkflowScope.selection(ids_with_clean)
-        segment_steps = self._build_action_steps_or_warn(
+        segment_steps = self._workflow_controller.build_action_steps_or_warn(
             action_id=WorkflowActionId.SEGMENT_EPISODES,
             context=context,
             scope=scope,
@@ -1840,7 +1803,7 @@ class CorpusTabWidget(QWidget):
         )
         if segment_steps is None:
             return
-        index_steps = self._build_action_steps_or_warn(
+        index_steps = self._workflow_controller.build_action_steps_or_warn(
             action_id=WorkflowActionId.BUILD_DB_INDEX,
             context=context,
             scope=scope,
