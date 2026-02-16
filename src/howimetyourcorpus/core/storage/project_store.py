@@ -66,6 +66,7 @@ class ProjectStore:
         root.mkdir(parents=True, exist_ok=True)
         (root / "runs").mkdir(exist_ok=True)
         (root / "episodes").mkdir(exist_ok=True)
+        (root / ".cache").mkdir(exist_ok=True)  # Cache HTTP pour éviter requêtes répétées
 
         data = {
             "project_name": config.project_name,
@@ -144,24 +145,51 @@ class ProjectStore:
     def load_custom_profiles(self) -> dict[str, NormalizationProfile]:
         """
         Charge les profils personnalisés du projet (fichier profiles.json à la racine).
-        Format attendu : {"profiles": [{"id": "...", "merge_subtitle_breaks": true, "max_merge_examples_in_debug": 10}]}
+        Format attendu : {"profiles": [{"id": "...", "merge_subtitle_breaks": true, 
+                          "fix_double_spaces": true, "case_transform": "none", 
+                          "custom_regex_rules": [{"pattern": "...", "replacement": "..."}], ...}]}
         """
+        from howimetyourcorpus.core.normalize.profiles import validate_profiles_json, ProfileValidationError
+        
         path = self.root_dir / self.PROFILES_JSON
         if not path.exists():
             return {}
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
+        except json.JSONDecodeError as e:
+            # Syntaxe JSON invalide
+            raise ValueError(f"Fichier profiles.json invalide (syntaxe JSON) : {e}")
+        
+        # Valider le schéma
+        try:
+            validate_profiles_json(data)
+        except ProfileValidationError as e:
+            raise ValueError(f"Fichier profiles.json invalide : {e}")
+        
         out: dict[str, NormalizationProfile] = {}
         for p in data.get("profiles", []):
             pid = p.get("id") or ""
             if not pid or not isinstance(p.get("merge_subtitle_breaks"), bool):
                 continue
+            
+            # Charger custom_regex_rules
+            custom_regex = []
+            if "custom_regex_rules" in p and isinstance(p["custom_regex_rules"], list):
+                for rule in p["custom_regex_rules"]:
+                    if isinstance(rule, dict) and "pattern" in rule and "replacement" in rule:
+                        custom_regex.append((rule["pattern"], rule["replacement"]))
+            
             out[pid] = NormalizationProfile(
                 id=pid,
                 merge_subtitle_breaks=bool(p.get("merge_subtitle_breaks", True)),
                 max_merge_examples_in_debug=int(p.get("max_merge_examples_in_debug", 20)),
+                fix_double_spaces=bool(p.get("fix_double_spaces", True)),
+                fix_french_punctuation=bool(p.get("fix_french_punctuation", False)),
+                normalize_apostrophes=bool(p.get("normalize_apostrophes", False)),
+                normalize_quotes=bool(p.get("normalize_quotes", False)),
+                strip_line_spaces=bool(p.get("strip_line_spaces", True)),
+                case_transform=str(p.get("case_transform", "none")),
+                custom_regex_rules=custom_regex,
             )
         return out
 
@@ -375,6 +403,10 @@ class ProjectStore:
 
     def get_db_path(self) -> Path:
         return self.root_dir / "corpus.db"
+
+    def get_cache_dir(self) -> Path:
+        """Retourne le répertoire cache HTTP (créé à l'init projet)."""
+        return self.root_dir / ".cache"
 
     def get_episode_transform_meta_path(self, episode_id: str) -> Path:
         """Chemin du fichier transform_meta.json pour un épisode."""

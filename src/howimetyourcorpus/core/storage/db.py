@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 import json
@@ -30,13 +31,43 @@ __all__ = ["CorpusDB", "KwicHit"]
 
 
 class CorpusDB:
-    """Accès à la base corpus (épisodes, documents, FTS, KWIC)."""
+    """Accès à la base corpus (épisodes, documents, FTS, KWIC).
+    
+    Optimisations Phase 6 :
+    - PRAGMA pour performance (WAL, cache, mmap)
+    - Context manager pour réutilisation de connexion
+    - Méthodes batch pour insertions multiples
+    """
 
     def __init__(self, db_path: Path | str):
         self.db_path = Path(db_path)
 
     def _conn(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
+        """Ouvre une connexion avec PRAGMA d'optimisation."""
+        conn = sqlite3.connect(self.db_path)
+        # Phase 6: Optimisations SQLite
+        conn.execute("PRAGMA journal_mode = WAL")  # Write-Ahead Logging (lectures non-bloquantes)
+        conn.execute("PRAGMA synchronous = NORMAL")  # Balance sécurité/performance
+        conn.execute("PRAGMA cache_size = -64000")  # Cache 64MB (négatif = KB)
+        conn.execute("PRAGMA temp_store = MEMORY")  # Tables temporaires en RAM
+        conn.execute("PRAGMA mmap_size = 268435456")  # Memory-mapped I/O 256MB pour FTS5
+        return conn
+    
+    @contextmanager
+    def connection(self):
+        """Context manager pour réutiliser une connexion (Phase 6).
+        
+        Exemple :
+            with db.connection() as conn:
+                db_segments.upsert_segments(conn, ep_id, "sentence", segs)
+                db_segments.upsert_segments(conn, ep_id, "utterance", utts)
+                # 1 seule connexion pour N opérations !
+        """
+        conn = self._conn()
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def _migrate(self, conn: sqlite3.Connection) -> None:
         """Exécute les migrations en attente (schema_version)."""
@@ -135,6 +166,27 @@ class CorpusDB:
             conn.commit()
         finally:
             conn.close()
+    
+    def upsert_episodes_batch(self, refs: list[EpisodeRef], status: str = "new") -> None:
+        """Insère ou met à jour plusieurs épisodes en une seule transaction (Phase 6)."""
+        if not refs:
+            return
+        conn = self._conn()
+        try:
+            with conn:
+                for ref in refs:
+                    conn.execute(
+                        """
+                        INSERT INTO episodes (episode_id, season, episode, title, url, status)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(episode_id) DO UPDATE SET
+                          season=excluded.season, episode=excluded.episode,
+                          title=excluded.title, url=excluded.url, status=excluded.status
+                        """,
+                        (ref.episode_id, ref.season, ref.episode, ref.title, ref.url, status),
+                    )
+        finally:
+            conn.close()
 
     def set_episode_status(
         self, episode_id: str, status: str, timestamp: str | None = None
@@ -201,6 +253,51 @@ class CorpusDB:
                 "SELECT episode_id FROM documents"
             ).fetchall()
             return [r[0] for r in rows]
+        finally:
+            conn.close()
+    
+    def get_episodes_by_status(self, status: str | None = None) -> list[dict]:
+        """Retourne les épisodes filtrés par statut (Phase 6, optimisé avec index).
+        
+        Args:
+            status: Statut à filtrer ("new", "fetched", "normalized", "indexed"), ou None pour tous.
+        
+        Returns:
+            Liste de dicts {episode_id, season, episode, title, url, status, fetched_at, normalized_at}.
+        """
+        conn = self._conn()
+        try:
+            conn.row_factory = sqlite3.Row
+            if status:
+                # Utilise idx_episodes_status (Phase 6)
+                rows = conn.execute(
+                    """SELECT episode_id, season, episode, title, url, status, fetched_at, normalized_at
+                       FROM episodes WHERE status = ?
+                       ORDER BY season, episode""",
+                    (status,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT episode_id, season, episode, title, url, status, fetched_at, normalized_at
+                       FROM episodes
+                       ORDER BY season, episode""",
+                ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+    
+    def count_episodes_by_status(self) -> dict[str, int]:
+        """Compte rapide des épisodes par statut (Phase 6, optimisé avec index).
+        
+        Returns:
+            Dict {status: count}, ex: {"new": 5, "fetched": 10, "indexed": 8}.
+        """
+        conn = self._conn()
+        try:
+            rows = conn.execute(
+                "SELECT status, COUNT(*) FROM episodes GROUP BY status"
+            ).fetchall()
+            return {r[0]: r[1] for r in rows}
         finally:
             conn.close()
 

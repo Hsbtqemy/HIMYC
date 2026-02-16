@@ -45,7 +45,19 @@ class AdapterRegistry:
 
     @classmethod
     def get(cls, source_id: str) -> SourceAdapter | None:
+        """Retourne l'adapteur correspondant ou None si non trouvé."""
         return cls._adapters.get(source_id)
+
+    @classmethod
+    def get_or_raise(cls, source_id: str) -> SourceAdapter:
+        """Retourne l'adapteur correspondant ou lève une exception claire."""
+        adapter = cls._adapters.get(source_id)
+        if not adapter:
+            available = ", ".join(cls._adapters.keys()) if cls._adapters else "(aucun)"
+            raise ValueError(
+                f"Adapteur '{source_id}' introuvable. Adapteurs disponibles : {available}"
+            )
+        return adapter
 
     @classmethod
     def list_ids(cls) -> list[str]:

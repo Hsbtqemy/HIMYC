@@ -39,7 +39,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
 )
 from PySide6.QtCore import Qt, QModelIndex, QPoint, QTimer, QUrl, QSettings
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QIcon, QUndoStack
 from PySide6.QtWidgets import QMenuBar
 from PySide6.QtGui import QDesktopServices
 
@@ -105,6 +105,10 @@ class MainWindow(QMainWindow):
         self._db: CorpusDB | None = None
         self._job_runner: JobRunner | None = None
         self._log_handler: logging.Handler | None = None
+        
+        # Basse Priorité #3 : Undo/Redo stack global
+        self.undo_stack = QUndoStack(self)
+        self.undo_stack.setUndoLimit(50)  # Limite à 50 actions
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -124,9 +128,32 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
     def _build_menu_bar(self):
-        """Barre de menu : Aide > À propos, Vérifier les mises à jour (Phase 6)."""
+        """Barre de menu : Édition (Undo/Redo), Aide (À propos, Mises à jour)."""
         menu_bar = QMenuBar(self)
         self.setMenuBar(menu_bar)
+        
+        # Basse Priorité #3 : Menu Édition avec Undo/Redo
+        edit_menu = menu_bar.addMenu("É&dition")
+        
+        # Action Undo (Ctrl+Z)
+        self.undo_action = self.undo_stack.createUndoAction(self, "Annuler")
+        self.undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        edit_menu.addAction(self.undo_action)
+        
+        # Action Redo (Ctrl+Y ou Ctrl+Shift+Z)
+        self.redo_action = self.undo_stack.createRedoAction(self, "Refaire")
+        self.redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        edit_menu.addAction(self.redo_action)
+        
+        edit_menu.addSeparator()
+        
+        # Action Effacer historique
+        clear_history_act = QAction("Effacer l'historique Undo/Redo", self)
+        clear_history_act.setToolTip("Vide la pile d'annulation (libère mémoire)")
+        clear_history_act.triggered.connect(self._clear_undo_history)
+        edit_menu.addAction(clear_history_act)
+        
+        # Menu Aide
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
         about_act.triggered.connect(self._show_about)
@@ -134,6 +161,26 @@ class MainWindow(QMainWindow):
         update_act = QAction("Vérifier les mises à jour", self)
         update_act.triggered.connect(self._open_releases_page)
         aide.addAction(update_act)
+    
+    def _clear_undo_history(self):
+        """Efface l'historique Undo/Redo (Basse Priorité #3)."""
+        count = self.undo_stack.count()
+        if count == 0:
+            QMessageBox.information(self, "Historique", "L'historique est déjà vide.")
+            return
+        
+        reply = QMessageBox.question(
+            self,
+            "Effacer historique",
+            f"Effacer {count} action(s) dans l'historique Undo/Redo ?\n\n"
+            "Vous ne pourrez plus annuler ces actions.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.undo_stack.clear()
+            QMessageBox.information(self, "Historique", "Historique effacé.")
 
     def _show_about(self):
         """Affiche la boîte À propos (version, lien mises à jour)."""
@@ -296,6 +343,11 @@ class MainWindow(QMainWindow):
             file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
             corpus_logger.addHandler(file_handler)
             self._log_handler = file_handler
+            # Mettre à jour le label chemin log dans l'onglet Logs
+            if hasattr(self, "tabs") and self.tabs.count() > TAB_LOGS:
+                log_widget = self.tabs.widget(TAB_LOGS)
+                if hasattr(log_widget, "set_log_path"):
+                    log_widget.set_log_path(str(log_file))
 
     def _build_tab_corpus(self):
         self.corpus_tab = CorpusTabWidget(
@@ -352,7 +404,15 @@ class MainWindow(QMainWindow):
         context = self._get_context()
         if not context.get("config"):
             return
-        self._job_runner = JobRunner(steps, context, force=False)
+        
+        # Phase 7 HP3 : JobRunner avec QProgressDialog activé
+        self._job_runner = JobRunner(
+            steps, 
+            context, 
+            force=False,
+            parent=self,
+            show_progress_dialog=True
+        )
         self._job_runner.progress.connect(self._on_job_progress)
         self._job_runner.log.connect(self._on_job_log)
         self._job_runner.error.connect(self._on_job_error)
@@ -392,8 +452,8 @@ class MainWindow(QMainWindow):
         fail = len(results) - ok
         # Résumé unifié : X réussis, Y échecs (toujours affiché)
         msg = f"Terminé : {ok} réussie(s), {fail} échec(s)."
+        failed_episode_ids: set[str] = set()
         if fail:
-            failed_episode_ids = []
             first_fail_msg = ""
             for r in results:
                 if not getattr(r, "success", True):
@@ -402,15 +462,21 @@ class MainWindow(QMainWindow):
                         first_fail_msg = m[:80] + ("…" if len(m) > 80 else "")
                     # Extraire episode_id (ex. S01E01) du message pour reprise ciblée
                     ep_match = re.search(r"S\d+E\d+", m, re.IGNORECASE)
-                    if ep_match and ep_match.group(0).upper() not in {e.upper() for e in failed_episode_ids}:
-                        failed_episode_ids.append(ep_match.group(0).upper())
+                    if ep_match:
+                        failed_episode_ids.add(ep_match.group(0).upper())
             if failed_episode_ids:
-                msg += f" Échec(s) : {', '.join(sorted(set(failed_episode_ids)))}."
+                msg += f" Échec(s) : {', '.join(sorted(failed_episode_ids))}."
             elif first_fail_msg:
                 msg += f" Premier échec : {first_fail_msg}"
             self.statusBar().showMessage(msg, 10000)
+            # Stocker les échecs pour la reprise
+            if hasattr(self, "corpus_tab") and self.corpus_tab:
+                self.corpus_tab.store_failed_episodes(failed_episode_ids)
         else:
             self.statusBar().showMessage(msg, 5000)
+            # Pas d'échec : désactiver le bouton reprise
+            if hasattr(self, "corpus_tab") and self.corpus_tab:
+                self.corpus_tab.store_failed_episodes(set())
         self._append_job_summary_to_log(msg)
         self._refresh_episodes_from_store()
         self._refresh_inspecteur_episodes()
@@ -468,6 +534,7 @@ class MainWindow(QMainWindow):
             run_job=self._run_job,
             refresh_episodes=self._refresh_episodes_from_store,
             show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
+            undo_stack=self.undo_stack,  # Basse Priorité #3
         )
         self.tabs.addTab(self.inspector_tab, "Inspecteur")
         self.tabs.setTabToolTip(TAB_INSPECTEUR, "§15.4 — Transcript (RAW/CLEAN, segments) + Sous-titres (pistes, import, normaliser) pour l'épisode courant.")
@@ -492,6 +559,7 @@ class MainWindow(QMainWindow):
             get_store=lambda: self._store,
             get_db=lambda: self._db,
             run_job=self._run_job,
+            undo_stack=self.undo_stack,  # Basse Priorité #3
         )
         self.tabs.addTab(self.alignment_tab, "Alignement")
         self.tabs.setTabToolTip(TAB_ALIGNEMENT, "Workflow §14 — Bloc 3 : Alignement transcript↔cues, liens, export concordancier.")

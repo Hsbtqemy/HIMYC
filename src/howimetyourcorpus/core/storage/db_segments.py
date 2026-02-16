@@ -15,32 +15,34 @@ def upsert_segments(
     """Insère ou met à jour les segments d'un épisode (sentence ou utterance)."""
     from howimetyourcorpus.core.segment import Segment
 
-    conn.execute(
-        "DELETE FROM segments WHERE episode_id = ? AND kind = ?",
-        (episode_id, kind),
-    )
-    for seg in segments:
-        if not isinstance(seg, Segment):
-            continue
-        sid = f"{episode_id}:{seg.kind}:{seg.n}"
-        meta_json = json.dumps(seg.meta) if seg.meta else None
+    # Transaction explicite pour éviter 1000 commits et garantir l'atomicité
+    with conn:
         conn.execute(
-            """
-            INSERT INTO segments (segment_id, episode_id, kind, n, start_char, end_char, text, speaker_explicit, meta_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                sid,
-                episode_id,
-                seg.kind,
-                seg.n,
-                seg.start_char,
-                seg.end_char,
-                seg.text,
-                seg.speaker_explicit,
-                meta_json,
-            ),
+            "DELETE FROM segments WHERE episode_id = ? AND kind = ?",
+            (episode_id, kind),
         )
+        for seg in segments:
+            if not isinstance(seg, Segment):
+                continue
+            sid = f"{episode_id}:{seg.kind}:{seg.n}"
+            meta_json = json.dumps(seg.meta) if seg.meta else None
+            conn.execute(
+                """
+                INSERT INTO segments (segment_id, episode_id, kind, n, start_char, end_char, text, speaker_explicit, meta_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sid,
+                    episode_id,
+                    seg.kind,
+                    seg.n,
+                    seg.start_char,
+                    seg.end_char,
+                    seg.text,
+                    seg.speaker_explicit,
+                    meta_json,
+                ),
+            )
 
 
 def get_segments_for_episode(

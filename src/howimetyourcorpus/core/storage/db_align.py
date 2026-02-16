@@ -38,24 +38,26 @@ def upsert_align_links(
     links: list[dict],
 ) -> None:
     """Remplace les liens d'un run (DELETE puis INSERT). Chaque link: segment_id?, cue_id?, cue_id_target?, lang?, role, confidence, status, meta_json?."""
-    conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
-    for i, link in enumerate(links):
-        link_id = link.get("link_id") or f"{align_run_id}:{i}"
-        segment_id = link.get("segment_id")
-        cue_id = link.get("cue_id")
-        cue_id_target = link.get("cue_id_target")
-        lang = link.get("lang") or ""
-        role = link.get("role", "pivot")
-        confidence = link.get("confidence")
-        status = link.get("status", "auto")
-        meta_json = json.dumps(link["meta"]) if link.get("meta") else None
-        conn.execute(
-            """
-            INSERT INTO align_links (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json),
-        )
+    # Transaction explicite pour éviter 1000 commits et garantir l'atomicité
+    with conn:
+        conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
+        for i, link in enumerate(links):
+            link_id = link.get("link_id") or f"{align_run_id}:{i}"
+            segment_id = link.get("segment_id")
+            cue_id = link.get("cue_id")
+            cue_id_target = link.get("cue_id_target")
+            lang = link.get("lang") or ""
+            role = link.get("role", "pivot")
+            confidence = link.get("confidence")
+            status = link.get("status", "auto")
+            meta_json = json.dumps(link["meta"]) if link.get("meta") else None
+            conn.execute(
+                """
+                INSERT INTO align_links (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (link_id, align_run_id, episode_id, segment_id, cue_id, cue_id_target, lang, role, confidence, status, meta_json),
+            )
 
 
 def set_align_status(conn: sqlite3.Connection, link_id: str, status: str) -> None:
@@ -115,14 +117,18 @@ def get_align_runs_for_episodes(conn: sqlite3.Connection, episode_ids: list[str]
 
 def delete_align_run(conn: sqlite3.Connection, align_run_id: str) -> None:
     """Supprime un run d'alignement et tous ses liens."""
-    conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
-    conn.execute("DELETE FROM align_runs WHERE align_run_id = ?", (align_run_id,))
+    # Transaction explicite pour garantir l'atomicité (liens puis run)
+    with conn:
+        conn.execute("DELETE FROM align_links WHERE align_run_id = ?", (align_run_id,))
+        conn.execute("DELETE FROM align_runs WHERE align_run_id = ?", (align_run_id,))
 
 
 def delete_align_runs_for_episode(conn: sqlite3.Connection, episode_id: str) -> None:
     """Supprime tous les runs d'alignement d'un épisode (et leurs liens). À appeler après suppression d'une piste SRT ou re-segmentation pour éviter les liens orphelins."""
-    conn.execute("DELETE FROM align_links WHERE episode_id = ?", (episode_id,))
-    conn.execute("DELETE FROM align_runs WHERE episode_id = ?", (episode_id,))
+    # Transaction explicite pour garantir l'atomicité (liens puis runs)
+    with conn:
+        conn.execute("DELETE FROM align_links WHERE episode_id = ?", (episode_id,))
+        conn.execute("DELETE FROM align_runs WHERE episode_id = ?", (episode_id,))
 
 
 def query_alignment_for_episode(

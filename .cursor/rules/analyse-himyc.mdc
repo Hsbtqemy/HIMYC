@@ -1,0 +1,458 @@
+---
+description: Analyse approfondie du code HIMYC - fonctions, doublons, UI/UX, performance et maintenabilité
+alwaysApply: true
+---
+
+# Analyse Approfondie du Code HowIMetYourCorpus
+
+## 🎯 Objectif Principal
+
+Lors de chaque intervention sur le code, analyser systématiquement :
+1. **Fonctions et responsabilités** : Clarté, cohésion, SRP (Single Responsibility Principle)
+2. **Doublons et redondances** : Code dupliqué, logique répétée, opportunités de factorisation
+3. **Interface Utilisateur (UI)** : Cohérence visuelle, accessibilité, ergonomie Qt/PySide6
+4. **Expérience Utilisateur (UX)** : Fluidité, feedback, gestion d'erreurs, parcours utilisateur
+5. **Performance** : Optimisations possibles, requêtes DB, traitements lourds
+6. **Maintenabilité** : Documentation, typage, modularité, testabilité
+
+## 📋 Architecture du Projet
+
+### Structure des Onglets
+L'application HIMYC comporte **7 onglets principaux** :
+
+1. **Projet (TAB_PROJET=0)** : Configuration du projet, source, URL série, profils
+2. **Corpus (TAB_CORPUS=1)** : Import, normalisation, segmentation, découverte d'épisodes
+3. **Inspecteur (TAB_INSPECTEUR=2)** : Vue détaillée épisode (transcript RAW/CLEAN + sous-titres)
+4. **Alignement (TAB_ALIGNEMENT=3)** : Alignement transcript↔sous-titres, liens
+5. **Concordance (TAB_CONCORDANCE=4)** : Concordancier parallèle multilingue, recherche KWIC
+6. **Personnages (TAB_PERSONNAGES=5)** : Assignation segment/cue→personnage
+7. **Logs (TAB_LOGS=6)** : Journalisation des opérations
+
+### Composants Clés
+- `MainWindow` : Fenêtre principale orchestrant les onglets
+- `ProjectStore` : Gestion persistance (config.toml, JSON)
+- `CorpusDB` : Base de données SQLite (segments, sous-titres, alignements, KWIC)
+- `JobRunner` : Exécution asynchrone des tâches pipeline
+- Widgets d'onglets : `ProjectTabWidget`, `CorpusTabWidget`, `InspecteurEtSousTitresTabWidget`, etc.
+
+## 🔍 Checklist d'Analyse Systématique
+
+### 1. Analyse des Fonctions
+
+#### Pour Chaque Fonction/Méthode :
+- ✅ **Responsabilité unique** : La fonction fait-elle une seule chose clairement définie ?
+- ✅ **Nom descriptif** : Le nom reflète-t-il précisément ce que fait la fonction ?
+- ✅ **Longueur raisonnable** : < 50 lignes idéalement (< 100 max, sinon découper)
+- ✅ **Paramètres** : Moins de 5 paramètres (sinon regrouper en dataclass/dict)
+- ✅ **Type hints** : Tous les paramètres et retours sont-ils typés ?
+- ✅ **Docstring** : Présente et explicite pour fonctions publiques/complexes
+- ✅ **Dépendances** : La fonction dépend-elle de trop d'état global ?
+
+#### Exemple d'Amélioration :
+```python
+# ❌ AVANT : Fonction trop longue, responsabilités multiples
+def process_episode_data(self, ep_id: str):
+    # 80 lignes mélangeant validation, DB, normalisation, UI...
+    pass
+
+# ✅ APRÈS : Découpage en fonctions focalisées
+def _validate_episode_id(self, ep_id: str) -> bool:
+    """Valide le format de l'ID épisode (S01E01)."""
+    return bool(re.match(r"S\d{2}E\d{2}", ep_id))
+
+def _fetch_episode_data(self, ep_id: str) -> EpisodeData:
+    """Récupère les données de l'épisode depuis la DB."""
+    return self._db.get_episode(ep_id)
+
+def _normalize_and_display(self, data: EpisodeData) -> None:
+    """Normalise et affiche les données dans l'UI."""
+    normalized = self._normalizer.normalize(data)
+    self._display_in_ui(normalized)
+```
+
+### 2. Détection des Doublons
+
+#### Rechercher Activement :
+- 🔄 **Code dupliqué** : Même logique dans plusieurs fichiers/fonctions
+- 🔄 **Requêtes DB similaires** : Opportunités de factoriser en méthodes réutilisables
+- 🔄 **Validation répétée** : Validation UI/données redondante
+- 🔄 **Patterns Qt récurrents** : Créer des widgets/dialogs réutilisables
+- 🔄 **Traitement de données** : Normalisation, parsing, transformation dupliqués
+
+#### Stratégies de Déduplication :
+```python
+# ❌ AVANT : Validation dupliquée dans 3 onglets
+# tab_corpus.py
+if not self._store:
+    QMessageBox.warning(self, "Erreur", "Ouvrez un projet d'abord.")
+    return
+
+# tab_alignment.py
+if not self._store:
+    QMessageBox.warning(self, "Erreur", "Ouvrez un projet d'abord.")
+    return
+
+# ✅ APRÈS : Méthode centralisée ou décorateur
+def require_project(method):
+    """Décorateur vérifiant qu'un projet est ouvert."""
+    def wrapper(self, *args, **kwargs):
+        if not self._store:
+            QMessageBox.warning(self, "Projet requis", "Ouvrez un projet d'abord.")
+            return None
+        return method(self, *args, **kwargs)
+    return wrapper
+
+@require_project
+def _perform_action(self):
+    # Action nécessitant un projet ouvert
+    pass
+```
+
+### 3. Analyse UI/UX
+
+#### 3.1 Interface Utilisateur (UI)
+
+##### Cohérence Visuelle :
+- 📐 **Espacement uniforme** : Marges, padding cohérents entre widgets
+- 📐 **Tailles de police** : Hiérarchie typographique claire (titres, labels, texte)
+- 📐 **Iconographie** : Utiliser des icônes pour actions importantes (clarté)
+- 📐 **Couleurs** : Palette cohérente, codes couleur significatifs (erreur=rouge, succès=vert)
+- 📐 **Alignement** : Widgets alignés proprement (QFormLayout, QGridLayout)
+
+##### Accessibilité :
+- ♿ **Tooltips** : Tous les boutons/actions ont des tooltips explicatifs
+- ♿ **Raccourcis clavier** : Actions fréquentes accessibles au clavier
+- ♿ **Contraste** : Texte lisible sur fond (respecter ratios WCAG)
+- ♿ **Focus** : Ordre de tabulation logique
+
+##### Ergonomie Qt/PySide6 :
+```python
+# ✅ Bonnes pratiques Qt
+# 1. Utiliser QFormLayout pour formulaires
+form_layout = QFormLayout()
+form_layout.addRow("Nom du projet :", self.project_name_edit)
+form_layout.addRow("Dossier racine :", self.root_dir_edit)
+
+# 2. Désactiver widgets pendant traitement
+self.process_btn.setEnabled(False)
+self.progress_bar.setVisible(True)
+
+# 3. Utiliser des splitters pour zones redimensionnables
+splitter = QSplitter(Qt.Horizontal)
+splitter.addWidget(left_panel)
+splitter.addWidget(right_panel)
+splitter.setSizes([300, 700])  # Proportions initiales
+
+# 4. Sauvegarder/restaurer état UI
+settings = QSettings("HIMYC", "MainWindow")
+settings.setValue("splitter/sizes", splitter.saveState())
+# Restaurer : splitter.restoreState(settings.value("splitter/sizes"))
+```
+
+#### 3.2 Expérience Utilisateur (UX)
+
+##### Feedback Utilisateur :
+- 💬 **Actions confirmées** : Message succès/échec clair après chaque action
+- 💬 **Progression** : Barre de progression + pourcentage pour tâches longues
+- 💬 **État de l'application** : Barre de statut indique l'état courant
+- 💬 **Erreurs explicites** : Messages d'erreur compréhensibles avec solution suggérée
+
+##### Gestion d'Erreurs :
+```python
+# ❌ AVANT : Erreur générique
+except Exception as e:
+    QMessageBox.critical(self, "Erreur", str(e))
+
+# ✅ APRÈS : Erreur contextualisée avec solution
+except FileNotFoundError as e:
+    QMessageBox.critical(
+        self,
+        "Fichier introuvable",
+        f"Le fichier {e.filename} est introuvable.\n\n"
+        "Vérifiez que le projet est correctement initialisé.\n"
+        "Essayez : Projet → Valider pour recréer la structure."
+    )
+except ValidationError as e:
+    QMessageBox.warning(
+        self,
+        "Validation échouée",
+        f"Données invalides : {e.message}\n\n{e.details}"
+    )
+```
+
+##### Parcours Utilisateur :
+- 🚦 **Onboarding** : Premier lancement = assistant ou guide clair
+- 🚦 **Workflow logique** : Onglets dans l'ordre du workflow (Projet → Corpus → Alignement → Concordance)
+- 🚦 **Actions contextuelles** : Boutons activés/désactivés selon l'état
+- 🚦 **Navigation fluide** : Liens entre onglets (ex: Concordance → Inspecteur sur épisode)
+
+##### Productivité :
+- ⚡ **Actions par lot** : Traiter plusieurs éléments simultanément
+- ⚡ **Raccourcis contextuels** : Menu clic-droit pertinent
+- ⚡ **Historique** : Retour aux états précédents si pertinent
+- ⚡ **Filtres/recherche** : Accès rapide aux données nombreuses
+
+### 4. Performance
+
+#### Points de Vigilance :
+
+##### Base de Données :
+```python
+# ❌ AVANT : N+1 queries
+for episode_id in episode_ids:
+    segments = db.get_segments(episode_id)  # Requête par épisode !
+
+# ✅ APRÈS : Requête groupée
+segments_by_episode = db.get_segments_bulk(episode_ids)
+```
+
+##### Chargement UI :
+```python
+# ❌ AVANT : Remplissage synchrone bloquant
+def refresh_table(self):
+    data = self._db.get_all_episodes()  # Peut être long
+    for row in data:
+        self.table.insertRow(...)  # Bloque l'UI
+
+# ✅ APRÈS : Chargement asynchrone avec feedback
+def refresh_table(self):
+    self.progress_bar.setVisible(True)
+    self.worker = DataLoader(self._db)
+    self.worker.data_ready.connect(self._populate_table)
+    self.worker.start()
+
+def _populate_table(self, data):
+    self.table.setRowCount(0)
+    for row in data:
+        self.table.insertRow(...)
+    self.progress_bar.setVisible(False)
+```
+
+##### Traitement de Fichiers :
+- 📦 **Streaming** : Lire gros fichiers en morceaux (pas tout en mémoire)
+- 📦 **Cache** : Mettre en cache résultats coûteux (ex: parsing, normalisation)
+- 📦 **Lazy loading** : Charger données seulement quand nécessaire
+
+### 5. Maintenabilité
+
+#### Code Propre :
+```python
+# ✅ Type hints exhaustifs
+def process_episode(
+    self,
+    episode_id: str,
+    normalize: bool = True,
+    profile: str | None = None
+) -> EpisodeResult:
+    """Traite un épisode avec normalisation optionnelle.
+    
+    Args:
+        episode_id: ID épisode format S01E01
+        normalize: Applique profil de normalisation
+        profile: Profil custom (défaut: celui du projet)
+        
+    Returns:
+        Résultat du traitement avec statut et segments
+        
+    Raises:
+        ValueError: Si episode_id invalide
+        DatabaseError: Si échec d'enregistrement
+    """
+    pass
+```
+
+#### Modularité :
+- 🧩 **Séparation concerns** : UI ≠ logique métier ≠ accès données
+- 🧩 **Dépendances injectées** : `get_db=lambda: self._db` plutôt que couplage fort
+- 🧩 **Interfaces claires** : Protocoles/ABC pour composants interchangeables
+
+#### Testabilité :
+```python
+# ✅ Fonction testable (pure, sans état)
+def normalize_text(text: str, profile: NormalizeProfile) -> str:
+    """Normalise texte selon profil (fonction pure)."""
+    return profile.apply(text)
+
+# ❌ Fonction difficilement testable (dépendances cachées)
+def normalize_text_bad(self, text: str) -> str:
+    profile = self._store.load_profile(self._config.normalize_profile)
+    db_entry = self._db.get_normalization_rules(profile.id)
+    # ... mélange UI, DB, logique
+```
+
+## 🎨 Analyse Spécifique des Onglets
+
+### Onglet **Projet**
+**Fonction** : Configuration initiale (dossier, source, URL, profils)
+
+**À vérifier** :
+- ✅ Validation formulaire complète avant création projet
+- ✅ Feedback clair si projet existe déjà vs nouveau
+- ✅ Gestion élégante du cas "SRT only" (pas d'URL série)
+- ✅ Liste des profils mise à jour dynamiquement (custom + prédéfinis)
+
+**UX critique** :
+- Premier contact utilisateur → messages d'erreur très clairs
+- Tooltips explicatifs sur chaque champ (ex: "Rate limit" = pourquoi ?)
+
+### Onglet **Corpus**
+**Fonction** : Workflow principal (découverte, fetch, normalisation, segmentation)
+
+**À vérifier** :
+- ✅ Arbre épisodes : performance si 100+ épisodes ?
+- ✅ Boutons activés/désactivés selon état (projet ouvert, job en cours)
+- ✅ Annulation job = nettoyage propre (rollback DB partiel ?)
+- ✅ Reprise sur échec = ciblée sur épisodes échoués uniquement
+
+**Performance** :
+- Fetch parallèle d'épisodes (rate limiting respecté)
+- Normalisation par lot (pas épisode par épisode)
+
+### Onglet **Inspecteur**
+**Fonction** : Vue détaillée épisode (transcript + sous-titres dans un splitter)
+
+**À vérifier** :
+- ✅ Synchronisation transcript ↔ sous-titres (scroll simultané ?)
+- ✅ Édition notes épisode sauvegardée automatiquement
+- ✅ Performance affichage si 500+ segments
+- ✅ Recherche in-page (Ctrl+F) dans les segments
+
+**UX critique** :
+- Navigation fluide entre épisodes (combo ou flèches précédent/suivant)
+- Indicateur visuel si modifications non sauvegardées
+
+### Onglet **Alignement**
+**Fonction** : Aligner transcript ↔ sous-titres, gérer liens
+
+**À vérifier** :
+- ✅ Algorithme alignement = paramétrable ? (seuils, méthode)
+- ✅ Visualisation liens (table, graphe ?)
+- ✅ Édition manuelle liens (ajouter/supprimer)
+- ✅ Export résultats alignement (formats multiples)
+
+**Performance** :
+- Alignement lourd = asynchrone avec feedback progression
+
+### Onglet **Concordance**
+**Fonction** : Recherche KWIC parallèle multilingue
+
+**À vérifier** :
+- ✅ Recherche performante (index DB ? regex vs LIKE)
+- ✅ Filtres avancés (épisode, langue, personnage, regex)
+- ✅ Export résultats (CSV, TXT, clipboard)
+- ✅ Lien vers Inspecteur sur clic résultat
+
+**UX critique** :
+- Historique recherches récentes
+- Compteur résultats en temps réel
+- Surlignage des correspondances dans les segments
+
+### Onglet **Personnages**
+**Fonction** : Assigner segments/cues à des personnages
+
+**À vérifier** :
+- ✅ Création/édition personnages intuitive
+- ✅ Assignation manuelle vs automatique (patterns ?)
+- ✅ Propagation assignations entre langues (après alignement)
+- ✅ Statistiques par personnage (nb interventions, répartition épisodes)
+
+**Performance** :
+- Assignation en masse = asynchrone si > 100 segments
+
+### Onglet **Logs**
+**Fonction** : Journal des opérations
+
+**À vérifier** :
+- ✅ Rotation logs (limite taille fichier)
+- ✅ Filtrage niveau (DEBUG, INFO, ERROR)
+- ✅ Recherche texte dans logs
+- ✅ Ouverture fichier log externe (éditeur système)
+
+## 🚀 Méthodologie d'Intervention
+
+### À Chaque Modification de Code :
+
+1. **Lire le contexte** : Quel onglet/fonction ? Quel workflow ?
+2. **Identifier doublons** : Ce code existe-t-il ailleurs ? Peut-on factoriser ?
+3. **Vérifier UI/UX** :
+   - Message d'erreur clair ?
+   - Boutons activés/désactivés logiquement ?
+   - Feedback progression si tâche longue ?
+4. **Optimiser performance** :
+   - Requête DB optimale ?
+   - Traitement asynchrone si > 1s ?
+5. **Documenter** : Ajouter docstring si fonction complexe/publique
+6. **Expliquer** : Commenter **pourquoi** (pas quoi) pour logique non évidente
+
+### Format des Explications
+
+Lors d'une modification, **toujours expliquer** :
+
+```
+## 🔧 Modification : [Titre court]
+
+### 📍 Localisation
+Fichier : `chemin/vers/fichier.py`
+Fonction/Classe : `nom_fonction` / `NomClasse`
+Onglet concerné : [Projet / Corpus / Inspecteur / Alignement / Concordance / Personnages / Logs]
+
+### ❓ Problème Identifié
+[Description concise du problème : doublon, UX, performance, bug]
+
+### ✅ Solution Apportée
+[Explication de la solution, choix de design]
+
+### 🎯 Impact UX/Performance
+[En quoi cela améliore l'expérience utilisateur ou la performance]
+
+### 📊 Tests Suggérés
+[Comment vérifier que la modification fonctionne]
+```
+
+## 📝 Exemple d'Analyse Complète
+
+### Cas Réel : Méthode `_on_job_finished` (ui_mainwindow.py)
+
+#### Analyse Actuelle :
+- ✅ **Fonction** : Traite fin de job, affiche résumé, rafraîchit UI
+- ⚠️ **Longueur** : ~40 lignes → acceptable mais dense
+- ✅ **Feedback** : Bon (résumé succès/échecs, liste épisodes échoués)
+- ❌ **Doublon potentiel** : Logique extraction `episode_id` depuis message (regex) pourrait être factorisée
+- ⚠️ **Performance** : Refresh tous les onglets → peut être optimisé (seulement onglets visibles ?)
+
+#### Amélioration Suggérée :
+```python
+# Factoriser extraction episode_id
+def _extract_episode_id_from_message(self, message: str) -> str | None:
+    """Extrait l'ID épisode (S01E01) depuis un message d'erreur."""
+    match = re.search(r"S\d+E\d+", message, re.IGNORECASE)
+    return match.group(0).upper() if match else None
+
+# Refresh ciblé
+def _refresh_visible_tabs_only(self):
+    """Rafraîchit seulement l'onglet actuellement visible."""
+    current = self.tabs.currentIndex()
+    if current == TAB_CORPUS:
+        self._refresh_episodes_from_store()
+    elif current == TAB_INSPECTEUR:
+        self._refresh_inspecteur_episodes()
+    # ...
+```
+
+## 🎓 Principes Directeurs
+
+### Toujours Viser :
+1. ⚡ **Efficacité** : Minimiser requêtes DB, traitements asynchrones, cache intelligent
+2. 🚀 **Performance** : UI réactive, feedback immédiat, pas de blocage
+3. 🔧 **Maintenabilité** : Code lisible, documenté, modulaire, testé
+4. 😊 **Ergonomie** : UX intuitive, messages clairs, parcours fluide
+
+### Ne Jamais :
+- ❌ Dupliquer code (factoriser systématiquement)
+- ❌ Bloquer UI (async/threading pour tâches > 500ms)
+- ❌ Laisser erreurs génériques (contextualiser, proposer solution)
+- ❌ Ignorer l'accessibilité (tooltips, raccourcis clavier)
+
+---
+
+**Note** : Cette règle s'applique à **tous** les fichiers du projet HIMYC. Chaque intervention doit respecter cette méthodologie d'analyse approfondie.

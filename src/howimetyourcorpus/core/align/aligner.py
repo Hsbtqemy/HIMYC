@@ -44,6 +44,7 @@ def align_segments_to_cues(
     cues_en: list[dict],
     max_cues_per_segment: int = 5,
     min_confidence: float = 0.3,
+    on_progress: callable | None = None,
 ) -> list[AlignLink]:
     """
     Aligne les segments (phrases) aux cues EN par similarité textuelle.
@@ -53,10 +54,14 @@ def align_segments_to_cues(
     Choix métier : une même cue peut être liée à plusieurs segments (une ligne de
     sous-titre peut couvrir plusieurs phrases). used_cue_indices est maintenu pour
     une évolution future (bijection partielle) mais n'est pas utilisé pour filtrer.
+    
+    Args:
+        on_progress: callback(current, total) pour progression granulaire (optionnel).
     """
     links: list[AlignLink] = []
     used_cue_indices: set[int] = set()  # Réservé pour évolution (bijection partielle)
-    for seg in segments:
+    total_segments = len(segments)
+    for idx, seg in enumerate(segments):
         seg_id = seg.get("segment_id") or ""
         seg_text = (seg.get("text") or "").strip()
         if not seg_text:
@@ -94,6 +99,9 @@ def align_segments_to_cues(
                     meta={"n_cues": best_n},
                 )
             )
+        # Émettre progression
+        if on_progress:
+            on_progress(idx + 1, total_segments)
     return links
 
 

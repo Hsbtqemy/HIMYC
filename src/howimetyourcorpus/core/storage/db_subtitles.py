@@ -49,31 +49,33 @@ def upsert_cues(
     """Remplace les cues d'une piste (supprime anciennes, insère les nouvelles)."""
     from howimetyourcorpus.core.subtitles import Cue
 
-    conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
-    for c in cues:
-        if not isinstance(c, Cue):
-            continue
-        cid = f"{episode_id}:{lang}:{c.n}" if episode_id and lang else f":{c.lang}:{c.n}"
-        meta_json_str = json.dumps(c.meta) if c.meta else None
-        text_clean = c.text_clean or normalize_text(c.text_raw)
-        conn.execute(
-            """
-            INSERT INTO subtitle_cues (cue_id, track_id, episode_id, lang, n, start_ms, end_ms, text_raw, text_clean, meta_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                cid,
-                track_id,
-                episode_id,
-                lang,
-                c.n,
-                c.start_ms,
-                c.end_ms,
-                c.text_raw,
-                text_clean,
-                meta_json_str,
-            ),
-        )
+    # Transaction explicite pour éviter 1000 commits et garantir l'atomicité
+    with conn:
+        conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
+        for c in cues:
+            if not isinstance(c, Cue):
+                continue
+            cid = f"{episode_id}:{lang}:{c.n}" if episode_id and lang else f":{c.lang}:{c.n}"
+            meta_json_str = json.dumps(c.meta) if c.meta else None
+            text_clean = c.text_clean or normalize_text(c.text_raw)
+            conn.execute(
+                """
+                INSERT INTO subtitle_cues (cue_id, track_id, episode_id, lang, n, start_ms, end_ms, text_raw, text_clean, meta_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    cid,
+                    track_id,
+                    episode_id,
+                    lang,
+                    c.n,
+                    c.start_ms,
+                    c.end_ms,
+                    c.text_raw,
+                    text_clean,
+                    meta_json_str,
+                ),
+            )
 
 
 def update_cue_text_clean(conn: sqlite3.Connection, cue_id: str, text_clean: str) -> None:
@@ -128,8 +130,10 @@ def get_tracks_for_episodes(conn: sqlite3.Connection, episode_ids: list[str]) ->
 def delete_subtitle_track(conn: sqlite3.Connection, episode_id: str, lang: str) -> None:
     """Supprime une piste sous-titres (cues puis track). track_id = episode_id:lang."""
     track_id = f"{episode_id}:{lang}"
-    conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
-    conn.execute("DELETE FROM subtitle_tracks WHERE track_id = ?", (track_id,))
+    # Transaction explicite pour garantir l'atomicité (cues puis track)
+    with conn:
+        conn.execute("DELETE FROM subtitle_cues WHERE track_id = ?", (track_id,))
+        conn.execute("DELETE FROM subtitle_tracks WHERE track_id = ?", (track_id,))
 
 
 def get_cues_for_episode_lang(

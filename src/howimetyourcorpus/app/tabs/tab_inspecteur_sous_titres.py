@@ -1,10 +1,11 @@
-"""§15.4 — Onglet Inspecteur + Sous-titres fusionnés : un onglet, deux colonnes (Transcript à gauche, SRT à droite), épisode partagé."""
+"""§15.4 — Onglet Inspecteur + Sous-titres fusionnés : un onglet, deux colonnes (Transcript à gauche, SRT à droite), épisode partagé + Undo/Redo (BP3)."""
 
 from __future__ import annotations
 
 from typing import Any, Callable
 
 from PySide6.QtCore import Qt, QSettings
+from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -29,6 +30,7 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         run_job: Callable[[list], None],
         refresh_episodes: Callable[[], None],
         show_status: Callable[[str, int], None],
+        undo_stack: QUndoStack | None = None,  # Basse Priorité #3
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -64,6 +66,10 @@ class InspecteurEtSousTitresTabWidget(QWidget):
             refresh_episodes=refresh_episodes,
             show_status=show_status,
         )
+        
+        # Basse Priorité #3 : Propager undo_stack vers le tab sous-titres
+        if undo_stack:
+            self.subtitles_tab.undo_stack = undo_stack
         self.inspector_tab.set_episode_selector_visible(False)
         self.subtitles_tab.set_episode_selector_visible(False)
 

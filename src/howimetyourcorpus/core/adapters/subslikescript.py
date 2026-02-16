@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
@@ -68,6 +69,7 @@ class SubslikescriptAdapter:
         *,
         user_agent: str | None = None,
         rate_limit_s: float | None = None,
+        cache_dir: Path | None = None,
     ) -> SeriesIndex:
         """Récupère la page série puis parse pour produire SeriesIndex."""
         from howimetyourcorpus.core.utils.http import get_html
@@ -75,6 +77,7 @@ class SubslikescriptAdapter:
             series_url,
             user_agent=user_agent,
             min_interval_s=rate_limit_s,
+            cache_dir=cache_dir,
         )
         return self.discover_series_from_html(html, series_url)
 
@@ -149,13 +152,15 @@ class SubslikescriptAdapter:
         *,
         user_agent: str | None = None,
         rate_limit_s: float | None = None,
+        cache_dir: Path | None = None,
     ) -> str:
-        """Récupère le HTML ; rate_limit_s passé à get_html pour politesse en boucle."""
+        """Récupère le HTML ; rate_limit_s et cache_dir passés à get_html."""
         from howimetyourcorpus.core.utils.http import get_html
         return get_html(
             episode_url,
             user_agent=user_agent,
             min_interval_s=rate_limit_s,
+            cache_dir=cache_dir,
         )
 
     def parse_episode(self, html: str, episode_url: str) -> tuple[str, dict]:

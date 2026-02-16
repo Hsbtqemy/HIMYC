@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
+
 
 class PersonnagesTabWidget(QWidget):
     """Widget de l'onglet Personnages : liste personnages, assignation segment/cue → personnage, propagation."""
@@ -138,13 +140,11 @@ class PersonnagesTabWidget(QWidget):
         if row >= 0:
             self.personnages_table.removeRow(row)
 
+    @require_project_and_db
     def _import_speakers_from_segments(self) -> None:
         """Récupère les noms de locuteurs des segments (Inspecteur) et les ajoute à la grille des personnages."""
         store = self._get_store()
         db = self._get_db()
-        if not store or not db:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet d'abord.")
-            return
         index = store.load_series_index()
         if not index or not index.episodes:
             QMessageBox.warning(
@@ -190,11 +190,9 @@ class PersonnagesTabWidget(QWidget):
                 self, "Personnages", "Tous les noms trouvés dans les segments sont déjà dans la grille."
             )
 
+    @require_project
     def _save(self) -> None:
         store = self._get_store()
-        if not store:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet d'abord.")
-            return
         langs = store.load_project_languages()
         characters = []
         for row in range(self.personnages_table.rowCount()):
@@ -218,12 +216,13 @@ class PersonnagesTabWidget(QWidget):
         store.save_character_names(characters)
         self._show_status("Personnages enregistrés.", 3000)
 
+    @require_project_and_db
     def _load_assignments(self) -> None:
         eid = self.personnages_episode_combo.currentData()
         source_key = self.personnages_source_combo.currentData() or "segments"
         store = self._get_store()
         db = self._get_db()
-        if not eid or not db or not store:
+        if not eid:
             QMessageBox.warning(self, "Personnages", "Ouvrez un projet et sélectionnez un épisode.")
             return
         character_ids = [
@@ -279,11 +278,12 @@ class PersonnagesTabWidget(QWidget):
                     combo.setCurrentIndex(idx)
                 self.personnages_assign_table.setCellWidget(row, 2, combo)
 
+    @require_project
     def _save_assignments(self) -> None:
         eid = self.personnages_episode_combo.currentData()
         source_key = self.personnages_source_combo.currentData() or "segments"
         store = self._get_store()
-        if not eid or not store:
+        if not eid:
             QMessageBox.warning(self, "Personnages", "Ouvrez un projet et sélectionnez un épisode.")
             return
         source_type = "segment" if source_key == "segments" else "cue"
@@ -312,12 +312,10 @@ class PersonnagesTabWidget(QWidget):
         store.save_character_assignments(all_assignments)
         self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
 
+    @require_project_and_db
     def _propagate(self) -> None:
         store = self._get_store()
         db = self._get_db()
-        if not store or not db:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet d'abord.")
-            return
         eid = self.personnages_episode_combo.currentData()
         if not eid:
             QMessageBox.warning(self, "Personnages", "Sélectionnez un épisode (section Assignation).")

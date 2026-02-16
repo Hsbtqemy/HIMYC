@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -28,6 +29,8 @@ from howimetyourcorpus.core.pipeline.tasks import DownloadOpenSubtitlesStep, Imp
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
 from howimetyourcorpus.app.dialogs import OpenSubtitlesDownloadDialog, SubtitleBatchImportDialog
+from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db, confirm_action
+from howimetyourcorpus.app.undo_commands import DeleteSubtitleTrackCommand
 
 logger = logging.getLogger(__name__)
 
@@ -249,41 +252,55 @@ class SubtitleTabWidget(QWidget):
         self.subs_content_edit.setPlainText(content)
         self.subs_save_btn.setEnabled(True)
 
+    @require_project_and_db
     def _delete_selected_track(self) -> None:
         current = self.subs_tracks_list.currentItem()
         store = self._get_store()
         db = self._get_db()
-        if not current or not store or not db:
+        if not current:
             return
         eid = self.subs_episode_combo.currentData()
         data = current.data(Qt.ItemDataRole.UserRole)
         if not eid or not data or not isinstance(data, dict):
             return
         lang = data.get("lang", "")
+        track_format = data.get("fmt", "srt")
         if not lang:
             return
-        reply = QMessageBox.question(
+        
+        if not confirm_action(
             self,
             "Supprimer la piste",
-            f"Supprimer la piste {lang} pour cet épisode ? (base de données et fichier sur disque, irréversible)",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if reply != QMessageBox.StandardButton.Yes:
+            f"Supprimer la piste {lang} pour cet épisode ?\n\n"
+            f"⚠️ Cette action est irréversible (avec Undo/Redo) :\n"
+            f"• Suppression en base de données\n"
+            f"• Suppression du fichier SRT sur disque\n"
+            f"• Suppression des alignements associés\n\n"
+            f"Note : Undo/Redo peut restaurer cette suppression (données sauvegardées)."
+        ):
             return
-        db.delete_subtitle_track(eid, lang)
+        
+        # Basse Priorité #3 : Utiliser commande Undo/Redo
+        undo_stack = getattr(self, "undo_stack", None)
+        if undo_stack:
+            cmd = DeleteSubtitleTrackCommand(db, eid, lang, track_format)
+            undo_stack.push(cmd)
+        else:
+            db.delete_subtitle_track(eid, lang)
+        
         db.delete_align_runs_for_episode(eid)
         store.remove_episode_subtitle(eid, lang)
         self._on_episode_changed()
         self._refresh_episodes()
         self._show_status(f"Piste {lang} supprimée.", 3000)
 
+    @require_project_and_db
     def _normalize_track(self) -> None:
         """§11 — Applique le profil de normalisation aux cues de la piste sélectionnée."""
         current = self.subs_tracks_list.currentItem()
         store = self._get_store()
         db = self._get_db()
-        if not current or not store or not db:
+        if not current:
             return
         eid = self.subs_episode_combo.currentData()
         data = current.data(Qt.ItemDataRole.UserRole)
@@ -338,12 +355,11 @@ class SubtitleTabWidget(QWidget):
             logger.exception("Export SRT final")
             QMessageBox.critical(self, "Erreur", str(e))
 
+    @require_project_and_db
     def _import_file(self) -> None:
         eid = self.subs_episode_combo.currentData()
-        store = self._get_store()
-        db = self._get_db()
-        if not eid or not store or not db:
-            QMessageBox.warning(self, "Sous-titres", "Sélectionnez un épisode et ouvrez un projet.")
+        if not eid:
+            QMessageBox.warning(self, "Sous-titres", "Sélectionnez un épisode.")
             return
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -357,12 +373,9 @@ class SubtitleTabWidget(QWidget):
         self._run_job([ImportSubtitlesStep(eid, lang, path)])
         self.refresh()
 
+    @require_project_and_db
     def _import_batch(self) -> None:
         store = self._get_store()
-        db = self._get_db()
-        if not store or not db:
-            QMessageBox.warning(self, "Sous-titres", "Ouvrez un projet d'abord.")
-            return
         index = store.load_series_index()
         if not index or not index.episodes:
             QMessageBox.warning(self, "Sous-titres", "Découvrez d'abord les épisodes (onglet Corpus).")
@@ -429,11 +442,12 @@ class SubtitleTabWidget(QWidget):
         self._refresh_episodes()
         self._show_status(f"Téléchargement OpenSubtitles lancé : {len(steps)} épisode(s).", 5000)
 
+    @require_project_and_db
     def _save_content(self) -> None:
         eid = self.subs_episode_combo.currentData()
         store = self._get_store()
         db = self._get_db()
-        if not eid or not store or not db:
+        if not eid:
             return
         if not self._editing_lang or not self._editing_fmt:
             QMessageBox.warning(self, "Sous-titres", "Sélectionnez une piste à modifier.")

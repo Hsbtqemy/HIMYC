@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -32,6 +33,7 @@ from howimetyourcorpus.core.export_utils import (
     export_segments_docx,
 )
 from howimetyourcorpus.core.normalize.profiles import PROFILES
+from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,14 @@ class InspectorTabWidget(QWidget):
         self.inspect_view_combo.addItem("Segments", "segments")
         self.inspect_view_combo.currentIndexChanged.connect(self._switch_view)
         row.addWidget(self.inspect_view_combo)
+        row.addWidget(QLabel("Kind:"))
+        self.inspect_kind_combo = QComboBox()
+        self.inspect_kind_combo.addItem("Tous", "")
+        self.inspect_kind_combo.addItem("Phrases", "sentence")
+        self.inspect_kind_combo.addItem("Tours", "utterance")
+        self.inspect_kind_combo.setToolTip("Filtre la liste segments par type (phrases/tours de parole)")
+        self.inspect_kind_combo.currentIndexChanged.connect(self._on_kind_filter_changed)
+        row.addWidget(self.inspect_kind_combo)
         row.addWidget(QLabel("Profil:"))
         self.inspect_profile_combo = QComboBox()
         self.inspect_profile_combo.addItems(list(PROFILES.keys()))
@@ -76,6 +86,21 @@ class InspectorTabWidget(QWidget):
             "Profil pour « Normaliser cet épisode ». Priorité : préféré épisode > défaut source (Profils) > config projet."
         )
         row.addWidget(self.inspect_profile_combo)
+        
+        # Moyenne Priorité #3 : Navigation segments (Aller au segment #N)
+        row.addWidget(QLabel("Aller à:"))
+        self.segment_goto_edit = QLineEdit()
+        self.segment_goto_edit.setPlaceholderText("#N")
+        self.segment_goto_edit.setMaximumWidth(60)
+        self.segment_goto_edit.setToolTip("Entrez le numéro de segment (ex: 42) et appuyez sur Entrée")
+        self.segment_goto_edit.returnPressed.connect(self._goto_segment)
+        row.addWidget(self.segment_goto_edit)
+        self.segment_goto_btn = QPushButton("→")
+        self.segment_goto_btn.setMaximumWidth(40)
+        self.segment_goto_btn.setToolTip("Aller au segment #N")
+        self.segment_goto_btn.clicked.connect(self._goto_segment)
+        row.addWidget(self.segment_goto_btn)
+        
         self.inspect_norm_btn = QPushButton("Normaliser cet épisode")
         self.inspect_norm_btn.setToolTip(
             "Applique la normalisation (RAW → CLEAN) à l'épisode affiché, avec le profil choisi."
@@ -127,6 +152,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_notes_edit.setMaximumHeight(100)
         layout.addWidget(self.inspect_notes_edit)
         self.inspect_segments_list.setVisible(False)
+        self.inspect_kind_combo.setVisible(False)
 
     def _restore_splitter_sizes(self) -> None:
         def to_sizes(val) -> list[int] | None:
@@ -258,9 +284,46 @@ class InspectorTabWidget(QWidget):
     def _switch_view(self) -> None:
         is_segments = self.inspect_view_combo.currentData() == "segments"
         self.inspect_segments_list.setVisible(is_segments)
+        self.inspect_kind_combo.setVisible(is_segments)
         eid = self.inspect_episode_combo.currentData()
         if eid:
             self._fill_segments(eid)
+
+    def _on_kind_filter_changed(self) -> None:
+        """Filtre les segments par kind (appelé par le combo Kind)."""
+        eid = self.inspect_episode_combo.currentData()
+        if eid:
+            self._fill_segments(eid)
+    
+    def _goto_segment(self) -> None:
+        """Moyenne Priorité #3 : Navigation rapide vers segment #N."""
+        segment_num_str = self.segment_goto_edit.text().strip()
+        if not segment_num_str:
+            return
+        
+        try:
+            segment_num = int(segment_num_str)
+        except ValueError:
+            QMessageBox.warning(self, "Navigation", "Entrez un numéro de segment valide (ex: 42).")
+            return
+        
+        # Rechercher le segment dans la liste
+        for i in range(self.inspect_segments_list.count()):
+            item = self.inspect_segments_list.item(i)
+            seg = item.data(Qt.ItemDataRole.UserRole) if item else None
+            if seg and seg.get("n") == segment_num:
+                self.inspect_segments_list.setCurrentItem(item)
+                self.inspect_segments_list.scrollToItem(item)
+                self._on_segment_selected(item)
+                self.segment_goto_edit.clear()
+                return
+        
+        QMessageBox.information(
+            self,
+            "Navigation",
+            f"Segment #{segment_num} introuvable.\n\n"
+            f"Vérifiez que l'épisode est segmenté et que le numéro existe."
+        )
 
     def _fill_segments(self, episode_id: str) -> None:
         self.inspect_segments_list.clear()
@@ -269,7 +332,8 @@ class InspectorTabWidget(QWidget):
         db = self._get_db()
         if not db:
             return
-        segments = db.get_segments_for_episode(episode_id)
+        kind_filter = self.inspect_kind_combo.currentData() if hasattr(self, 'inspect_kind_combo') else ""
+        segments = db.get_segments_for_episode(episode_id, kind=kind_filter if kind_filter else None)
         for s in segments:
             kind = s.get("kind", "")
             n = s.get("n", 0)
@@ -324,23 +388,25 @@ class InspectorTabWidget(QWidget):
         store.save_episode_preferred_profiles(preferred)
         self._show_status(f"Profil « {profile} » défini comme préféré pour {eid}.", 3000)
 
+    @require_project_and_db
     def _run_segment(self) -> None:
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
         db = self._get_db()
-        if not eid or not store or not db:
-            QMessageBox.warning(self, "Segmentation", "Sélectionnez un épisode et ouvrez un projet.")
+        if not eid:
+            QMessageBox.warning(self, "Segmentation", "Sélectionnez un épisode.")
             return
         if not store.has_episode_clean(eid):
             QMessageBox.warning(self, "Segmentation", "L'épisode doit d'abord être normalisé (clean.txt).")
             return
         self._run_job([SegmentEpisodeStep(eid, lang_hint="en")])
 
+    @require_project_and_db
     def _export_segments(self) -> None:
         eid = self.inspect_episode_combo.currentData()
         db = self._get_db()
-        if not eid or not db:
-            QMessageBox.warning(self, "Export segments", "Sélectionnez un épisode et ouvrez un projet.")
+        if not eid:
+            QMessageBox.warning(self, "Export segments", "Sélectionnez un épisode.")
             return
         segments = db.get_segments_for_episode(eid)
         if not segments:

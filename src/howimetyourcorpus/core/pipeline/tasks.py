@@ -71,10 +71,12 @@ class FetchSeriesIndexStep(Step):
                 on_progress(self.name, 0.0, "Discovering episodes...")
             try:
                 rate_limit = getattr(config, "rate_limit_s", 2.0)
+                cache_dir = store.get_cache_dir() if store else None
                 index = adapter.discover_series(
                     series_url,
                     user_agent=self.user_agent or config.user_agent,
                     rate_limit_s=rate_limit,
+                    cache_dir=cache_dir,
                 )
             except Exception as e:
                 log("error", str(e))
@@ -124,10 +126,12 @@ class FetchAndMergeSeriesIndexStep(Step):
             on_progress(self.name, 0.0, "Discovering episodes from source...")
         try:
             rate_limit = getattr(config, "rate_limit_s", 2.0)
+            cache_dir = store.get_cache_dir() if store else None
             new_index = adapter.discover_series(
                 self.series_url,
                 user_agent=self.user_agent or config.user_agent,
                 rate_limit_s=rate_limit,
+                cache_dir=cache_dir,
             )
         except Exception as e:
             log("error", str(e))
@@ -215,10 +219,12 @@ class FetchEpisodeStep(Step):
         try:
             config = context.get("config")
             rate_limit = getattr(config, "rate_limit_s", 2.0) if config else 2.0
+            cache_dir = store.get_cache_dir() if store else None
             html = adapter.fetch_episode_html(
                 self.episode_url,
                 user_agent=getattr(config, "user_agent", None) if config else None,
                 rate_limit_s=rate_limit,
+                cache_dir=cache_dir,
             )
             store.save_episode_html(self.episode_id, html)
             raw_text, meta = adapter.parse_episode(html, self.episode_url)
@@ -632,7 +638,14 @@ class AlignEpisodeStep(Step):
             return StepResult(False, f"No segments (sentence) for {self.episode_id}. Run segmentation first.")
         if not cues_en:
             return StepResult(False, f"No cues ({self.pivot_lang}) for {self.episode_id}. Import subtitles first.")
-        pivot_links = align_segments_to_cues(segments, cues_en, min_confidence=self.min_confidence)
+        
+        # Callback de progression granulaire pour l'alignement
+        def on_align_progress(current: int, total: int):
+            if on_progress:
+                progress = 0.1 + 0.3 * (current / total)  # 10% → 40%
+                on_progress(self.name, progress, f"Aligning segments {current}/{total}...")
+        
+        pivot_links = align_segments_to_cues(segments, cues_en, min_confidence=self.min_confidence, on_progress=on_align_progress)
         all_links: list[AlignLink] = list(pivot_links)
         if on_progress:
             on_progress(self.name, 0.4, f"Aligned {len(pivot_links)} segment↔cue links; aligning target langs...")

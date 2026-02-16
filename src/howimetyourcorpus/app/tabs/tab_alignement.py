@@ -1,4 +1,4 @@
-"""Onglet Alignement : run par épisode, table des liens, accepter/rejeter, exports."""
+"""Onglet Alignement : run par épisode, table des liens, accepter/rejeter, exports + Undo/Redo (Basse Priorité #3)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -22,6 +23,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QComboBox,
     QPushButton,
+    QSpinBox,
+    QSplitter,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -38,6 +41,15 @@ from howimetyourcorpus.core.export_utils import (
     export_align_report_html,
 )
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
+from howimetyourcorpus.app.ui_utils import require_project_and_db, confirm_action
+from howimetyourcorpus.app.widgets import AlignStatsWidget
+from howimetyourcorpus.app.undo_commands import (
+    BulkAcceptLinksCommand,
+    BulkRejectLinksCommand,
+    DeleteAlignRunCommand,
+    EditAlignLinkCommand,
+    SetAlignStatusCommand,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -121,19 +133,21 @@ class EditAlignLinkDialog(QDialog):
 
 
 class AlignmentTabWidget(QWidget):
-    """Widget de l'onglet Alignement : épisode, run, table liens, lancer alignement, exports."""
+    """Widget de l'onglet Alignement : épisode, run, table liens, lancer alignement, exports + Undo/Redo (BP3)."""
 
     def __init__(
         self,
         get_store: Callable[[], object],
         get_db: Callable[[], object],
         run_job: Callable[[list], None],
+        undo_stack: QUndoStack | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._get_store = get_store
         self._get_db = get_db
         self._run_job = run_job
+        self.undo_stack = undo_stack  # Basse Priorité #3
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -166,12 +180,10 @@ class AlignmentTabWidget(QWidget):
         self.align_report_btn = QPushButton("Rapport HTML")
         self.align_report_btn.clicked.connect(self._export_align_report)
         row.addWidget(self.align_report_btn)
-        self.align_stats_btn = QPushButton("Stats")
-        self.align_stats_btn.clicked.connect(self._show_align_stats)
-        row.addWidget(self.align_stats_btn)
+        # Phase 7 HP4 : Bouton "Stats" supprimé (remplacé par panneau permanent)
         self.align_accepted_only_cb = QCheckBox("Liens acceptés uniquement")
         self.align_accepted_only_cb.setToolTip(
-            "Export concordancier, rapport HTML et stats : ne considérer que les liens acceptés"
+            "Export concordancier et rapport HTML : ne considérer que les liens acceptés"
         )
         row.addWidget(self.align_accepted_only_cb)
         layout.addLayout(row)
@@ -188,12 +200,49 @@ class AlignmentTabWidget(QWidget):
             "Segment = phrase du transcript (Inspecteur). Cue pivot = réplique SRT EN. Cue cible = réplique SRT FR/IT."
         )
         layout.addWidget(help_label)
+        
+        # Moyenne Priorité #4 : Actions bulk alignement
+        bulk_row = QHBoxLayout()
+        bulk_row.addWidget(QLabel("Actions bulk:"))
+        self.bulk_accept_btn = QPushButton("Accepter tous > seuil")
+        self.bulk_accept_btn.setToolTip("Accepte automatiquement tous les liens avec confidence > seuil")
+        self.bulk_accept_btn.clicked.connect(self._bulk_accept)
+        bulk_row.addWidget(self.bulk_accept_btn)
+        
+        self.bulk_reject_btn = QPushButton("Rejeter tous < seuil")
+        self.bulk_reject_btn.setToolTip("Rejette automatiquement tous les liens avec confidence < seuil")
+        self.bulk_reject_btn.clicked.connect(self._bulk_reject)
+        bulk_row.addWidget(self.bulk_reject_btn)
+        
+        bulk_row.addWidget(QLabel("Seuil:"))
+        self.bulk_threshold_spin = QSpinBox()
+        self.bulk_threshold_spin.setRange(0, 100)
+        self.bulk_threshold_spin.setValue(80)
+        self.bulk_threshold_spin.setSuffix("%")
+        self.bulk_threshold_spin.setToolTip("Seuil de confidence pour les actions bulk (0-100%)")
+        bulk_row.addWidget(self.bulk_threshold_spin)
+        bulk_row.addStretch()
+        layout.addLayout(bulk_row)
+        
+        # Phase 7 HP4 : Splitter horizontal (table à gauche, stats à droite)
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
         self.align_table = QTableView()
         self.align_table.setToolTip("Clic droit : Accepter, Rejeter ou Modifier la cible (alignement manuel).")
         self.align_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.align_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.align_table.customContextMenuRequested.connect(self._table_context_menu)
-        layout.addWidget(self.align_table)
+        
+        # Phase 7 HP4 : Widget stats permanent
+        self.stats_widget = AlignStatsWidget()
+        self.stats_widget.setMaximumWidth(250)
+        
+        self.main_splitter.addWidget(self.align_table)
+        self.main_splitter.addWidget(self.stats_widget)
+        self.main_splitter.setStretchFactor(0, 3)  # Table prend 75%
+        self.main_splitter.setStretchFactor(1, 1)  # Stats prend 25%
+        
+        layout.addWidget(self.main_splitter)
 
     def refresh(self) -> None:
         """Recharge la liste des épisodes et des runs (appelé après ouverture projet / alignement)."""
@@ -225,24 +274,168 @@ class AlignmentTabWidget(QWidget):
         run_id = self.align_run_combo.currentData()
         self.align_delete_run_btn.setEnabled(bool(run_id))
         self._fill_links()
+        self._update_stats()  # Phase 7 HP4 : Mettre à jour stats panneau
+    
+    def _update_stats(self) -> None:
+        """Phase 7 HP4 : Met à jour le panneau stats permanent."""
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        db = self._get_db()
+        
+        if not eid or not run_id or not db:
+            self.stats_widget.clear_stats()
+            return
+        
+        try:
+            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
+            stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
+            self.stats_widget.update_stats(stats)
+        except Exception as e:
+            logger.exception("Update stats widget")
+            self.stats_widget.clear_stats()
 
     def _delete_current_run(self) -> None:
         run_id = self.align_run_combo.currentData()
         db = self._get_db()
-        if not run_id or not db:
+        eid = self.align_episode_combo.currentData()
+        
+        if not run_id or not db or not eid:
             return
-        reply = QMessageBox.question(
+        
+        # Compter les liens avant suppression
+        links = db.query_alignment_for_episode(eid, run_id=run_id)
+        nb_links = len(links)
+        
+        if not confirm_action(
             self,
             "Supprimer le run",
-            f"Supprimer le run « {run_id} » et tous ses liens ? (irréversible)",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if reply != QMessageBox.StandardButton.Yes:
+            f"Supprimer le run « {run_id} » ?\n\n"
+            f"⚠️ Cette action est irréversible (même avec Undo/Redo) :\n"
+            f"• {nb_links} lien(s) d'alignement seront supprimés\n"
+            f"• Les corrections manuelles seront perdues\n"
+            f"• Vous devrez relancer l'alignement pour recréer les liens\n\n"
+            f"Note : Undo/Redo peut restaurer cette suppression (données sauvegardées)."
+        ):
             return
-        db.delete_align_run(run_id)
+        
+        # Basse Priorité #3 : Utiliser commande Undo/Redo
+        if self.undo_stack:
+            cmd = DeleteAlignRunCommand(db, run_id, eid)
+            self.undo_stack.push(cmd)
+        else:
+            db.delete_align_run(run_id)
+        
         self.refresh()
         self._fill_links()
+    
+    @require_project_and_db
+    def _bulk_accept(self) -> None:
+        """Moyenne Priorité #4 : Accepte tous les liens avec confidence > seuil + Undo/Redo (BP3)."""
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        db = self._get_db()
+        
+        if not eid or not run_id:
+            QMessageBox.warning(self, "Actions bulk", "Sélectionnez un épisode et un run.")
+            return
+        
+        threshold = self.bulk_threshold_spin.value() / 100.0  # 80% → 0.80
+        links = db.query_alignment_for_episode(eid, run_id=run_id)
+        
+        # Filtrer liens auto avec confidence > seuil
+        candidates = [
+            link for link in links
+            if link.get("status") == "auto" and (link.get("confidence") or 0) >= threshold
+        ]
+        
+        if not candidates:
+            QMessageBox.information(
+                self,
+                "Actions bulk",
+                f"Aucun lien 'auto' avec confidence >= {threshold:.0%} à accepter."
+            )
+            return
+        
+        if not confirm_action(
+            self,
+            "Accepter en masse",
+            f"Accepter {len(candidates)} lien(s) avec confidence >= {threshold:.0%} ?\n\n"
+            f"Ces liens passeront du statut 'auto' à 'accepted'."
+        ):
+            return
+        
+        # Basse Priorité #3 : Utiliser commande Undo/Redo
+        if self.undo_stack:
+            link_ids = [link["link_id"] for link in candidates if link.get("link_id")]
+            cmd = BulkAcceptLinksCommand(db, link_ids, len(link_ids))
+            self.undo_stack.push(cmd)
+        else:
+            # Pas de undo_stack → ancienne méthode
+            with db.connection() as conn:
+                for link in candidates:
+                    link_id = link.get("link_id")
+                    if link_id:
+                        conn.execute("UPDATE align_links SET status = 'accepted' WHERE link_id = ?", (link_id,))
+                conn.commit()
+        
+        self._fill_links()
+        self._update_stats()
+        QMessageBox.information(self, "Actions bulk", f"{len(candidates)} lien(s) accepté(s).")
+    
+    @require_project_and_db
+    def _bulk_reject(self) -> None:
+        """Moyenne Priorité #4 : Rejette tous les liens avec confidence < seuil + Undo/Redo (BP3)."""
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        db = self._get_db()
+        
+        if not eid or not run_id:
+            QMessageBox.warning(self, "Actions bulk", "Sélectionnez un épisode et un run.")
+            return
+        
+        threshold = self.bulk_threshold_spin.value() / 100.0
+        links = db.query_alignment_for_episode(eid, run_id=run_id)
+        
+        # Filtrer liens auto avec confidence < seuil
+        candidates = [
+            link for link in links
+            if link.get("status") == "auto" and (link.get("confidence") or 0) < threshold
+        ]
+        
+        if not candidates:
+            QMessageBox.information(
+                self,
+                "Actions bulk",
+                f"Aucun lien 'auto' avec confidence < {threshold:.0%} à rejeter."
+            )
+            return
+        
+        if not confirm_action(
+            self,
+            "Rejeter en masse",
+            f"Rejeter {len(candidates)} lien(s) avec confidence < {threshold:.0%} ?\n\n"
+            f"⚠️ Ces liens passeront du statut 'auto' à 'rejected'.\n"
+            f"Vous pourrez les accepter individuellement plus tard si nécessaire."
+        ):
+            return
+        
+        # Basse Priorité #3 : Utiliser commande Undo/Redo
+        if self.undo_stack:
+            link_ids = [link["link_id"] for link in candidates if link.get("link_id")]
+            cmd = BulkRejectLinksCommand(db, link_ids, len(link_ids))
+            self.undo_stack.push(cmd)
+        else:
+            # Pas de undo_stack → ancienne méthode
+            with db.connection() as conn:
+                for link in candidates:
+                    link_id = link.get("link_id")
+                    if link_id:
+                        conn.execute("UPDATE align_links SET status = 'rejected' WHERE link_id = ?", (link_id,))
+                conn.commit()
+        
+        self._fill_links()
+        self._update_stats()
+        QMessageBox.information(self, "Actions bulk", f"{len(candidates)} lien(s) rejeté(s).")
 
     def _fill_links(self) -> None:
         eid = self.align_episode_combo.currentData()
@@ -276,23 +469,68 @@ class AlignmentTabWidget(QWidget):
         reject_act = menu.addAction("Rejeter")
         edit_act = menu.addAction("Modifier la cible…")
         action = menu.exec(self.align_table.viewport().mapToGlobal(pos))
+        
         if action == accept_act:
-            db.set_align_status(link_id, "accepted")
+            # Basse Priorité #3 : Utiliser commande Undo/Redo
+            if self.undo_stack:
+                cmd = SetAlignStatusCommand(
+                    db,
+                    link_id,
+                    "accepted",
+                    link.get("status", "auto"),
+                    f"Accepter lien #{link_id[:8]}"
+                )
+                self.undo_stack.push(cmd)
+            else:
+                db.set_align_status(link_id, "accepted")
             self._fill_links()
+            self._update_stats()
+            
         elif action == reject_act:
-            db.set_align_status(link_id, "rejected")
+            # Basse Priorité #3 : Utiliser commande Undo/Redo
+            if self.undo_stack:
+                cmd = SetAlignStatusCommand(
+                    db,
+                    link_id,
+                    "rejected",
+                    link.get("status", "auto"),
+                    f"Rejeter lien #{link_id[:8]}"
+                )
+                self.undo_stack.push(cmd)
+            else:
+                db.set_align_status(link_id, "rejected")
             self._fill_links()
+            self._update_stats()
+            
         elif action == edit_act and eid:
             dlg = EditAlignLinkDialog(link, eid, db, self)
             if dlg.exec() == QDialog.DialogCode.Accepted:
+                # Basse Priorité #3 : Utiliser commande Undo/Redo
+                old_target_id = link.get("target_id")
+                new_target_id = dlg.selected_cue_id_target()
+                
+                if self.undo_stack and old_target_id != new_target_id:
+                    cmd = EditAlignLinkCommand(
+                        db,
+                        link_id,
+                        new_target_id,
+                        old_target_id,
+                        "manual",
+                        link.get("status", "auto")
+                    )
+                    self.undo_stack.push(cmd)
+                else:
+                    # Pas de undo_stack ou pas de changement → ancienne méthode
+                    pass  # Le dialogue a déjà fait la mise à jour
+                
                 self._fill_links()
+                self._update_stats()
 
+    @require_project_and_db
     def _run_align_episode(self) -> None:
         eid = self.align_episode_combo.currentData()
-        store = self._get_store()
-        db = self._get_db()
-        if not eid or not store or not db:
-            QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode et ouvrez un projet.")
+        if not eid:
+            QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode.")
             return
         use_similarity = self.align_by_similarity_cb.isChecked()
         self._run_job([
@@ -304,11 +542,12 @@ class AlignmentTabWidget(QWidget):
             )
         ])
 
+    @require_project_and_db
     def _export_alignment(self) -> None:
         eid = self.align_episode_combo.currentData()
         run_id = self.align_run_combo.currentData()
         db = self._get_db()
-        if not eid or not run_id or not db:
+        if not eid or not run_id:
             QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode et un run.")
             return
         path, _ = QFileDialog.getSaveFileName(
@@ -343,11 +582,12 @@ class AlignmentTabWidget(QWidget):
             logger.exception("Export alignement")
             QMessageBox.critical(self, "Erreur", str(e))
 
+    @require_project_and_db
     def _export_parallel_concordance(self) -> None:
         eid = self.align_episode_combo.currentData()
         run_id = self.align_run_combo.currentData()
         db = self._get_db()
-        if not eid or not run_id or not db:
+        if not eid or not run_id:
             QMessageBox.warning(self, "Concordancier parallèle", "Sélectionnez un épisode et un run.")
             return
         path, selected_filter = QFileDialog.getSaveFileName(
@@ -383,11 +623,12 @@ class AlignmentTabWidget(QWidget):
             logger.exception("Export concordancier parallèle")
             QMessageBox.critical(self, "Erreur", str(e))
 
+    @require_project_and_db
     def _export_align_report(self) -> None:
         eid = self.align_episode_combo.currentData()
         run_id = self.align_run_combo.currentData()
         db = self._get_db()
-        if not eid or not run_id or not db:
+        if not eid or not run_id:
             QMessageBox.warning(self, "Rapport", "Sélectionnez un épisode et un run.")
             return
         path, _ = QFileDialog.getSaveFileName(
@@ -408,27 +649,3 @@ class AlignmentTabWidget(QWidget):
             logger.exception("Rapport alignement")
             QMessageBox.critical(self, "Erreur", str(e))
 
-    def _show_align_stats(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id or not db:
-            QMessageBox.warning(self, "Stats", "Sélectionnez un épisode et un run.")
-            return
-        try:
-            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
-            stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
-            by_status = stats.get("by_status") or {}
-            msg = (
-                f"Épisode: {stats.get('episode_id', '')}\n"
-                f"Run: {stats.get('run_id', '')}\n\n"
-                f"Liens totaux: {stats.get('nb_links', 0)}\n"
-                f"Liens pivot (segment↔EN): {stats.get('nb_pivot', 0)}\n"
-                f"Liens target (EN↔FR): {stats.get('nb_target', 0)}\n"
-                f"Confiance moyenne: {stats.get('avg_confidence', '—')}\n"
-                f"Par statut: {', '.join(f'{k}={v}' for k, v in sorted(by_status.items()))}"
-            )
-            QMessageBox.information(self, "Statistiques alignement", msg)
-        except Exception as e:
-            logger.exception("Stats alignement")
-            QMessageBox.critical(self, "Erreur", str(e))
