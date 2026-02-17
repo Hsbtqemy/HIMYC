@@ -524,15 +524,17 @@ class EpisodesFilterProxyModel(QSortFilterProxyModel):
 
 
 class KwicTableModel(QAbstractTableModel):
-    """Modèle pour les résultats KWIC (épisode, titre, gauche, match, droite)."""
+    """Modèle pour les résultats KWIC (épisode, titre, gauche, match, droite) + Pack Rapide C9: Highlight."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._hits: list[KwicHit] = []
+        self._search_term: str = ""  # Pack Rapide C9: Stocker terme pour highlight
 
-    def set_hits(self, hits: list[KwicHit]) -> None:
+    def set_hits(self, hits: list[KwicHit], search_term: str = "") -> None:
         self.beginResetModel()
         self._hits = list(hits)
+        self._search_term = search_term  # Pack Rapide C9
         self.endResetModel()
 
     def rowCount(self, parent=QModelIndex()):
@@ -551,6 +553,13 @@ class KwicTableModel(QAbstractTableModel):
             return [h.episode_id, h.title, h.left, h.match, h.right][index.column()]
         if role == Qt.ItemDataRole.UserRole:
             return h
+        # Pack Rapide C9: Highlight colonne "Match" (colonne 3)
+        if role == Qt.ItemDataRole.BackgroundRole and index.column() == 3:
+            from PySide6.QtGui import QBrush, QColor
+            return QBrush(QColor("#FFEB3B"))  # Jaune
+        if role == Qt.ItemDataRole.ForegroundRole and index.column() == 3:
+            from PySide6.QtGui import QBrush, QColor
+            return QBrush(QColor("#000000"))  # Texte noir pour contraste
         return None
 
     def headerData(self, section: int, orientation: Qt.Orientation, role=Qt.ItemDataRole.DisplayRole):

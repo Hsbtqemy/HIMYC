@@ -39,7 +39,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
 )
 from PySide6.QtCore import Qt, QModelIndex, QPoint, QTimer, QUrl, QSettings
-from PySide6.QtGui import QAction, QIcon, QUndoStack
+from PySide6.QtGui import QAction, QIcon, QKeySequence, QUndoStack
 from PySide6.QtWidgets import QMenuBar
 from PySide6.QtGui import QDesktopServices
 

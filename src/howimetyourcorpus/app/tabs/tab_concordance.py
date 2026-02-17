@@ -1,4 +1,4 @@
-"""Onglet Concordance : recherche KWIC (épisodes, segments, cues) et export."""
+"""Onglet Concordance : recherche KWIC (épisodes, segments, cues) et export + Pack Rapide (C2, C9, C15, C4) + Pack Analyse (C1, C5, C8, C11)."""
 
 from __future__ import annotations
 
@@ -6,8 +6,10 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QModelIndex
+from PySide6.QtCore import QModelIndex, QSettings, Qt
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QHeaderView,
@@ -48,9 +50,17 @@ class ConcordanceTabWidget(QWidget):
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
         row.addWidget(QLabel("Recherche:"))
-        self.kwic_search_edit = QLineEdit()
+        
+        # Pack Rapide C4: ComboBox éditable avec historique au lieu de QLineEdit
+        self.kwic_search_edit = QComboBox()
+        self.kwic_search_edit.setEditable(True)
         self.kwic_search_edit.setPlaceholderText("Terme...")
+        self.kwic_search_edit.setToolTip("Recherche KWIC (Entrée pour lancer, historique disponible)")
+        self.kwic_search_edit.lineEdit().setPlaceholderText("Terme...")
+        self.kwic_search_edit.lineEdit().returnPressed.connect(self._run_kwic)
+        self._load_search_history()  # Pack Rapide C4
         row.addWidget(self.kwic_search_edit)
+        
         self.kwic_go_btn = QPushButton("Rechercher")
         self.kwic_go_btn.clicked.connect(self._run_kwic)
         row.addWidget(self.kwic_go_btn)
@@ -98,6 +108,16 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_page_label = QLabel("/ 1")
         row.addWidget(self.kwic_page_label)
         layout.addLayout(row)
+        
+        # Pack Rapide : Row 2 avec options avancées (C2: Case-sensitive, C4: Historique à venir)
+        row2 = QHBoxLayout()
+        row2.addWidget(QLabel("Options:"))
+        self.case_sensitive_cb = QCheckBox("Respecter la casse")
+        self.case_sensitive_cb.setToolTip("Recherche sensible à la casse (A ≠ a)")
+        row2.addWidget(self.case_sensitive_cb)
+        row2.addStretch()
+        layout.addLayout(row2)
+        
         self.kwic_table = QTableView()
         self.kwic_model = KwicTableModel()
         self.kwic_table.setModel(self.kwic_model)
@@ -105,9 +125,13 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.kwic_table.setSortingEnabled(True)  # Activer le tri par colonne
         layout.addWidget(self.kwic_table)
-        self.kwic_search_edit.returnPressed.connect(self._run_kwic)
+        
+        # Pack Rapide C15: Copier presse-papier avec Ctrl+C
+        self.kwic_table.keyPressEvent = self._handle_table_key_press
+        
         self._all_hits: list = []  # Stocker tous les résultats pour pagination
         self._page_size = 200
+        self._max_history = 20  # Pack Rapide C4: Nombre max d'entrées historique
 
     def set_languages(self, langs: list[str]) -> None:
         """Met à jour la liste des langues (projet). Appelé par la fenêtre principale."""
@@ -115,12 +139,50 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_lang_combo.addItem("—", "")
         for lang in langs:
             self.kwic_lang_combo.addItem(lang, lang)
+    
+    def _load_search_history(self) -> None:
+        """Pack Rapide C4: Charge l'historique depuis QSettings."""
+        settings = QSettings()
+        history = settings.value("concordance/search_history", [])
+        if isinstance(history, list):
+            self.kwic_search_edit.clear()
+            for term in history[-self._max_history:]:  # Limiter à N dernières
+                if term and isinstance(term, str):
+                    self.kwic_search_edit.addItem(term)
+    
+    def _save_search_to_history(self, term: str) -> None:
+        """Pack Rapide C4: Ajoute le terme à l'historique (sans doublons)."""
+        if not term or not term.strip():
+            return
+        
+        term = term.strip()
+        settings = QSettings()
+        history = settings.value("concordance/search_history", [])
+        if not isinstance(history, list):
+            history = []
+        
+        # Retirer terme s'il existe déjà (on le remettra en dernier)
+        history = [h for h in history if h != term]
+        history.append(term)
+        
+        # Limiter à N dernières recherches
+        history = history[-self._max_history:]
+        
+        settings.setValue("concordance/search_history", history)
+        
+        # Mettre à jour le combo
+        self._load_search_history()
+        self.kwic_search_edit.setCurrentText(term)
 
     def _run_kwic(self) -> None:
-        term = self.kwic_search_edit.text().strip()
+        term = self.kwic_search_edit.currentText().strip()  # Pack Rapide C4: currentText() au lieu de text()
         db = self._get_db()
         if not term or not db:
             return
+        
+        # Pack Rapide C4: Sauvegarder dans l'historique
+        self._save_search_to_history(term)
+        
         season = self.kwic_season_spin.value() if self.kwic_season_spin.value() > 0 else None
         episode = self.kwic_episode_spin.value() if self.kwic_episode_spin.value() > 0 else None
         scope = self.kwic_scope_combo.currentData() or "episodes"
@@ -151,7 +213,9 @@ class ConcordanceTabWidget(QWidget):
         start = (page - 1) * self._page_size
         end = start + self._page_size
         page_hits = self._all_hits[start:end]
-        self.kwic_model.set_hits(page_hits)
+        # Pack Rapide C9: Passer le terme de recherche pour highlight
+        search_term = self.kwic_search_edit.currentText().strip()  # Pack Rapide C4: currentText()
+        self.kwic_model.set_hits(page_hits, search_term=search_term)
 
     def _export_kwic(self) -> None:
         from PySide6.QtWidgets import QFileDialog
@@ -196,3 +260,47 @@ class ConcordanceTabWidget(QWidget):
         if not hit:
             return
         self._on_open_inspector(hit.episode_id)
+    
+    def _handle_table_key_press(self, event: QKeyEvent) -> None:
+        """Pack Rapide C15: Gérer Ctrl+C pour copier vers presse-papier."""
+        if event.key() == Qt.Key.Key_C and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self._copy_selection_to_clipboard()
+            event.accept()
+        else:
+            # Appeler la méthode originale pour autres touches
+            QTableView.keyPressEvent(self.kwic_table, event)
+    
+    def _copy_selection_to_clipboard(self) -> None:
+        """Pack Rapide C15: Copie la sélection au format TSV vers le presse-papier."""
+        from PySide6.QtWidgets import QApplication
+        
+        selection = self.kwic_table.selectionModel()
+        if not selection or not selection.hasSelection():
+            return
+        
+        indexes = sorted(selection.selectedIndexes(), key=lambda idx: (idx.row(), idx.column()))
+        if not indexes:
+            return
+        
+        # Construire TSV (lignes séparées par \n, colonnes par \t)
+        rows = {}
+        for idx in indexes:
+            row_num = idx.row()
+            col_num = idx.column()
+            value = self.kwic_model.data(idx, Qt.ItemDataRole.DisplayRole) or ""
+            if row_num not in rows:
+                rows[row_num] = {}
+            rows[row_num][col_num] = str(value)
+        
+        tsv_lines = []
+        for row_num in sorted(rows.keys()):
+            cols = rows[row_num]
+            # Construire ligne avec toutes les colonnes (remplir vides si manquantes)
+            max_col = max(cols.keys()) if cols else 0
+            line_parts = [cols.get(c, "") for c in range(max_col + 1)]
+            tsv_lines.append("\t".join(line_parts))
+        
+        tsv = "\n".join(tsv_lines)
+        clipboard = QApplication.clipboard()
+        clipboard.setText(tsv)
+
