@@ -447,44 +447,67 @@ class MainWindow(QMainWindow):
                     te.appendPlainText(f"[info] {summary}")
 
     def _on_job_finished(self, results: list):
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_cancel_btn_enabled(False)
-            self.corpus_tab.set_progress(100)
-        ok = sum(1 for r in results if getattr(r, "success", True))
-        fail = len(results) - ok
-        # Résumé unifié : X réussis, Y échecs (toujours affiché)
-        msg = f"Terminé : {ok} réussie(s), {fail} échec(s)."
-        failed_episode_ids: set[str] = set()
-        if fail:
-            first_fail_msg = ""
-            for r in results:
-                if not getattr(r, "success", True):
-                    m = (getattr(r, "message", None) or str(r)) or ""
-                    if not first_fail_msg:
-                        first_fail_msg = m[:80] + ("…" if len(m) > 80 else "")
-                    # Extraire episode_id (ex. S01E01) du message pour reprise ciblée
-                    ep_match = re.search(r"S\d+E\d+", m, re.IGNORECASE)
-                    if ep_match:
-                        failed_episode_ids.add(ep_match.group(0).upper())
-            if failed_episode_ids:
-                msg += f" Échec(s) : {', '.join(sorted(failed_episode_ids))}."
-            elif first_fail_msg:
-                msg += f" Premier échec : {first_fail_msg}"
-            self.statusBar().showMessage(msg, 10000)
-            # Stocker les échecs pour la reprise
+        try:
             if hasattr(self, "corpus_tab") and self.corpus_tab:
-                self.corpus_tab.store_failed_episodes(failed_episode_ids)
-        else:
-            self.statusBar().showMessage(msg, 5000)
-            # Pas d'échec : désactiver le bouton reprise
-            if hasattr(self, "corpus_tab") and self.corpus_tab:
-                self.corpus_tab.store_failed_episodes(set())
-        self._append_job_summary_to_log(msg)
-        self._refresh_episodes_from_store()
-        self._refresh_inspecteur_episodes()
-        self._refresh_subs_tracks()
-        self._refresh_align_runs()
-        self._job_runner = None
+                self.corpus_tab.set_cancel_btn_enabled(False)
+                self.corpus_tab.set_progress(100)
+            ok = sum(1 for r in results if getattr(r, "success", True))
+            fail = len(results) - ok
+            # Résumé unifié : X réussis, Y échecs (toujours affiché)
+            msg = f"Terminé : {ok} réussie(s), {fail} échec(s)."
+            failed_episode_ids: set[str] = set()
+            if fail:
+                first_fail_msg = ""
+                for r in results:
+                    if not getattr(r, "success", True):
+                        m = (getattr(r, "message", None) or str(r)) or ""
+                        if not first_fail_msg:
+                            first_fail_msg = m[:80] + ("…" if len(m) > 80 else "")
+                        # Extraire episode_id (ex. S01E01) du message pour reprise ciblée
+                        ep_match = re.search(r"S\d+E\d+", m, re.IGNORECASE)
+                        if ep_match:
+                            failed_episode_ids.add(ep_match.group(0).upper())
+                if failed_episode_ids:
+                    msg += f" Échec(s) : {', '.join(sorted(failed_episode_ids))}."
+                elif first_fail_msg:
+                    msg += f" Premier échec : {first_fail_msg}"
+                self.statusBar().showMessage(msg, 10000)
+                # Stocker les échecs pour la reprise
+                if hasattr(self, "corpus_tab") and self.corpus_tab:
+                    self.corpus_tab.store_failed_episodes(failed_episode_ids)
+            else:
+                self.statusBar().showMessage(msg, 5000)
+                # Pas d'échec : désactiver le bouton reprise
+                if hasattr(self, "corpus_tab") and self.corpus_tab:
+                    self.corpus_tab.store_failed_episodes(set())
+            self._append_job_summary_to_log(msg)
+            
+            try:
+                self._refresh_episodes_from_store()
+            except Exception as e:
+                logger.exception("Error in _refresh_episodes_from_store")
+                QMessageBox.warning(self, "Avertissement", f"Erreur lors du rafraîchissement des épisodes: {e}")
+            
+            try:
+                self._refresh_inspecteur_episodes()
+            except Exception as e:
+                logger.exception("Error in _refresh_inspecteur_episodes")
+            
+            try:
+                self._refresh_subs_tracks()
+            except Exception as e:
+                logger.exception("Error in _refresh_subs_tracks")
+            
+            try:
+                self._refresh_align_runs()
+            except Exception as e:
+                logger.exception("Error in _refresh_align_runs")
+            
+            self._job_runner = None
+        except Exception as e:
+            logger.exception("Critical error in _on_job_finished")
+            QMessageBox.critical(self, "Erreur critique", f"Erreur lors de la finalisation du job: {e}")
+            self._job_runner = None
 
     def _on_job_cancelled(self):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
