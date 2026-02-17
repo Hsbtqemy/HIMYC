@@ -70,7 +70,8 @@ class ProjectTabWidget(QWidget):
         form_projet = QFormLayout(group_projet)
         self.proj_root_edit = QLineEdit()
         self.proj_root_edit.setPlaceholderText("C:\\...\\MonProjet ou /path/to/project")
-        browse_btn = QPushButton("Parcourir…")
+        browse_btn = QPushButton("📁 Parcourir et ouvrir...")
+        browse_btn.setToolTip("Sélectionner un dossier et ouvrir/créer le projet directement")
         browse_btn.clicked.connect(self._browse)
         row_root = QHBoxLayout()
         row_root.addWidget(self.proj_root_edit)
@@ -264,6 +265,8 @@ class ProjectTabWidget(QWidget):
         d = QFileDialog.getExistingDirectory(self, "Choisir le dossier projet")
         if d:
             self.proj_root_edit.setText(d)
+            # UX : Ouvrir/créer automatiquement après sélection du dossier
+            self._emit_validate()
 
     def _emit_validate(self) -> None:
         self._validate_callback()
