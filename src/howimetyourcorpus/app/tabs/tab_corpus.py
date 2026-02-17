@@ -106,7 +106,8 @@ class CorpusTabWidget(QWidget):
         layout.addLayout(filter_row)
 
         # Sur macOS, QTreeView + proxy provoque des segfaults ; on utilise une table plate (QTableView).
-        _use_table = sys.platform == "darwin"
+        # Fix : Windows a le même problème avec TVMaze (62 épisodes) → force TableView partout
+        _use_table = True  # sys.platform == "darwin"  # Force TableView pour éviter crash avec TVMaze
         if _use_table:
             self.episodes_tree = QTableView()
             self.episodes_tree.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
