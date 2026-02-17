@@ -492,15 +492,21 @@ class MainWindow(QMainWindow):
         self._job_runner = None
 
     def _on_job_error(self, step_name: str, exc: object):
+        logger.error(f"Job error in step '{step_name}': {exc}", exc_info=exc if isinstance(exc, Exception) else None)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_cancel_btn_enabled(False)
         try:
             msg = str(exc) if exc is not None else "Erreur inconnue"
-        except Exception:
-            msg = "Erreur inconnue"
+        except Exception as e:
+            logger.exception("Error while formatting error message")
+            msg = f"Erreur inconnue (impossible de formater le message: {e})"
         if len(msg) > 500:
             msg = msg[:497] + "..."
-        QMessageBox.critical(self, "Erreur", f"{step_name}: {msg}")
+        try:
+            QMessageBox.critical(self, "Erreur", f"{step_name}: {msg}")
+        except Exception as e:
+            logger.exception("Error while showing error dialog")
+            print(f"CRITICAL ERROR: {step_name}: {msg}")
 
     def _cancel_job(self):
         if self._job_runner:

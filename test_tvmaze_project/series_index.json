@@ -1,0 +1,502 @@
+{
+  "series_title": "Breaking Bad",
+  "series_url": "https://www.tvmaze.com/shows/169",
+  "episodes": [
+    {
+      "episode_id": "S01E01",
+      "season": 1,
+      "episode": 1,
+      "title": "Pilot",
+      "url": "https://www.tvmaze.com/episodes/12192/breaking-bad-1x01-pilot",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S01E02",
+      "season": 1,
+      "episode": 2,
+      "title": "Cat's in the Bag...",
+      "url": "https://www.tvmaze.com/episodes/12193/breaking-bad-1x02-cats-in-the-bag",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S01E03",
+      "season": 1,
+      "episode": 3,
+      "title": "...and the Bag's in the River",
+      "url": "https://www.tvmaze.com/episodes/12194/breaking-bad-1x03-and-the-bags-in-the-river",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S01E04",
+      "season": 1,
+      "episode": 4,
+      "title": "Cancer Man",
+      "url": "https://www.tvmaze.com/episodes/12195/breaking-bad-1x04-cancer-man",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S01E05",
+      "season": 1,
+      "episode": 5,
+      "title": "Gray Matter",
+      "url": "https://www.tvmaze.com/episodes/12196/breaking-bad-1x05-gray-matter",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S01E06",
+      "season": 1,
+      "episode": 6,
+      "title": "Crazy Handful of Nothin'",
+      "url": "https://www.tvmaze.com/episodes/12197/breaking-bad-1x06-crazy-handful-of-nothin",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S01E07",
+      "season": 1,
+      "episode": 7,
+      "title": "A No-Rough-Stuff-Type Deal",
+      "url": "https://www.tvmaze.com/episodes/12198/breaking-bad-1x07-a-no-rough-stuff-type-deal",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E01",
+      "season": 2,
+      "episode": 1,
+      "title": "Seven Thirty-Seven",
+      "url": "https://www.tvmaze.com/episodes/12199/breaking-bad-2x01-seven-thirty-seven",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E02",
+      "season": 2,
+      "episode": 2,
+      "title": "Grilled",
+      "url": "https://www.tvmaze.com/episodes/12200/breaking-bad-2x02-grilled",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E03",
+      "season": 2,
+      "episode": 3,
+      "title": "Bit by a Dead Bee",
+      "url": "https://www.tvmaze.com/episodes/12201/breaking-bad-2x03-bit-by-a-dead-bee",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E04",
+      "season": 2,
+      "episode": 4,
+      "title": "Down",
+      "url": "https://www.tvmaze.com/episodes/12202/breaking-bad-2x04-down",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E05",
+      "season": 2,
+      "episode": 5,
+      "title": "Breakage",
+      "url": "https://www.tvmaze.com/episodes/12203/breaking-bad-2x05-breakage",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E06",
+      "season": 2,
+      "episode": 6,
+      "title": "Peekaboo",
+      "url": "https://www.tvmaze.com/episodes/12204/breaking-bad-2x06-peekaboo",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E07",
+      "season": 2,
+      "episode": 7,
+      "title": "Negro Y Azul",
+      "url": "https://www.tvmaze.com/episodes/12205/breaking-bad-2x07-negro-y-azul",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E08",
+      "season": 2,
+      "episode": 8,
+      "title": "Better Call Saul",
+      "url": "https://www.tvmaze.com/episodes/12206/breaking-bad-2x08-better-call-saul",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E09",
+      "season": 2,
+      "episode": 9,
+      "title": "4 Days Out",
+      "url": "https://www.tvmaze.com/episodes/12207/breaking-bad-2x09-4-days-out",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E10",
+      "season": 2,
+      "episode": 10,
+      "title": "Over",
+      "url": "https://www.tvmaze.com/episodes/12208/breaking-bad-2x10-over",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E11",
+      "season": 2,
+      "episode": 11,
+      "title": "Mandala",
+      "url": "https://www.tvmaze.com/episodes/12209/breaking-bad-2x11-mandala",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E12",
+      "season": 2,
+      "episode": 12,
+      "title": "Phoenix",
+      "url": "https://www.tvmaze.com/episodes/12210/breaking-bad-2x12-phoenix",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S02E13",
+      "season": 2,
+      "episode": 13,
+      "title": "ABQ",
+      "url": "https://www.tvmaze.com/episodes/12211/breaking-bad-2x13-abq",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E01",
+      "season": 3,
+      "episode": 1,
+      "title": "No Más",
+      "url": "https://www.tvmaze.com/episodes/12212/breaking-bad-3x01-no-mas",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E02",
+      "season": 3,
+      "episode": 2,
+      "title": "Caballo sin Nombre",
+      "url": "https://www.tvmaze.com/episodes/12213/breaking-bad-3x02-caballo-sin-nombre",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E03",
+      "season": 3,
+      "episode": 3,
+      "title": "I.F.T.",
+      "url": "https://www.tvmaze.com/episodes/12214/breaking-bad-3x03-ift",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E04",
+      "season": 3,
+      "episode": 4,
+      "title": "Green Light",
+      "url": "https://www.tvmaze.com/episodes/12215/breaking-bad-3x04-green-light",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E05",
+      "season": 3,
+      "episode": 5,
+      "title": "Más",
+      "url": "https://www.tvmaze.com/episodes/12216/breaking-bad-3x05-mas",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E06",
+      "season": 3,
+      "episode": 6,
+      "title": "Sunset",
+      "url": "https://www.tvmaze.com/episodes/12217/breaking-bad-3x06-sunset",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E07",
+      "season": 3,
+      "episode": 7,
+      "title": "One Minute",
+      "url": "https://www.tvmaze.com/episodes/12218/breaking-bad-3x07-one-minute",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E08",
+      "season": 3,
+      "episode": 8,
+      "title": "I See You",
+      "url": "https://www.tvmaze.com/episodes/12219/breaking-bad-3x08-i-see-you",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E09",
+      "season": 3,
+      "episode": 9,
+      "title": "Kafkaesque",
+      "url": "https://www.tvmaze.com/episodes/12220/breaking-bad-3x09-kafkaesque",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E10",
+      "season": 3,
+      "episode": 10,
+      "title": "Fly",
+      "url": "https://www.tvmaze.com/episodes/12221/breaking-bad-3x10-fly",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E11",
+      "season": 3,
+      "episode": 11,
+      "title": "Abiquiu",
+      "url": "https://www.tvmaze.com/episodes/12222/breaking-bad-3x11-abiquiu",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E12",
+      "season": 3,
+      "episode": 12,
+      "title": "Half Measures",
+      "url": "https://www.tvmaze.com/episodes/12223/breaking-bad-3x12-half-measures",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S03E13",
+      "season": 3,
+      "episode": 13,
+      "title": "Full Measure",
+      "url": "https://www.tvmaze.com/episodes/12224/breaking-bad-3x13-full-measure",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E01",
+      "season": 4,
+      "episode": 1,
+      "title": "Box Cutter",
+      "url": "https://www.tvmaze.com/episodes/12225/breaking-bad-4x01-box-cutter",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E02",
+      "season": 4,
+      "episode": 2,
+      "title": "Thirty-Eight Snub",
+      "url": "https://www.tvmaze.com/episodes/12226/breaking-bad-4x02-thirty-eight-snub",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E03",
+      "season": 4,
+      "episode": 3,
+      "title": "Open House",
+      "url": "https://www.tvmaze.com/episodes/12227/breaking-bad-4x03-open-house",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E04",
+      "season": 4,
+      "episode": 4,
+      "title": "Bullet Points",
+      "url": "https://www.tvmaze.com/episodes/12228/breaking-bad-4x04-bullet-points",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E05",
+      "season": 4,
+      "episode": 5,
+      "title": "Shotgun",
+      "url": "https://www.tvmaze.com/episodes/12229/breaking-bad-4x05-shotgun",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E06",
+      "season": 4,
+      "episode": 6,
+      "title": "Cornered",
+      "url": "https://www.tvmaze.com/episodes/12230/breaking-bad-4x06-cornered",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E07",
+      "season": 4,
+      "episode": 7,
+      "title": "Problem Dog",
+      "url": "https://www.tvmaze.com/episodes/12231/breaking-bad-4x07-problem-dog",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E08",
+      "season": 4,
+      "episode": 8,
+      "title": "Hermanos",
+      "url": "https://www.tvmaze.com/episodes/12232/breaking-bad-4x08-hermanos",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E09",
+      "season": 4,
+      "episode": 9,
+      "title": "Bug",
+      "url": "https://www.tvmaze.com/episodes/12233/breaking-bad-4x09-bug",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E10",
+      "season": 4,
+      "episode": 10,
+      "title": "Salud",
+      "url": "https://www.tvmaze.com/episodes/12234/breaking-bad-4x10-salud",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E11",
+      "season": 4,
+      "episode": 11,
+      "title": "Crawl Space",
+      "url": "https://www.tvmaze.com/episodes/12235/breaking-bad-4x11-crawl-space",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E12",
+      "season": 4,
+      "episode": 12,
+      "title": "End Times",
+      "url": "https://www.tvmaze.com/episodes/12236/breaking-bad-4x12-end-times",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S04E13",
+      "season": 4,
+      "episode": 13,
+      "title": "Face Off",
+      "url": "https://www.tvmaze.com/episodes/12237/breaking-bad-4x13-face-off",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E01",
+      "season": 5,
+      "episode": 1,
+      "title": "Live Free or Die",
+      "url": "https://www.tvmaze.com/episodes/12238/breaking-bad-5x01-live-free-or-die",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E02",
+      "season": 5,
+      "episode": 2,
+      "title": "Madrigal",
+      "url": "https://www.tvmaze.com/episodes/12239/breaking-bad-5x02-madrigal",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E03",
+      "season": 5,
+      "episode": 3,
+      "title": "Hazard Pay",
+      "url": "https://www.tvmaze.com/episodes/12240/breaking-bad-5x03-hazard-pay",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E04",
+      "season": 5,
+      "episode": 4,
+      "title": "Fifty-One",
+      "url": "https://www.tvmaze.com/episodes/12241/breaking-bad-5x04-fifty-one",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E05",
+      "season": 5,
+      "episode": 5,
+      "title": "Dead Freight",
+      "url": "https://www.tvmaze.com/episodes/12242/breaking-bad-5x05-dead-freight",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E06",
+      "season": 5,
+      "episode": 6,
+      "title": "Buyout",
+      "url": "https://www.tvmaze.com/episodes/12243/breaking-bad-5x06-buyout",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E07",
+      "season": 5,
+      "episode": 7,
+      "title": "Say My Name",
+      "url": "https://www.tvmaze.com/episodes/12244/breaking-bad-5x07-say-my-name",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E08",
+      "season": 5,
+      "episode": 8,
+      "title": "Gliding Over All",
+      "url": "https://www.tvmaze.com/episodes/12245/breaking-bad-5x08-gliding-over-all",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E09",
+      "season": 5,
+      "episode": 9,
+      "title": "Blood Money",
+      "url": "https://www.tvmaze.com/episodes/12246/breaking-bad-5x09-blood-money",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E10",
+      "season": 5,
+      "episode": 10,
+      "title": "Buried",
+      "url": "https://www.tvmaze.com/episodes/12247/breaking-bad-5x10-buried",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E11",
+      "season": 5,
+      "episode": 11,
+      "title": "Confessions",
+      "url": "https://www.tvmaze.com/episodes/12248/breaking-bad-5x11-confessions",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E12",
+      "season": 5,
+      "episode": 12,
+      "title": "Rabid Dog",
+      "url": "https://www.tvmaze.com/episodes/12249/breaking-bad-5x12-rabid-dog",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E13",
+      "season": 5,
+      "episode": 13,
+      "title": "To'hajiilee",
+      "url": "https://www.tvmaze.com/episodes/12250/breaking-bad-5x13-tohajiilee",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E14",
+      "season": 5,
+      "episode": 14,
+      "title": "Ozymandias",
+      "url": "https://www.tvmaze.com/episodes/12251/breaking-bad-5x14-ozymandias",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E15",
+      "season": 5,
+      "episode": 15,
+      "title": "Granite State",
+      "url": "https://www.tvmaze.com/episodes/12252/breaking-bad-5x15-granite-state",
+      "source_id": "tvmaze"
+    },
+    {
+      "episode_id": "S05E16",
+      "season": 5,
+      "episode": 16,
+      "title": "Felina",
+      "url": "https://www.tvmaze.com/episodes/12253/breaking-bad-5x16-felina",
+      "source_id": "tvmaze"
+    }
+  ]
+}

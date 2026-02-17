@@ -130,13 +130,18 @@ class _PipelineWorker(QObject):
         self.force = force
 
     def run(self) -> None:
-        results = self.runner.run(
-            self.steps,
-            self.context,
-            force=self.force,
-            on_progress=lambda s, p, m: self.progress.emit(s, p, m),
-            on_log=lambda level, msg: self.log.emit(level, msg),
-            on_error=lambda s, e: self.error.emit(s, e),
-            on_cancelled=lambda: self.cancelled.emit(),
-        )
-        self.finished.emit(results)
+        try:
+            results = self.runner.run(
+                self.steps,
+                self.context,
+                force=self.force,
+                on_progress=lambda s, p, m: self.progress.emit(s, p, m),
+                on_log=lambda level, msg: self.log.emit(level, msg),
+                on_error=lambda s, e: self.error.emit(s, e),
+                on_cancelled=lambda: self.cancelled.emit(),
+            )
+            self.finished.emit(results)
+        except Exception as e:
+            logger.exception("Unexpected error in worker thread")
+            self.error.emit("worker", e)
+            self.finished.emit([])
