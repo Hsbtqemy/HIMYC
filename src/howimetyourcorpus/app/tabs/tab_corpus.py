@@ -415,80 +415,87 @@ class CorpusTabWidget(QWidget):
 
     def refresh(self) -> None:
         """Recharge l'arbre et le statut depuis le store (appelé après ouverture projet / fin de job)."""
-        store = self._get_store()
-        db = self._get_db()
-        if not store:
-            self.season_filter_combo.clear()
-            self.season_filter_combo.addItem("Toutes les saisons", None)
-            self.corpus_status_label.setText("")
-            self.transcripts_status_label.setText("Status : 0/0 téléchargés")
-            self.subtitles_status_label.setText("Status : 0/0 importés")
-            self.norm_sel_btn.setEnabled(False)
-            self.norm_all_btn.setEnabled(False)
-            self.segment_sel_btn.setEnabled(False)
-            self.segment_all_btn.setEnabled(False)
-            self.all_in_one_btn.setEnabled(False)
-            return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            self.season_filter_combo.clear()
-            self.season_filter_combo.addItem("Toutes les saisons", None)
-            self.corpus_status_label.setText("")
-            self.transcripts_status_label.setText("Status : 0/0 téléchargés")
-            self.subtitles_status_label.setText("Status : 0/0 importés")
-            self.norm_sel_btn.setEnabled(False)
-            self.norm_all_btn.setEnabled(False)
-            self.segment_sel_btn.setEnabled(False)
-            self.segment_all_btn.setEnabled(False)
-            self.all_in_one_btn.setEnabled(False)
-            return
-        n_total = len(index.episodes)
-        n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
-        n_norm = sum(1 for e in index.episodes if store.has_episode_clean(e.episode_id))
-        n_indexed = len(db.get_episode_ids_indexed()) if db else 0
-        n_with_srt = 0
-        n_aligned = 0
-        if db and index.episodes:
-            episode_ids = [e.episode_id for e in index.episodes]
-            tracks_by_ep = db.get_tracks_for_episodes(episode_ids)
-            runs_by_ep = db.get_align_runs_for_episodes(episode_ids)
-            n_with_srt = sum(1 for e in index.episodes if tracks_by_ep.get(e.episode_id))
-            n_aligned = sum(1 for e in index.episodes if runs_by_ep.get(e.episode_id))
-        
-        # Status global
-        self.corpus_status_label.setText(
-            f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | SRT {n_with_srt} | Alignés {n_aligned}"
-        )
-        
-        # Status colonne Transcripts
-        missing_transcripts = n_total - n_fetched
-        if missing_transcripts > 0:
-            self.transcripts_status_label.setText(f"Status : {n_fetched}/{n_total} téléchargés ⚠️ ({missing_transcripts} manquants)")
-            self.transcripts_status_label.setStyleSheet("color: orange; font-style: italic;")
-        else:
-            self.transcripts_status_label.setText(f"Status : {n_fetched}/{n_total} téléchargés ✅")
-            self.transcripts_status_label.setStyleSheet("color: green; font-style: italic;")
-        
-        # Status colonne Sous-titres
-        missing_srt = n_total - n_with_srt
-        if missing_srt > 0:
-            self.subtitles_status_label.setText(f"Status : {n_with_srt}/{n_total} importés ⚠️ ({missing_srt} manquants)")
-            self.subtitles_status_label.setStyleSheet("color: orange; font-style: italic;")
-        else:
-            self.subtitles_status_label.setText(f"Status : {n_with_srt}/{n_total} importés ✅")
-            self.subtitles_status_label.setStyleSheet("color: green; font-style: italic;")
-        
-        self.norm_sel_btn.setEnabled(n_fetched > 0 or n_with_srt > 0)  # Normaliser si transcripts OU sous-titres
-        self.norm_all_btn.setEnabled(n_fetched > 0 or n_with_srt > 0)
-        self.segment_sel_btn.setEnabled(n_norm > 0)
-        self.segment_all_btn.setEnabled(n_norm > 0)
-        self.all_in_one_btn.setEnabled(n_total > 0)
-        # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
-        # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
-        self.episodes_tree_model.set_store(store)
-        self.episodes_tree_model.set_db(db)
-        self.episodes_tree_model.set_episodes(index.episodes)
-        self._refresh_season_filter_combo()
+        try:
+            store = self._get_store()
+            db = self._get_db()
+            if not store:
+                self.season_filter_combo.clear()
+                self.season_filter_combo.addItem("Toutes les saisons", None)
+                self.corpus_status_label.setText("")
+                self.transcripts_status_label.setText("Status : 0/0 téléchargés")
+                self.subtitles_status_label.setText("Status : 0/0 importés")
+                self.norm_sel_btn.setEnabled(False)
+                self.norm_all_btn.setEnabled(False)
+                self.segment_sel_btn.setEnabled(False)
+                self.segment_all_btn.setEnabled(False)
+                self.all_in_one_btn.setEnabled(False)
+                return
+            index = store.load_series_index()
+            if not index or not index.episodes:
+                self.season_filter_combo.clear()
+                self.season_filter_combo.addItem("Toutes les saisons", None)
+                self.corpus_status_label.setText("")
+                self.transcripts_status_label.setText("Status : 0/0 téléchargés")
+                self.subtitles_status_label.setText("Status : 0/0 importés")
+                self.norm_sel_btn.setEnabled(False)
+                self.norm_all_btn.setEnabled(False)
+                self.segment_sel_btn.setEnabled(False)
+                self.segment_all_btn.setEnabled(False)
+                self.all_in_one_btn.setEnabled(False)
+                return
+            n_total = len(index.episodes)
+            n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
+            n_norm = sum(1 for e in index.episodes if store.has_episode_clean(e.episode_id))
+            n_indexed = len(db.get_episode_ids_indexed()) if db else 0
+            n_with_srt = 0
+            n_aligned = 0
+            if db and index.episodes:
+                episode_ids = [e.episode_id for e in index.episodes]
+                tracks_by_ep = db.get_tracks_for_episodes(episode_ids)
+                runs_by_ep = db.get_align_runs_for_episodes(episode_ids)
+                n_with_srt = sum(1 for e in index.episodes if tracks_by_ep.get(e.episode_id))
+                n_aligned = sum(1 for e in index.episodes if runs_by_ep.get(e.episode_id))
+            
+            # Status global
+            self.corpus_status_label.setText(
+                f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | SRT {n_with_srt} | Alignés {n_aligned}"
+            )
+            
+            # Status colonne Transcripts
+            missing_transcripts = n_total - n_fetched
+            if missing_transcripts > 0:
+                self.transcripts_status_label.setText(f"Status : {n_fetched}/{n_total} téléchargés ⚠️ ({missing_transcripts} manquants)")
+                self.transcripts_status_label.setStyleSheet("color: orange; font-style: italic;")
+            else:
+                self.transcripts_status_label.setText(f"Status : {n_fetched}/{n_total} téléchargés ✅")
+                self.transcripts_status_label.setStyleSheet("color: green; font-style: italic;")
+            
+            # Status colonne Sous-titres
+            missing_srt = n_total - n_with_srt
+            if missing_srt > 0:
+                self.subtitles_status_label.setText(f"Status : {n_with_srt}/{n_total} importés ⚠️ ({missing_srt} manquants)")
+                self.subtitles_status_label.setStyleSheet("color: orange; font-style: italic;")
+            else:
+                self.subtitles_status_label.setText(f"Status : {n_with_srt}/{n_total} importés ✅")
+                self.subtitles_status_label.setStyleSheet("color: green; font-style: italic;")
+            
+            self.norm_sel_btn.setEnabled(n_fetched > 0 or n_with_srt > 0)  # Normaliser si transcripts OU sous-titres
+            self.norm_all_btn.setEnabled(n_fetched > 0 or n_with_srt > 0)
+            self.segment_sel_btn.setEnabled(n_norm > 0)
+            self.segment_all_btn.setEnabled(n_norm > 0)
+            self.all_in_one_btn.setEnabled(n_total > 0)
+            
+            # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
+            # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
+            logger.debug(f"Corpus refresh: updating tree model with {len(index.episodes)} episodes")
+            self.episodes_tree_model.set_store(store)
+            self.episodes_tree_model.set_db(db)
+            self.episodes_tree_model.set_episodes(index.episodes)
+            self._refresh_season_filter_combo()
+            logger.debug("Corpus refresh completed successfully")
+        except Exception as e:
+            logger.exception("Error in corpus_tab.refresh()")
+            QMessageBox.critical(self, "Erreur Corpus", f"Erreur lors du rafraîchissement du corpus:\n\n{type(e).__name__}: {e}\n\nVoir l'onglet Logs pour plus de détails.")
 
     def refresh_profile_combo(self, profile_ids: list[str], current: str | None) -> None:
         """Met à jour le combo profil batch (après ouverture projet ou dialogue profils)."""
