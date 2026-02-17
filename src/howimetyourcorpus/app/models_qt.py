@@ -65,34 +65,40 @@ class EpisodesTreeModel(QAbstractItemModel):
         self.endResetModel()
 
     def _refresh_status(self) -> None:
-        self._status_map.clear()
-        self._srt_map.clear()
-        self._align_map.clear()
-        if not self._episodes:
-            return
-        indexed = set(self._db.get_episode_ids_indexed()) if self._db else set()
-        episode_ids = [ref.episode_id for ref in self._episodes]
-        tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
-        runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
-        for ref in self._episodes:
-            s = EpisodeStatus.NEW.value
-            if self._store:
-                if self._store.has_episode_clean(ref.episode_id):
-                    s = EpisodeStatus.NORMALIZED.value
-                elif self._store.has_episode_raw(ref.episode_id):
-                    s = EpisodeStatus.FETCHED.value
-            if ref.episode_id in indexed:
-                s = EpisodeStatus.INDEXED.value
-            self._status_map[ref.episode_id] = s
-            if self._db:
-                tracks = tracks_by_ep.get(ref.episode_id, [])
-                langs = sorted({t.get("lang", "") for t in tracks if t.get("lang")})
-                self._srt_map[ref.episode_id] = ", ".join(langs) if langs else "—"
-                runs = runs_by_ep.get(ref.episode_id, [])
-                self._align_map[ref.episode_id] = "oui" if runs else "—"
-            else:
-                self._srt_map[ref.episode_id] = "—"
-                self._align_map[ref.episode_id] = "—"
+        try:
+            self._status_map.clear()
+            self._srt_map.clear()
+            self._align_map.clear()
+            if not self._episodes:
+                return
+            indexed = set(self._db.get_episode_ids_indexed()) if self._db else set()
+            episode_ids = [ref.episode_id for ref in self._episodes]
+            tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
+            runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
+            for ref in self._episodes:
+                s = EpisodeStatus.NEW.value
+                if self._store:
+                    if self._store.has_episode_raw(ref.episode_id):
+                        s = EpisodeStatus.FETCHED.value
+                    if self._store.has_episode_clean(ref.episode_id):
+                        s = EpisodeStatus.NORMALIZED.value
+                if ref.episode_id in indexed:
+                    s = EpisodeStatus.INDEXED.value
+                self._status_map[ref.episode_id] = s
+                if self._db:
+                    tracks = tracks_by_ep.get(ref.episode_id, [])
+                    langs = sorted({t.get("lang", "") for t in tracks if t.get("lang")})
+                    self._srt_map[ref.episode_id] = ", ".join(langs) if langs else "—"
+                    runs = runs_by_ep.get(ref.episode_id, [])
+                    self._align_map[ref.episode_id] = "oui" if runs else "—"
+                else:
+                    self._srt_map[ref.episode_id] = "—"
+                    self._align_map[ref.episode_id] = "—"
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Error in EpisodesTreeModel._refresh_status()")
+            # Continue silencieusement pour ne pas bloquer l'UI
 
     def _node(self, index: QModelIndex) -> tuple | None:
         if not index.isValid():
