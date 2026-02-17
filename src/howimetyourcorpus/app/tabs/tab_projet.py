@@ -78,12 +78,16 @@ class ProjectTabWidget(QWidget):
         row_root.addWidget(browse_btn)
         form_projet.addRow("Dossier:", row_root)
         btn_row = QHBoxLayout()
-        validate_btn = QPushButton("Ouvrir / créer le projet")
+        validate_btn = QPushButton("✅ Valider et ouvrir le projet")
+        validate_btn.setToolTip(
+            "Créer un nouveau projet avec les paramètres ci-dessous, "
+            "ou ouvrir un projet existant (charge config.toml)."
+        )
         validate_btn.clicked.connect(self._emit_validate)
         validate_btn.setDefault(True)
-        save_config_btn = QPushButton("Enregistrer la config.")
+        save_config_btn = QPushButton("💾 Sauvegarder modifications")
         save_config_btn.setToolTip(
-            "Sauvegarde source, URL série, profil, etc. dans config.toml (projet déjà ouvert)."
+            "Sauvegarde les modifications (source, URL, profil) dans config.toml du projet déjà ouvert."
         )
         save_config_btn.clicked.connect(self._save_config)
         btn_row.addWidget(validate_btn)
@@ -265,8 +269,6 @@ class ProjectTabWidget(QWidget):
         d = QFileDialog.getExistingDirectory(self, "Choisir le dossier projet")
         if d:
             self.proj_root_edit.setText(d)
-            # UX : Ouvrir/créer automatiquement après sélection du dossier
-            self._emit_validate()
 
     def _emit_validate(self) -> None:
         self._validate_callback()
