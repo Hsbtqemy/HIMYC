@@ -28,9 +28,10 @@ def _node_episode(node: tuple) -> EpisodeRef | None:
 class EpisodesTreeModel(QAbstractItemModel):
     """Modèle d'arbre : racine → Saisons → Épisodes (même colonnes que la table + case à cocher)."""
 
-    COLUMNS = ["checked", "episode_id", "season", "episode", "title", "status", "srt", "aligned"]
-    HEADERS = ["", "ID", "Saison", "Épisode", "Titre", "Statut", "SRT", "Aligné"]
+    COLUMNS = ["checked", "series", "episode_id", "season", "episode", "title", "status", "srt", "aligned"]
+    HEADERS = ["", "Série", "ID", "Saison", "Épisode", "Titre", "Statut", "SRT", "Aligné"]
     COL_CHECKED = 0
+    COL_SERIES = 1
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -40,6 +41,7 @@ class EpisodesTreeModel(QAbstractItemModel):
         self._status_map: dict[str, str] = {}
         self._srt_map: dict[str, str] = {}
         self._align_map: dict[str, str] = {}
+        self._series_map: dict[str, str] = {}  # episode_id -> nom série court
         self._checked: set[str] = set()
         self._store: ProjectStore | None = None
         self._db: CorpusDB | None = None
@@ -61,8 +63,36 @@ class EpisodesTreeModel(QAbstractItemModel):
             self._season_episodes.setdefault(ref.season, []).append(ref)
         for k in self._season_episodes:
             self._season_episodes[k].sort(key=lambda r: (r.season, r.episode))
+        self._build_series_map()
         self._refresh_status()
         self.endResetModel()
+    
+    def _build_series_map(self) -> None:
+        """Construit une map episode_id -> nom de série court pour multi-séries."""
+        self._series_map.clear()
+        if not self._episodes:
+            return
+        
+        # Détecter si multi-séries (plusieurs source_id différents)
+        sources = {ep.source_id for ep in self._episodes if ep.source_id}
+        
+        # Charger le series_index pour récupérer series_title si disponible
+        series_title = ""
+        if self._store:
+            index = self._store.load_series_index()
+            if index:
+                series_title = index.series_title
+        
+        # Si une seule série, utiliser le nom complet ou source_id
+        if len(sources) <= 1:
+            default_name = series_title or list(sources)[0] if sources else "—"
+            for ep in self._episodes:
+                self._series_map[ep.episode_id] = default_name
+        else:
+            # Multi-séries : essayer de deviner depuis source_id ou URL
+            # Pour l'instant, simple : source_id (subslikescript, tvmaze, etc.)
+            for ep in self._episodes:
+                self._series_map[ep.episode_id] = ep.source_id or "—"
 
     def _refresh_status(self) -> None:
         try:
@@ -155,7 +185,7 @@ class EpisodesTreeModel(QAbstractItemModel):
         sn = _node_season(node)
         ref = _node_episode(node)
         if sn is not None:
-            if role == Qt.ItemDataRole.DisplayRole and col == 1:
+            if role == Qt.ItemDataRole.DisplayRole and col == 2:
                 return f"Saison {sn}"
             return None
         if ref is None:
@@ -163,19 +193,21 @@ class EpisodesTreeModel(QAbstractItemModel):
         if col == self.COL_CHECKED and role == Qt.ItemDataRole.CheckStateRole:
             return Qt.CheckState.Checked if ref.episode_id in self._checked else Qt.CheckState.Unchecked
         if role == Qt.ItemDataRole.DisplayRole:
-            if col == 1:
-                return ref.episode_id
+            if col == self.COL_SERIES:
+                return self._series_map.get(ref.episode_id, "—")
             if col == 2:
-                return ref.season
+                return ref.episode_id
             if col == 3:
-                return ref.episode
+                return ref.season
             if col == 4:
-                return ref.title or ""
+                return ref.episode
             if col == 5:
-                return self._status_map.get(ref.episode_id, EpisodeStatus.NEW.value)
+                return ref.title or ""
             if col == 6:
-                return self._srt_map.get(ref.episode_id, "—")
+                return self._status_map.get(ref.episode_id, EpisodeStatus.NEW.value)
             if col == 7:
+                return self._srt_map.get(ref.episode_id, "—")
+            if col == 8:
                 return self._align_map.get(ref.episode_id, "—")
         return None
 
@@ -326,9 +358,10 @@ class EpisodesTreeFilterProxyModel(QSortFilterProxyModel):
 class EpisodesTableModel(QAbstractTableModel):
     """Modèle pour la table des épisodes (case à cocher, id, saison, épisode, titre, statut)."""
 
-    COLUMNS = ["checked", "episode_id", "season", "episode", "title", "status", "srt", "aligned"]
-    HEADERS = ["", "ID", "Saison", "Épisode", "Titre", "Statut", "SRT", "Aligné"]
+    COLUMNS = ["checked", "series", "episode_id", "season", "episode", "title", "status", "srt", "aligned"]
+    HEADERS = ["", "Série", "ID", "Saison", "Épisode", "Titre", "Statut", "SRT", "Aligné"]
     COL_CHECKED = 0
+    COL_SERIES = 1
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -336,6 +369,7 @@ class EpisodesTableModel(QAbstractTableModel):
         self._status_map: dict[str, str] = {}  # episode_id -> status
         self._srt_map: dict[str, str] = {}    # episode_id -> "EN, FR" or "—"
         self._align_map: dict[str, str] = {}  # episode_id -> "oui" or "—"
+        self._series_map: dict[str, str] = {}  # episode_id -> nom série court
         self._checked: set[str] = set()  # episode_id des lignes cochées
         self._store: ProjectStore | None = None
         self._db: CorpusDB | None = None
@@ -351,8 +385,36 @@ class EpisodesTableModel(QAbstractTableModel):
     def set_episodes(self, episodes: list[EpisodeRef]) -> None:
         self.beginResetModel()
         self._episodes = list(episodes)
+        self._build_series_map()
         self._refresh_status()
         self.endResetModel()
+    
+    def _build_series_map(self) -> None:
+        """Construit une map episode_id -> nom de série court pour multi-séries."""
+        self._series_map.clear()
+        if not self._episodes:
+            return
+        
+        # Détecter si multi-séries (plusieurs source_id différents)
+        sources = {ep.source_id for ep in self._episodes if ep.source_id}
+        
+        # Charger le series_index pour récupérer series_title si disponible
+        series_title = ""
+        if self._store:
+            index = self._store.load_series_index()
+            if index:
+                series_title = index.series_title
+        
+        # Si une seule série, utiliser le nom complet ou source_id
+        if len(sources) <= 1:
+            default_name = series_title or list(sources)[0] if sources else "—"
+            for ep in self._episodes:
+                self._series_map[ep.episode_id] = default_name
+        else:
+            # Multi-séries : essayer de deviner depuis source_id ou URL
+            # Pour l'instant, simple : source_id (subslikescript, tvmaze, etc.)
+            for ep in self._episodes:
+                self._series_map[ep.episode_id] = ep.source_id or "—"
 
     def _refresh_status(self) -> None:
         self._status_map.clear()
@@ -409,19 +471,21 @@ class EpisodesTableModel(QAbstractTableModel):
                 else Qt.CheckState.Unchecked
             )
         if role == Qt.ItemDataRole.DisplayRole:
-            if col == 1:
-                return ref.episode_id
+            if col == self.COL_SERIES:
+                return self._series_map.get(ref.episode_id, "—")
             if col == 2:
-                return ref.season
+                return ref.episode_id
             if col == 3:
-                return ref.episode
+                return ref.season
             if col == 4:
-                return ref.title or ""
+                return ref.episode
             if col == 5:
-                return self._status_map.get(ref.episode_id, EpisodeStatus.NEW.value)
+                return ref.title or ""
             if col == 6:
-                return self._srt_map.get(ref.episode_id, "—")
+                return self._status_map.get(ref.episode_id, EpisodeStatus.NEW.value)
             if col == 7:
+                return self._srt_map.get(ref.episode_id, "—")
+            if col == 8:
                 return self._align_map.get(ref.episode_id, "—")
         return None
 
