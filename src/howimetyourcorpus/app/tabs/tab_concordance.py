@@ -47,6 +47,10 @@ class ConcordanceTabWidget(QWidget):
         super().__init__(parent)
         self._get_db = get_db
         self._on_open_inspector = on_open_inspector
+        
+        # Pack Rapide C4: Configuration historique recherche
+        self._max_history = 20
+        
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
         row.addWidget(QLabel("Recherche:"))
@@ -163,7 +167,6 @@ class ConcordanceTabWidget(QWidget):
         
         self._all_hits: list = []  # Stocker tous les résultats pour pagination
         self._page_size = 200
-        self._max_history = 20  # Pack Rapide C4: Nombre max d'entrées historique
 
     def set_languages(self, langs: list[str]) -> None:
         """Met à jour la liste des langues (projet). Appelé par la fenêtre principale."""
@@ -473,7 +476,7 @@ class ConcordanceTabWidget(QWidget):
         
         tsv = "\n".join(tsv_lines)
         clipboard = QApplication.clipboard()
-            clipboard.setText(tsv)
+        clipboard.setText(tsv)
     
     def _show_frequency_graph(self) -> None:
         """Pack Analyse C11: Affiche un graphique des occurrences par épisode."""

@@ -97,10 +97,14 @@ class ProjectTabWidget(QWidget):
         form_source = QFormLayout(group_source)
         self.source_id_combo = QComboBox()
         self.source_id_combo.addItems(AdapterRegistry.list_ids() or ["subslikescript"])
+        self.source_id_combo.currentTextChanged.connect(self._on_source_changed)
         form_source.addRow("Source:", self.source_id_combo)
+        
+        # Label dynamique selon la source
+        self.series_url_label = QLabel("URL série:")
         self.series_url_edit = QLineEdit()
         self.series_url_edit.setPlaceholderText("https://subslikescript.com/series/...")
-        form_source.addRow("URL série:", self.series_url_edit)
+        form_source.addRow(self.series_url_label, self.series_url_edit)
         self.srt_only_cb = QCheckBox("Projet SRT uniquement (sans transcriptions)")
         self.srt_only_cb.setToolTip(
             "Cochez si vous partez des SRT sans transcriptions. "
@@ -180,6 +184,21 @@ class ProjectTabWidget(QWidget):
         """§15.3 — Connecte Découvrir / Télécharger tout à la logique Corpus (appelé par MainWindow après création du Corpus)."""
         self._on_discover_episodes = on_discover_episodes
         self._on_fetch_all = on_fetch_all
+    
+    def _on_source_changed(self, source_id: str) -> None:
+        """Adapte le label et placeholder selon la source sélectionnée."""
+        if source_id == "tvmaze":
+            self.series_url_label.setText("Nom de la série:")
+            self.series_url_edit.setPlaceholderText("Breaking Bad, The Wire, Friends...")
+            self.series_url_edit.setToolTip(
+                "Nom de la série à rechercher sur TVMaze. "
+                "TVMaze retournera la liste complète des épisodes, "
+                "que vous pourrez ensuite remplir avec des transcripts ou des SRT."
+            )
+        else:  # subslikescript ou autre
+            self.series_url_label.setText("URL série:")
+            self.series_url_edit.setPlaceholderText("https://subslikescript.com/series/...")
+            self.series_url_edit.setToolTip("URL de la page série sur le site source.")
 
     def _on_discover_clicked(self) -> None:
         if self._on_discover_episodes:
@@ -225,6 +244,8 @@ class ProjectTabWidget(QWidget):
         self.normalize_profile_combo.setCurrentText(config.normalize_profile)
         self.rate_limit_spin.setValue(int(config.rate_limit_s))
         self.source_id_combo.setCurrentText(config.source_id)
+        # Déclencher l'adaptation du label après changement de source
+        self._on_source_changed(config.source_id)
 
     def refresh_languages_list(self) -> None:
         """Remplit la liste des langues depuis le store (appelé après ouverture projet)."""
