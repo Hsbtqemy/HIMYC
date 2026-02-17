@@ -251,6 +251,8 @@ class MainWindow(QMainWindow):
             self.inspector_tab.subtitles_tab.set_languages(langs)
         if hasattr(self, "concordance_tab") and hasattr(self.concordance_tab, "set_languages"):
             self.concordance_tab.set_languages(langs)
+            # Pack Analyse C5: Refresh speakers
+            self.concordance_tab.refresh_speakers()
         if hasattr(self, "personnages_tab") and self.personnages_tab:
             self.personnages_tab.refresh()
 

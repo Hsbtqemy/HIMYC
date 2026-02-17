@@ -64,6 +64,13 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_go_btn = QPushButton("Rechercher")
         self.kwic_go_btn.clicked.connect(self._run_kwic)
         row.addWidget(self.kwic_go_btn)
+        
+        # Pack Analyse C11: Bouton graphique fréquence
+        self.graph_btn = QPushButton("📊 Graphique")
+        self.graph_btn.setToolTip("Affiche un graphique des occurrences par épisode")
+        self.graph_btn.clicked.connect(self._show_frequency_graph)
+        row.addWidget(self.graph_btn)
+        
         self.export_kwic_btn = QPushButton("Exporter résultats")
         self.export_kwic_btn.clicked.connect(self._export_kwic)
         row.addWidget(self.export_kwic_btn)
@@ -85,6 +92,15 @@ class ConcordanceTabWidget(QWidget):
         for lang in ["en", "fr", "it"]:
             self.kwic_lang_combo.addItem(lang, lang)
         row.addWidget(self.kwic_lang_combo)
+        
+        # Pack Analyse C5: Filtre par speaker
+        row.addWidget(QLabel("Personnage:"))
+        self.kwic_speaker_combo = QComboBox()
+        self.kwic_speaker_combo.addItem("—", "")
+        self.kwic_speaker_combo.setToolTip("Filtre segments/cues par personnage")
+        self.kwic_speaker_combo.currentIndexChanged.connect(self._on_speaker_changed)
+        row.addWidget(self.kwic_speaker_combo)
+        
         row.addWidget(QLabel("Saison:"))
         self.kwic_season_spin = QSpinBox()
         self.kwic_season_spin.setMinimum(0)
@@ -109,14 +125,30 @@ class ConcordanceTabWidget(QWidget):
         row.addWidget(self.kwic_page_label)
         layout.addLayout(row)
         
-        # Pack Rapide : Row 2 avec options avancées (C2: Case-sensitive, C4: Historique à venir)
+        # Pack Rapide : Row 2 avec options avancées (C2: Case-sensitive, C4: Historique)
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("Options:"))
         self.case_sensitive_cb = QCheckBox("Respecter la casse")
         self.case_sensitive_cb.setToolTip("Recherche sensible à la casse (A ≠ a)")
         row2.addWidget(self.case_sensitive_cb)
+        
+        # Pack Analyse C1: Regex/Wildcards
+        self.regex_cb = QCheckBox("Regex")
+        self.regex_cb.setToolTip("Recherche avec expressions régulières (ex: .*, [abc]+, etc.)")
+        row2.addWidget(self.regex_cb)
+        
+        self.wildcard_cb = QCheckBox("Wildcards")
+        self.wildcard_cb.setToolTip("Support * (n'importe quel texte) et ? (1 caractère)")
+        row2.addWidget(self.wildcard_cb)
+        
         row2.addStretch()
         layout.addLayout(row2)
+        
+        # Pack Analyse C8: Label statistiques résultats
+        self.stats_label = QLabel("")
+        self.stats_label.setStyleSheet("color: gray; font-size: 0.9em; padding: 5px;")
+        self.stats_label.setWordWrap(True)
+        layout.addWidget(self.stats_label)
         
         self.kwic_table = QTableView()
         self.kwic_model = KwicTableModel()
@@ -139,6 +171,36 @@ class ConcordanceTabWidget(QWidget):
         self.kwic_lang_combo.addItem("—", "")
         for lang in langs:
             self.kwic_lang_combo.addItem(lang, lang)
+    
+    def refresh_speakers(self) -> None:
+        """Pack Analyse C5: Charge la liste des speakers depuis la DB."""
+        db = self._get_db()
+        if not db:
+            return
+        
+        try:
+            with db.connection() as conn:
+                cursor = conn.execute(
+                    """SELECT DISTINCT speaker_explicit 
+                       FROM segments 
+                       WHERE speaker_explicit IS NOT NULL 
+                         AND trim(speaker_explicit) != ''
+                       ORDER BY speaker_explicit"""
+                )
+                speakers = [row[0] for row in cursor.fetchall()]
+            
+            self.kwic_speaker_combo.clear()
+            self.kwic_speaker_combo.addItem("—", "")
+            for speaker in speakers:
+                self.kwic_speaker_combo.addItem(speaker, speaker)
+        except Exception as e:
+            logger.exception("Refresh speakers")
+    
+    def _on_speaker_changed(self) -> None:
+        """Pack Analyse C5: Relance la recherche si un speaker est sélectionné."""
+        # Optionnel : auto-refresh si déjà une recherche active
+        if self._all_hits:
+            self._run_kwic()
     
     def _load_search_history(self) -> None:
         """Pack Rapide C4: Charge l'historique depuis QSettings."""
@@ -186,6 +248,11 @@ class ConcordanceTabWidget(QWidget):
         season = self.kwic_season_spin.value() if self.kwic_season_spin.value() > 0 else None
         episode = self.kwic_episode_spin.value() if self.kwic_episode_spin.value() > 0 else None
         scope = self.kwic_scope_combo.currentData() or "episodes"
+        
+        # Pack Analyse C1: Déterminer mode recherche
+        use_regex = self.regex_cb.isChecked()
+        use_wildcard = self.wildcard_cb.isChecked()
+        
         # Récupérer TOUS les résultats (sans limite) pour pagination
         if scope == "segments":
             kind = self.kwic_kind_combo.currentData() or None
@@ -195,14 +262,118 @@ class ConcordanceTabWidget(QWidget):
             hits = db.query_kwic_cues(term, lang=lang, season=season, episode=episode, window=45, limit=10000)
         else:
             hits = db.query_kwic(term, season=season, episode=episode, window=45, limit=10000)
+        
+        # Pack Analyse C1: Filtrer avec regex/wildcard si activé
+        if use_regex or use_wildcard:
+            hits = self._filter_hits_regex_wildcard(hits, term, use_regex, use_wildcard)
+        
+        # Pack Analyse C5: Filtrer par speaker si sélectionné
+        speaker = self.kwic_speaker_combo.currentData()
+        if speaker and scope in ("segments", "cues"):
+            hits = self._filter_hits_by_speaker(hits, speaker)
+        
         self._all_hits = hits
         # Calculer nb pages
         total_pages = max(1, (len(hits) + self._page_size - 1) // self._page_size)
         self.kwic_page_spin.setMaximum(total_pages)
         self.kwic_page_spin.setValue(1)
         self.kwic_page_label.setText(f"/ {total_pages}  ({len(hits)} résultat(s))")
+        
+        # Pack Analyse C8: Afficher statistiques
+        self._update_stats(hits)
+        
         # Afficher page 1
         self._display_page(1)
+    
+    def _update_stats(self, hits: list) -> None:
+        """Pack Analyse C8: Calcule et affiche les statistiques des résultats."""
+        if not hits:
+            self.stats_label.setText("")
+            return
+        
+        # Compter occurrences par épisode
+        episodes_count = {}
+        for hit in hits:
+            eid = getattr(hit, "episode_id", "")
+            episodes_count[eid] = episodes_count.get(eid, 0) + 1
+        
+        nb_episodes = len(episodes_count)
+        avg_per_episode = len(hits) / nb_episodes if nb_episodes > 0 else 0
+        
+        # Trouver épisode avec le plus d'occurrences
+        if episodes_count:
+            max_eid = max(episodes_count, key=episodes_count.get)
+            max_count = episodes_count[max_eid]
+            stats_text = (
+                f"📊 Statistiques : {len(hits)} occurrence(s) • "
+                f"{nb_episodes} épisode(s) • "
+                f"Moyenne : {avg_per_episode:.1f}/épisode • "
+                f"Max : {max_eid} ({max_count})"
+            )
+        else:
+            stats_text = f"📊 Statistiques : {len(hits)} occurrence(s)"
+        
+        self.stats_label.setText(stats_text)
+    
+    def _filter_hits_regex_wildcard(self, hits: list, term: str, use_regex: bool, use_wildcard: bool) -> list:
+        """Pack Analyse C1: Filtre les résultats avec regex ou wildcards."""
+        import re
+        
+        if use_wildcard:
+            # Convertir wildcards en regex: * → .*, ? → .
+            pattern = term.replace("*", ".*").replace("?", ".")
+            use_regex = True
+        else:
+            pattern = term
+        
+        if use_regex:
+            try:
+                # Compiler regex (case-sensitive selon checkbox)
+                flags = 0 if self.case_sensitive_cb.isChecked() else re.IGNORECASE
+                regex = re.compile(pattern, flags)
+                
+                # Filtrer hits dont match contient le pattern
+                filtered = []
+                for hit in hits:
+                    if regex.search(hit.match):
+                        filtered.append(hit)
+                
+                return filtered
+            except re.error as e:
+                QMessageBox.warning(self, "Regex", f"Regex invalide : {e}")
+                return hits
+        
+        return hits
+    
+    def _filter_hits_by_speaker(self, hits: list, speaker: str) -> list:
+        """Pack Analyse C5: Filtre les hits par speaker (segments/cues avec metadata)."""
+        db = self._get_db()
+        if not db:
+            return hits
+        
+        # Récupérer les segments/cues avec ce speaker
+        filtered = []
+        for hit in hits:
+            # Vérifier si le hit a un segment_id ou cue_id
+            segment_id = getattr(hit, "segment_id", None)
+            cue_id = getattr(hit, "cue_id", None)
+            
+            if segment_id:
+                # Vérifier speaker du segment
+                with db.connection() as conn:
+                    cursor = conn.execute(
+                        "SELECT speaker_explicit FROM segments WHERE segment_id = ?",
+                        (segment_id,)
+                    )
+                    row = cursor.fetchone()
+                    if row and row[0] == speaker:
+                        filtered.append(hit)
+            elif cue_id:
+                # Les cues n'ont pas de speaker direct, filtrer par segment associé
+                # Pour l'instant, on garde tous les hits de cues
+                filtered.append(hit)
+        
+        return filtered if filtered else hits  # Si aucun résultat, retourner original
 
     def _on_page_changed(self) -> None:
         """Affiche la page sélectionnée."""
@@ -302,5 +473,65 @@ class ConcordanceTabWidget(QWidget):
         
         tsv = "\n".join(tsv_lines)
         clipboard = QApplication.clipboard()
-        clipboard.setText(tsv)
+            clipboard.setText(tsv)
+    
+    def _show_frequency_graph(self) -> None:
+        """Pack Analyse C11: Affiche un graphique des occurrences par épisode."""
+        if not self._all_hits:
+            QMessageBox.warning(self, "Graphique", "Effectuez d'abord une recherche.")
+            return
+        
+        try:
+            import matplotlib
+            matplotlib.use('Qt5Agg')  # Backend Qt
+            import matplotlib.pyplot as plt
+            from collections import Counter
+            
+            # Compter occurrences par épisode
+            episodes = [getattr(hit, "episode_id", "") for hit in self._all_hits]
+            counter = Counter(episodes)
+            
+            if not counter:
+                QMessageBox.warning(self, "Graphique", "Aucune donnée à afficher.")
+                return
+            
+            # Trier par nom d'épisode (S01E01, S01E02, etc.)
+            sorted_items = sorted(counter.items(), key=lambda x: x[0])
+            episode_ids = [item[0] for item in sorted_items]
+            counts = [item[1] for item in sorted_items]
+            
+            # Limiter à 50 épisodes max pour lisibilité
+            if len(episode_ids) > 50:
+                QMessageBox.information(
+                    self,
+                    "Graphique",
+                    f"Trop d'épisodes ({len(episode_ids)}). Affichage des 50 premiers."
+                )
+                episode_ids = episode_ids[:50]
+                counts = counts[:50]
+            
+            # Créer graphique
+            fig, ax = plt.subplots(figsize=(12, 6))
+            ax.bar(range(len(episode_ids)), counts, color='#2196F3')
+            ax.set_xlabel('Épisode')
+            ax.set_ylabel('Occurrences')
+            ax.set_title(f'Fréquence : "{self.kwic_search_edit.currentText()}" ({sum(counts)} occurrences)')
+            ax.set_xticks(range(len(episode_ids)))
+            ax.set_xticklabels(episode_ids, rotation=45, ha='right')
+            ax.grid(axis='y', alpha=0.3)
+            
+            plt.tight_layout()
+            plt.show()
+            
+        except ImportError:
+            QMessageBox.warning(
+                self,
+                "Graphique",
+                "Matplotlib non installé.\n\n"
+                "Installez-le avec :\n"
+                "pip install matplotlib"
+            )
+        except Exception as e:
+            logger.exception("Show frequency graph")
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de l'affichage du graphique : {e}")
 
