@@ -473,6 +473,14 @@ class PersonnagesTabWidget(QWidget):
                 "Aucun run d'alignement sélectionné pour cet épisode. Choisissez un run dans la liste « Run d'alignement », ou lancez l'alignement dans l'onglet Alignement.",
             )
             return
+        run = db.get_align_run(run_id)
+        if not run:
+            QMessageBox.warning(
+                self,
+                "Propagation",
+                "Run d'alignement introuvable. Rafraîchissez la liste des runs puis sélectionnez un run valide.",
+            )
+            return
         assignments = store.load_character_assignments()
         episode_assignments = [a for a in assignments if a.get("episode_id") == eid]
         if not episode_assignments:
@@ -480,7 +488,6 @@ class PersonnagesTabWidget(QWidget):
                 self, "Propagation", "Aucune assignation pour cet épisode. Enregistrez des assignations (section 2) puis réessayez."
             )
             return
-        run = db.get_align_run(run_id)
         run_segment_kind, _ = parse_run_segment_kind(
             run.get("params_json") if run else None,
             run_id=run_id,
