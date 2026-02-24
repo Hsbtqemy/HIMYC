@@ -90,6 +90,15 @@ class CorpusTabWidget(QWidget):
         self._failed_episode_ids: set[str] = set()  # Stocke les episode_id en échec
 
         layout = QVBoxLayout(self)
+        self._build_filter_row(layout)
+        self._build_episodes_view(layout)
+        ribbon_layout = self._build_ribbon_container(layout)
+        self._build_sources_group(ribbon_layout)
+        self._build_normalization_group(ribbon_layout)
+        self._build_status_block(ribbon_layout)
+        self._on_corpus_ribbon_toggled(True)
+
+    def _build_filter_row(self, layout: QVBoxLayout) -> None:
         filter_row = QHBoxLayout()
         filter_row.addWidget(QLabel("Saison:"))
         self.season_filter_combo = QComboBox()
@@ -105,9 +114,10 @@ class CorpusTabWidget(QWidget):
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
+    def _build_episodes_view(self, layout: QVBoxLayout) -> None:
         # Sur macOS, QTreeView + proxy provoque des segfaults ; on utilise une table plate (QTableView).
-        # Fix : Windows a le même problème avec TVMaze (62 épisodes) → force TableView partout
-        _use_table = True  # sys.platform == "darwin"  # Force TableView pour éviter crash avec TVMaze
+        # Fix : Windows a le même problème avec TVMaze (62 épisodes) → force TableView partout.
+        _use_table = True
         if _use_table:
             self.episodes_tree = QTableView()
             self.episodes_tree.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -135,6 +145,7 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree.doubleClicked.connect(self._on_episode_double_clicked)
         layout.addWidget(self.episodes_tree)
 
+    def _build_ribbon_container(self, layout: QVBoxLayout) -> QVBoxLayout:
         self.corpus_ribbon_toggle_btn = QToolButton()
         self.corpus_ribbon_toggle_btn.setCheckable(True)
         self.corpus_ribbon_toggle_btn.setChecked(True)
@@ -149,16 +160,16 @@ class CorpusTabWidget(QWidget):
         ribbon_layout.setContentsMargins(0, 0, 0, 0)
         ribbon_layout.setSpacing(layout.spacing())
         layout.addWidget(self.corpus_ribbon_content)
+        return ribbon_layout
 
-        # Bloc 1 — SOURCES (constitution du corpus) — Deux colonnes égales
+    def _build_sources_group(self, ribbon_layout: QVBoxLayout) -> None:
         group_sources = QGroupBox("1. SOURCES — Constitution du corpus")
         group_sources.setToolTip(
             "Choisissez une ou deux sources pour constituer votre corpus. "
             "Les deux sources sont équivalentes et peuvent être utilisées indépendamment ou ensemble."
         )
         sources_main_layout = QVBoxLayout()
-        
-        # Boutons globaux (Tout cocher / Tout décocher)
+
         global_btn_row = QHBoxLayout()
         self.check_all_btn = QPushButton("Tout cocher")
         self.check_all_btn.clicked.connect(lambda: self.episodes_tree_model.set_all_checked(True))
@@ -168,116 +179,12 @@ class CorpusTabWidget(QWidget):
         global_btn_row.addWidget(self.uncheck_all_btn)
         global_btn_row.addStretch()
         sources_main_layout.addLayout(global_btn_row)
-        
-        # Deux colonnes : Transcripts | Sous-titres
+
         two_columns_layout = QHBoxLayout()
-        
-        # === COLONNE GAUCHE : TRANSCRIPTS ===
-        transcripts_group = QGroupBox("📄 TRANSCRIPTS")
-        transcripts_group.setToolTip(
-            "Texte narratif complet récupéré depuis des sites web spécialisés (subslikescript, etc.). "
-            "Récupération automatique via URL de la série."
-        )
-        transcripts_layout = QVBoxLayout()
-        
-        transcripts_layout.addWidget(QLabel("<b>Récupération automatique depuis le web</b>"))
-        transcripts_layout.addWidget(QLabel("<i>Source configurée dans l'onglet Projet</i>"))
-        
-        # Actions transcripts
-        self.discover_btn = QPushButton("🔍 Découvrir épisodes")
-        self.discover_btn.setToolTip(
-            "Récupère automatiquement la liste des épisodes depuis la source web configurée "
-            "(URL série dans l'onglet Projet)."
-        )
-        self.discover_btn.clicked.connect(self._discover_episodes)
-        transcripts_layout.addWidget(self.discover_btn)
-        
-        self.discover_merge_btn = QPushButton("🔀 Fusionner autre source...")
-        self.discover_merge_btn.setToolTip(
-            "Découvre une série depuis une autre source/URL et fusionne avec l'index existant "
-            "(sans écraser les épisodes déjà présents)."
-        )
-        self.discover_merge_btn.clicked.connect(self._discover_merge)
-        transcripts_layout.addWidget(self.discover_merge_btn)
-        
-        self.fetch_sel_btn = QPushButton("⬇️ Télécharger sélection")
-        self.fetch_sel_btn.setToolTip(
-            "Télécharge le texte narratif des épisodes cochés (ou des lignes sélectionnées au clic)."
-        )
-        self.fetch_sel_btn.clicked.connect(lambda: self._fetch_episodes(selection_only=True))
-        transcripts_layout.addWidget(self.fetch_sel_btn)
-        
-        self.fetch_all_btn = QPushButton("⬇️ Télécharger tout")
-        self.fetch_all_btn.setToolTip(
-            "Télécharge le texte narratif de tous les épisodes découverts."
-        )
-        self.fetch_all_btn.clicked.connect(lambda: self._fetch_episodes(selection_only=False))
-        transcripts_layout.addWidget(self.fetch_all_btn)
-        
-        # Status transcripts
-        self.transcripts_status_label = QLabel("Status : 0/0 téléchargés")
-        self.transcripts_status_label.setStyleSheet("color: gray; font-style: italic;")
-        transcripts_layout.addWidget(self.transcripts_status_label)
-        
-        transcripts_layout.addStretch()
-        transcripts_group.setLayout(transcripts_layout)
-        two_columns_layout.addWidget(transcripts_group)
-        
-        # === COLONNE DROITE : SOUS-TITRES ===
-        subtitles_group = QGroupBox("📺 SOUS-TITRES (SRT)")
-        subtitles_group.setToolTip(
-            "Fichiers de sous-titres (.srt) alignés précisément sur la vidéo avec timestamps. "
-            "Import manuel depuis votre ordinateur."
-        )
-        subtitles_layout = QVBoxLayout()
-        
-        subtitles_layout.addWidget(QLabel("<b>Import manuel depuis votre ordinateur</b>"))
-        subtitles_layout.addWidget(QLabel("<i>Fichiers .srt avec timestamps vidéo</i>"))
-        
-        # Actions sous-titres
-        self.add_episodes_btn = QPushButton("➕ Ajouter épisodes (liste)")
-        self.add_episodes_btn.setToolTip(
-            "Créer manuellement la liste des épisodes (ex: S01E01, S01E02...). "
-            "Nécessaire avant d'importer les fichiers .srt si vous n'avez pas découvert via transcripts."
-        )
-        self.add_episodes_btn.clicked.connect(self._add_episodes_manually)
-        subtitles_layout.addWidget(self.add_episodes_btn)
-        
-        self.import_srt_sel_btn = QPushButton("📥 Importer SRT sélection")
-        self.import_srt_sel_btn.setToolTip(
-            "Importer les fichiers .srt depuis votre ordinateur pour les épisodes sélectionnés. "
-            "Vous serez invité à choisir les fichiers .srt un par un."
-        )
-        self.import_srt_sel_btn.clicked.connect(self._import_srt_selection)
-        subtitles_layout.addWidget(self.import_srt_sel_btn)
-        
-        self.import_srt_batch_btn = QPushButton("📁 Import batch (dossier)")
-        self.import_srt_batch_btn.setToolTip(
-            "Importer automatiquement tous les fichiers .srt d'un dossier. "
-            "Détection automatique des épisodes depuis les noms de fichiers (ex: S01E01.srt)."
-        )
-        self.import_srt_batch_btn.clicked.connect(self._import_srt_batch)
-        subtitles_layout.addWidget(self.import_srt_batch_btn)
-        
-        self.manage_srt_btn = QPushButton("⚙️ Gérer sous-titres")
-        self.manage_srt_btn.setToolTip(
-            "Ouvre l'onglet Inspecteur pour gérer les pistes de sous-titres (voir, ajouter, supprimer)."
-        )
-        self.manage_srt_btn.clicked.connect(self._open_subtitles_manager)
-        subtitles_layout.addWidget(self.manage_srt_btn)
-        
-        # Status sous-titres
-        self.subtitles_status_label = QLabel("Status : 0/0 importés")
-        self.subtitles_status_label.setStyleSheet("color: gray; font-style: italic;")
-        subtitles_layout.addWidget(self.subtitles_status_label)
-        
-        subtitles_layout.addStretch()
-        subtitles_group.setLayout(subtitles_layout)
-        two_columns_layout.addWidget(subtitles_group)
-        
+        two_columns_layout.addWidget(self._build_transcripts_group())
+        two_columns_layout.addWidget(self._build_subtitles_group())
         sources_main_layout.addLayout(two_columns_layout)
-        
-        # Aide workflow
+
         workflow_help = QLabel(
             "💡 <b>Workflows flexibles :</b> "
             "Transcripts seuls, Sous-titres seuls, ou les deux ensemble. "
@@ -286,11 +193,106 @@ class CorpusTabWidget(QWidget):
         workflow_help.setWordWrap(True)
         workflow_help.setStyleSheet("background-color: #f0f8ff; padding: 8px; border-radius: 4px;")
         sources_main_layout.addWidget(workflow_help)
-        
+
         group_sources.setLayout(sources_main_layout)
         ribbon_layout.addWidget(group_sources)
 
-        # Bloc 2 — Normalisation / segmentation (après import) §14
+    def _build_transcripts_group(self) -> QGroupBox:
+        transcripts_group = QGroupBox("📄 TRANSCRIPTS")
+        transcripts_group.setToolTip(
+            "Texte narratif complet récupéré depuis des sites web spécialisés (subslikescript, etc.). "
+            "Récupération automatique via URL de la série."
+        )
+        transcripts_layout = QVBoxLayout()
+        transcripts_layout.addWidget(QLabel("<b>Récupération automatique depuis le web</b>"))
+        transcripts_layout.addWidget(QLabel("<i>Source configurée dans l'onglet Projet</i>"))
+
+        self.discover_btn = QPushButton("🔍 Découvrir épisodes")
+        self.discover_btn.setToolTip(
+            "Récupère automatiquement la liste des épisodes depuis la source web configurée "
+            "(URL série dans l'onglet Projet)."
+        )
+        self.discover_btn.clicked.connect(self._discover_episodes)
+        transcripts_layout.addWidget(self.discover_btn)
+
+        self.discover_merge_btn = QPushButton("🔀 Fusionner autre source...")
+        self.discover_merge_btn.setToolTip(
+            "Découvre une série depuis une autre source/URL et fusionne avec l'index existant "
+            "(sans écraser les épisodes déjà présents)."
+        )
+        self.discover_merge_btn.clicked.connect(self._discover_merge)
+        transcripts_layout.addWidget(self.discover_merge_btn)
+
+        self.fetch_sel_btn = QPushButton("⬇️ Télécharger sélection")
+        self.fetch_sel_btn.setToolTip(
+            "Télécharge le texte narratif des épisodes cochés (ou des lignes sélectionnées au clic)."
+        )
+        self.fetch_sel_btn.clicked.connect(lambda: self._fetch_episodes(selection_only=True))
+        transcripts_layout.addWidget(self.fetch_sel_btn)
+
+        self.fetch_all_btn = QPushButton("⬇️ Télécharger tout")
+        self.fetch_all_btn.setToolTip("Télécharge le texte narratif de tous les épisodes découverts.")
+        self.fetch_all_btn.clicked.connect(lambda: self._fetch_episodes(selection_only=False))
+        transcripts_layout.addWidget(self.fetch_all_btn)
+
+        self.transcripts_status_label = QLabel("Status : 0/0 téléchargés")
+        self.transcripts_status_label.setStyleSheet("color: gray; font-style: italic;")
+        transcripts_layout.addWidget(self.transcripts_status_label)
+
+        transcripts_layout.addStretch()
+        transcripts_group.setLayout(transcripts_layout)
+        return transcripts_group
+
+    def _build_subtitles_group(self) -> QGroupBox:
+        subtitles_group = QGroupBox("📺 SOUS-TITRES (SRT)")
+        subtitles_group.setToolTip(
+            "Fichiers de sous-titres (.srt) alignés précisément sur la vidéo avec timestamps. "
+            "Import manuel depuis votre ordinateur."
+        )
+        subtitles_layout = QVBoxLayout()
+        subtitles_layout.addWidget(QLabel("<b>Import manuel depuis votre ordinateur</b>"))
+        subtitles_layout.addWidget(QLabel("<i>Fichiers .srt avec timestamps vidéo</i>"))
+
+        self.add_episodes_btn = QPushButton("➕ Ajouter épisodes (liste)")
+        self.add_episodes_btn.setToolTip(
+            "Créer manuellement la liste des épisodes (ex: S01E01, S01E02...). "
+            "Nécessaire avant d'importer les fichiers .srt si vous n'avez pas découvert via transcripts."
+        )
+        self.add_episodes_btn.clicked.connect(self._add_episodes_manually)
+        subtitles_layout.addWidget(self.add_episodes_btn)
+
+        self.import_srt_sel_btn = QPushButton("📥 Importer SRT sélection")
+        self.import_srt_sel_btn.setToolTip(
+            "Importer les fichiers .srt depuis votre ordinateur pour les épisodes sélectionnés. "
+            "Vous serez invité à choisir les fichiers .srt un par un."
+        )
+        self.import_srt_sel_btn.clicked.connect(self._import_srt_selection)
+        subtitles_layout.addWidget(self.import_srt_sel_btn)
+
+        self.import_srt_batch_btn = QPushButton("📁 Import batch (dossier)")
+        self.import_srt_batch_btn.setToolTip(
+            "Importer automatiquement tous les fichiers .srt d'un dossier. "
+            "Détection automatique des épisodes depuis les noms de fichiers (ex: S01E01.srt)."
+        )
+        self.import_srt_batch_btn.clicked.connect(self._import_srt_batch)
+        subtitles_layout.addWidget(self.import_srt_batch_btn)
+
+        self.manage_srt_btn = QPushButton("⚙️ Gérer sous-titres")
+        self.manage_srt_btn.setToolTip(
+            "Ouvre l'onglet Inspecteur pour gérer les pistes de sous-titres (voir, ajouter, supprimer)."
+        )
+        self.manage_srt_btn.clicked.connect(self._open_subtitles_manager)
+        subtitles_layout.addWidget(self.manage_srt_btn)
+
+        self.subtitles_status_label = QLabel("Status : 0/0 importés")
+        self.subtitles_status_label.setStyleSheet("color: gray; font-style: italic;")
+        subtitles_layout.addWidget(self.subtitles_status_label)
+
+        subtitles_layout.addStretch()
+        subtitles_group.setLayout(subtitles_layout)
+        return subtitles_group
+
+    def _build_normalization_group(self, ribbon_layout: QVBoxLayout) -> None:
         group_norm = QGroupBox("2. Normalisation / segmentation — Après import")
         group_norm.setToolTip(
             "Workflow §14 : Mise au propre des transcripts (RAW → CLEAN) et segmentation. "
@@ -305,8 +307,7 @@ class CorpusTabWidget(QWidget):
             "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce profil."
         )
         btn_row2.addWidget(self.norm_batch_profile_combo)
-        
-        # Bouton Gérer profils
+
         self.manage_profiles_btn = QPushButton("⚙️ Gérer profils")
         self.manage_profiles_btn.setToolTip(
             "Ouvre le dialogue de gestion des profils de normalisation : "
@@ -314,7 +315,7 @@ class CorpusTabWidget(QWidget):
         )
         self.manage_profiles_btn.clicked.connect(self._open_profiles_dialog)
         btn_row2.addWidget(self.manage_profiles_btn)
-        
+
         self.norm_sel_btn = QPushButton("Normaliser\nsélection")
         self.norm_sel_btn.setToolTip(
             "Bloc 2 — Normalise les épisodes cochés (ou les lignes sélectionnées). Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
@@ -331,9 +332,7 @@ class CorpusTabWidget(QWidget):
         )
         self.segment_sel_btn.clicked.connect(lambda: self._segment_episodes(selection_only=True))
         self.segment_all_btn = QPushButton("Segmenter tout")
-        self.segment_all_btn.setToolTip(
-            "Bloc 2 — Segmente tout le corpus (épisodes ayant CLEAN)."
-        )
+        self.segment_all_btn.setToolTip("Bloc 2 — Segmente tout le corpus (épisodes ayant CLEAN).")
         self.segment_all_btn.clicked.connect(lambda: self._segment_episodes(selection_only=False))
         self.all_in_one_btn = QPushButton("Tout faire\n(sélection)")
         self.all_in_one_btn.setToolTip(
@@ -356,14 +355,24 @@ class CorpusTabWidget(QWidget):
         )
         self.resume_failed_btn.clicked.connect(self._resume_failed_episodes)
         self.resume_failed_btn.setEnabled(False)
-        for b in (self.norm_sel_btn, self.norm_all_btn, self.segment_sel_btn, self.segment_all_btn, self.all_in_one_btn, self.index_btn, self.export_corpus_btn):
-            btn_row2.addWidget(b)
+
+        for btn in (
+            self.norm_sel_btn,
+            self.norm_all_btn,
+            self.segment_sel_btn,
+            self.segment_all_btn,
+            self.all_in_one_btn,
+            self.index_btn,
+            self.export_corpus_btn,
+        ):
+            btn_row2.addWidget(btn)
         btn_row2.addWidget(self.cancel_job_btn)
         btn_row2.addWidget(self.resume_failed_btn)
         btn_row2.addStretch()
         group_norm.setLayout(btn_row2)
         ribbon_layout.addWidget(group_norm)
 
+    def _build_status_block(self, ribbon_layout: QVBoxLayout) -> None:
         self.corpus_progress = QProgressBar()
         self.corpus_progress.setMaximum(100)
         self.corpus_progress.setValue(0)
@@ -382,7 +391,6 @@ class CorpusTabWidget(QWidget):
         scope_label.setStyleSheet("color: gray; font-size: 0.9em;")
         scope_label.setWordWrap(True)
         ribbon_layout.addWidget(scope_label)
-        self._on_corpus_ribbon_toggled(True)
 
     def _on_corpus_ribbon_toggled(self, expanded: bool) -> None:
         self.corpus_ribbon_content.setVisible(bool(expanded))
