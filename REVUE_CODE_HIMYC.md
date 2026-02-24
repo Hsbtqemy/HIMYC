@@ -105,7 +105,7 @@
 ### 5.2 Duplication
 
 - Le formatage de `segment_kind` des runs d’alignement est centralisé (`core/align/run_metadata.py`).
-- Il reste des checks manuels « projet ouvert » hors flux Corpus principal ; uniformisation complète encore possible.
+- Les checks « projet ouvert / DB » sont désormais majoritairement uniformisés via décorateurs UI (`require_project`, `require_project_and_db`, `require_db`).
 
 ### 5.3 Fichiers volumineux (> 500 lignes)
 
@@ -143,8 +143,8 @@
 
 | Priorité | Action |
 |----------|--------|
-| **P1** | Finaliser l’uniformisation des checks « projet ouvert » sur les actions UI restantes hors Corpus principal. |
-| **P1** | Nettoyer/ignorer les artefacts de projet local sous `tests/` (runtime app) pour garder un arbre propre. |
+| **P1** | ✅ Uniformisation des checks « projet ouvert » et « DB ouverte » sur les actions UI principales (Corpus, Préparer, Alignement, Projet, Concordance, Personnages). |
+| **P1** | ✅ Nettoyage des artefacts runtime sous `tests/` via script dédié (`scripts/clean_test_artifacts.sh`) et `.gitignore`. |
 | **P2** | Découper les plus gros fichiers (project_store, tab_corpus, tab_preparer, tab_alignement, models_qt). |
 | **P2** | Étendre les tests UI/dialogs sur Inspecteur, Concordance, Logs et dialogs complexes. |
 | **P3** | Chargement asynchrone du refresh Corpus pour très gros corpus. |

@@ -10,6 +10,9 @@ from typing import Any
 
 from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex, TransformStats
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
+from howimetyourcorpus.core.storage.character_propagation import (
+    propagate_character_names as _propagate_character_names,
+)
 from howimetyourcorpus.core.preparer import (
     DEFAULT_SEGMENTATION_OPTIONS,
     normalize_segmentation_options,
@@ -1212,104 +1215,10 @@ class ProjectStore:
         (par défaut toutes les langues modifiées sont réécrites).
         Retourne (nb_segments_updated, nb_cues_updated).
         """
-        from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
-
-        assignments = self.load_character_assignments()
-        characters = self.load_character_names()
-        char_by_id = {ch.get("id") or ch.get("canonical") or "": ch for ch in characters}
-        episode_assignments = [a for a in assignments if a.get("episode_id") == episode_id]
-        assign_segment: dict[str, str] = {}
-        assign_cue: dict[str, str] = {}
-        for a in episode_assignments:
-            st = a.get("source_type") or ""
-            sid = (a.get("source_id") or "").strip()
-            cid = (a.get("character_id") or "").strip()
-            if not sid or not cid:
-                continue
-            if st == "segment":
-                assign_segment[sid] = cid
-            else:
-                assign_cue[sid] = cid
-
-        links = db.query_alignment_for_episode(episode_id, run_id=run_id)
-        for lnk in links:
-            if lnk.get("role") == "pivot" and lnk.get("segment_id") and lnk.get("cue_id"):
-                seg_id = lnk["segment_id"]
-                cue_id = lnk["cue_id"]
-                if seg_id in assign_segment and cue_id not in assign_cue:
-                    assign_cue[cue_id] = assign_segment[seg_id]
-
-        run = db.get_align_run(run_id)
-        pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
-
-        nb_seg = 0
-        for seg_id, cid in assign_segment.items():
-            db.update_segment_speaker(seg_id, cid)
-            nb_seg += 1
-
-        def name_for_lang(character_id: str, lang: str) -> str:
-            ch = char_by_id.get(character_id) or {}
-            names = ch.get("names_by_lang") or {}
-            return names.get(lang) or ch.get("canonical") or character_id
-
-        cues_by_lang: dict[str, list[dict[str, Any]]] = {}
-        cues_index_by_lang: dict[str, dict[str, dict[str, Any]]] = {}
-
-        def _load_cues_lang(lang: str) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
-            lang_key = (lang or "").strip().lower() or "en"
-            if lang_key not in cues_by_lang:
-                cues = db.get_cues_for_episode_lang(episode_id, lang_key) or []
-                cues_by_lang[lang_key] = cues
-                cues_index_by_lang[lang_key] = {
-                    str(c.get("cue_id") or ""): c
-                    for c in cues
-                    if c.get("cue_id")
-                }
-            return cues_by_lang[lang_key], cues_index_by_lang[lang_key]
-
-        langs_updated: set[str] = set()
-        nb_cue = 0
-        _, cues_pivot_by_id = _load_cues_lang(pivot_lang)
-        for cue_id, cid in assign_cue.items():
-            cue_row = cues_pivot_by_id.get(cue_id)
-            if cue_row:
-                text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
-                prefix = name_for_lang(cid, pivot_lang) + ": "
-                if not text.startswith(prefix):
-                    new_text = prefix + text
-                    db.update_cue_text_clean(cue_id, new_text)
-                    cue_row["text_clean"] = new_text
-                    nb_cue += 1
-                    langs_updated.add(pivot_lang)
-
-        for lnk in links:
-            if lnk.get("role") != "target" or not lnk.get("cue_id") or not lnk.get("cue_id_target"):
-                continue
-            cue_en = lnk["cue_id"]
-            cue_target = lnk["cue_id_target"]
-            lang = (lnk.get("lang") or "fr").strip().lower()
-            if cue_en not in assign_cue:
-                continue
-            cid = assign_cue[cue_en]
-            name = name_for_lang(cid, lang)
-            _, cues_lang_by_id = _load_cues_lang(lang)
-            cue_row = cues_lang_by_id.get(cue_target)
-            if cue_row:
-                text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
-                prefix = name + ": "
-                if not text.startswith(prefix):
-                    new_text = prefix + text
-                    db.update_cue_text_clean(cue_target, new_text)
-                    cue_row["text_clean"] = new_text
-                    nb_cue += 1
-                    langs_updated.add(lang)
-
-        for lang in sorted(langs_updated):
-            if languages_to_rewrite is not None and lang not in languages_to_rewrite:
-                continue
-            cues, _ = _load_cues_lang(lang)
-            if cues:
-                srt_content = cues_to_srt(cues)
-                self.save_episode_subtitle_content(episode_id, lang, srt_content, "srt")
-
-        return nb_seg, nb_cue
+        return _propagate_character_names(
+            self,
+            db,
+            episode_id,
+            run_id,
+            languages_to_rewrite=languages_to_rewrite,
+        )
