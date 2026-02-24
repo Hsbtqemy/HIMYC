@@ -338,7 +338,7 @@ class PersonnagesTabWidget(QWidget):
         store = self._get_store()
         db = self._get_db()
         if not eid:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet et sélectionnez un épisode.")
+            QMessageBox.warning(self, "Personnages", "Sélectionnez un épisode.")
             return
         character_ids = [
             ch.get("id") or ch.get("canonical", "")
@@ -419,7 +419,7 @@ class PersonnagesTabWidget(QWidget):
         source_key = self.personnages_source_combo.currentData() or "segments"
         store = self._get_store()
         if not eid:
-            QMessageBox.warning(self, "Personnages", "Ouvrez un projet et sélectionnez un épisode.")
+            QMessageBox.warning(self, "Personnages", "Sélectionnez un épisode.")
             return
         source_type = "segment" if source_key in ("segments", "segments_utterance") else "cue"
         new_assignments = []

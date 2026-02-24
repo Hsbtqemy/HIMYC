@@ -63,6 +63,47 @@ def require_project(method: Callable[..., T]) -> Callable[..., T | None]:
     return wrapper
 
 
+def require_db(method: Callable[..., T]) -> Callable[..., T | None]:
+    """Décorateur vérifiant qu'une base de données est ouverte.
+
+    Le widget doit avoir une méthode `_get_db()` qui retourne la DB ou None.
+    """
+
+    @wraps(method)
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> T | None:
+        if not hasattr(self, "_get_db"):
+            raise AttributeError(
+                f"Le widget {self.__class__.__name__} doit avoir une méthode _get_db() "
+                "pour utiliser le décorateur @require_db"
+            )
+
+        db = self._get_db()
+        if not db:
+            method_name = method.__name__.lower()
+            class_name = self.__class__.__name__.lower()
+            context = f"{class_name}:{method_name}"
+            if "concord" in context:
+                title = "Concordance"
+            elif "align" in context:
+                title = "Alignement"
+            elif "character" in context or "personnage" in context:
+                title = "Personnages"
+            elif "subtitle" in context or "srt" in context:
+                title = "Sous-titres"
+            else:
+                title = "Corpus"
+            QMessageBox.warning(
+                self,
+                title,
+                "Ouvrez un projet d'abord."
+            )
+            return None
+
+        return method(self, *args, **kwargs)
+
+    return wrapper
+
+
 def require_project_and_db(method: Callable[..., T]) -> Callable[..., T | None]:
     """Décorateur vérifiant qu'un projet ET une base de données sont ouverts.
     

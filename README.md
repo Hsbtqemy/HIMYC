@@ -168,6 +168,12 @@ set PYTHONPATH=src
 python -m pytest tests\ -v
 ```
 
+Nettoyage des artefacts runtime générés localement sous `tests/` :
+
+```bash
+./scripts/clean_test_artifacts.sh
+```
+
 ## Structure du projet
 
 ```

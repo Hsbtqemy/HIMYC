@@ -89,7 +89,7 @@ def test_concordance_search_warns_without_db(
         calls.append((title, msg))
         return None
 
-    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_concordance.QMessageBox.warning", _warning)
+    monkeypatch.setattr("howimetyourcorpus.app.ui_utils.QMessageBox.warning", _warning)
     tab._run_kwic()
 
     assert calls == [("Concordance", "Ouvrez un projet d'abord.")]

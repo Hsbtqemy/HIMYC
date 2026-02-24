@@ -30,6 +30,7 @@ from howimetyourcorpus.core.export_utils import (
     export_kwic_docx,
 )
 from howimetyourcorpus.app.models_qt import KwicTableModel
+from howimetyourcorpus.app.ui_utils import require_db
 
 logger = logging.getLogger(__name__)
 
@@ -240,12 +241,14 @@ class ConcordanceTabWidget(QWidget):
 
     def _run_kwic(self) -> None:
         term = self.kwic_search_edit.currentText().strip()  # Pack Rapide C4: currentText() au lieu de text()
-        db = self._get_db()
         if not term:
             return
-        if not db:
-            QMessageBox.warning(self, "Concordance", "Ouvrez un projet d'abord.")
-            return
+        self._run_kwic_for_term(term)
+
+    @require_db
+    def _run_kwic_for_term(self, term: str) -> None:
+        db = self._get_db()
+        assert db is not None  # garanti par @require_db
         
         # Pack Rapide C4: Sauvegarder dans l'historique
         self._save_search_to_history(term)
