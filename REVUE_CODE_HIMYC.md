@@ -2,7 +2,7 @@
 
 **Dernière mise à jour** : revue complète (état actuel)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
-**Tests** : **198 passés**, 0 warning.
+**Tests** : **203 passés**, 0 warning.
 
 ---
 
@@ -92,6 +92,9 @@
 | Métadonnées run alignement | Parsing/fallback factorisés dans `core/align/run_metadata.py` |
 | Dépréciation Qt | `invalidateFilter()` remplacé par `invalidate()` |
 | Couverture tests | Ajouts sur MainWindow, workers, metadata alignement, regroupement aligné |
+| Refacto `ProjectStore` (propagation) | Logique déplacée vers `core/storage/character_propagation.py` (délégation depuis `project_store.py`) |
+| Refacto `ProjectStore` (grouping aligné) | Logique déplacée vers `core/storage/align_grouping.py` (délégation depuis `project_store.py`) |
+| Couverture UI/dialogs P2 | Tests ajoutés sur Inspecteur + dialog Profils (`tests/test_ui_inspecteur_profiles.py`) |
 
 ---
 
@@ -109,11 +112,11 @@
 
 ### 5.3 Fichiers volumineux (> 500 lignes)
 
-- **project_store.py** ~1298 — découper (ex. modules « characters », « prep_status », « config »).
+- **project_store.py** ~990 — allégé via `character_propagation.py` et `align_grouping.py`, reste à découper (ex. « characters », « prep_status », « config »).
 - **tab_corpus.py** ~1080 — sous-widgets ou mixins (arbre, filtres, actions).
-- **tab_preparer.py** ~954 — idem (vues transcript / cues, barre d’actions).
-- **tab_alignement.py** ~822 — idem.
-- **models_qt.py** ~765 — envisager un module par modèle ou par domaine.
+- **tab_preparer.py** ~970 — idem (vues transcript / cues, barre d’actions).
+- **tab_alignement.py** ~829 — idem.
+- **models_qt.py** ~770 — envisager un module par modèle ou par domaine.
 - **ui_mainwindow.py** ~702 — extraire construction onglets / gestion job.
 - **tasks.py** ~695, **db.py** ~620, **profiles.py** (dialogs) ~737 — à surveiller.
 
@@ -133,9 +136,9 @@
 
 ## 7. Tests
 
-- **Structure** : `tests/` à plat, `conftest.py` (fixtures_dir). **198 tests passés**, 0 warning.
-- **Couverture** : unit (segment, subtitles, align, normalize, preparer, db_*, export), intégration pipeline, UI (Corpus, Préparer, MainWindow), workers, undo, project_store.
-- **Manques** : couverture UI encore partielle sur certains dialogs/onglets secondaires (Inspecteur, Concordance, Logs, dialogs complexes).
+- **Structure** : `tests/` à plat, `conftest.py` (fixtures_dir). **203 tests passés**, 0 warning.
+- **Couverture** : unit (segment, subtitles, align, normalize, preparer, db_*, export), intégration pipeline, UI (Corpus, Préparer, MainWindow, Concordance, Logs, Inspecteur, dialogs), workers, undo, project_store.
+- **Manques** : couverture UI encore partielle sur certains scénarios dialogs complexes (édition avancée des règles regex du ProfileEditor, flows multi-onglets très longs).
 
 ---
 
@@ -145,8 +148,8 @@
 |----------|--------|
 | **P1** | ✅ Uniformisation des checks « projet ouvert » et « DB ouverte » sur les actions UI principales (Corpus, Préparer, Alignement, Projet, Concordance, Personnages). |
 | **P1** | ✅ Nettoyage des artefacts runtime sous `tests/` via script dédié (`scripts/clean_test_artifacts.sh`) et `.gitignore`. |
-| **P2** | Découper les plus gros fichiers (project_store, tab_corpus, tab_preparer, tab_alignement, models_qt). |
-| **P2** | Étendre les tests UI/dialogs sur Inspecteur, Concordance, Logs et dialogs complexes. |
+| **P2** | 🟡 Découper les plus gros fichiers (project_store allégé, restent tab_corpus, tab_preparer, tab_alignement, models_qt). |
+| **P2** | 🟡 Étendre les tests UI/dialogs (Inspecteur/Concordance/Logs couverts; poursuivre sur flows dialogs avancés). |
 | **P3** | Chargement asynchrone du refresh Corpus pour très gros corpus. |
 
 ---
