@@ -95,6 +95,7 @@
 | Refacto `ProjectStore` (propagation) | Logique déplacée vers `core/storage/character_propagation.py` (délégation depuis `project_store.py`) |
 | Refacto `ProjectStore` (grouping aligné) | Logique déplacée vers `core/storage/align_grouping.py` (délégation depuis `project_store.py`) |
 | Couverture UI/dialogs P2 | Tests ajoutés sur Inspecteur + dialog Profils (`tests/test_ui_inspecteur_profiles.py`) |
+| Refacto `tab_alignement` | Exports + dialogue d’édition déplacés vers `app/tabs/alignement_exporters.py` et `app/dialogs/edit_align_link.py` |
 
 ---
 
@@ -115,7 +116,7 @@
 - **project_store.py** ~990 — allégé via `character_propagation.py` et `align_grouping.py`, reste à découper (ex. « characters », « prep_status », « config »).
 - **tab_corpus.py** ~1080 — sous-widgets ou mixins (arbre, filtres, actions).
 - **tab_preparer.py** ~970 — idem (vues transcript / cues, barre d’actions).
-- **tab_alignement.py** ~829 — idem.
+- **tab_alignement.py** ~697 — allégé via extraction des exports/dialogue, reste à découper (actions run/bulk/table).
 - **models_qt.py** ~770 — envisager un module par modèle ou par domaine.
 - **ui_mainwindow.py** ~702 — extraire construction onglets / gestion job.
 - **tasks.py** ~695, **db.py** ~620, **profiles.py** (dialogs) ~737 — à surveiller.

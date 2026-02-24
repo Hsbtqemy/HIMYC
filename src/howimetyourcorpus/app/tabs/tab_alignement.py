@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import csv
-import json
 import logging
 from pathlib import Path
 from typing import Callable
@@ -13,9 +11,7 @@ from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
-    QDialogButtonBox,
     QFileDialog,
-    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -30,22 +26,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from howimetyourcorpus.app.dialogs.edit_align_link import EditAlignLinkDialog
 from howimetyourcorpus.core.align import (
     format_segment_kind_label,
     normalize_segment_kind,
     parse_run_segment_kind,
 )
 from howimetyourcorpus.core.pipeline.tasks import AlignEpisodeStep
-from howimetyourcorpus.core.export_utils import (
-    export_parallel_concordance_csv,
-    export_parallel_concordance_tsv,
-    export_parallel_concordance_jsonl,
-    export_parallel_concordance_docx,
-    export_parallel_concordance_txt,
-    export_parallel_concordance_html,
-    export_align_report_html,
-)
+from howimetyourcorpus.core.export_utils import export_align_report_html
 from howimetyourcorpus.app.models_qt import AlignLinksTableModel
+from howimetyourcorpus.app.tabs.alignement_exporters import (
+    export_alignment_links,
+    export_parallel_rows,
+    normalize_parallel_export_path,
+)
 from howimetyourcorpus.app.ui_utils import require_project_and_db, confirm_action
 from howimetyourcorpus.app.widgets import AlignStatsWidget
 from howimetyourcorpus.app.undo_commands import (
@@ -57,84 +51,6 @@ from howimetyourcorpus.app.undo_commands import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _cue_display(c: dict, max_len: int = 60) -> str:
-    """Texte affiché pour une cue dans les listes (n + extrait)."""
-    n = c.get("n") or ""
-    text = (c.get("text_clean") or c.get("text_raw") or "").replace("\n", " ").strip()
-    if len(text) > max_len:
-        text = text[:max_len] + "…"
-    return f"#{n}: {text}" if text else str(c.get("cue_id", ""))
-
-
-class EditAlignLinkDialog(QDialog):
-    """Dialogue pour modifier manuellement la réplique EN et/ou cible d'un lien d'alignement."""
-
-    def __init__(
-        self,
-        link: dict,
-        episode_id: str,
-        db: object,
-        parent: QWidget | None = None,
-    ):
-        super().__init__(parent)
-        self._link = link
-        self._episode_id = episode_id
-        self._db = db
-        self.setWindowTitle("Modifier le lien d'alignement")
-        layout = QVBoxLayout(self)
-        form = QFormLayout()
-        role = (link.get("role") or "").lower()
-        cues_en = db.get_cues_for_episode_lang(episode_id, "en")
-        self._combo_en = QComboBox()
-        for c in cues_en:
-            self._combo_en.addItem(_cue_display(c), c["cue_id"])
-        current_cue = link.get("cue_id")
-        idx_en = next((i for i in range(self._combo_en.count()) if self._combo_en.itemData(i) == current_cue), 0)
-        self._combo_en.setCurrentIndex(idx_en)
-        form.addRow("Réplique EN (pivot):", self._combo_en)
-
-        self._combo_target: QComboBox | None = None
-        if role == "target":
-            lang = (link.get("lang") or "fr").lower()
-            cues_target = db.get_cues_for_episode_lang(episode_id, lang)
-            self._combo_target = QComboBox()
-            for c in cues_target:
-                self._combo_target.addItem(_cue_display(c), c["cue_id"])
-            current_target = link.get("cue_id_target")
-            idx_t = next(
-                (i for i in range(self._combo_target.count()) if self._combo_target.itemData(i) == current_target),
-                0,
-            )
-            self._combo_target.setCurrentIndex(idx_t)
-            form.addRow(f"Réplique cible ({lang}):", self._combo_target)
-        layout.addLayout(form)
-        bbox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        bbox.accepted.connect(self._on_ok)
-        bbox.rejected.connect(self.reject)
-        layout.addWidget(bbox)
-
-    def _on_ok(self) -> None:
-        self.apply()
-        self.accept()
-
-    def selected_cue_id(self) -> str | None:
-        return self._combo_en.itemData(self._combo_en.currentIndex())
-
-    def selected_cue_id_target(self) -> str | None:
-        if self._combo_target is not None:
-            return self._combo_target.itemData(self._combo_target.currentIndex())
-        return None
-
-    def apply(self) -> None:
-        """Appelle la DB et ferme. Appelé après accept()."""
-        link_id = self._link.get("link_id")
-        if not link_id or not self._db:
-            return
-        cue_id = self.selected_cue_id()
-        cue_id_target = self.selected_cue_id_target()
-        self._db.update_align_link_cues(link_id, cue_id=cue_id, cue_id_target=cue_id_target or None)
 
 
 class AlignmentTabWidget(QWidget):
@@ -679,28 +595,13 @@ class AlignmentTabWidget(QWidget):
         )
         if not path:
             return
-        path = Path(path)
-        if path.suffix.lower() != ".docx" and (selected_filter or "").strip().startswith("Word"):
-            path = path.with_suffix(".docx")
-        if path.suffix.lower() not in (".csv", ".tsv", ".txt", ".html", ".jsonl", ".docx"):
-            path = path.with_suffix(".csv")
+        output_path = normalize_parallel_export_path(path, selected_filter)
         try:
             grouping = store.load_align_grouping(eid, run_id)
             if not grouping:
                 grouping = store.generate_align_grouping(db, eid, run_id, tolerant=True)
             rows = store.align_grouping_to_parallel_rows(grouping)
-            if path.suffix.lower() == ".jsonl":
-                export_parallel_concordance_jsonl(rows, path)
-            elif path.suffix.lower() == ".tsv":
-                export_parallel_concordance_tsv(rows, path)
-            elif path.suffix.lower() == ".txt":
-                export_parallel_concordance_txt(rows, path)
-            elif path.suffix.lower() == ".html":
-                export_parallel_concordance_html(rows, path, title=f"Groupes {eid} — {run_id}")
-            elif path.suffix.lower() == ".docx":
-                export_parallel_concordance_docx(rows, path)
-            else:
-                export_parallel_concordance_csv(rows, path)
+            export_parallel_rows(rows, output_path, title=f"Groupes {eid} — {run_id}")
             QMessageBox.information(self, "Export", f"Groupes alignés exportés : {len(rows)} groupe(s).")
         except Exception as exc:
             logger.exception("Export grouped alignment")
@@ -719,28 +620,10 @@ class AlignmentTabWidget(QWidget):
         )
         if not path:
             return
-        path = Path(path)
         links = db.query_alignment_for_episode(eid, run_id=run_id)
         try:
-            if path.suffix.lower() == ".jsonl":
-                with path.open("w", encoding="utf-8") as f:
-                    for row in links:
-                        f.write(json.dumps(row, ensure_ascii=False) + "\n")
-            else:
-                with path.open("w", encoding="utf-8", newline="") as f:
-                    w = csv.writer(f)
-                    w.writerow([
-                        "link_id", "segment_id", "cue_id", "cue_id_target", "lang", "role",
-                        "confidence", "status", "meta",
-                    ])
-                    for row in links:
-                        meta = row.get("meta")
-                        meta_str = json.dumps(meta, ensure_ascii=False) if meta else ""
-                        w.writerow([
-                            row.get("link_id"), row.get("segment_id"), row.get("cue_id"),
-                            row.get("cue_id_target"), row.get("lang"), row.get("role"),
-                            row.get("confidence"), row.get("status"), meta_str,
-                        ])
+            output_path = Path(path)
+            export_alignment_links(output_path, links)
             QMessageBox.information(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
         except Exception as e:
             logger.exception("Export alignement")
@@ -765,26 +648,11 @@ class AlignmentTabWidget(QWidget):
         )
         if not path:
             return
-        path = Path(path)
-        if path.suffix.lower() != ".docx" and (selected_filter or "").strip().startswith("Word"):
-            path = path.with_suffix(".docx")
-        if path.suffix.lower() not in (".csv", ".tsv", ".txt", ".html", ".jsonl", ".docx"):
-            path = path.with_suffix(".csv")
+        output_path = normalize_parallel_export_path(path, selected_filter)
         try:
             status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
             rows = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
-            if path.suffix.lower() == ".jsonl":
-                export_parallel_concordance_jsonl(rows, path)
-            elif path.suffix.lower() == ".tsv":
-                export_parallel_concordance_tsv(rows, path)
-            elif path.suffix.lower() == ".txt":
-                export_parallel_concordance_txt(rows, path)
-            elif path.suffix.lower() == ".html":
-                export_parallel_concordance_html(rows, path, title=f"Comparaison {eid} — {run_id}")
-            elif path.suffix.lower() == ".docx":
-                export_parallel_concordance_docx(rows, path)
-            else:
-                export_parallel_concordance_csv(rows, path)
+            export_parallel_rows(rows, output_path, title=f"Comparaison {eid} — {run_id}")
             QMessageBox.information(
                 self, "Export", f"Concordancier parallèle exporté : {len(rows)} ligne(s)."
             )
