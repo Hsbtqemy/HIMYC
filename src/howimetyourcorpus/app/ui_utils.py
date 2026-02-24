@@ -32,16 +32,22 @@ def require_project(method: Callable[..., T]) -> Callable[..., T | None]:
         
         store = self._get_store()
         if not store:
-            # Déterminer le titre du message selon le nom de la méthode
-            method_name = method.__name__
-            if "subtitle" in method_name.lower() or "srt" in method_name.lower():
+            # Déterminer le titre du message selon le contexte méthode + classe
+            method_name = method.__name__.lower()
+            class_name = self.__class__.__name__.lower()
+            context = f"{class_name}:{method_name}"
+            if "subtitle" in context or "srt" in context:
                 title = "Sous-titres"
-            elif "profile" in method_name.lower():
+            elif "profile" in context:
                 title = "Profils"
-            elif "character" in method_name.lower() or "personnage" in method_name.lower():
+            elif "character" in context or "personnage" in context:
                 title = "Personnages"
-            elif "lang" in method_name.lower():
+            elif "lang" in context:
                 title = "Langues"
+            elif "preparer" in context or "préparer" in context:
+                title = "Préparer"
+            elif "concord" in context:
+                title = "Concordance"
             else:
                 title = "Corpus"
             
@@ -81,13 +87,19 @@ def require_project_and_db(method: Callable[..., T]) -> Callable[..., T | None]:
         db = self._get_db()
         
         if not store or not db:
-            method_name = method.__name__
-            if "subtitle" in method_name.lower() or "srt" in method_name.lower():
+            method_name = method.__name__.lower()
+            class_name = self.__class__.__name__.lower()
+            context = f"{class_name}:{method_name}"
+            if "subtitle" in context or "srt" in context:
                 title = "Sous-titres"
-            elif "align" in method_name.lower():
+            elif "align" in context:
                 title = "Alignement"
-            elif "character" in method_name.lower() or "personnage" in method_name.lower():
+            elif "character" in context or "personnage" in context:
                 title = "Personnages"
+            elif "preparer" in context or "préparer" in context:
+                title = "Préparer"
+            elif "concord" in context:
+                title = "Concordance"
             else:
                 title = "Corpus"
             

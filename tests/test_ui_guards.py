@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QApplication
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from howimetyourcorpus.app.tabs.tab_concordance import ConcordanceTabWidget  # noqa: E402
+from howimetyourcorpus.app.tabs.tab_alignement import AlignmentTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_sous_titres import SubtitleTabWidget  # noqa: E402
 
@@ -90,3 +91,24 @@ def test_concordance_search_warns_without_db(
     tab._run_kwic()
 
     assert calls == [("Concordance", "Ouvrez un projet d'abord.")]
+
+
+def test_alignment_delete_run_warns_without_project(
+    qapp: QApplication,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tab = AlignmentTabWidget(
+        get_store=lambda: None,
+        get_db=lambda: None,
+        run_job=lambda _steps: None,
+    )
+    calls: list[tuple[str, str]] = []
+
+    def _warning(_parent, title: str, msg: str):
+        calls.append((title, msg))
+        return None
+
+    monkeypatch.setattr("howimetyourcorpus.app.ui_utils.QMessageBox.warning", _warning)
+    tab._delete_current_run()
+
+    assert calls == [("Alignement", "Ouvrez un projet d'abord.")]

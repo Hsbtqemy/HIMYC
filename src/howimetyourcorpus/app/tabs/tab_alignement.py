@@ -363,6 +363,7 @@ class AlignmentTabWidget(QWidget):
             logger.exception("Update stats widget")
             self.stats_widget.clear_stats()
 
+    @require_project_and_db
     def _delete_current_run(self) -> None:
         run_id = self.align_run_combo.currentData()
         db = self._get_db()
