@@ -1,6 +1,5 @@
 """Tests des fonctionnalités avancées Phase 3 (casse, regex, historique)."""
 
-import pytest
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
 
 

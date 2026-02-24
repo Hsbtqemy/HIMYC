@@ -359,7 +359,7 @@ class AlignmentTabWidget(QWidget):
             status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
             stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
             self.stats_widget.update_stats(stats)
-        except Exception as e:
+        except Exception:
             logger.exception("Update stats widget")
             self.stats_widget.clear_stats()
 
@@ -398,7 +398,7 @@ class AlignmentTabWidget(QWidget):
                 self.undo_stack.push(cmd)
             else:
                 db.delete_align_run(run_id)
-        except Exception as e:
+        except Exception:
             logger.exception("Suppression run (Undo)")
             try:
                 db.delete_align_run(run_id)

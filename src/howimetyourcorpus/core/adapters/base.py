@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from typing import Protocol
 
-from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
+from howimetyourcorpus.core.models import SeriesIndex
 
 
 class SourceAdapter(Protocol):

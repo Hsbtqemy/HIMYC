@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from pathlib import Path
@@ -14,46 +13,20 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QFileDialog,
-    QTreeView,
-    QTableView,
-    QTableWidget,
-    QTableWidgetItem,
     QPlainTextEdit,
-    QComboBox,
-    QSpinBox,
-    QCheckBox,
-    QProgressBar,
-    QFormLayout,
     QMessageBox,
-    QAbstractItemView,
-    QHeaderView,
-    QSplitter,
-    QListWidget,
-    QMenu,
-    QDialog,
-    QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, QModelIndex, QPoint, QTimer, QUrl, QSettings
+from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QUndoStack
 from PySide6.QtWidgets import QMenuBar
 from PySide6.QtGui import QDesktopServices
 
-from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex
+from howimetyourcorpus.core.models import ProjectConfig
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.pipeline.context import PipelineContext
 from howimetyourcorpus.core.storage.project_store import ProjectStore
 from howimetyourcorpus.core.storage.db import CorpusDB
-from howimetyourcorpus.core.utils.logging import setup_logging, get_log_file_for_project
-from howimetyourcorpus.core.export_utils import (
-    export_segments_txt,
-    export_segments_csv,
-    export_segments_tsv,
-)
+from howimetyourcorpus.core.utils.logging import get_log_file_for_project
 from howimetyourcorpus.app.dialogs import ProfilesDialog
 from howimetyourcorpus.app.tabs import (
     AlignmentTabWidget,
@@ -66,7 +39,6 @@ from howimetyourcorpus.app.tabs import (
     ProjectTabWidget,
 )
 from howimetyourcorpus.app.workers import JobRunner
-from howimetyourcorpus.app.models_qt import AlignLinksTableModel
 from howimetyourcorpus import __version__
 
 logger = logging.getLogger(__name__)
@@ -527,7 +499,7 @@ class MainWindow(QMainWindow):
             msg = msg[:497] + "..."
         try:
             QMessageBox.critical(self, "Erreur", f"{step_name}: {msg}")
-        except Exception as e:
+        except Exception:
             logger.exception("Error while showing error dialog")
             print(f"CRITICAL ERROR: {step_name}: {msg}")
 

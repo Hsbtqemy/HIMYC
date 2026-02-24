@@ -6,7 +6,6 @@ Panneau latéral affichant les statistiques d'un run d'alignement en temps réel
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox
-from PySide6.QtCore import Qt
 
 
 class AlignStatsWidget(QWidget):

@@ -403,7 +403,7 @@ class InspectorTabWidget(QWidget):
     def _run_segment(self) -> None:
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
-        db = self._get_db()
+        assert store is not None  # garanti par @require_project_and_db
         if not eid:
             QMessageBox.warning(self, "Segmentation", "Sélectionnez un épisode.")
             return

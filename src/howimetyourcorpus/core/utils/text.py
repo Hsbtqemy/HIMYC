@@ -1,7 +1,6 @@
 """Utilitaires texte."""
 
 import re
-from typing import List
 
 
 def normalize_whitespace(text: str) -> str:

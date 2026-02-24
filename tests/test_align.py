@@ -1,6 +1,5 @@
 """Tests Phase 4 : similarité et alignement segment↔cues, cues↔cues."""
 
-import pytest
 
 from howimetyourcorpus.core.align import (
     text_similarity,
@@ -96,8 +95,8 @@ def test_align_cues_by_similarity():
     assert len(links) == 2
     assert links[0].cue_id == "S01E01:en:0" and links[0].cue_id_target == "S01E01:fr:0"
     assert links[1].cue_id == "S01E01:en:1" and links[1].cue_id_target == "S01E01:fr:1"
-    assert all(l.role == "target" for l in links)
-    assert all(l.meta.get("align") == "by_similarity" for l in links)
+    assert all(link.role == "target" for link in links)
+    assert all(link.meta.get("align") == "by_similarity" for link in links)
 
 
 def test_align_cues_by_order_shorter_target():

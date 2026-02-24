@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
-from howimetyourcorpus.core.adapters.base import AdapterRegistry, SourceAdapter
+from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 
 logger = logging.getLogger(__name__)

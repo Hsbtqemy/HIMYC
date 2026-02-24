@@ -7,7 +7,6 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-import json
 
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus
 

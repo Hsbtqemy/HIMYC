@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 from urllib.parse import quote_plus
 
-from howimetyourcorpus.core.adapters.base import AdapterRegistry, SourceAdapter
+from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 
 logger = logging.getLogger(__name__)

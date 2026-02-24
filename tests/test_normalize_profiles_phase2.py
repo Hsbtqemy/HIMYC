@@ -1,6 +1,5 @@
 """Test des nouvelles règles de normalisation (Phase 2)."""
 
-import pytest
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
 
 

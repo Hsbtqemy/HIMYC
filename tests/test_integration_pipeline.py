@@ -8,7 +8,6 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from howimetyourcorpus.core.models import EpisodeRef, ProjectConfig, SeriesIndex
 from howimetyourcorpus.core.pipeline.tasks import BuildDbIndexStep

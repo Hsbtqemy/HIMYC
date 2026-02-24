@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -243,7 +242,6 @@ class SubtitleTabWidget(QWidget):
         if not data or not isinstance(data, dict):
             return
         lang = data.get("lang", "")
-        fmt = data.get("format", "srt")
         content_fmt = store.load_episode_subtitle_content(eid, lang)
         if not content_fmt:
             return
@@ -446,7 +444,7 @@ class SubtitleTabWidget(QWidget):
     def _save_content(self) -> None:
         eid = self.subs_episode_combo.currentData()
         store = self._get_store()
-        db = self._get_db()
+        assert store is not None  # garanti par @require_project_and_db
         if not eid:
             return
         if not self._editing_lang or not self._editing_fmt:

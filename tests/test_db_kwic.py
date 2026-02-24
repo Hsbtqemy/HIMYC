@@ -105,7 +105,7 @@ def test_upsert_cues_and_query_kwic_cues(db):
         url="https://example.com/s01e05",
     )
     db.upsert_episode(ref)
-    from howimetyourcorpus.core.subtitles import Cue, parse_srt
+    from howimetyourcorpus.core.subtitles import parse_srt
 
     content = """1
 00:00:01,000 --> 00:00:03,000

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 import logging
-from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 

@@ -1,6 +1,5 @@
 """Tests Phase 2 : segmentation phrases / utterances (segmenters)."""
 
-import pytest
 
 from howimetyourcorpus.core.segment import (
     Segment,

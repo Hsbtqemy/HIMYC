@@ -400,7 +400,6 @@ class ProfileEditorDialog(QDialog):
         right_layout.addWidget(QLabel("<b>Prévisualisation</b> (avant → après)"))
         
         # Onglets : Résultat | Diff | Historique
-        from PySide6.QtWidgets import QTabWidget
         self.preview_tabs = QTabWidget()
         
         # Tab 1 : Résultat (avant/après classique)
@@ -594,7 +593,6 @@ class ProfileEditorDialog(QDialog):
         
         Format simple coloré par HTML (vert = ajouté, rouge = supprimé, bleu = modifié).
         """
-        import difflib
         
         before_lines = before.splitlines()
         after_lines = after.splitlines()

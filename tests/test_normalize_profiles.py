@@ -19,7 +19,7 @@ def test_normalize_merge_mid_phrase(profile: NormalizationProfile):
     clean, stats, debug = profile.apply(raw)
     assert "that" in clean and "breaks" in clean
     # Les deux parties sont sur la même ligne logique (fusion)
-    lines = [l for l in clean.splitlines() if l.strip()]
+    lines = [line for line in clean.splitlines() if line.strip()]
     assert len(lines) == 1
     assert stats.merges >= 1
 
@@ -43,7 +43,7 @@ def test_normalize_didascalia_kept(profile: NormalizationProfile):
     assert "Ted:" in clean
     assert "Marshall:" in clean
     # Les répliques ne doivent pas être fusionnées avec la didascalie
-    lines = [l.strip() for l in clean.splitlines() if l.strip()]
+    lines = [line.strip() for line in clean.splitlines() if line.strip()]
     assert len(lines) >= 2
 
 
@@ -56,7 +56,7 @@ def test_normalize_speaker_line_kept(profile: NormalizationProfile):
     assert "I have something" in clean
     assert "What?" in clean
     # Deux blocs distincts
-    lines = [l for l in clean.splitlines() if l.strip()]
+    lines = [line for line in clean.splitlines() if line.strip()]
     assert len(lines) >= 2
 
 
