@@ -139,6 +139,14 @@ class PreparerTabWidget(QWidget):
         )
 
         layout = QVBoxLayout(self)
+        self._build_top_row(layout)
+        self._build_actions_row(layout)
+        self._build_utterance_actions_row(layout)
+        self._build_help_label(layout)
+        self._build_editors_stack(layout)
+        self._update_utterance_action_states()
+
+    def _build_top_row(self, layout: QVBoxLayout) -> None:
         top = QHBoxLayout()
         top.addWidget(QLabel("Épisode:"))
         self.prep_episode_combo = QComboBox()
@@ -164,6 +172,7 @@ class PreparerTabWidget(QWidget):
         top.addStretch()
         layout.addLayout(top)
 
+    def _build_actions_row(self, layout: QVBoxLayout) -> None:
         actions = QHBoxLayout()
         self.prep_normalize_btn = QPushButton("Nettoyer")
         self.prep_normalize_btn.clicked.connect(self._normalize_transcript)
@@ -206,6 +215,7 @@ class PreparerTabWidget(QWidget):
         actions.addStretch()
         layout.addLayout(actions)
 
+    def _build_utterance_actions_row(self, layout: QVBoxLayout) -> None:
         utterance_actions = QHBoxLayout()
         self.prep_add_utt_btn = QPushButton("Ajouter ligne")
         self.prep_add_utt_btn.clicked.connect(self._add_utterance_row_below)
@@ -237,6 +247,7 @@ class PreparerTabWidget(QWidget):
         utterance_actions.addStretch()
         layout.addLayout(utterance_actions)
 
+    def _build_help_label(self, layout: QVBoxLayout) -> None:
         self.help_label = QLabel(
             "Transcript: normaliser, segmenter (règles paramétrables), éditer les tours.\n"
             "SRT: éditer personnage/texte des cues, timecodes éditables via « Éditer timecodes »."
@@ -245,6 +256,7 @@ class PreparerTabWidget(QWidget):
         self.help_label.setStyleSheet("color: #666;")
         layout.addWidget(self.help_label)
 
+    def _build_editors_stack(self, layout: QVBoxLayout) -> None:
         self._transcript_widgets = TranscriptWidgets(
             edit_role=self._edit_role,
             on_text_changed=self._on_text_changed,
@@ -264,7 +276,6 @@ class PreparerTabWidget(QWidget):
         self.stack.addWidget(self.utterance_table)
         self.stack.addWidget(self.cue_table)
         layout.addWidget(self.stack)
-        self._update_utterance_action_states()
 
     def _build_service(self) -> PreparerService | None:
         store = self._get_store()
