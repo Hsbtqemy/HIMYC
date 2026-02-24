@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QPoint, Qt, QSettings
 from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -27,28 +25,15 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.dialogs.edit_align_link import EditAlignLinkDialog
+from howimetyourcorpus.app.models_qt import AlignLinksTableModel
+from howimetyourcorpus.app.tabs.alignement_actions import AlignmentActionsController
 from howimetyourcorpus.core.align import (
     format_segment_kind_label,
     normalize_segment_kind,
     parse_run_segment_kind,
 )
-from howimetyourcorpus.core.pipeline.tasks import AlignEpisodeStep
-from howimetyourcorpus.core.export_utils import export_align_report_html
-from howimetyourcorpus.app.models_qt import AlignLinksTableModel
-from howimetyourcorpus.app.tabs.alignement_exporters import (
-    export_alignment_links,
-    export_parallel_rows,
-    normalize_parallel_export_path,
-)
 from howimetyourcorpus.app.ui_utils import require_project_and_db, confirm_action
 from howimetyourcorpus.app.widgets import AlignStatsWidget
-from howimetyourcorpus.app.undo_commands import (
-    BulkAcceptLinksCommand,
-    BulkRejectLinksCommand,
-    DeleteAlignRunCommand,
-    EditAlignLinkCommand,
-    SetAlignStatusCommand,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +54,7 @@ class AlignmentTabWidget(QWidget):
         self._get_db = get_db
         self._run_job = run_job
         self.undo_stack = undo_stack  # Basse Priorité #3
+        self._actions_controller = AlignmentActionsController(self, logger)
 
         layout = QVBoxLayout(self)
         row = QHBoxLayout()
@@ -281,169 +267,26 @@ class AlignmentTabWidget(QWidget):
 
     @require_project_and_db
     def _delete_current_run(self) -> None:
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        eid = self.align_episode_combo.currentData()
-        
-        if not run_id or not db or not eid:
-            if not run_id:
-                QMessageBox.information(
-                    self,
-                    "Supprimer le run",
-                    "Aucun run sélectionné. Choisissez un run dans la liste déroulante « Run ».",
-                )
-            return
-        
-        # Compter les liens avant suppression
-        links = db.query_alignment_for_episode(eid, run_id=run_id)
-        nb_links = len(links)
-        
-        if not confirm_action(
-            self,
-            "Supprimer le run",
-            f"Supprimer le run « {run_id} » ?\n\n"
-            f"• {nb_links} lien(s) d'alignement seront supprimés\n"
-            f"• Les corrections manuelles seront perdues\n"
-            f"• Vous devrez relancer l'alignement pour recréer les liens\n\n"
-            f"Vous pourrez annuler cette suppression avec Ctrl+Z (Undo) après validation."
-        ):
-            return
-
-        try:
-            if self.undo_stack:
-                cmd = DeleteAlignRunCommand(db, run_id, eid)
-                self.undo_stack.push(cmd)
-            else:
-                db.delete_align_run(run_id)
-        except Exception:
-            logger.exception("Suppression run (Undo)")
-            try:
-                db.delete_align_run(run_id)
-                QMessageBox.information(
-                    self,
-                    "Run supprimé",
-                    "Le run a été supprimé (annulation Undo non disponible).",
-                )
-            except Exception as e2:
-                logger.exception("Suppression run directe")
-                QMessageBox.critical(
-                    self,
-                    "Erreur",
-                    f"Impossible de supprimer le run : {e2}",
-                )
-                return
-
-        self.refresh()
-        self._fill_links()
+        self._actions_controller.delete_current_run(
+            message_box=QMessageBox,
+            confirm_action_fn=confirm_action,
+        )
     
     @require_project_and_db
     def _bulk_accept(self) -> None:
         """Moyenne Priorité #4 : Accepte tous les liens avec confidence > seuil + Undo/Redo (BP3)."""
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        
-        if not eid or not run_id:
-            QMessageBox.warning(self, "Actions bulk", "Sélectionnez un épisode et un run.")
-            return
-        
-        threshold = self.bulk_threshold_spin.value() / 100.0  # 80% → 0.80
-        links = db.query_alignment_for_episode(eid, run_id=run_id)
-        
-        # Filtrer liens auto avec confidence > seuil
-        candidates = [
-            link for link in links
-            if link.get("status") == "auto" and (link.get("confidence") or 0) >= threshold
-        ]
-        
-        if not candidates:
-            QMessageBox.information(
-                self,
-                "Actions bulk",
-                f"Aucun lien 'auto' avec confidence >= {threshold:.0%} à accepter."
-            )
-            return
-        
-        if not confirm_action(
-            self,
-            "Accepter en masse",
-            f"Accepter {len(candidates)} lien(s) avec confidence >= {threshold:.0%} ?\n\n"
-            f"Ces liens passeront du statut 'auto' à 'accepted'."
-        ):
-            return
-        
-        # Basse Priorité #3 : Utiliser commande Undo/Redo
-        if self.undo_stack:
-            link_ids = [link["link_id"] for link in candidates if link.get("link_id")]
-            cmd = BulkAcceptLinksCommand(db, link_ids, len(link_ids))
-            self.undo_stack.push(cmd)
-        else:
-            # Pas de undo_stack → ancienne méthode
-            with db.connection() as conn:
-                for link in candidates:
-                    link_id = link.get("link_id")
-                    if link_id:
-                        conn.execute("UPDATE align_links SET status = 'accepted' WHERE link_id = ?", (link_id,))
-                conn.commit()
-        
-        self._fill_links()
-        self._update_stats()
-        QMessageBox.information(self, "Actions bulk", f"{len(candidates)} lien(s) accepté(s).")
+        self._actions_controller.bulk_accept(
+            message_box=QMessageBox,
+            confirm_action_fn=confirm_action,
+        )
     
     @require_project_and_db
     def _bulk_reject(self) -> None:
         """Moyenne Priorité #4 : Rejette tous les liens avec confidence < seuil + Undo/Redo (BP3)."""
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        
-        if not eid or not run_id:
-            QMessageBox.warning(self, "Actions bulk", "Sélectionnez un épisode et un run.")
-            return
-        
-        threshold = self.bulk_threshold_spin.value() / 100.0
-        links = db.query_alignment_for_episode(eid, run_id=run_id)
-        
-        # Filtrer liens auto avec confidence < seuil
-        candidates = [
-            link for link in links
-            if link.get("status") == "auto" and (link.get("confidence") or 0) < threshold
-        ]
-        
-        if not candidates:
-            QMessageBox.information(
-                self,
-                "Actions bulk",
-                f"Aucun lien 'auto' avec confidence < {threshold:.0%} à rejeter."
-            )
-            return
-        
-        if not confirm_action(
-            self,
-            "Rejeter en masse",
-            f"Rejeter {len(candidates)} lien(s) avec confidence < {threshold:.0%} ?\n\n"
-            f"⚠️ Ces liens passeront du statut 'auto' à 'rejected'.\n"
-            f"Vous pourrez les accepter individuellement plus tard si nécessaire."
-        ):
-            return
-        
-        # Basse Priorité #3 : Utiliser commande Undo/Redo
-        if self.undo_stack:
-            link_ids = [link["link_id"] for link in candidates if link.get("link_id")]
-            cmd = BulkRejectLinksCommand(db, link_ids, len(link_ids))
-            self.undo_stack.push(cmd)
-        else:
-            # Pas de undo_stack → ancienne méthode
-            with db.connection() as conn:
-                for link in candidates:
-                    link_id = link.get("link_id")
-                    if link_id:
-                        conn.execute("UPDATE align_links SET status = 'rejected' WHERE link_id = ?", (link_id,))
-                conn.commit()
-        
-        self._fill_links()
-        self._update_stats()
-        QMessageBox.information(self, "Actions bulk", f"{len(candidates)} lien(s) rejeté(s).")
+        self._actions_controller.bulk_reject(
+            message_box=QMessageBox,
+            confirm_action_fn=confirm_action,
+        )
 
     def _fill_links(self) -> None:
         eid = self.align_episode_combo.currentData()
@@ -458,240 +301,44 @@ class AlignmentTabWidget(QWidget):
         self.align_table.setModel(model)
 
     def _table_context_menu(self, pos: QPoint) -> None:
-        idx = self.align_table.indexAt(pos)
-        if not idx.isValid():
-            return
-        db = self._get_db()
-        if not db:
-            return
-        model = self.align_table.model()
-        if not isinstance(model, AlignLinksTableModel):
-            return
-        link = model.get_link_at(idx.row())
-        if not link or not link.get("link_id"):
-            return
-        link_id = link["link_id"]
-        eid = self.align_episode_combo.currentData()
-        menu = QMenu(self)
-        accept_act = menu.addAction("Accepter")
-        reject_act = menu.addAction("Rejeter")
-        edit_act = menu.addAction("Modifier la cible…")
-        action = menu.exec(self.align_table.viewport().mapToGlobal(pos))
-        
-        if action == accept_act:
-            # Basse Priorité #3 : Utiliser commande Undo/Redo
-            if self.undo_stack:
-                cmd = SetAlignStatusCommand(
-                    db,
-                    link_id,
-                    "accepted",
-                    link.get("status", "auto"),
-                    f"Accepter lien #{link_id[:8]}"
-                )
-                self.undo_stack.push(cmd)
-            else:
-                db.set_align_status(link_id, "accepted")
-            self._fill_links()
-            self._update_stats()
-            
-        elif action == reject_act:
-            # Basse Priorité #3 : Utiliser commande Undo/Redo
-            if self.undo_stack:
-                cmd = SetAlignStatusCommand(
-                    db,
-                    link_id,
-                    "rejected",
-                    link.get("status", "auto"),
-                    f"Rejeter lien #{link_id[:8]}"
-                )
-                self.undo_stack.push(cmd)
-            else:
-                db.set_align_status(link_id, "rejected")
-            self._fill_links()
-            self._update_stats()
-            
-        elif action == edit_act and eid:
-            dlg = EditAlignLinkDialog(link, eid, db, self)
-            if dlg.exec() == QDialog.DialogCode.Accepted:
-                # Basse Priorité #3 : Utiliser commande Undo/Redo
-                old_target_id = link.get("cue_id_target")
-                new_target_id = dlg.selected_cue_id_target()
-                
-                if self.undo_stack and old_target_id != new_target_id:
-                    cmd = EditAlignLinkCommand(
-                        db,
-                        link_id,
-                        new_target_id,
-                        old_target_id,
-                        "manual",
-                        link.get("status", "auto")
-                    )
-                    self.undo_stack.push(cmd)
-                else:
-                    # Pas de undo_stack ou pas de changement → ancienne méthode
-                    pass  # Le dialogue a déjà fait la mise à jour
-                
-                self._fill_links()
-                self._update_stats()
+        self._actions_controller.table_context_menu(
+            pos,
+            menu_cls=QMenu,
+            edit_dialog_cls=EditAlignLinkDialog,
+        )
 
     @require_project_and_db
     def _run_align_episode(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        if not eid:
-            QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode.")
-            return
-        use_similarity = self.align_by_similarity_cb.isChecked()
-        segment_kind = self.align_segment_kind_combo.currentData() or "sentence"
-        self._run_job([
-            AlignEpisodeStep(
-                eid,
-                pivot_lang="en",
-                target_langs=["fr"],
-                use_similarity_for_cues=use_similarity,
-                segment_kind=segment_kind,
-            )
-        ])
+        self._actions_controller.run_align_episode(message_box=QMessageBox)
 
     @require_project_and_db
     def _generate_alignment_groups(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        store = self._get_store()
-        if not eid or not run_id:
-            QMessageBox.warning(self, "Groupes alignés", "Sélectionnez un épisode et un run.")
-            return
-        if not db or not store:
-            return
-        try:
-            grouping = store.generate_align_grouping(db, eid, run_id, tolerant=True)
-            groups = grouping.get("groups") or []
-            QMessageBox.information(
-                self,
-                "Groupes alignés",
-                f"Groupes générés: {len(groups)} (run {run_id}).\n"
-                "Aucune donnée source n'a été modifiée.",
-            )
-        except Exception as exc:
-            logger.exception("Generate alignment groups")
-            QMessageBox.critical(self, "Groupes alignés", f"Erreur génération groupes: {exc}")
+        self._actions_controller.generate_alignment_groups(message_box=QMessageBox)
 
     @require_project_and_db
     def _export_grouped_alignment(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        store = self._get_store()
-        if not eid or not run_id:
-            QMessageBox.warning(self, "Export groupes alignés", "Sélectionnez un épisode et un run.")
-            return
-        if not db or not store:
-            return
-        path, selected_filter = QFileDialog.getSaveFileName(
-            self,
-            "Exporter groupes alignés",
-            "",
-            "CSV (*.csv);;TSV (*.tsv);;TXT (*.txt);;HTML (*.html);;JSONL (*.jsonl);;Word (*.docx)",
+        self._actions_controller.export_grouped_alignment(
+            file_dialog=QFileDialog,
+            message_box=QMessageBox,
         )
-        if not path:
-            return
-        output_path = normalize_parallel_export_path(path, selected_filter)
-        try:
-            grouping = store.load_align_grouping(eid, run_id)
-            if not grouping:
-                grouping = store.generate_align_grouping(db, eid, run_id, tolerant=True)
-            rows = store.align_grouping_to_parallel_rows(grouping)
-            export_parallel_rows(rows, output_path, title=f"Groupes {eid} — {run_id}")
-            QMessageBox.information(self, "Export", f"Groupes alignés exportés : {len(rows)} groupe(s).")
-        except Exception as exc:
-            logger.exception("Export grouped alignment")
-            QMessageBox.critical(self, "Export groupes alignés", f"Erreur export: {exc}")
 
     @require_project_and_db
     def _export_alignment(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id:
-            QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode et un run.")
-            return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Exporter alignement", "", "CSV (*.csv);;JSONL (*.jsonl)"
+        self._actions_controller.export_alignment(
+            file_dialog=QFileDialog,
+            message_box=QMessageBox,
         )
-        if not path:
-            return
-        links = db.query_alignment_for_episode(eid, run_id=run_id)
-        try:
-            output_path = Path(path)
-            export_alignment_links(output_path, links)
-            QMessageBox.information(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
-        except Exception as e:
-            logger.exception("Export alignement")
-            QMessageBox.critical(
-                self,
-                "Erreur export",
-                f"Erreur lors de l'export : {e}\n\n"
-                "Vérifiez les droits d'écriture, que le fichier n'est pas ouvert ailleurs et l'encodage (UTF-8)."
-            )
 
     @require_project_and_db
     def _export_parallel_concordance(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id:
-            QMessageBox.warning(self, "Concordancier parallèle", "Sélectionnez un épisode et un run.")
-            return
-        path, selected_filter = QFileDialog.getSaveFileName(
-            self, "Exporter concordancier parallèle (comparaison de traductions)", "",
-            "CSV (*.csv);;TSV (*.tsv);;TXT (*.txt);;HTML (*.html);;JSONL (*.jsonl);;Word (*.docx)"
+        self._actions_controller.export_parallel_concordance(
+            file_dialog=QFileDialog,
+            message_box=QMessageBox,
         )
-        if not path:
-            return
-        output_path = normalize_parallel_export_path(path, selected_filter)
-        try:
-            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
-            rows = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
-            export_parallel_rows(rows, output_path, title=f"Comparaison {eid} — {run_id}")
-            QMessageBox.information(
-                self, "Export", f"Concordancier parallèle exporté : {len(rows)} ligne(s)."
-            )
-        except Exception as e:
-            logger.exception("Export concordancier parallèle")
-            QMessageBox.critical(
-                self,
-                "Erreur export",
-                f"Erreur lors de l'export : {e}\n\n"
-                "Vérifiez les droits d'écriture et que le fichier n'est pas ouvert ailleurs."
-            )
 
     @require_project_and_db
     def _export_align_report(self) -> None:
-        eid = self.align_episode_combo.currentData()
-        run_id = self.align_run_combo.currentData()
-        db = self._get_db()
-        if not eid or not run_id:
-            QMessageBox.warning(self, "Rapport", "Sélectionnez un épisode et un run.")
-            return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Rapport alignement", "", "HTML (*.html)"
+        self._actions_controller.export_align_report(
+            file_dialog=QFileDialog,
+            message_box=QMessageBox,
         )
-        if not path:
-            return
-        path = Path(path)
-        if path.suffix.lower() != ".html":
-            path = path.with_suffix(".html")
-        try:
-            status_filter = "accepted" if self.align_accepted_only_cb.isChecked() else None
-            stats = db.get_align_stats_for_run(eid, run_id, status_filter=status_filter)
-            sample = db.get_parallel_concordance(eid, run_id, status_filter=status_filter)
-            export_align_report_html(stats, sample, eid, run_id, path)
-            QMessageBox.information(self, "Rapport", f"Rapport enregistré : {path.name}")
-        except Exception as e:
-            logger.exception("Rapport alignement")
-            QMessageBox.critical(
-                self,
-                "Erreur rapport",
-                f"Erreur lors de la génération du rapport : {e}\n\n"
-                "Vérifiez les droits d'écriture et que le fichier n'est pas ouvert ailleurs."
-            )

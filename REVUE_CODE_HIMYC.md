@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction des actions Alignement)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -100,6 +100,7 @@
 | Refacto `tab_preparer` | Actions UI extraites vers `app/tabs/preparer_actions.py` + dialogue déplacé vers `app/dialogs/search_replace.py` |
 | Refacto `tab_corpus` | Actions sources + import/export extraites vers `app/tabs/corpus_sources.py` et `app/tabs/corpus_export.py` |
 | Refacto `tab_preparer` (persistence) | Orchestration save/snapshots extraite vers `app/tabs/preparer_persistence.py` |
+| Refacto `tab_alignement` (actions) | Actions run/bulk/menu/export/groupes extraites vers `app/tabs/alignement_actions.py` ; `tab_alignement.py` recentré sur la vue |
 
 ---
 
@@ -120,10 +121,10 @@
 - **project_store.py** ~990 — allégé via `character_propagation.py` et `align_grouping.py`, reste à découper (ex. « characters », « prep_status », « config »).
 - **tab_corpus.py** ~843 — allégé via `corpus_sources.py`/`corpus_export.py`, reste à découper (workflow batch / normalisation).
 - **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
-- **tab_alignement.py** ~697 — allégé via extraction des exports/dialogue, reste à découper (actions run/bulk/table).
+- **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).
 - **models_qt.py** ~21 — façade de compatibilité ; logique déplacée dans des modules dédiés (~545 épisodes, ~115 align, ~62 kwic).
-- **ui_mainwindow.py** ~702 — extraire construction onglets / gestion job.
-- **tasks.py** ~695, **db.py** ~620, **profiles.py** (dialogs) ~737 — à surveiller.
+- **ui_mainwindow.py** ~681 — extraire construction onglets / gestion job.
+- **tasks.py** ~695, **db.py** ~619, **profiles.py** (dialogs) ~735 — à surveiller.
 
 ### 5.4 Types et docstrings
 
