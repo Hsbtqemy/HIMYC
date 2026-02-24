@@ -1,5 +1,0 @@
-{"cue_id": "S01E01:en:0", "n": 0, "start_ms": 1000, "end_ms": 3000, "text_raw": "Hello. How are you?", "text_clean": "Hello. How are you?"}
-{"cue_id": "S01E01:en:1", "n": 1, "start_ms": 4000, "end_ms": 7000, "text_raw": "I'm fine. This is a short demo.", "text_clean": "I'm fine. This is a short demo."}
-{"cue_id": "S01E01:en:2", "n": 2, "start_ms": 8000, "end_ms": 11000, "text_raw": "We will align the transcript with subtitles.", "text_clean": "We will align the transcript with subtitles."}
-{"cue_id": "S01E01:en:3", "n": 3, "start_ms": 12000, "end_ms": 15000, "text_raw": "One line in English, one in Italian.", "text_clean": "One line in English, one in Italian."}
-{"cue_id": "S01E01:en:4", "n": 4, "start_ms": 16000, "end_ms": 17500, "text_raw": "Legendary.", "text_clean": "Legendary."}

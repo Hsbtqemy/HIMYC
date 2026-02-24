@@ -46,3 +46,4 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2026-02-13 19:15:42,244 [INFO] Running step: fetch_series_index
 2026-02-13 19:16:10,830 [INFO] Running step: fetch_series_index
 2026-02-13 19:16:37,353 [INFO] Running step: fetch_series_index
+2026-02-24 22:10:58,345 [INFO] Running step: normalize_episode
