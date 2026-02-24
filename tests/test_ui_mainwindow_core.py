@@ -99,6 +99,23 @@ def test_open_preparer_for_episode_aborts_when_unsaved_cancelled(
     assert win.tabs.currentIndex() == TAB_INSPECTEUR
 
 
+def test_kwic_open_inspector_aborts_when_preparer_prompt_cancelled(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    win = main_window_with_project
+    win.open_preparer_for_episode("S01E01", source="transcript")
+    assert win.tabs.currentIndex() == TAB_PREPARER
+
+    monkeypatch.setattr(win.preparer_tab, "prompt_save_if_dirty", lambda: False)
+    loaded: list[str] = []
+    monkeypatch.setattr(win.inspector_tab, "set_episode_and_load", lambda episode_id: loaded.append(episode_id))
+
+    win._kwic_open_inspector_impl("S01E01")
+    assert win.tabs.currentIndex() == TAB_PREPARER
+    assert loaded == []
+
+
 def test_on_job_finished_stores_failed_episode_ids(main_window_with_project: MainWindow) -> None:
     win = main_window_with_project
     win._job_runner = object()  # Simule un runner actif.
@@ -120,3 +137,14 @@ def test_on_job_finished_success_clears_failed_episode_ids(main_window_with_proj
 
     win._on_job_finished([SimpleNamespace(success=True, message="ok")])
     assert win.corpus_tab._failed_episode_ids == set()
+
+
+def test_refresh_tabs_after_job_calls_concordance_refresh_speakers(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    win = main_window_with_project
+    called = {"count": 0}
+    monkeypatch.setattr(win.concordance_tab, "refresh_speakers", lambda: called.__setitem__("count", called["count"] + 1))
+    win._refresh_tabs_after_job()
+    assert called["count"] == 1

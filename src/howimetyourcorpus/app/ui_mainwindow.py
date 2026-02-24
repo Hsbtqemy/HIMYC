@@ -481,6 +481,7 @@ class MainWindow(QMainWindow):
             ("_refresh_preparer", self._refresh_preparer, False),
             ("_refresh_subs_tracks", self._refresh_subs_tracks, False),
             ("_refresh_align_runs", self._refresh_align_runs, False),
+            ("_refresh_concordance", self._refresh_concordance, False),
             ("_refresh_personnages", self._refresh_personnages, False),
         ]
         for name, refresh_fn, show_warning in refreshers:
@@ -663,9 +664,15 @@ class MainWindow(QMainWindow):
         if hasattr(self, "personnages_tab") and self.personnages_tab:
             self.personnages_tab.refresh()
 
+    def _refresh_concordance(self):
+        if hasattr(self, "concordance_tab") and self.concordance_tab:
+            self.concordance_tab.refresh_speakers()
+
     def _kwic_open_inspector_impl(self, episode_id: str) -> None:
         """Passe à l'onglet Inspecteur et charge l'épisode (appelé depuis l'onglet Concordance)."""
         self.tabs.setCurrentIndex(TAB_INSPECTEUR)
+        if self.tabs.currentIndex() != TAB_INSPECTEUR:
+            return
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.set_episode_and_load(episode_id)
 
