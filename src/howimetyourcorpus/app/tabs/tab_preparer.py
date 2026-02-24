@@ -24,12 +24,12 @@ from PySide6.QtWidgets import (
 from howimetyourcorpus.app.tabs.preparer_actions import PreparerActionsController
 from howimetyourcorpus.app.tabs.preparer_context import PreparerContextController
 from howimetyourcorpus.app.tabs.preparer_edit import PreparerEditController
+from howimetyourcorpus.app.tabs.preparer_persistence import PreparerPersistenceController
 from howimetyourcorpus.app.tabs.preparer_save import PreparerSaveController
 from howimetyourcorpus.app.tabs.preparer_state import PreparerStateController
 from howimetyourcorpus.app.tabs.preparer_views import CueWidgets, TranscriptWidgets
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
-from howimetyourcorpus.core.models import TransformStats
 from howimetyourcorpus.core.preparer import (
     PREP_STATUS_CHOICES,
     PREP_STATUS_VALUES,
@@ -79,6 +79,7 @@ class PreparerTabWidget(QWidget):
         self._updating_ui = False
         self._edit_role = int(Qt.ItemDataRole.UserRole) + 1
         self._actions_controller = PreparerActionsController(self, logger)
+        self._persistence_controller = PreparerPersistenceController(self, logger)
         self._context_controller = PreparerContextController(self, logger)
         self._edit_controller = PreparerEditController(self)
         self._state_controller = PreparerStateController(self, valid_status_values=PREP_STATUS_VALUES)
@@ -532,224 +533,18 @@ class PreparerTabWidget(QWidget):
         episode_id: str,
         clean_text: str,
         *,
-        stats: TransformStats | None = None,
+        stats: Any | None = None,
         debug: dict[str, Any] | None = None,
     ) -> bool:
-        """Sauvegarde clean.txt avec une méta minimale (contrat save_episode_clean complet)."""
-        store = self._get_store()
-        if not store:
-            return False
-        try:
-            if stats is None:
-                raw = store.load_episode_text(episode_id, kind="raw")
-                stats = TransformStats(
-                    raw_lines=len(raw.splitlines()) if raw else len(clean_text.splitlines()),
-                    clean_lines=len(clean_text.splitlines()),
-                    merges=0,
-                    kept_breaks=0,
-                    duration_ms=0,
-                )
-            store.save_episode_clean(
-                episode_id,
-                clean_text,
-                stats,
-                debug or {"source": "preparer", "mode": "manual_save"},
-            )
-            return True
-        except Exception:
-            logger.exception("Save clean text with meta")
-            return False
-
-    def _capture_prep_status_scope(self, episode_id: str, source_key: str) -> dict[str, Any]:
-        return self._state_controller.capture_prep_status_scope(episode_id, source_key)
-
-    def _restore_prep_status_scope(self, scope: dict[str, Any]) -> None:
-        self._state_controller.restore_prep_status_scope(scope)
-
-    def _restore_prep_status_snapshot(self, episode_id: str, state: dict[str, Any]) -> None:
-        self._state_controller.restore_prep_status_snapshot(episode_id, state)
-
-    def _restore_assignment_snapshot(
-        self,
-        state: dict[str, Any],
-        scoped_restore: Callable[[list[dict[str, Any]]], None],
-    ) -> None:
-        self._state_controller.restore_assignment_snapshot(state, scoped_restore)
-
-    @staticmethod
-    def _is_utterance_assignment(assignment: dict[str, Any], episode_id: str) -> bool:
-        return PreparerStateController.is_utterance_assignment(assignment, episode_id)
-
-    def _capture_utterance_assignments_scope(self, episode_id: str) -> list[dict[str, Any]]:
-        return self._state_controller.capture_utterance_assignments_scope(episode_id)
-
-    def _restore_utterance_assignments_scope(self, episode_id: str, scoped_assignments: list[dict[str, Any]]) -> None:
-        self._state_controller.restore_utterance_assignments_scope(episode_id, scoped_assignments)
-
-    @staticmethod
-    def _is_cue_assignment_for_lang(assignment: dict[str, Any], episode_id: str, lang: str) -> bool:
-        return PreparerStateController.is_cue_assignment_for_lang(assignment, episode_id, lang)
-
-    def _capture_cue_assignments_scope(self, episode_id: str, lang: str) -> list[dict[str, Any]]:
-        return self._state_controller.capture_cue_assignments_scope(episode_id, lang)
-
-    def _restore_cue_assignments_scope(
-        self,
-        episode_id: str,
-        lang: str,
-        scoped_assignments: list[dict[str, Any]],
-    ) -> None:
-        self._state_controller.restore_cue_assignments_scope(episode_id, lang, scoped_assignments)
-
-    def _capture_clean_file_state(self, episode_id: str, source_key: str) -> dict[str, Any]:
-        return self._state_controller.capture_clean_file_state(episode_id, source_key)
-
-    def _apply_clean_file_state(self, episode_id: str, state: dict[str, Any], *, mark_dirty: bool) -> None:
-        self._state_controller.apply_clean_file_state(episode_id, state, mark_dirty=mark_dirty)
-
-    def _capture_utterance_persistence_state(self, episode_id: str, source_key: str) -> dict[str, Any]:
-        return self._state_controller.capture_utterance_persistence_state(episode_id, source_key)
-
-    def _apply_utterance_persistence_state(
-        self,
-        episode_id: str,
-        state: dict[str, Any],
-        *,
-        mark_dirty: bool,
-    ) -> None:
-        self._state_controller.apply_utterance_persistence_state(episode_id, state, mark_dirty=mark_dirty)
-
-    def _capture_cue_persistence_state(self, episode_id: str, lang: str, source_key: str) -> dict[str, Any]:
-        return self._state_controller.capture_cue_persistence_state(episode_id, lang, source_key)
-
-    def _apply_cue_persistence_state(
-        self,
-        episode_id: str,
-        lang: str,
-        state: dict[str, Any],
-        *,
-        mark_dirty: bool,
-    ) -> None:
-        self._state_controller.apply_cue_persistence_state(episode_id, lang, state, mark_dirty=mark_dirty)
-
-    def _save_transcript_rows(self, episode_id: str) -> bool:
-        return self._save_controller.save_transcript_rows(
-            owner=self,
-            episode_id=episode_id,
-            utterance_table=self.utterance_table,
-            text_value=self.text_editor.toPlainText(),
+        return self._persistence_controller.save_clean_text_with_meta(
+            episode_id,
+            clean_text,
+            stats=stats,
+            debug=debug,
         )
-
-    def _save_cue_rows(self, episode_id: str, lang: str) -> bool:
-        strict = self.prep_edit_timecodes_cb.isChecked() and self.prep_strict_timecodes_cb.isChecked()
-        return self._save_controller.save_cue_rows(
-            owner=self,
-            episode_id=episode_id,
-            lang=lang,
-            cue_table=self.cue_table,
-            strict=strict,
-        )
-
-    def _auto_update_status_after_save(self) -> None:
-        current = (self.prep_status_combo.currentData() or "raw").strip().lower()
-        if current in ("raw", "normalized"):
-            self._apply_status_value("edited", persist=True, mark_dirty=False)
-
-    def _run_save_with_snapshot_undo(
-        self,
-        *,
-        capture_before: Callable[[], dict[str, Any]],
-        save_action: Callable[[], bool],
-        capture_after: Callable[[], dict[str, Any]],
-        undo_title: str,
-        redo_callback: Callable[[dict[str, Any]], None],
-        undo_callback: Callable[[dict[str, Any]], None],
-        success_status: str,
-    ) -> bool:
-        before_state = capture_before() if self.undo_stack else {}
-        ok = save_action()
-        if not ok:
-            return False
-        self._auto_update_status_after_save()
-        if self.undo_stack:
-            after_state = capture_after()
-            self._save_controller.push_snapshot_undo(
-                title=undo_title,
-                redo_callback=lambda st=after_state: redo_callback(st),
-                undo_callback=lambda st=before_state: undo_callback(st),
-            )
-        self._show_status(success_status, 3000)
-        return True
 
     def save_current(self) -> bool:
-        episode_id = self.prep_episode_combo.currentData()
-        if not episode_id:
-            return True
-        try:
-            if self._current_source_key.startswith("srt_"):
-                lang = self._current_source_key.replace("srt_", "", 1)
-                ok = self._run_save_with_snapshot_undo(
-                    capture_before=lambda ep=episode_id, ln=lang: self._capture_cue_persistence_state(
-                        ep, ln, self._current_source_key
-                    ),
-                    save_action=lambda ep=episode_id, ln=lang: self._save_cue_rows(ep, ln),
-                    capture_after=lambda ep=episode_id, ln=lang: self._capture_cue_persistence_state(
-                        ep, ln, self._current_source_key
-                    ),
-                    undo_title=f"Enregistrer cues {lang.upper()}",
-                    redo_callback=lambda st, ep=episode_id, ln=lang: self._apply_cue_persistence_state(
-                        ep, ln, st, mark_dirty=False
-                    ),
-                    undo_callback=lambda st, ep=episode_id, ln=lang: self._apply_cue_persistence_state(
-                        ep, ln, st, mark_dirty=True
-                    ),
-                    success_status=f"Cues {lang.upper()} enregistrées et piste réécrite.",
-                )
-            elif self.stack.currentWidget() == self.utterance_table or (
-                self._current_source_key == "transcript" and self._force_save_transcript_rows
-            ):
-                ok = self._run_save_with_snapshot_undo(
-                    capture_before=lambda ep=episode_id: self._capture_utterance_persistence_state(
-                        ep, self._current_source_key
-                    ),
-                    save_action=lambda ep=episode_id: self._save_transcript_rows(ep),
-                    capture_after=lambda ep=episode_id: self._capture_utterance_persistence_state(
-                        ep, self._current_source_key
-                    ),
-                    undo_title="Enregistrer tours",
-                    redo_callback=lambda st, ep=episode_id: self._apply_utterance_persistence_state(
-                        ep, st, mark_dirty=False
-                    ),
-                    undo_callback=lambda st, ep=episode_id: self._apply_utterance_persistence_state(
-                        ep, st, mark_dirty=True
-                    ),
-                    success_status="Tours enregistrés.",
-                )
-            else:
-                text = self.text_editor.toPlainText()
-                ok = self._run_save_with_snapshot_undo(
-                    capture_before=lambda ep=episode_id: self._capture_clean_file_state(ep, self._current_source_key),
-                    save_action=lambda ep=episode_id, txt=text: self.save_clean_text_with_meta(ep, txt),
-                    capture_after=lambda ep=episode_id: self._capture_clean_file_state(ep, self._current_source_key),
-                    undo_title="Enregistrer transcript clean",
-                    redo_callback=lambda st, ep=episode_id: self._apply_clean_file_state(ep, st, mark_dirty=False),
-                    undo_callback=lambda st, ep=episode_id: self._apply_clean_file_state(ep, st, mark_dirty=True),
-                    success_status="Transcript clean enregistré.",
-                )
-            if not ok:
-                abort_reason = self._save_controller.pop_abort_reason()
-                if abort_reason == "align_runs_invalidation_cancelled":
-                    self._show_status("Enregistrement annulé (alignements préservés).", 3500)
-                    return False
-                QMessageBox.critical(self, "Préparer", "Échec de sauvegarde.")
-                return False
-            self._force_save_transcript_rows = False
-            self._set_dirty(False)
-            return True
-        except Exception as exc:
-            logger.exception("Save preparer")
-            QMessageBox.critical(self, "Préparer", f"Erreur sauvegarde: {exc}")
-            return False
+        return self._persistence_controller.save_current()
 
     def _go_to_alignement(self) -> None:
         self._actions_controller.go_to_alignement()
