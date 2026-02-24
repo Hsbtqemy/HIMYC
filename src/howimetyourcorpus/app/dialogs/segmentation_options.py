@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 from howimetyourcorpus.core.preparer import (
@@ -27,7 +28,12 @@ from howimetyourcorpus.core.preparer import (
 class SegmentationOptionsDialog(QDialog):
     """Paramètres de segmentation spécifiques au texte/source sélectionné."""
 
-    def __init__(self, parent=None, *, initial_options: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        initial_options: dict[str, Any] | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Paramètres segmentation")
         self._build_ui()

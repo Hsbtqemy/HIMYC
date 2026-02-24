@@ -24,7 +24,7 @@ from howimetyourcorpus.core.preparer import (
 class PreparerEditController:
     """Gère les mutations UI locales, undo d'édition et opérations de texte."""
 
-    def __init__(self, tab: Any):
+    def __init__(self, tab: Any) -> None:
         self._tab = tab
 
     def apply_plain_text_value(self, text: str) -> None:

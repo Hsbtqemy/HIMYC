@@ -28,7 +28,7 @@ class SubtitleBatchImportDialog(QDialog):
         episode_ids: list[str],
         rows: list[tuple[str, str | None, str | None]],
         languages: list[str] | None = None,
-    ):
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Importer SRT en masse")
         self.episode_ids = episode_ids
@@ -68,7 +68,7 @@ class SubtitleBatchImportDialog(QDialog):
         bbox.rejected.connect(self.reject)
         layout.addWidget(bbox)
 
-    def _accept(self):
+    def _accept(self) -> None:
         self.result = []
         for i in range(self.table.rowCount()):
             path_item = self.table.item(i, 0)

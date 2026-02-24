@@ -33,7 +33,7 @@ class OpenSubtitlesDownloadDialog(QDialog):
         api_key: str = "",
         series_imdb_id: str = "",
         languages: list[str] | None = None,
-    ):
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Télécharger sous-titres depuis OpenSubtitles")
         self.episode_refs = episode_refs
@@ -81,11 +81,11 @@ class OpenSubtitlesDownloadDialog(QDialog):
         bbox.rejected.connect(self.reject)
         layout.addWidget(bbox)
 
-    def _on_select_all(self, state: int):
+    def _on_select_all(self, state: int) -> None:
         for i in range(self.episode_list.count()):
             self.episode_list.item(i).setSelected(state == Qt.CheckState.Checked.value)
 
-    def _accept(self):
+    def _accept(self) -> None:
         api_key = self.api_key_edit.text().strip()
         imdb_id = self.imdb_edit.text().strip()
         lang = (self.lang_combo.currentData() or self.lang_combo.currentText() or "en").strip().lower()

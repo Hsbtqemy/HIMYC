@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QMessageBox
 class PreparerContextController:
     """Orchestre la navigation épisode/source et le chargement de contexte."""
 
-    def __init__(self, tab: Any, logger_obj: logging.Logger):
+    def __init__(self, tab: Any, logger_obj: logging.Logger) -> None:
         self._tab = tab
         self._logger = logger_obj
 

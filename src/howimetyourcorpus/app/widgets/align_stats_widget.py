@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox
 class AlignStatsWidget(QWidget):
     """Panneau stats alignement (affiché en permanence à droite de la table)."""
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)

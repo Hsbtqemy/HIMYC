@@ -20,7 +20,7 @@ from howimetyourcorpus.core.preparer import format_ms_to_srt_time, parse_srt_tim
 class CharacterComboDelegate(QStyledItemDelegate):
     """Éditeur combo éditable pour colonnes Personnage."""
 
-    def __init__(self, *, get_options: Callable[[], list[str]], parent: QWidget | None = None):
+    def __init__(self, *, get_options: Callable[[], list[str]], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._get_options = get_options
 

@@ -27,14 +27,19 @@ MAX_LOG_LINES = 1000
 class TextEditHandler(logging.Handler):
     """Redirige les logs vers un QPlainTextEdit avec rolling buffer (limite 1000 lignes) + stockage pour filtrage (Moyenne Priorité #2)."""
 
-    def __init__(self, widget: QPlainTextEdit, max_lines: int = MAX_LOG_LINES, log_widget: "LogsTabWidget | None" = None):
+    def __init__(
+        self,
+        widget: QPlainTextEdit,
+        max_lines: int = MAX_LOG_LINES,
+        log_widget: "LogsTabWidget | None" = None,
+    ) -> None:
         super().__init__()
         self.widget = widget
         self.max_lines = max_lines
         self.line_count = 0
         self.log_widget = log_widget  # Moyenne Priorité #2 : référence au widget pour stockage
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record)
             self.widget.appendPlainText(msg)

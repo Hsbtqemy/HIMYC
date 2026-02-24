@@ -23,7 +23,7 @@ from howimetyourcorpus.core.preparer.snapshots import (
 class PreparerStateController:
     """Gère capture/restauration des snapshots status/assignations/persistance."""
 
-    def __init__(self, tab: Any, *, valid_status_values: set[str]):
+    def __init__(self, tab: Any, *, valid_status_values: set[str]) -> None:
         self._tab = tab
         self._valid_status_values = valid_status_values
 
@@ -224,4 +224,3 @@ class PreparerStateController:
         )
         self.restore_prep_status_snapshot(episode_id, state)
         tab._set_dirty(mark_dirty)
-

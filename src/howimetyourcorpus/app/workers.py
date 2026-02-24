@@ -35,7 +35,7 @@ class JobRunner(QObject):
         force: bool = False,
         parent: QWidget | None = None,
         show_progress_dialog: bool = True
-    ):
+    ) -> None:
         super().__init__(parent)
         self.steps = steps
         self.context = context
@@ -87,7 +87,7 @@ class JobRunner(QObject):
             self._progress_dialog.setValue(int(percent * 100))
         self.progress.emit(step_name, percent, message)
 
-    def _on_worker_finished(self, results: list):
+    def _on_worker_finished(self, results: list) -> None:
         if self._progress_dialog:
             self._progress_dialog.setValue(100)
             self._progress_dialog.close()
