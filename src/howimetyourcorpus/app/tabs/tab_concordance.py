@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QSpinBox,
@@ -196,7 +195,7 @@ class ConcordanceTabWidget(QWidget):
             self.kwic_speaker_combo.addItem("—", "")
             for speaker in speakers:
                 self.kwic_speaker_combo.addItem(speaker, speaker)
-        except Exception as e:
+        except Exception:
             logger.exception("Refresh speakers")
     
     def _on_speaker_changed(self) -> None:
@@ -242,7 +241,10 @@ class ConcordanceTabWidget(QWidget):
     def _run_kwic(self) -> None:
         term = self.kwic_search_edit.currentText().strip()  # Pack Rapide C4: currentText() au lieu de text()
         db = self._get_db()
-        if not term or not db:
+        if not term:
+            return
+        if not db:
+            QMessageBox.warning(self, "Concordance", "Ouvrez un projet d'abord.")
             return
         
         # Pack Rapide C4: Sauvegarder dans l'historique
@@ -537,4 +539,3 @@ class ConcordanceTabWidget(QWidget):
         except Exception as e:
             logger.exception("Show frequency graph")
             QMessageBox.critical(self, "Erreur", f"Erreur lors de l'affichage du graphique : {e}")
-

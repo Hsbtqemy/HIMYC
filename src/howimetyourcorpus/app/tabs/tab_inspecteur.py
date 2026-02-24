@@ -371,11 +371,13 @@ class InspectorTabWidget(QWidget):
         self.clean_edit.setTextCursor(cursor)
         self.clean_edit.ensureCursorVisible()
 
+    @require_project
     def _run_normalize(self) -> None:
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
-        if not eid or not store:
-            QMessageBox.warning(self, "Normalisation", "Sélectionnez un épisode et ouvrez un projet.")
+        assert store is not None  # garanti par @require_project
+        if not eid:
+            QMessageBox.warning(self, "Normalisation", "Sélectionnez un épisode.")
             return
         if not store.has_episode_raw(eid):
             QMessageBox.warning(self, "Normalisation", "L'épisode doit d'abord être téléchargé (RAW).")
@@ -383,11 +385,13 @@ class InspectorTabWidget(QWidget):
         profile = self.inspect_profile_combo.currentText() or "default_en_v1"
         self._run_job([NormalizeEpisodeStep(eid, profile)])
 
+    @require_project
     def _set_episode_preferred_profile(self) -> None:
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
-        if not eid or not store:
-            QMessageBox.warning(self, "Profil préféré", "Sélectionnez un épisode et ouvrez un projet.")
+        assert store is not None  # garanti par @require_project
+        if not eid:
+            QMessageBox.warning(self, "Profil préféré", "Sélectionnez un épisode.")
             return
         profile = self.inspect_profile_combo.currentText() or "default_en_v1"
         preferred = store.load_episode_preferred_profiles()

@@ -9,7 +9,7 @@ Version code vérifiée: HEAD local
 ```bash
 pytest -q
 ```
-2. Attendu: `160 passed`.
+2. Attendu: `163 passed`.
 
 ## Scénario A: Transcript -> Préparer -> Alignement -> Personnages
 

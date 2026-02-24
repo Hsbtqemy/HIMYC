@@ -168,11 +168,6 @@ class SubtitleTabWidget(QWidget):
         self._subs_episode_label.setVisible(visible)
         self.subs_episode_combo.setVisible(visible)
 
-    def set_episode_selector_visible(self, visible: bool) -> None:
-        """§15.4 — Masque ou affiche le sélecteur d'épisode (quand intégré dans l'onglet fusionné)."""
-        self._subs_episode_label.setVisible(visible)
-        self.subs_episode_combo.setVisible(visible)
-
     def set_episode_and_load(self, episode_id: str) -> None:
         """§15.4 — Sélectionne l'épisode donné et charge ses pistes (synchro avec Inspecteur)."""
         for i in range(self.subs_episode_combo.count()):
@@ -326,11 +321,13 @@ class SubtitleTabWidget(QWidget):
         else:
             self._show_status("Aucune cue à normaliser ou profil introuvable.", 3000)
 
+    @require_project_and_db
     def _export_srt_final(self) -> None:
         """§15.2 — Exporte la piste sélectionnée en SRT final (timecodes + text_clean)."""
         current = self.subs_tracks_list.currentItem()
         db = self._get_db()
-        if not current or not db:
+        assert db is not None  # garanti par @require_project_and_db
+        if not current:
             return
         eid = self.subs_episode_combo.currentData()
         data = current.data(Qt.ItemDataRole.UserRole)
@@ -409,11 +406,10 @@ class SubtitleTabWidget(QWidget):
         self._refresh_episodes()
         self._show_status(f"Import en masse lancé : {len(steps)} fichier(s).", 5000)
 
+    @require_project
     def _import_opensubtitles(self) -> None:
         store = self._get_store()
-        if not store:
-            QMessageBox.warning(self, "Sous-titres", "Ouvrez un projet d'abord.")
-            return
+        assert store is not None  # garanti par @require_project
         index = store.load_series_index()
         if not index or not index.episodes:
             QMessageBox.warning(self, "Sous-titres", "Découvrez d'abord les épisodes (onglet Corpus).")
