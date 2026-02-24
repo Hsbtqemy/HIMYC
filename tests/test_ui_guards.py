@@ -12,6 +12,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from howimetyourcorpus.app.tabs.tab_concordance import ConcordanceTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_alignement import AlignmentTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget  # noqa: E402
+from howimetyourcorpus.app.tabs.tab_preparer import PreparerTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_sous_titres import SubtitleTabWidget  # noqa: E402
 
 
@@ -112,3 +113,25 @@ def test_alignment_delete_run_warns_without_project(
     tab._delete_current_run()
 
     assert calls == [("Alignement", "Ouvrez un projet d'abord.")]
+
+
+def test_preparer_normalize_warns_without_project(
+    qapp: QApplication,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tab = PreparerTabWidget(
+        get_store=lambda: None,
+        get_db=lambda: None,
+        show_status=lambda _msg, _timeout=3000: None,
+        on_go_alignement=lambda _episode_id, _segment_kind: None,
+    )
+    calls: list[tuple[str, str]] = []
+
+    def _warning(_parent, title: str, msg: str):
+        calls.append((title, msg))
+        return None
+
+    monkeypatch.setattr("howimetyourcorpus.app.ui_utils.QMessageBox.warning", _warning)
+    tab._normalize_transcript()
+
+    assert calls == [("Préparer", "Ouvrez un projet d'abord.")]

@@ -31,6 +31,7 @@ from howimetyourcorpus.app.tabs.preparer_edit import PreparerEditController
 from howimetyourcorpus.app.tabs.preparer_save import PreparerSaveController
 from howimetyourcorpus.app.tabs.preparer_state import PreparerStateController
 from howimetyourcorpus.app.tabs.preparer_views import CueWidgets, TranscriptWidgets
+from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
 from howimetyourcorpus.core.models import TransformStats
 from howimetyourcorpus.core.preparer import (
@@ -491,12 +492,17 @@ class PreparerTabWidget(QWidget):
     def _on_table_item_changed(self, item: QTableWidgetItem) -> None:
         self._edit_controller.on_table_item_changed(item)
 
+    @require_project_and_db
     def _normalize_transcript(self) -> None:
         episode_id = self.prep_episode_combo.currentData()
         store = self._get_store()
+        assert store is not None  # garanti par @require_project_and_db
         service = self._build_service()
-        if not episode_id or not store or service is None:
-            QMessageBox.warning(self, "Préparer", "Ouvrez un projet et sélectionnez un épisode.")
+        if not episode_id:
+            QMessageBox.warning(self, "Préparer", "Sélectionnez un épisode.")
+            return
+        if service is None:
+            QMessageBox.warning(self, "Préparer", "Service de préparation indisponible.")
             return
         if self._current_source_key != "transcript":
             QMessageBox.information(self, "Préparer", "MVP: normalisation explicite disponible sur Transcript.")
@@ -614,6 +620,7 @@ class PreparerTabWidget(QWidget):
             logger.exception("Load segmentation options")
             return dict(DEFAULT_SEGMENTATION_OPTIONS)
 
+    @require_project
     def _open_segmentation_options(self) -> None:
         episode_id = self.prep_episode_combo.currentData()
         if not episode_id:
@@ -627,9 +634,7 @@ class PreparerTabWidget(QWidget):
             )
             return
         store = self._get_store()
-        if not store:
-            QMessageBox.warning(self, "Préparer", "Projet indisponible.")
-            return
+        assert store is not None  # garanti par @require_project
 
         initial = self._load_segmentation_options(episode_id, self._current_source_key)
         dlg = SegmentationOptionsDialog(self, initial_options=initial)
