@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 from typing import Any, Callable
 
@@ -11,17 +10,12 @@ from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
-    QDialog,
-    QDialogButtonBox,
     QFileDialog,
-    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMessageBox,
-    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QTableView,
@@ -31,22 +25,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from howimetyourcorpus.core.adapters.base import AdapterRegistry
-from howimetyourcorpus.core.export_utils import (
-    export_corpus_txt,
-    export_corpus_csv,
-    export_corpus_json,
-    export_corpus_docx,
-    export_corpus_utterances_jsonl,
-    export_corpus_utterances_csv,
-    export_corpus_phrases_jsonl,
-    export_corpus_phrases_csv,
-)
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import PROFILES, get_all_profile_ids
 from howimetyourcorpus.core.pipeline.tasks import (
     FetchSeriesIndexStep,
-    FetchAndMergeSeriesIndexStep,
     FetchEpisodeStep,
     NormalizeEpisodeStep,
     SegmentEpisodeStep,
@@ -58,6 +40,11 @@ from howimetyourcorpus.app.models_qt import (
     EpisodesTableModel,
     EpisodesFilterProxyModel,
 )
+from howimetyourcorpus.app.tabs.corpus_export import (
+    build_clean_episodes_data,
+    export_corpus_by_filter,
+)
+from howimetyourcorpus.app.tabs.corpus_sources import CorpusSourcesController
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 
 logger = logging.getLogger(__name__)
@@ -88,6 +75,7 @@ class CorpusTabWidget(QWidget):
         self._on_cancel_job = on_cancel_job
         self._on_open_inspector = on_open_inspector
         self._failed_episode_ids: set[str] = set()  # Stocke les episode_id en échec
+        self._sources_controller = CorpusSourcesController(self)
 
         layout = QVBoxLayout(self)
         self._build_filter_row(layout)
@@ -665,254 +653,23 @@ class CorpusTabWidget(QWidget):
 
     @require_project_and_db
     def _discover_merge(self) -> None:
-        context = self._get_context()
-        if not context or not context.get("config"):
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
-            return
-        config = context["config"]
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Découvrir (fusionner une autre source)")
-        layout = QFormLayout(dlg)
-        url_edit = QLineEdit()
-        url_edit.setPlaceholderText("https://subslikescript.com/series/...")
-        layout.addRow("URL série (autre source):", url_edit)
-        source_combo = QComboBox()
-        source_combo.addItems(AdapterRegistry.list_ids() or ["subslikescript"])
-        layout.addRow("Source:", source_combo)
-        bbox = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        bbox.accepted.connect(dlg.accept)
-        bbox.rejected.connect(dlg.reject)
-        layout.addRow(bbox)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        url = url_edit.text().strip()
-        if not url:
-            QMessageBox.warning(self, "Corpus", "Indiquez l'URL de la série.")
-            return
-        source_id = source_combo.currentText() or "subslikescript"
-        step = FetchAndMergeSeriesIndexStep(url, source_id, config.user_agent)
-        self._run_job([step])
+        self._sources_controller.discover_merge()
 
     @require_project
     def _add_episodes_manually(self) -> None:
-        store = self._get_store()
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Ajouter des épisodes")
-        layout = QVBoxLayout(dlg)
-        layout.addWidget(QLabel("Un episode_id par ligne (ex. S01E01, s01e02) :"))
-        text_edit = QPlainTextEdit()
-        text_edit.setPlaceholderText("S01E01\nS01E02\nS02E01")
-        text_edit.setMinimumHeight(120)
-        layout.addWidget(text_edit)
-        bbox = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        bbox.accepted.connect(dlg.accept)
-        bbox.rejected.connect(dlg.reject)
-        layout.addWidget(bbox)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        lines = [ln.strip().upper() for ln in text_edit.toPlainText().strip().splitlines() if ln.strip()]
-        if not lines:
-            QMessageBox.information(self, "Corpus", "Aucun episode_id saisi.")
-            return
-        new_refs = []
-        for ln in lines:
-            mm = re.match(r"S(\d+)E(\d+)", ln, re.IGNORECASE)
-            if not mm:
-                continue
-            ep_id = f"S{int(mm.group(1)):02d}E{int(mm.group(2)):02d}"
-            new_refs.append(
-                EpisodeRef(
-                    episode_id=ep_id,
-                    season=int(mm.group(1)),
-                    episode=int(mm.group(2)),
-                    title="",
-                    url="",
-                )
-            )
-        if not new_refs:
-            QMessageBox.warning(self, "Corpus", "Aucun episode_id valide (format S01E01).")
-            return
-        index = store.load_series_index()
-        existing_ids = {e.episode_id for e in (index.episodes or [])} if index else set()
-        episodes = list(index.episodes or []) if index else []
-        for ref in new_refs:
-            if ref.episode_id not in existing_ids:
-                episodes.append(ref)
-                existing_ids.add(ref.episode_id)
-        store.save_series_index(
-            SeriesIndex(
-                series_title=index.series_title if index else "",
-                series_url=index.series_url if index else "",
-                episodes=episodes,
-            )
-        )
-        self.refresh()
-        self._refresh_after_episodes_added()
-        self._show_status(f"{len(new_refs)} épisode(s) ajouté(s).", 3000)
+        self._sources_controller.add_episodes_manually()
     
     @require_project_and_db
     def _import_srt_selection(self) -> None:
-        """Importe des fichiers .srt pour les épisodes sélectionnés."""
-        store = self._get_store()
-        assert store is not None  # garanti par @require_project_and_db
-        
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(
-                self, "Sous-titres", 
-                "Ajoutez d'abord des épisodes (via Transcripts → Découvrir ou Sous-titres → Ajouter épisodes)."
-            )
-            return
-        
-        # Récupérer les épisodes sélectionnés
-        ids = self._get_selected_or_checked_episode_ids()
-        if not ids:
-            QMessageBox.warning(
-                self, "Sous-titres",
-                "Cochez au moins un épisode ou sélectionnez des lignes dans l'arbre."
-            )
-            return
-        
-        QMessageBox.information(
-            self, "Sous-titres",
-            f"{len(ids)} épisode(s) sélectionné(s).\n\n"
-            "Pour chaque épisode, vous pourrez importer un ou plusieurs fichiers .srt.\n"
-            "Accédez à l'onglet Inspecteur pour gérer les pistes de sous-titres."
-        )
-        
-        # Rediriger vers l'Inspecteur avec le premier épisode
-        if ids and self._on_open_inspector:
-            self._on_open_inspector(sorted(ids)[0])
+        self._sources_controller.import_srt_selection()
     
     @require_project_and_db
     def _import_srt_batch(self) -> None:
-        """Import batch : importer tous les .srt d'un dossier avec détection automatique."""
-        store = self._get_store()
-        assert store is not None  # garanti par @require_project_and_db
-        
-        folder = QFileDialog.getExistingDirectory(
-            self,
-            "Choisir le dossier contenant les fichiers .srt",
-            "",
-            QFileDialog.Option.ShowDirsOnly
-        )
-        
-        if not folder:
-            return
-        
-        folder_path = Path(folder)
-        srt_files = list(folder_path.glob("*.srt")) + list(folder_path.glob("**/*.srt"))
-        
-        if not srt_files:
-            QMessageBox.warning(
-                self, "Sous-titres",
-                f"Aucun fichier .srt trouvé dans le dossier :\n{folder}"
-            )
-            return
-        
-        # Détection automatique des épisodes depuis les noms de fichiers
-        detected = []
-        for srt_file in srt_files:
-            name = srt_file.stem
-            match = re.search(r"S(\d+)E(\d+)", name, re.IGNORECASE)
-            if match:
-                episode_id = f"S{int(match.group(1)):02d}E{int(match.group(2)):02d}"
-                detected.append((episode_id, srt_file))
-        
-        if not detected:
-            QMessageBox.warning(
-                self, "Sous-titres",
-                f"Aucun fichier avec format SxxExx trouvé dans :\n{folder}\n\n"
-                "Les fichiers .srt doivent contenir S01E01, S01E02, etc. dans leur nom."
-            )
-            return
-        
-        # Afficher récapitulatif
-        recap = "\n".join([f"• {ep_id} ← {f.name}" for ep_id, f in detected[:10]])
-        if len(detected) > 10:
-            recap += f"\n... et {len(detected) - 10} autres"
-        
-        reply = QMessageBox.question(
-            self, "Import batch",
-            f"{len(detected)} fichier(s) .srt détecté(s) :\n\n{recap}\n\n"
-            "Continuer l'import automatique ?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes
-        )
-        
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-        
-        # Créer les épisodes manquants dans l'index
-        index = store.load_series_index()
-        existing_ids = {e.episode_id for e in (index.episodes or [])} if index else set()
-        episodes = list(index.episodes or []) if index else []
-        
-        new_episodes = []
-        for episode_id, _ in detected:
-            if episode_id not in existing_ids:
-                match = re.match(r"S(\d+)E(\d+)", episode_id)
-                if match:
-                    new_ref = EpisodeRef(
-                        episode_id=episode_id,
-                        season=int(match.group(1)),
-                        episode=int(match.group(2)),
-                        title="",
-                        url="",
-                    )
-                    episodes.append(new_ref)
-                    existing_ids.add(episode_id)
-                    new_episodes.append(episode_id)
-        
-        if new_episodes:
-            store.save_series_index(
-                SeriesIndex(
-                    series_title=index.series_title if index else "",
-                    series_url=index.series_url if index else "",
-                    episodes=episodes,
-                )
-            )
-        
-        # TODO: Importer automatiquement les SRT dans la DB
-        # Pour l'instant, rediriger vers l'Inspecteur
-        QMessageBox.information(
-            self, "Import batch",
-            f"✅ Détection terminée !\n\n"
-            f"• {len(detected)} fichier(s) .srt détecté(s)\n"
-            f"• {len(new_episodes)} nouvel(aux) épisode(s) créé(s)\n\n"
-            "Pour terminer l'import, accédez à l'onglet Inspecteur pour chaque épisode "
-            "et importez manuellement les pistes de sous-titres.\n\n"
-            "💡 Une fonctionnalité d'import automatique complet sera ajoutée prochainement."
-        )
-        
-        self.refresh()
-        self._refresh_after_episodes_added()
+        self._sources_controller.import_srt_batch()
     
     @require_project
     def _open_subtitles_manager(self) -> None:
-        """Ouvre l'onglet Inspecteur pour gérer les sous-titres."""
-        store = self._get_store()
-        
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.information(
-                self, "Sous-titres",
-                "Ajoutez d'abord des épisodes avant de gérer les sous-titres."
-            )
-            return
-        
-        # Rediriger vers l'Inspecteur avec le premier épisode
-        if self._on_open_inspector:
-            self._on_open_inspector(index.episodes[0].episode_id)
-        else:
-            QMessageBox.information(
-                self, "Sous-titres",
-                "Accédez à l'onglet Inspecteur pour gérer les pistes de sous-titres de chaque épisode."
-            )
+        self._sources_controller.open_subtitles_manager()
 
 
     @require_project_and_db
@@ -1048,14 +805,13 @@ class CorpusTabWidget(QWidget):
             if reply == QMessageBox.StandardButton.Cancel:
                 return
             export_selection_only = (reply == QMessageBox.StandardButton.Yes)
-        
-        episodes_data: list[tuple[EpisodeRef, str]] = []
-        for ref in index.episodes:
-            if export_selection_only and ref.episode_id not in selected_ids:
-                continue
-            if store.has_episode_clean(ref.episode_id):
-                text = store.load_episode_text(ref.episode_id, kind="clean")
-                episodes_data.append((ref, text))
+
+        selected_set = set(selected_ids) if export_selection_only else None
+        episodes_data = build_clean_episodes_data(
+            store=store,
+            episodes=index.episodes,
+            selected_ids=selected_set,
+        )
         if not episodes_data:
             QMessageBox.warning(
                 self, "Corpus", "Aucun épisode normalisé (CLEAN) à exporter."
@@ -1071,35 +827,17 @@ class CorpusTabWidget(QWidget):
         )
         if not path:
             return
-        path = Path(path)
+        output_path = Path(path)
         selected_filter = selected_filter or ""
         try:
-            if path.suffix.lower() == ".txt" or selected_filter.startswith("TXT"):
-                export_corpus_txt(episodes_data, path)
-            elif "JSONL - Utterances" in selected_filter:
-                export_corpus_utterances_jsonl(episodes_data, path)
-            elif "JSONL - Phrases" in selected_filter:
-                export_corpus_phrases_jsonl(episodes_data, path)
-            elif "CSV - Utterances" in selected_filter:
-                export_corpus_utterances_csv(episodes_data, path)
-            elif "CSV - Phrases" in selected_filter:
-                export_corpus_phrases_csv(episodes_data, path)
-            elif path.suffix.lower() == ".csv" or selected_filter.startswith("CSV"):
-                export_corpus_csv(episodes_data, path)
-            elif path.suffix.lower() == ".json" or "JSON" in selected_filter:
-                export_corpus_json(episodes_data, path)
-            elif path.suffix.lower() == ".docx" or "Word" in selected_filter:
-                export_corpus_docx(episodes_data, path)
-            else:
+            if not export_corpus_by_filter(episodes_data, output_path, selected_filter):
                 QMessageBox.warning(
                     self,
                     "Export",
                     "Format non reconnu. Utilisez .txt, .csv, .json ou .jsonl (segmenté).",
                 )
                 return
-            QMessageBox.information(
-                self, "Export", f"Corpus exporté : {len(episodes_data)} épisode(s)."
-            )
+            QMessageBox.information(self, "Export", f"Corpus exporté : {len(episodes_data)} épisode(s).")
         except Exception as e:
             logger.exception("Export corpus")
             QMessageBox.critical(self, "Erreur", str(e))
