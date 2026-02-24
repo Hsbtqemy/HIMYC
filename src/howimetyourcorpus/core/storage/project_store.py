@@ -1252,17 +1252,33 @@ class ProjectStore:
             names = ch.get("names_by_lang") or {}
             return names.get(lang) or ch.get("canonical") or character_id
 
+        cues_by_lang: dict[str, list[dict[str, Any]]] = {}
+        cues_index_by_lang: dict[str, dict[str, dict[str, Any]]] = {}
+
+        def _load_cues_lang(lang: str) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+            lang_key = (lang or "").strip().lower() or "en"
+            if lang_key not in cues_by_lang:
+                cues = db.get_cues_for_episode_lang(episode_id, lang_key) or []
+                cues_by_lang[lang_key] = cues
+                cues_index_by_lang[lang_key] = {
+                    str(c.get("cue_id") or ""): c
+                    for c in cues
+                    if c.get("cue_id")
+                }
+            return cues_by_lang[lang_key], cues_index_by_lang[lang_key]
+
         langs_updated: set[str] = set()
         nb_cue = 0
-        cues_pivot = db.get_cues_for_episode_lang(episode_id, pivot_lang)
+        _, cues_pivot_by_id = _load_cues_lang(pivot_lang)
         for cue_id, cid in assign_cue.items():
-            cue_row = next((c for c in cues_pivot if c.get("cue_id") == cue_id), None)
+            cue_row = cues_pivot_by_id.get(cue_id)
             if cue_row:
                 text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
                 prefix = name_for_lang(cid, pivot_lang) + ": "
                 if not text.startswith(prefix):
                     new_text = prefix + text
                     db.update_cue_text_clean(cue_id, new_text)
+                    cue_row["text_clean"] = new_text
                     nb_cue += 1
                     langs_updated.add(pivot_lang)
 
@@ -1276,21 +1292,22 @@ class ProjectStore:
                 continue
             cid = assign_cue[cue_en]
             name = name_for_lang(cid, lang)
-            cues_lang = db.get_cues_for_episode_lang(episode_id, lang)
-            cue_row = next((c for c in cues_lang if c.get("cue_id") == cue_target), None)
+            _, cues_lang_by_id = _load_cues_lang(lang)
+            cue_row = cues_lang_by_id.get(cue_target)
             if cue_row:
                 text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
                 prefix = name + ": "
                 if not text.startswith(prefix):
                     new_text = prefix + text
                     db.update_cue_text_clean(cue_target, new_text)
+                    cue_row["text_clean"] = new_text
                     nb_cue += 1
                     langs_updated.add(lang)
 
-        for lang in langs_updated:
+        for lang in sorted(langs_updated):
             if languages_to_rewrite is not None and lang not in languages_to_rewrite:
                 continue
-            cues = db.get_cues_for_episode_lang(episode_id, lang)
+            cues, _ = _load_cues_lang(lang)
             if cues:
                 srt_content = cues_to_srt(cues)
                 self.save_episode_subtitle_content(episode_id, lang, srt_content, "srt")
