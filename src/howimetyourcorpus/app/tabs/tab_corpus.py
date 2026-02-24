@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import re
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -44,7 +43,7 @@ from howimetyourcorpus.core.export_utils import (
     export_corpus_phrases_csv,
 )
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
-from howimetyourcorpus.core.normalize.profiles import PROFILES
+from howimetyourcorpus.core.normalize.profiles import PROFILES, get_all_profile_ids
 from howimetyourcorpus.core.pipeline.tasks import (
     FetchSeriesIndexStep,
     FetchAndMergeSeriesIndexStep,
@@ -423,6 +422,61 @@ class CorpusTabWidget(QWidget):
             ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
         return ids
 
+    def _get_project_index_context(self) -> tuple[Any, Any, SeriesIndex] | None:
+        """Retourne (store, config, index) pour les actions batch, sinon affiche un warning."""
+        store = self._get_store()
+        context = self._get_context()
+        if not context or not context.get("config") or not store:
+            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+            return None
+        index = store.load_series_index()
+        if not index or not index.episodes:
+            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+            return None
+        return store, context["config"], index
+
+    def _resolve_target_episode_ids(
+        self,
+        *,
+        index: SeriesIndex,
+        selection_only: bool,
+    ) -> list[str] | None:
+        """Résout la cible épisodes (sélection cochée/lignes ou tout le corpus)."""
+        if selection_only:
+            ids = self._get_selected_or_checked_episode_ids()
+            if not ids:
+                QMessageBox.warning(
+                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
+                )
+                return None
+            return ids
+        return [e.episode_id for e in index.episodes]
+
+    @staticmethod
+    def _resolve_episode_profile(
+        *,
+        episode_id: str,
+        ref_by_id: dict[str, EpisodeRef],
+        episode_preferred: dict[str, str],
+        source_defaults: dict[str, str],
+        batch_profile: str,
+    ) -> str:
+        ref = ref_by_id.get(episode_id)
+        return (
+            episode_preferred.get(episode_id)
+            or (source_defaults.get(ref.source_id or "") if ref else None)
+            or batch_profile
+        )
+
+    @staticmethod
+    def _lang_hint_from_profile(profile_id: str | None) -> str:
+        profile = (profile_id or "").strip()
+        if not profile:
+            return "en"
+        token = profile.split("_")[0]
+        hint = token.replace("default", "en")
+        return hint or "en"
+
     def _set_no_project_state(self) -> None:
         """Met l'UI dans l'état « pas de projet » (labels vides, boutons désactivés)."""
         self.season_filter_combo.clear()
@@ -591,13 +645,14 @@ class CorpusTabWidget(QWidget):
     def _open_profiles_dialog(self) -> None:
         """Ouvre le dialogue de gestion des profils de normalisation."""
         store = self._get_store()
+        assert store is not None  # garanti par @require_project
         from howimetyourcorpus.app.dialogs import ProfilesDialog
         dlg = ProfilesDialog(self, store)
         dlg.exec()
-        # Rafraîchir le combo de profils après fermeture du dialogue
+        custom_profiles = store.load_custom_profiles()
         self.refresh_profile_combo(
-            list(self.norm_batch_profile_combo.model().stringList() if hasattr(self.norm_batch_profile_combo.model(), 'stringList') else []),
-            self.norm_batch_profile_combo.currentText()
+            get_all_profile_ids(custom_profiles),
+            self.norm_batch_profile_combo.currentText(),
         )
 
     @require_project_and_db
@@ -695,7 +750,7 @@ class CorpusTabWidget(QWidget):
     def _import_srt_selection(self) -> None:
         """Importe des fichiers .srt pour les épisodes sélectionnés."""
         store = self._get_store()
-        db = self._get_db()
+        assert store is not None  # garanti par @require_project_and_db
         
         index = store.load_series_index()
         if not index or not index.episodes:
@@ -729,7 +784,7 @@ class CorpusTabWidget(QWidget):
     def _import_srt_batch(self) -> None:
         """Import batch : importer tous les .srt d'un dossier avec détection automatique."""
         store = self._get_store()
-        db = self._get_db()
+        assert store is not None  # garanti par @require_project_and_db
         
         folder = QFileDialog.getExistingDirectory(
             self,
@@ -854,24 +909,13 @@ class CorpusTabWidget(QWidget):
 
     @require_project_and_db
     def _fetch_episodes(self, selection_only: bool) -> None:
-        store = self._get_store()
-        context = self._get_context()
-        if not context or not context.get("config") or not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        payload = self._get_project_index_context()
+        if not payload:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        _store, _config, index = payload
+        ids = self._resolve_target_episode_ids(index=index, selection_only=selection_only)
+        if not ids:
             return
-        if selection_only:
-            ids = self._get_selected_or_checked_episode_ids()
-            if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-                )
-                return
-        else:
-            ids = [e.episode_id for e in index.episodes]
         steps = [
             FetchEpisodeStep(ref.episode_id, ref.url)
             for ref in index.episodes
@@ -883,60 +927,42 @@ class CorpusTabWidget(QWidget):
 
     @require_project
     def _normalize_episodes(self, selection_only: bool) -> None:
-        store = self._get_store()
-        context = self._get_context()
-        if not context or not context.get("config") or not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        payload = self._get_project_index_context()
+        if not payload:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, _config, index = payload
+        ids = self._resolve_target_episode_ids(index=index, selection_only=selection_only)
+        if not ids:
             return
-        if selection_only:
-            ids = self._get_selected_or_checked_episode_ids()
-            if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-                )
-                return
-        else:
-            ids = [e.episode_id for e in index.episodes]
         ref_by_id = {e.episode_id: e for e in index.episodes}
         episode_preferred = store.load_episode_preferred_profiles()
         source_defaults = store.load_source_profile_defaults()
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        steps = []
-        for eid in ids:
-            ref = ref_by_id.get(eid)
-            profile = (
-                episode_preferred.get(eid)
-                or (source_defaults.get(ref.source_id or "") if ref else None)
-                or batch_profile
+        steps = [
+            NormalizeEpisodeStep(
+                eid,
+                self._resolve_episode_profile(
+                    episode_id=eid,
+                    ref_by_id=ref_by_id,
+                    episode_preferred=episode_preferred,
+                    source_defaults=source_defaults,
+                    batch_profile=batch_profile,
+                ),
             )
-            steps.append(NormalizeEpisodeStep(eid, profile))
+            for eid in ids
+        ]
         self._run_job(steps)
 
     @require_project
     def _segment_episodes(self, selection_only: bool) -> None:
         """Bloc 2 — Segmente les épisodes (sélection ou tout) ayant clean.txt."""
-        store = self._get_store()
-        context = self._get_context()
-        if not context or not context.get("config") or not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        payload = self._get_project_index_context()
+        if not payload:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
+        store, config, index = payload
+        ids = self._resolve_target_episode_ids(index=index, selection_only=selection_only)
+        if not ids:
             return
-        if selection_only:
-            ids = self._get_selected_or_checked_episode_ids()
-            if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-                )
-                return
-        else:
-            ids = [e.episode_id for e in index.episodes]
         eids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
         if not eids_with_clean:
             QMessageBox.warning(
@@ -944,52 +970,42 @@ class CorpusTabWidget(QWidget):
                 "Aucun épisode sélectionné n'a de fichier CLEAN. Normalisez d'abord la sélection."
             )
             return
-        config = context.get("config")
-        lang_hint = "en"
-        if config and getattr(config, "normalize_profile", None):
-            lang_hint = (config.normalize_profile or "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        lang_hint = self._lang_hint_from_profile(getattr(config, "normalize_profile", None))
         steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in eids_with_clean]
         self._run_job(steps)
 
     @require_project_and_db
     def _run_all_for_selection(self) -> None:
         """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB pour les épisodes cochés."""
-        store = self._get_store()
-        context = self._get_context()
-        if not context or not context.get("config") or not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
+        payload = self._get_project_index_context()
+        if not payload:
             return
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
-            return
-        ids = self._get_selected_or_checked_episode_ids()
+        store, config, index = payload
+        ids = self._resolve_target_episode_ids(index=index, selection_only=True)
         if not ids:
-            QMessageBox.warning(
-                self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-            )
             return
         ref_by_id = {e.episode_id: e for e in index.episodes}
         episode_preferred = store.load_episode_preferred_profiles()
         source_defaults = store.load_source_profile_defaults()
         batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        config = context.get("config")
-        lang_hint = "en"
-        if config and getattr(config, "normalize_profile", None):
-            lang_hint = (config.normalize_profile or "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        lang_hint = self._lang_hint_from_profile(getattr(config, "normalize_profile", None))
         fetch_steps = [
             FetchEpisodeStep(ref_by_id[eid].episode_id, ref_by_id[eid].url)
             for eid in ids if eid in ref_by_id
         ]
-        norm_steps = []
-        for eid in ids:
-            ref = ref_by_id.get(eid)
-            profile = (
-                episode_preferred.get(eid)
-                or (source_defaults.get(ref.source_id or "") if ref else None)
-                or batch_profile
+        norm_steps = [
+            NormalizeEpisodeStep(
+                eid,
+                self._resolve_episode_profile(
+                    episode_id=eid,
+                    ref_by_id=ref_by_id,
+                    episode_preferred=episode_preferred,
+                    source_defaults=source_defaults,
+                    batch_profile=batch_profile,
+                ),
             )
-            norm_steps.append(NormalizeEpisodeStep(eid, profile))
+            for eid in ids
+        ]
         segment_steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in ids]
         steps = fetch_steps + norm_steps + segment_steps + [BuildDbIndexStep()]
         self._run_job(steps)
