@@ -145,6 +145,7 @@ class PreparerContextController:
         tab.prep_segment_btn.setEnabled(False)
         tab.prep_edit_timecodes_cb.setEnabled(False)
         tab.prep_strict_timecodes_cb.setEnabled(False)
+        tab._update_utterance_action_states()
 
     def load_selected_context(self, force: bool = False) -> None:
         tab = self._tab
@@ -200,6 +201,7 @@ class PreparerContextController:
 
         tab._current_episode_id = episode_id
         tab._current_source_key = source_key
+        tab._update_utterance_action_states()
         store = tab._get_store()
         default_status = self.default_status_for_loaded_data(source_key, data)
         status = (

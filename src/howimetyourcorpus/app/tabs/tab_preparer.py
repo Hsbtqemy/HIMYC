@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from howimetyourcorpus.app.dialogs import NormalizeOptionsDialog
+from howimetyourcorpus.app.dialogs import NormalizeOptionsDialog, SegmentationOptionsDialog
 from howimetyourcorpus.app.tabs.preparer_context import PreparerContextController
 from howimetyourcorpus.app.tabs.preparer_edit import PreparerEditController
 from howimetyourcorpus.app.tabs.preparer_save import PreparerSaveController
@@ -34,10 +34,12 @@ from howimetyourcorpus.app.tabs.preparer_views import CueWidgets, TranscriptWidg
 from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
 from howimetyourcorpus.core.models import TransformStats
 from howimetyourcorpus.core.preparer import (
+    DEFAULT_SEGMENTATION_OPTIONS,
     PREP_STATUS_CHOICES,
     PREP_STATUS_VALUES,
     PreparerService,
     format_ms_to_srt_time as _format_ms_to_srt_time,
+    normalize_segmentation_options,
     parse_srt_time_to_ms as _parse_srt_time_to_ms,
 )
 
@@ -182,6 +184,10 @@ class PreparerTabWidget(QWidget):
         self.prep_segment_btn.clicked.connect(self._segment_to_utterances)
         actions.addWidget(self.prep_segment_btn)
 
+        self.prep_segment_options_btn = QPushButton("Paramètres segmentation")
+        self.prep_segment_options_btn.clicked.connect(self._open_segmentation_options)
+        actions.addWidget(self.prep_segment_options_btn)
+
         self.prep_edit_timecodes_cb = QCheckBox("Éditer timecodes")
         self.prep_edit_timecodes_cb.setToolTip(
             "Autorise l'édition des colonnes Début/Fin sur les cues SRT."
@@ -207,8 +213,35 @@ class PreparerTabWidget(QWidget):
         actions.addStretch()
         layout.addLayout(actions)
 
+        utterance_actions = QHBoxLayout()
+        self.prep_add_utt_btn = QPushButton("Ajouter ligne")
+        self.prep_add_utt_btn.clicked.connect(self._add_utterance_row_below)
+        utterance_actions.addWidget(self.prep_add_utt_btn)
+
+        self.prep_delete_utt_btn = QPushButton("Supprimer ligne")
+        self.prep_delete_utt_btn.clicked.connect(self._delete_selected_utterance_rows)
+        utterance_actions.addWidget(self.prep_delete_utt_btn)
+
+        self.prep_merge_utt_btn = QPushButton("Fusionner")
+        self.prep_merge_utt_btn.clicked.connect(self._merge_selected_utterances)
+        utterance_actions.addWidget(self.prep_merge_utt_btn)
+
+        self.prep_split_utt_btn = QPushButton("Scinder au curseur")
+        self.prep_split_utt_btn.clicked.connect(self._split_selected_utterance_at_cursor)
+        utterance_actions.addWidget(self.prep_split_utt_btn)
+
+        self.prep_group_utt_btn = QPushButton("Regrouper par assignations")
+        self.prep_group_utt_btn.clicked.connect(self._group_utterances_by_assignments)
+        utterance_actions.addWidget(self.prep_group_utt_btn)
+
+        self.prep_renumber_utt_btn = QPushButton("Renuméroter")
+        self.prep_renumber_utt_btn.clicked.connect(self._renumber_utterances)
+        utterance_actions.addWidget(self.prep_renumber_utt_btn)
+        utterance_actions.addStretch()
+        layout.addLayout(utterance_actions)
+
         self.help_label = QLabel(
-            "Transcript: normaliser, segmenter, éditer les tours.\n"
+            "Transcript: normaliser, segmenter (règles paramétrables), éditer les tours.\n"
             "SRT: éditer personnage/texte des cues, timecodes éditables via « Éditer timecodes »."
         )
         self.help_label.setWordWrap(True)
@@ -234,6 +267,7 @@ class PreparerTabWidget(QWidget):
         self.stack.addWidget(self.utterance_table)
         self.stack.addWidget(self.cue_table)
         layout.addWidget(self.stack)
+        self._update_utterance_action_states()
 
     def _build_service(self) -> PreparerService | None:
         store = self._get_store()
@@ -357,6 +391,7 @@ class PreparerTabWidget(QWidget):
             utterances,
             character_options=self._character_choices(),
         )
+        self._update_utterance_action_states()
 
     def _set_cues(
         self,
@@ -377,6 +412,7 @@ class PreparerTabWidget(QWidget):
             character_options=self._character_choices(),
         )
         self._apply_cue_timecode_editability()
+        self._update_utterance_action_states()
 
     def _refresh_source_availability(self, episode_id: str | None) -> None:
         self._context_controller.refresh_source_availability(episode_id)
@@ -516,8 +552,83 @@ class PreparerTabWidget(QWidget):
     def _export_utterance_rows(self) -> list[dict[str, Any]]:
         return self._transcript_widgets.export_utterance_rows()
 
+    def _load_segmentation_options(self, episode_id: str, source_key: str) -> dict[str, Any]:
+        store = self._get_store()
+        if not store:
+            return dict(DEFAULT_SEGMENTATION_OPTIONS)
+        try:
+            return store.get_episode_segmentation_options(
+                episode_id,
+                source_key,
+                default=DEFAULT_SEGMENTATION_OPTIONS,
+            )
+        except Exception:
+            logger.exception("Load segmentation options")
+            return dict(DEFAULT_SEGMENTATION_OPTIONS)
+
+    def _open_segmentation_options(self) -> None:
+        episode_id = self.prep_episode_combo.currentData()
+        if not episode_id:
+            QMessageBox.warning(self, "Préparer", "Sélectionnez un épisode.")
+            return
+        if self._current_source_key != "transcript":
+            QMessageBox.information(
+                self,
+                "Préparer",
+                "Les paramètres de segmentation sont disponibles sur la source Transcript.",
+            )
+            return
+        store = self._get_store()
+        if not store:
+            QMessageBox.warning(self, "Préparer", "Projet indisponible.")
+            return
+
+        initial = self._load_segmentation_options(episode_id, self._current_source_key)
+        dlg = SegmentationOptionsDialog(self, initial_options=initial)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        options = normalize_segmentation_options(dlg.get_options())
+        try:
+            store.set_episode_segmentation_options(episode_id, self._current_source_key, options)
+        except Exception as exc:
+            logger.exception("Save segmentation options")
+            QMessageBox.critical(self, "Préparer", f"Impossible d'enregistrer les paramètres: {exc}")
+            return
+        self._show_status("Paramètres segmentation enregistrés.", 3000)
+
     def _segment_to_utterances(self) -> None:
         self._edit_controller.segment_to_utterances()
+
+    def _add_utterance_row_below(self) -> None:
+        self._edit_controller.add_utterance_row_below()
+
+    def _delete_selected_utterance_rows(self) -> None:
+        self._edit_controller.delete_selected_utterance_rows()
+
+    def _merge_selected_utterances(self) -> None:
+        self._edit_controller.merge_selected_utterances()
+
+    def _split_selected_utterance_at_cursor(self) -> None:
+        self._edit_controller.split_selected_utterance_at_cursor()
+
+    def _group_utterances_by_assignments(self) -> None:
+        self._edit_controller.group_utterances_by_assignments(tolerant=True)
+
+    def _renumber_utterances(self) -> None:
+        self._edit_controller.renumber_utterances()
+
+    def _update_utterance_action_states(self) -> None:
+        is_transcript = self._current_source_key == "transcript"
+        has_episode = bool(self.prep_episode_combo.currentData())
+        has_rows = self.utterance_table.rowCount() > 0
+
+        self.prep_segment_options_btn.setEnabled(is_transcript and has_episode)
+        self.prep_add_utt_btn.setEnabled(is_transcript and has_episode)
+        self.prep_delete_utt_btn.setEnabled(is_transcript and has_rows)
+        self.prep_merge_utt_btn.setEnabled(is_transcript and self.utterance_table.rowCount() >= 2)
+        self.prep_split_utt_btn.setEnabled(is_transcript and has_rows)
+        self.prep_group_utt_btn.setEnabled(is_transcript and has_rows)
+        self.prep_renumber_utt_btn.setEnabled(is_transcript and has_rows)
 
     def save_clean_text_with_meta(
         self,
@@ -697,7 +808,7 @@ class PreparerTabWidget(QWidget):
                     ),
                     success_status=f"Cues {lang.upper()} enregistrées et piste réécrite.",
                 )
-            elif self.stack.currentWidget() == self.utterance_table and self.utterance_table.rowCount() > 0:
+            elif self.stack.currentWidget() == self.utterance_table:
                 ok = self._run_save_with_snapshot_undo(
                     capture_before=lambda ep=episode_id: self._capture_utterance_persistence_state(
                         ep, self._current_source_key

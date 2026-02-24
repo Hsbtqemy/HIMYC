@@ -119,16 +119,28 @@ class PreparerSaveController:
             return False
 
         db = self._get_db()
-        if db:
-            existing_ids = {
-                (s.get("segment_id") or "")
-                for s in db.get_segments_for_episode(episode_id, kind="utterance")
-            }
-            missing_any = any((r.get("segment_id") or "") not in existing_ids for r in rows if r.get("segment_id"))
-            if missing_any or not existing_ids:
-                service.segment_transcript_to_utterances(episode_id, clean_text=text_value.strip())
+        if db is None:
+            return False
 
-        service.save_utterance_edits(episode_id, rows)
+        existing_segments = db.get_segments_for_episode(episode_id, kind="utterance")
+        existing_ids = [(seg.get("segment_id") or "").strip() for seg in existing_segments]
+        row_ids = [((row.get("segment_id") or "").strip()) for row in rows]
+        row_ids_non_empty = [sid for sid in row_ids if sid]
+        structure_changed = (
+            len(row_ids_non_empty) != len(row_ids)
+            or len(set(row_ids_non_empty)) != len(row_ids_non_empty)
+            or row_ids != existing_ids
+        )
+
+        if structure_changed:
+            service.replace_utterance_rows(
+                episode_id,
+                rows,
+                clean_text=text_value,
+                invalidate_align_runs=True,
+            )
+        else:
+            service.save_utterance_edits(episode_id, rows)
         return True
 
     def save_cue_rows(

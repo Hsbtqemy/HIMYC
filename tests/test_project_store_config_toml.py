@@ -115,3 +115,35 @@ def test_save_character_names_rejects_orphan_assignments(tmp_path: Path) -> None
                 }
             ]
         )
+
+
+def test_episode_segmentation_options_roundtrip(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+    store.set_episode_segmentation_options(
+        "S01E01",
+        "transcript",
+        {
+            "speaker_regex": r"^([A-Z]+):\s*(.*)$",
+            "enable_dash_rule": False,
+            "continuation_markers": "..., --",
+            "merge_if_prev_ends_with_marker": False,
+            "attach_unmarked_to_previous": True,
+        },
+    )
+
+    options = store.get_episode_segmentation_options("S01E01", "transcript")
+    assert options["speaker_regex"] == r"^([A-Z]+):\s*(.*)$"
+    assert options["enable_dash_rule"] is False
+    assert options["continuation_markers"] == ["...", "--"]
+    assert options["merge_if_prev_ends_with_marker"] is False
+    assert options["attach_unmarked_to_previous"] is True
+
+
+def test_episode_segmentation_options_reject_invalid_regex(tmp_path: Path) -> None:
+    store = _make_store(tmp_path)
+    with pytest.raises(ValueError, match="Regex locuteur invalide"):
+        store.set_episode_segmentation_options(
+            "S01E01",
+            "transcript",
+            {"speaker_regex": "["},
+        )

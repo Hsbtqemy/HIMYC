@@ -9,6 +9,11 @@ from typing import Any
 
 from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex, TransformStats
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
+from howimetyourcorpus.core.preparer import (
+    DEFAULT_SEGMENTATION_OPTIONS,
+    normalize_segmentation_options,
+    validate_segmentation_options,
+)
 from howimetyourcorpus.core.preparer.status import PREP_STATUS_VALUES as PREPARER_STATUS_VALUES
 
 logger = logging.getLogger(__name__)
@@ -430,6 +435,8 @@ class ProjectStore:
     EPISODE_PREP_STATUS_JSON = "episode_prep_status.json"
     PREP_STATUS_VALUES = set(PREPARER_STATUS_VALUES)
 
+    EPISODE_SEGMENTATION_OPTIONS_JSON = "episode_segmentation_options.json"
+
     def load_episode_prep_status(self) -> dict[str, dict[str, str]]:
         """
         Charge les statuts de préparation par fichier.
@@ -516,6 +523,98 @@ class ProjectStore:
             statuses[ep] = {}
         statuses[ep][source] = st
         self.save_episode_prep_status(statuses)
+
+    def load_episode_segmentation_options(self) -> dict[str, dict[str, dict[str, Any]]]:
+        """
+        Charge les options de segmentation par (épisode, source).
+
+        Format:
+        {
+          "options": {
+            "S01E01": {
+              "transcript": { ... options ... }
+            }
+          }
+        }
+        """
+        path = self.root_dir / self.EPISODE_SEGMENTATION_OPTIONS_JSON
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("Impossible de charger %s: %s", path, exc)
+            return {}
+        raw = data.get("options", data if isinstance(data, dict) else {})
+        if not isinstance(raw, dict):
+            return {}
+        out: dict[str, dict[str, dict[str, Any]]] = {}
+        for episode_id, by_source in raw.items():
+            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
+                continue
+            clean_by_source: dict[str, dict[str, Any]] = {}
+            for source_key, options in by_source.items():
+                if not isinstance(source_key, str) or not isinstance(options, dict):
+                    continue
+                normalized = normalize_segmentation_options(options)
+                try:
+                    validate_segmentation_options(normalized)
+                except ValueError:
+                    continue
+                clean_by_source[source_key.strip()] = normalized
+            if clean_by_source:
+                out[episode_id.strip()] = clean_by_source
+        return out
+
+    def save_episode_segmentation_options(self, options_map: dict[str, dict[str, dict[str, Any]]]) -> None:
+        """Sauvegarde les options de segmentation par (épisode, source)."""
+        clean: dict[str, dict[str, dict[str, Any]]] = {}
+        for episode_id, by_source in (options_map or {}).items():
+            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
+                continue
+            clean_by_source: dict[str, dict[str, Any]] = {}
+            for source_key, options in by_source.items():
+                if not isinstance(source_key, str) or not isinstance(options, dict):
+                    continue
+                normalized = normalize_segmentation_options(options)
+                validate_segmentation_options(normalized)
+                clean_by_source[source_key.strip()] = normalized
+            if clean_by_source:
+                clean[episode_id.strip()] = clean_by_source
+        path = self.root_dir / self.EPISODE_SEGMENTATION_OPTIONS_JSON
+        path.write_text(
+            json.dumps({"options": clean}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def get_episode_segmentation_options(
+        self,
+        episode_id: str,
+        source_key: str,
+        default: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Retourne les options de segmentation pour (épisode, source), normalisées."""
+        ep = (episode_id or "").strip()
+        src = (source_key or "").strip()
+        options_map = self.load_episode_segmentation_options()
+        source_options = options_map.get(ep, {}).get(src, {})
+        merged = dict(DEFAULT_SEGMENTATION_OPTIONS)
+        merged.update(normalize_segmentation_options(default))
+        if isinstance(source_options, dict):
+            merged.update(normalize_segmentation_options(source_options))
+        return normalize_segmentation_options(merged)
+
+    def set_episode_segmentation_options(self, episode_id: str, source_key: str, options: dict[str, Any]) -> None:
+        """Définit les options de segmentation pour (épisode, source)."""
+        ep = (episode_id or "").strip()
+        src = (source_key or "").strip()
+        if not ep or not src:
+            return
+        normalized = normalize_segmentation_options(options)
+        validate_segmentation_options(normalized)
+        options_map = self.load_episode_segmentation_options()
+        options_map.setdefault(ep, {})[src] = normalized
+        self.save_episode_segmentation_options(options_map)
 
     LANGUAGES_JSON = "languages.json"
     DEFAULT_LANGUAGES = ["en", "fr", "it"]

@@ -125,6 +125,82 @@ class PreparerService:
         self._sync_utterance_assignments(episode_id, rows)
         return updated
 
+    @staticmethod
+    def _estimate_char_spans(clean_text: str, utterance_texts: list[str]) -> list[tuple[int, int]]:
+        """Estime des spans start/end pour les utterances, en parcourant le texte source."""
+        source = clean_text or ""
+        cursor = 0
+        spans: list[tuple[int, int]] = []
+        for text in utterance_texts:
+            payload = (text or "").strip()
+            if not payload:
+                spans.append((cursor, cursor))
+                continue
+            idx = source.find(payload, cursor)
+            if idx < 0:
+                idx = source.find(payload)
+            if idx < 0:
+                idx = cursor
+            end = idx + len(payload)
+            spans.append((idx, end))
+            cursor = max(cursor, end)
+        return spans
+
+    def replace_utterance_rows(
+        self,
+        episode_id: str,
+        rows: list[dict[str, Any]],
+        *,
+        clean_text: str = "",
+        invalidate_align_runs: bool = True,
+    ) -> int:
+        """
+        Remplace entièrement les segments utterance d'un épisode selon l'ordre des lignes UI.
+
+        Cette opération est utilisée pour supporter les éditions structurelles
+        (ajout/suppression/fusion/scission/renumérotation) dans l'onglet Préparer.
+        """
+        segments: list[Segment] = []
+        assignment_rows: list[dict[str, Any]] = []
+        payload_rows: list[dict[str, Any]] = []
+        for row in rows or []:
+            text = (row.get("text") or "").strip()
+            if not text:
+                continue
+            payload_rows.append(row)
+        spans = self._estimate_char_spans(clean_text, [(row.get("text") or "") for row in payload_rows])
+
+        for idx, row in enumerate(payload_rows):
+            text = (row.get("text") or "").strip()
+            speaker = (row.get("speaker_explicit") or "").strip() or None
+            start_char, end_char = spans[idx] if idx < len(spans) else (0, 0)
+            seg = Segment(
+                episode_id=episode_id,
+                kind="utterance",
+                n=len(segments),
+                start_char=int(start_char),
+                end_char=int(end_char),
+                text=text,
+                speaker_explicit=speaker,
+                meta={},
+            )
+            segments.append(seg)
+            assignment_rows.append(
+                {
+                    "segment_id": seg.segment_id,
+                    "speaker_explicit": speaker or "",
+                    "text": text,
+                    "character_id": (row.get("character_id") or "").strip(),
+                }
+            )
+
+        self.db.upsert_segments(episode_id, "utterance", segments)
+        if invalidate_align_runs:
+            # Changer le découpage invalide les runs existants.
+            self.db.delete_align_runs_for_episode(episode_id)
+        self._sync_utterance_assignments(episode_id, assignment_rows)
+        return len(segments)
+
     def save_cue_edits(
         self,
         episode_id: str,
