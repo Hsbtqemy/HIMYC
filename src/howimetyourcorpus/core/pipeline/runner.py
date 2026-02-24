@@ -23,7 +23,7 @@ class PipelineRunner:
     Supporte l'annulation via _cancelled.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -47,7 +47,7 @@ class PipelineRunner:
         self._cancelled = False
         results: list[StepResult] = []
 
-        def log(level: str, msg: str):
+        def log(level: str, msg: str) -> None:
             if on_log:
                 on_log(level, msg)
             getattr(logger, level.lower(), logger.info)(msg)

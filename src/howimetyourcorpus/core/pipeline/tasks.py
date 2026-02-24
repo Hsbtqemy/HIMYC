@@ -28,7 +28,7 @@ class FetchSeriesIndexStep(Step):
 
     name = "fetch_series_index"
 
-    def __init__(self, series_url: str, user_agent: str | None = None):
+    def __init__(self, series_url: str, user_agent: str | None = None) -> None:
         self.series_url = series_url
         self.user_agent = user_agent
 
@@ -46,7 +46,7 @@ class FetchSeriesIndexStep(Step):
         if not adapter:
             return StepResult(False, f"Adapter not found: {config.source_id}")
 
-        def log(level: str, msg: str):
+        def log(level: str, msg: str) -> None:
             if on_log:
                 on_log(level, msg)
             getattr(logger, level.lower(), logger.info)(msg)
@@ -97,7 +97,7 @@ class FetchAndMergeSeriesIndexStep(Step):
 
     name = "fetch_and_merge_series_index"
 
-    def __init__(self, series_url: str, source_id: str, user_agent: str | None = None):
+    def __init__(self, series_url: str, source_id: str, user_agent: str | None = None) -> None:
         self.series_url = series_url
         self.source_id = source_id
         self.user_agent = user_agent
@@ -116,7 +116,7 @@ class FetchAndMergeSeriesIndexStep(Step):
         if not adapter:
             return StepResult(False, f"Adapter not found: {self.source_id}")
 
-        def log(level: str, msg: str):
+        def log(level: str, msg: str) -> None:
             if on_log:
                 on_log(level, msg)
             getattr(logger, level.lower(), logger.info)(msg)
@@ -178,7 +178,7 @@ class FetchEpisodeStep(Step):
 
     name = "fetch_episode"
 
-    def __init__(self, episode_id: str, episode_url: str):
+    def __init__(self, episode_id: str, episode_url: str) -> None:
         self.episode_id = episode_id
         self.episode_url = episode_url
 
@@ -209,7 +209,7 @@ class FetchEpisodeStep(Step):
                 db.set_episode_status(self.episode_id, EpisodeStatus.FETCHED.value)
             return StepResult(True, f"Already fetched: {self.episode_id}")
 
-        def log(level: str, msg: str):
+        def log(level: str, msg: str) -> None:
             if on_log:
                 on_log(level, msg)
 
@@ -245,7 +245,7 @@ class NormalizeEpisodeStep(Step):
 
     name = "normalize_episode"
 
-    def __init__(self, episode_id: str, profile_id: str):
+    def __init__(self, episode_id: str, profile_id: str) -> None:
         self.episode_id = episode_id
         self.profile_id = profile_id
 
@@ -288,7 +288,7 @@ class BuildDbIndexStep(Step):
 
     name = "build_db_index"
 
-    def __init__(self, episode_ids: list[str] | None = None):
+    def __init__(self, episode_ids: list[str] | None = None) -> None:
         """Si episode_ids is None, indexe tous les épisodes ayant clean.txt."""
         self.episode_ids = episode_ids
 
@@ -339,7 +339,7 @@ class SegmentEpisodeStep(Step):
 
     name = "segment_episode"
 
-    def __init__(self, episode_id: str, lang_hint: str = "en"):
+    def __init__(self, episode_id: str, lang_hint: str = "en") -> None:
         self.episode_id = episode_id
         self.lang_hint = lang_hint
 
@@ -443,7 +443,7 @@ class ImportSubtitlesStep(Step):
 
     name = "import_subtitles"
 
-    def __init__(self, episode_id: str, lang: str, file_path: Path | str):
+    def __init__(self, episode_id: str, lang: str, file_path: Path | str) -> None:
         self.episode_id = episode_id
         self.lang = lang
         self.file_path = Path(file_path)
@@ -504,7 +504,7 @@ class DownloadOpenSubtitlesStep(Step):
         lang: str,
         api_key: str,
         imdb_id: str,
-    ):
+    ) -> None:
         self.episode_id = episode_id
         self.season = season
         self.episode = episode
@@ -583,7 +583,7 @@ class AlignEpisodeStep(Step):
         min_confidence: float = 0.3,
         use_similarity_for_cues: bool = False,
         segment_kind: str = "sentence",
-    ):
+    ) -> None:
         self.episode_id = episode_id
         self.pivot_lang = pivot_lang
         self.target_langs = target_langs or ["fr"]
@@ -635,7 +635,7 @@ class AlignEpisodeStep(Step):
             )
         
         # Callback de progression granulaire pour l'alignement
-        def on_align_progress(current: int, total: int):
+        def on_align_progress(current: int, total: int) -> None:
             if on_progress:
                 progress = 0.1 + 0.3 * (current / total)  # 10% → 40%
                 on_progress(self.name, progress, f"Aligning segments {current}/{total}...")

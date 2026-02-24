@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QAction, QIcon, QKeySequence, QUndoStack
+from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QUndoStack
 from PySide6.QtWidgets import QMenuBar
 from PySide6.QtGui import QDesktopServices
 
@@ -55,7 +55,7 @@ TAB_LOGS = 7
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("HowIMetYourCorpus")
         self.setMinimumSize(800, 500)
@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
         self._reverting_tab_change = False
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
-    def _build_menu_bar(self):
+    def _build_menu_bar(self) -> None:
         """Barre de menu : Édition (Undo/Redo), Aide (À propos, Mises à jour)."""
         menu_bar = QMenuBar(self)
         self.setMenuBar(menu_bar)
@@ -139,7 +139,7 @@ class MainWindow(QMainWindow):
         update_act.triggered.connect(self._open_releases_page)
         aide.addAction(update_act)
     
-    def _clear_undo_history(self):
+    def _clear_undo_history(self) -> None:
         """Efface l'historique Undo/Redo (Basse Priorité #3)."""
         count = self.undo_stack.count()
         if count == 0:
@@ -159,7 +159,7 @@ class MainWindow(QMainWindow):
             self.undo_stack.clear()
             QMessageBox.information(self, "Historique", "Historique effacé.")
 
-    def _show_about(self):
+    def _show_about(self) -> None:
         """Affiche la boîte À propos (version, lien mises à jour)."""
         QMessageBox.about(
             self,
@@ -169,11 +169,11 @@ class MainWindow(QMainWindow):
             "Mises à jour : Aide → Vérifier les mises à jour.",
         )
 
-    def _open_releases_page(self):
+    def _open_releases_page(self) -> None:
         """Ouvre la page des releases GitHub (mise à jour optionnelle Phase 6)."""
         QDesktopServices.openUrl(QUrl("https://github.com/Hsbtqemy/HIMYC/releases"))
 
-    def _build_tab_projet(self):
+    def _build_tab_projet(self) -> None:
         self.project_tab = ProjectTabWidget(
             get_store=lambda: self._store,
             on_validate_clicked=self._validate_and_init_project_from_tab,
@@ -192,18 +192,18 @@ class MainWindow(QMainWindow):
             return
         self.statusBar().showMessage("Configuration enregistrée (source, URL série, profil).", 3000)
 
-    def _open_profiles_dialog(self):
+    def _open_profiles_dialog(self) -> None:
         if not self._store:
             QMessageBox.warning(self, "Profils", "Ouvrez un projet d'abord.")
             return
         dlg = ProfilesDialog(self, self._store)
         dlg.exec()
 
-    def _refresh_project_languages_list(self):
+    def _refresh_project_languages_list(self) -> None:
         if hasattr(self, "project_tab") and self.project_tab:
             self.project_tab.refresh_languages_list()
 
-    def _refresh_language_combos(self):
+    def _refresh_language_combos(self) -> None:
         """Met à jour les listes de langues (Sous-titres, Concordance, Personnages) à partir du projet."""
         langs = self._store.load_project_languages() if self._store else ["en", "fr", "it"]
         if hasattr(self, "inspector_tab") and self.inspector_tab and hasattr(self.inspector_tab, "subtitles_tab"):
@@ -215,7 +215,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "personnages_tab") and self.personnages_tab:
             self.personnages_tab.refresh()
 
-    def _validate_and_init_project_from_tab(self):
+    def _validate_and_init_project_from_tab(self) -> None:
         data = self.project_tab.get_form_data()
         root = data["root"]
         if not root:
@@ -259,7 +259,7 @@ class MainWindow(QMainWindow):
             logger.exception("Init project failed")
             QMessageBox.critical(self, "Erreur", str(e))
 
-    def _load_existing_project(self, root_path: Path):
+    def _load_existing_project(self, root_path: Path) -> None:
         """Charge un projet existant (config.toml présent)."""
         from howimetyourcorpus.core.storage.project_store import load_project_config
         data = load_project_config(root_path / "config.toml")
@@ -295,7 +295,7 @@ class MainWindow(QMainWindow):
 
         QTimer.singleShot(0, _deferred_refresh)
 
-    def _setup_logging_for_project(self):
+    def _setup_logging_for_project(self) -> None:
         corpus_logger = logging.getLogger("howimetyourcorpus")
         if self._log_handler:
             corpus_logger.removeHandler(self._log_handler)
@@ -312,7 +312,7 @@ class MainWindow(QMainWindow):
                 if hasattr(log_widget, "set_log_path"):
                     log_widget.set_log_path(str(log_file))
 
-    def _build_tab_corpus(self):
+    def _build_tab_corpus(self) -> None:
         self.corpus_tab = CorpusTabWidget(
             get_store=lambda: self._store,
             get_db=lambda: self._db,
@@ -345,7 +345,7 @@ class MainWindow(QMainWindow):
             "custom_profiles": custom_profiles,
         }
 
-    def _run_job(self, steps: list):
+    def _run_job(self, steps: list[Any]) -> None:
         # Synchroniser la config depuis l'onglet Projet (URL série, etc.) avant tout job
         self._sync_config_from_project_tab()
         context = self._get_context()
@@ -402,11 +402,11 @@ class MainWindow(QMainWindow):
         )
         return True
 
-    def _on_job_progress(self, step_name: str, percent: float, message: str):
+    def _on_job_progress(self, step_name: str, percent: float, message: str) -> None:
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_progress(int(percent * 100))
 
-    def _on_job_log(self, level: str, message: str):
+    def _on_job_log(self, level: str, message: str) -> None:
         if self.tabs.count() > TAB_LOGS:
             log_widget = self.tabs.widget(TAB_LOGS)
             if isinstance(log_widget, QWidget) and log_widget.layout() and log_widget.layout().itemAt(0):
@@ -464,7 +464,7 @@ class MainWindow(QMainWindow):
                 if show_warning:
                     QMessageBox.warning(self, "Avertissement", f"Erreur lors du rafraîchissement des épisodes: {exc}")
 
-    def _on_job_finished(self, results: list):
+    def _on_job_finished(self, results: list[Any]) -> None:
         try:
             if hasattr(self, "corpus_tab") and self.corpus_tab:
                 self.corpus_tab.set_cancel_btn_enabled(False)
@@ -481,12 +481,12 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Erreur critique", f"Erreur lors de la finalisation du job: {e}")
             self._job_runner = None
 
-    def _on_job_cancelled(self):
+    def _on_job_cancelled(self) -> None:
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_cancel_btn_enabled(False)
         self._job_runner = None
 
-    def _on_job_error(self, step_name: str, exc: object):
+    def _on_job_error(self, step_name: str, exc: object) -> None:
         logger.error(f"Job error in step '{step_name}': {exc}", exc_info=exc if isinstance(exc, Exception) else None)
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_cancel_btn_enabled(False)
@@ -503,7 +503,7 @@ class MainWindow(QMainWindow):
             logger.exception("Error while showing error dialog")
             print(f"CRITICAL ERROR: {step_name}: {msg}")
 
-    def _cancel_job(self):
+    def _cancel_job(self) -> None:
         if self._job_runner:
             self._job_runner.cancel()
 
@@ -524,11 +524,11 @@ class MainWindow(QMainWindow):
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
             QTimer.singleShot(50, self._refresh_episodes_from_store)
 
-    def _refresh_episodes_from_store(self):
+    def _refresh_episodes_from_store(self) -> None:
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.refresh()
 
-    def _refresh_profile_combos(self):
+    def _refresh_profile_combos(self) -> None:
         """Met à jour les listes de profils (prédéfinis + personnalisés projet) dans les combos."""
         custom = self._store.load_custom_profiles() if self._store else {}
         profile_ids = get_all_profile_ids(custom)
@@ -539,7 +539,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.refresh_profile_combo(profile_ids, current_inspect)
 
-    def _build_tab_inspecteur(self):
+    def _build_tab_inspecteur(self) -> None:
         """§15.4 — Onglet Inspecteur fusionné avec Sous-titres (un épisode, deux panneaux)."""
         self.inspector_tab = InspecteurEtSousTitresTabWidget(
             get_store=lambda: self._store,
@@ -553,7 +553,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.inspector_tab, "Inspecteur")
         self.tabs.setTabToolTip(TAB_INSPECTEUR, "§15.4 — Transcript (RAW/CLEAN, segments) + Sous-titres (pistes, import, normaliser) pour l'épisode courant.")
 
-    def _build_tab_preparer(self):
+    def _build_tab_preparer(self) -> None:
         self.preparer_tab = PreparerTabWidget(
             get_store=lambda: self._store,
             get_db=lambda: self._db,
@@ -567,7 +567,7 @@ class MainWindow(QMainWindow):
             "Préparer un fichier (transcript/SRT): normaliser explicitement, éditer, segmenter en tours, puis passer à l'alignement.",
         )
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent) -> None:
         """Sauvegarde les tailles des splitters et les notes Inspecteur à la fermeture."""
         if hasattr(self, "preparer_tab") and self.preparer_tab:
             if not self.preparer_tab.prompt_save_if_dirty():
@@ -580,16 +580,16 @@ class MainWindow(QMainWindow):
             self.alignment_tab.save_state()
         super().closeEvent(event)
 
-    def _refresh_inspecteur_episodes(self):
+    def _refresh_inspecteur_episodes(self) -> None:
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.refresh()
 
-    def _refresh_subs_tracks(self):
+    def _refresh_subs_tracks(self) -> None:
         """Rafraîchit les pistes Sous-titres (§15.4 : même onglet que Inspecteur)."""
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.refresh()
 
-    def _refresh_preparer(self, *, force: bool = False):
+    def _refresh_preparer(self, *, force: bool = False) -> None:
         if not (hasattr(self, "preparer_tab") and self.preparer_tab):
             return
         if not force and self.preparer_tab.has_unsaved_changes():
@@ -601,7 +601,7 @@ class MainWindow(QMainWindow):
             return
         self.preparer_tab.refresh()
 
-    def _build_tab_alignement(self):
+    def _build_tab_alignement(self) -> None:
         self.alignment_tab = AlignmentTabWidget(
             get_store=lambda: self._store,
             get_db=lambda: self._db,
@@ -611,11 +611,11 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.alignment_tab, "Alignement")
         self.tabs.setTabToolTip(TAB_ALIGNEMENT, "Workflow §14 — Bloc 3 : Alignement transcript↔cues, liens, export concordancier.")
 
-    def _refresh_align_runs(self):
+    def _refresh_align_runs(self) -> None:
         if hasattr(self, "alignment_tab") and self.alignment_tab:
             self.alignment_tab.refresh()
 
-    def _build_tab_concordance(self):
+    def _build_tab_concordance(self) -> None:
         self.concordance_tab = ConcordanceTabWidget(
             get_db=lambda: self._db,
             on_open_inspector=self._kwic_open_inspector_impl,
@@ -623,7 +623,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.concordance_tab, "Concordance")
         self.tabs.setTabToolTip(TAB_CONCORDANCE, "Workflow §14 — Bloc 3 : Concordancier parallèle (segment | EN | FR…), export KWIC.")
 
-    def _build_tab_personnages(self):
+    def _build_tab_personnages(self) -> None:
         self.personnages_tab = PersonnagesTabWidget(
             get_store=lambda: self._store,
             get_db=lambda: self._db,
@@ -632,11 +632,11 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.personnages_tab, "Personnages")
         self.tabs.setTabToolTip(TAB_PERSONNAGES, "Workflow §14 — Bloc 3 : Assignation segment/cue→personnage, propagation (après alignement).")
 
-    def _refresh_personnages(self):
+    def _refresh_personnages(self) -> None:
         if hasattr(self, "personnages_tab") and self.personnages_tab:
             self.personnages_tab.refresh()
 
-    def _refresh_concordance(self):
+    def _refresh_concordance(self) -> None:
         if hasattr(self, "concordance_tab") and self.concordance_tab:
             self.concordance_tab.refresh_speakers()
 
@@ -665,11 +665,11 @@ class MainWindow(QMainWindow):
             self.alignment_tab.refresh()
             self.alignment_tab.set_episode_and_segment_kind(episode_id, segment_kind=segment_kind)
 
-    def _build_tab_logs(self):
+    def _build_tab_logs(self) -> None:
         w = LogsTabWidget(on_open_log=self._open_log_file)
         self.tabs.addTab(w, "Logs")
 
-    def _open_log_file(self):
+    def _open_log_file(self) -> None:
         if not self._config:
             QMessageBox.information(self, "Logs", "Ouvrez un projet pour avoir un fichier log.")
             return
