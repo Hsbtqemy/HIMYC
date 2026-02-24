@@ -19,6 +19,15 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+tests/.cache/
+tests/episodes/
+tests/runs/
+tests/corpus.db
+tests/config.toml
+tests/series_index.json
+tests/character_names.json
+tests/episode_prep_status.json
+tests/episode_segmentation_options.json
 
 # Projet de test local
 Essai/

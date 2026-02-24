@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QTableView,
+    QToolButton,
     QTreeView,
     QVBoxLayout,
     QWidget,
@@ -135,6 +136,20 @@ class CorpusTabWidget(QWidget):
         self.episodes_tree.doubleClicked.connect(self._on_episode_double_clicked)
         layout.addWidget(self.episodes_tree)
 
+        self.corpus_ribbon_toggle_btn = QToolButton()
+        self.corpus_ribbon_toggle_btn.setCheckable(True)
+        self.corpus_ribbon_toggle_btn.setChecked(True)
+        self.corpus_ribbon_toggle_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.corpus_ribbon_toggle_btn.setArrowType(Qt.ArrowType.DownArrow)
+        self.corpus_ribbon_toggle_btn.setText("Masquer le panneau d'actions")
+        self.corpus_ribbon_toggle_btn.toggled.connect(self._on_corpus_ribbon_toggled)
+        layout.addWidget(self.corpus_ribbon_toggle_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        self.corpus_ribbon_content = QWidget()
+        ribbon_layout = QVBoxLayout(self.corpus_ribbon_content)
+        ribbon_layout.setContentsMargins(0, 0, 0, 0)
+        ribbon_layout.setSpacing(layout.spacing())
+        layout.addWidget(self.corpus_ribbon_content)
 
         # Bloc 1 — SOURCES (constitution du corpus) — Deux colonnes égales
         group_sources = QGroupBox("1. SOURCES — Constitution du corpus")
@@ -274,7 +289,7 @@ class CorpusTabWidget(QWidget):
         sources_main_layout.addWidget(workflow_help)
         
         group_sources.setLayout(sources_main_layout)
-        layout.addWidget(group_sources)
+        ribbon_layout.addWidget(group_sources)
 
         # Bloc 2 — Normalisation / segmentation (après import) §14
         group_norm = QGroupBox("2. Normalisation / segmentation — Après import")
@@ -348,18 +363,18 @@ class CorpusTabWidget(QWidget):
         btn_row2.addWidget(self.resume_failed_btn)
         btn_row2.addStretch()
         group_norm.setLayout(btn_row2)
-        layout.addWidget(group_norm)
+        ribbon_layout.addWidget(group_norm)
 
         self.corpus_progress = QProgressBar()
         self.corpus_progress.setMaximum(100)
         self.corpus_progress.setValue(0)
-        layout.addWidget(self.corpus_progress)
+        ribbon_layout.addWidget(self.corpus_progress)
         self.corpus_status_label = QLabel("")
         self.corpus_status_label.setToolTip(
             "Workflow §14 (3 blocs) : Bloc 1 = Découverts → Téléchargés → SRT (import). "
             "Bloc 2 = Normalisés (CLEAN) → Segmentés (DB). Bloc 3 = Alignés (onglets Alignement, Concordance, Personnages)."
         )
-        layout.addWidget(self.corpus_status_label)
+        ribbon_layout.addWidget(self.corpus_status_label)
         scope_label = QLabel(
             "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (onglet Sous-titres). "
             "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
@@ -367,7 +382,17 @@ class CorpusTabWidget(QWidget):
         )
         scope_label.setStyleSheet("color: gray; font-size: 0.9em;")
         scope_label.setWordWrap(True)
-        layout.addWidget(scope_label)
+        ribbon_layout.addWidget(scope_label)
+        self._on_corpus_ribbon_toggled(True)
+
+    def _on_corpus_ribbon_toggled(self, expanded: bool) -> None:
+        self.corpus_ribbon_content.setVisible(bool(expanded))
+        if expanded:
+            self.corpus_ribbon_toggle_btn.setArrowType(Qt.ArrowType.DownArrow)
+            self.corpus_ribbon_toggle_btn.setText("Masquer le panneau d'actions")
+        else:
+            self.corpus_ribbon_toggle_btn.setArrowType(Qt.ArrowType.RightArrow)
+            self.corpus_ribbon_toggle_btn.setText("Afficher le panneau d'actions")
 
     def set_progress(self, value: int) -> None:
         self.corpus_progress.setValue(value)
@@ -533,8 +558,8 @@ class CorpusTabWidget(QWidget):
                 proxy_ix = self.episodes_tree_proxy.mapFromSource(source_ix)
                 if proxy_ix.isValid():
                     self.episodes_tree.expand(proxy_ix)
-            except (ValueError, AttributeError):
-                pass
+            except (ValueError, AttributeError) as exc:
+                logger.debug("Season expand skipped for %r: %s", season, exc)
 
     def _on_episode_double_clicked(self, proxy_index: QModelIndex) -> None:
         """Double-clic sur un épisode : ouvrir l'Inspecteur sur cet épisode (comme Concordance)."""
@@ -552,9 +577,10 @@ class CorpusTabWidget(QWidget):
             return
         self.episodes_tree_model.set_checked(set(ids), True)
 
+    @require_project_and_db
     def _discover_episodes(self) -> None:
         context = self._get_context()
-        if not context.get("config") or not context.get("store") or not context.get("db"):
+        if not context or not context.get("config"):
             QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
             return
         config = context["config"]
@@ -574,9 +600,10 @@ class CorpusTabWidget(QWidget):
             self.norm_batch_profile_combo.currentText()
         )
 
+    @require_project_and_db
     def _discover_merge(self) -> None:
         context = self._get_context()
-        if not context.get("config") or not context.get("store") or not context.get("db"):
+        if not context or not context.get("config"):
             QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
             return
         config = context["config"]
@@ -825,11 +852,11 @@ class CorpusTabWidget(QWidget):
             )
 
 
+    @require_project_and_db
     def _fetch_episodes(self, selection_only: bool) -> None:
         store = self._get_store()
-        db = self._get_db()
         context = self._get_context()
-        if not context.get("config") or not store or not db:
+        if not context or not context.get("config") or not store:
             QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
             return
         index = store.load_series_index()
@@ -854,10 +881,11 @@ class CorpusTabWidget(QWidget):
             return
         self._run_job(steps)
 
+    @require_project
     def _normalize_episodes(self, selection_only: bool) -> None:
         store = self._get_store()
         context = self._get_context()
-        if not context.get("config") or not store:
+        if not context or not context.get("config") or not store:
             QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
             return
         index = store.load_series_index()
@@ -888,11 +916,12 @@ class CorpusTabWidget(QWidget):
             steps.append(NormalizeEpisodeStep(eid, profile))
         self._run_job(steps)
 
+    @require_project
     def _segment_episodes(self, selection_only: bool) -> None:
         """Bloc 2 — Segmente les épisodes (sélection ou tout) ayant clean.txt."""
         store = self._get_store()
         context = self._get_context()
-        if not context.get("config") or not store:
+        if not context or not context.get("config") or not store:
             QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
             return
         index = store.load_series_index()
@@ -922,12 +951,12 @@ class CorpusTabWidget(QWidget):
         steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in eids_with_clean]
         self._run_job(steps)
 
+    @require_project_and_db
     def _run_all_for_selection(self) -> None:
         """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB pour les épisodes cochés."""
         store = self._get_store()
-        db = self._get_db()
         context = self._get_context()
-        if not context.get("config") or not store or not db:
+        if not context or not context.get("config") or not store:
             QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
             return
         index = store.load_series_index()
@@ -965,19 +994,16 @@ class CorpusTabWidget(QWidget):
         steps = fetch_steps + norm_steps + segment_steps + [BuildDbIndexStep()]
         self._run_job(steps)
 
+    @require_project_and_db
     def _index_db(self) -> None:
         store = self._get_store()
-        db = self._get_db()
-        if not store or not db:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
-            return
+        assert store is not None  # garanti par @require_project_and_db
         self._run_job([BuildDbIndexStep()])
 
+    @require_project
     def _export_corpus(self) -> None:
         store = self._get_store()
-        if not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
-            return
+        assert store is not None  # garanti par @require_project
         index = store.load_series_index()
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")

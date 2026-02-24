@@ -481,6 +481,7 @@ class MainWindow(QMainWindow):
             ("_refresh_preparer", self._refresh_preparer, False),
             ("_refresh_subs_tracks", self._refresh_subs_tracks, False),
             ("_refresh_align_runs", self._refresh_align_runs, False),
+            ("_refresh_personnages", self._refresh_personnages, False),
         ]
         for name, refresh_fn, show_warning in refreshers:
             try:

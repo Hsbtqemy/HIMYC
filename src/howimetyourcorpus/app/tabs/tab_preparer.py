@@ -124,6 +124,7 @@ class PreparerTabWidget(QWidget):
         self._current_episode_id: str | None = None
         self._current_source_key = "transcript"
         self._current_status_value = "raw"
+        self._force_save_transcript_rows = False
         self._updating_ui = False
         self._edit_role = int(Qt.ItemDataRole.UserRole) + 1
         self._context_controller = PreparerContextController(self, logger)
@@ -146,16 +147,8 @@ class PreparerTabWidget(QWidget):
 
         top.addWidget(QLabel("Fichier:"))
         self.prep_source_combo = QComboBox()
-        self.prep_source_combo.addItem("Transcript", "transcript")
-        self.prep_source_combo.addItem("SRT EN", "srt_en")
-        self.prep_source_combo.addItem("SRT FR", "srt_fr")
-        self.prep_source_combo.addItem("SRT IT", "srt_it")
+        self._refresh_source_combo_items()
         self.prep_source_combo.currentIndexChanged.connect(self._on_source_changed)
-        source_model = self.prep_source_combo.model()
-        for i in range(1, self.prep_source_combo.count()):
-            item = source_model.item(i) if hasattr(source_model, "item") else None
-            if item is not None:
-                item.setEnabled(False)
         top.addWidget(self.prep_source_combo)
 
         top.addWidget(QLabel("Statut:"))
@@ -237,6 +230,10 @@ class PreparerTabWidget(QWidget):
         self.prep_renumber_utt_btn = QPushButton("Renuméroter")
         self.prep_renumber_utt_btn.clicked.connect(self._renumber_utterances)
         utterance_actions.addWidget(self.prep_renumber_utt_btn)
+
+        self.prep_reset_utt_btn = QPushButton("Revenir au texte")
+        self.prep_reset_utt_btn.clicked.connect(self._reset_utterances_to_text)
+        utterance_actions.addWidget(self.prep_reset_utt_btn)
         utterance_actions.addStretch()
         layout.addLayout(utterance_actions)
 
@@ -295,6 +292,44 @@ class PreparerTabWidget(QWidget):
     def set_episode_and_load(self, episode_id: str, source_key: str | None = None) -> None:
         self._context_controller.set_episode_and_load(episode_id, source_key)
 
+    def _refresh_source_combo_items(self) -> None:
+        """Synchronise les sources Préparer avec les langues projet (Transcript + SRT <lang>)."""
+        current_key = (
+            self.prep_source_combo.currentData()
+            or self._current_source_key
+            or "transcript"
+        )
+        store = self._get_store()
+        langs_raw = store.load_project_languages() if store else ["en", "fr", "it"]
+        langs: list[str] = []
+        seen: set[str] = set()
+        for lang in langs_raw or []:
+            key = str(lang or "").strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            langs.append(key)
+        if not langs:
+            langs = ["en", "fr", "it"]
+
+        self.prep_source_combo.blockSignals(True)
+        self.prep_source_combo.clear()
+        self.prep_source_combo.addItem("Transcript", "transcript")
+        for lang in langs:
+            self.prep_source_combo.addItem(f"SRT {lang.upper()}", f"srt_{lang}")
+        idx = self.prep_source_combo.findData(current_key)
+        self.prep_source_combo.setCurrentIndex(idx if idx >= 0 else 0)
+
+        source_model = self.prep_source_combo.model()
+        for i in range(1, self.prep_source_combo.count()):
+            item = source_model.item(i) if hasattr(source_model, "item") else None
+            if item is not None:
+                item.setEnabled(False)
+        self.prep_source_combo.blockSignals(False)
+
+        source_key = self.prep_source_combo.currentData() or "transcript"
+        self._current_source_key = str(source_key)
+
     def save_state(self) -> None:
         """Méthode symétrique aux autres onglets (pas d'état persistant spécifique pour l'instant)."""
         return
@@ -316,6 +351,8 @@ class PreparerTabWidget(QWidget):
         if clicked == btn_save:
             return self.save_current()
         if clicked == btn_discard:
+            # Recharger l'état persistant pour réellement abandonner le brouillon.
+            self._load_selected_context(force=True)
             self._set_dirty(False)
             return True
         return clicked != btn_cancel
@@ -617,6 +654,9 @@ class PreparerTabWidget(QWidget):
     def _renumber_utterances(self) -> None:
         self._edit_controller.renumber_utterances()
 
+    def _reset_utterances_to_text(self) -> None:
+        self._edit_controller.reset_utterances_to_text()
+
     def _update_utterance_action_states(self) -> None:
         is_transcript = self._current_source_key == "transcript"
         has_episode = bool(self.prep_episode_combo.currentData())
@@ -629,6 +669,7 @@ class PreparerTabWidget(QWidget):
         self.prep_split_utt_btn.setEnabled(is_transcript and has_rows)
         self.prep_group_utt_btn.setEnabled(is_transcript and has_rows)
         self.prep_renumber_utt_btn.setEnabled(is_transcript and has_rows)
+        self.prep_reset_utt_btn.setEnabled(is_transcript and has_rows)
 
     def save_clean_text_with_meta(
         self,
@@ -808,7 +849,9 @@ class PreparerTabWidget(QWidget):
                     ),
                     success_status=f"Cues {lang.upper()} enregistrées et piste réécrite.",
                 )
-            elif self.stack.currentWidget() == self.utterance_table:
+            elif self.stack.currentWidget() == self.utterance_table or (
+                self._current_source_key == "transcript" and self._force_save_transcript_rows
+            ):
                 ok = self._run_save_with_snapshot_undo(
                     capture_before=lambda ep=episode_id: self._capture_utterance_persistence_state(
                         ep, self._current_source_key
@@ -838,8 +881,13 @@ class PreparerTabWidget(QWidget):
                     success_status="Transcript clean enregistré.",
                 )
             if not ok:
+                abort_reason = self._save_controller.pop_abort_reason()
+                if abort_reason == "align_runs_invalidation_cancelled":
+                    self._show_status("Enregistrement annulé (alignements préservés).", 3500)
+                    return False
                 QMessageBox.critical(self, "Préparer", "Échec de sauvegarde.")
                 return False
+            self._force_save_transcript_rows = False
             self._set_dirty(False)
             return True
         except Exception as exc:

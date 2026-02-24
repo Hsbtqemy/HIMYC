@@ -960,6 +960,28 @@ def test_preparer_segment_uses_saved_segmentation_options(main_window_with_proje
     win.preparer_tab._set_dirty(False)
 
 
+def test_preparer_default_segmentation_does_not_treat_lesson_one_as_speaker(
+    main_window_with_project: MainWindow,
+) -> None:
+    win = main_window_with_project
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="transcript")
+    win.preparer_tab.text_editor.setPlainText("Lesson one: Always suit up.\nTED: Right.")
+
+    win.preparer_tab._segment_to_utterances()
+    assert win.preparer_tab.utterance_table.rowCount() == 2
+    first_speaker = win.preparer_tab.utterance_table.item(0, 1)
+    first_text = win.preparer_tab.utterance_table.item(0, 2)
+    second_speaker = win.preparer_tab.utterance_table.item(1, 1)
+    assert first_speaker is not None
+    assert first_text is not None
+    assert second_speaker is not None
+    assert first_speaker.text() == ""
+    assert first_text.text() == "Lesson one: Always suit up."
+    assert second_speaker.text() == "TED"
+    win.preparer_tab._set_dirty(False)
+
+
 def test_preparer_merge_selected_utterances_with_user_separator(
     main_window_with_project: MainWindow,
     monkeypatch: pytest.MonkeyPatch,
@@ -1123,7 +1145,92 @@ def test_preparer_group_utterances_by_assignments_tolerant_mode(main_window_with
     win.preparer_tab._set_dirty(False)
 
 
-def test_preparer_save_transcript_structural_edits_replace_segments(main_window_with_project: MainWindow) -> None:
+def test_preparer_group_utterances_uses_segment_assignments_when_labels_do_not_match(
+    main_window_with_project: MainWindow,
+) -> None:
+    win = main_window_with_project
+    store = win._store
+    db = win._db
+    assert store is not None
+    assert db is not None
+    store.save_character_names(
+        [
+            {"id": "ted", "canonical": "TED", "names_by_lang": {"en": "Ted"}},
+            {"id": "robin", "canonical": "ROBIN", "names_by_lang": {"en": "Robin"}},
+        ]
+    )
+    db.upsert_segments(
+        "S01E01",
+        "utterance",
+        [
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=0,
+                start_char=0,
+                end_char=1,
+                text="A",
+                speaker_explicit="L1 TED",
+            ),
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=1,
+                start_char=2,
+                end_char=3,
+                text="B",
+                speaker_explicit="L2 TED",
+            ),
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=2,
+                start_char=4,
+                end_char=5,
+                text="C",
+                speaker_explicit="L3 ROBIN",
+            ),
+        ],
+    )
+    store.save_character_assignments(
+        [
+            {
+                "episode_id": "S01E01",
+                "source_type": "segment",
+                "source_id": "S01E01:utterance:0",
+                "character_id": "ted",
+            },
+            {
+                "episode_id": "S01E01",
+                "source_type": "segment",
+                "source_id": "S01E01:utterance:1",
+                "character_id": "ted",
+            },
+            {
+                "episode_id": "S01E01",
+                "source_type": "segment",
+                "source_id": "S01E01:utterance:2",
+                "character_id": "robin",
+            },
+        ]
+    )
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="transcript")
+
+    win.preparer_tab._group_utterances_by_assignments()
+    assert win.preparer_tab.utterance_table.rowCount() == 2
+    first_text = win.preparer_tab.utterance_table.item(0, 2)
+    second_text = win.preparer_tab.utterance_table.item(1, 2)
+    assert first_text is not None and second_text is not None
+    assert first_text.text() == "A\nB"
+    assert second_text.text() == "C"
+    win.preparer_tab._set_dirty(False)
+
+
+def test_preparer_save_transcript_structural_edits_replace_segments(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     win = main_window_with_project
     store = win._store
     db = win._db
@@ -1182,6 +1289,11 @@ def test_preparer_save_transcript_structural_edits_replace_segments(main_window_
     win._refresh_preparer(force=True)
     win.open_preparer_for_episode("S01E01", source="transcript")
     table = win.preparer_tab.utterance_table
+    # Confirmation point critique (suppression runs alignement) -> continuer.
+    monkeypatch.setattr(
+        "howimetyourcorpus.app.tabs.preparer_save.QMessageBox.question",
+        lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
+    )
 
     table.selectRow(1)
     win.preparer_tab._delete_selected_utterance_rows()
@@ -1197,6 +1309,93 @@ def test_preparer_save_transcript_structural_edits_replace_segments(main_window_
     assert [s["text"] for s in segs] == ["A", "C"]
     assert int(segs[1]["start_char"]) > int(segs[0]["start_char"])
     assert db.get_align_runs_for_episode("S01E01") == []
+
+
+def test_preparer_save_structural_warns_and_can_cancel_run_invalidation(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    win = main_window_with_project
+    store = win._store
+    db = win._db
+    assert store is not None
+    assert db is not None
+    store.save_character_names(
+        [
+            {
+                "id": "ted",
+                "canonical": "TED",
+                "names_by_lang": {"en": "Ted"},
+            }
+        ]
+    )
+    db.upsert_segments(
+        "S01E01",
+        "utterance",
+        [
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=0,
+                start_char=0,
+                end_char=1,
+                text="A",
+                speaker_explicit="TED",
+            ),
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=1,
+                start_char=2,
+                end_char=3,
+                text="B",
+                speaker_explicit="TED",
+            ),
+        ],
+    )
+    db.create_align_run("run-cancel", "S01E01", "en")
+    db.upsert_align_links(
+        "run-cancel",
+        "S01E01",
+        [
+            {
+                "segment_id": "S01E01:utterance:0",
+                "cue_id": None,
+                "cue_id_target": None,
+                "lang": "fr",
+                "role": "target",
+                "confidence": 0.7,
+                "status": "auto",
+            }
+        ],
+    )
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="transcript")
+    table = win.preparer_tab.utterance_table
+    table.selectRow(1)
+    win.preparer_tab._delete_selected_utterance_rows()
+
+    questions: list[str] = []
+    criticals: list[str] = []
+
+    def _fake_question(*args, **kwargs):
+        text = str(args[2]) if len(args) >= 3 else str(kwargs.get("text", ""))
+        questions.append(text)
+        return QMessageBox.StandardButton.No
+
+    def _fake_critical(*args, **kwargs):
+        text = str(args[2]) if len(args) >= 3 else str(kwargs.get("text", ""))
+        criticals.append(text)
+        return QMessageBox.StandardButton.Ok
+
+    monkeypatch.setattr("howimetyourcorpus.app.tabs.preparer_save.QMessageBox.question", _fake_question)
+    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_preparer.QMessageBox.critical", _fake_critical)
+
+    assert win.preparer_tab.save_current() is False
+    assert any("Point critique" in q for q in questions)
+    assert criticals == []
+    assert any(r.get("align_run_id") == "run-cancel" for r in db.get_align_runs_for_episode("S01E01"))
+    win.preparer_tab._set_dirty(False)
 
 
 def test_preparer_save_transcript_non_structural_keeps_align_runs(main_window_with_project: MainWindow) -> None:
@@ -1290,3 +1489,154 @@ def test_preparer_save_transcript_can_persist_zero_utterance_rows(main_window_wi
     assert win.preparer_tab.save_current() is True
     segs = db.get_segments_for_episode("S01E01", kind="utterance")
     assert segs == []
+
+
+def test_preparer_reset_utterances_to_text_and_save_clears_segments(main_window_with_project: MainWindow) -> None:
+    win = main_window_with_project
+    db = win._db
+    assert db is not None
+    db.upsert_segments(
+        "S01E01",
+        "utterance",
+        [
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=0,
+                start_char=0,
+                end_char=2,
+                text="Hi",
+                speaker_explicit="TED",
+            )
+        ],
+    )
+
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="transcript")
+    assert win.preparer_tab.utterance_table.rowCount() == 1
+
+    win.preparer_tab._reset_utterances_to_text()
+    assert win.preparer_tab.utterance_table.rowCount() == 0
+    assert win.preparer_tab.stack.currentWidget() == win.preparer_tab.text_editor
+
+    assert win.preparer_tab.save_current() is True
+    segs = db.get_segments_for_episode("S01E01", kind="utterance")
+    assert segs == []
+
+
+def test_refresh_tabs_after_job_updates_personnages_runs(main_window_with_project: MainWindow) -> None:
+    win = main_window_with_project
+    db = win._db
+    assert db is not None
+
+    win.personnages_tab.refresh()
+    assert win.personnages_tab.personnages_run_combo.count() == 0
+
+    db.create_align_run("run-after-job", "S01E01", "en")
+    win._refresh_tabs_after_job()
+
+    run_ids = {
+        win.personnages_tab.personnages_run_combo.itemData(i)
+        for i in range(win.personnages_tab.personnages_run_combo.count())
+    }
+    assert "run-after-job" in run_ids
+
+
+def test_preparer_discard_reloads_persisted_context(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    win = main_window_with_project
+    store = win._store
+    assert store is not None
+    store.save_episode_clean(
+        "S01E01",
+        "Persisted clean",
+        TransformStats(raw_lines=1, clean_lines=1, merges=0, kept_breaks=0, duration_ms=0),
+        {"source": "test"},
+    )
+
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="transcript")
+    win.preparer_tab.text_editor.setPlainText("DRAFT NOT SAVED")
+    assert win.preparer_tab.has_unsaved_changes()
+
+    class _FakeMessageBox:
+        class Icon:
+            Warning = object()
+
+        class ButtonRole:
+            AcceptRole = object()
+            DestructiveRole = object()
+            RejectRole = object()
+
+        def __init__(self, *args, **kwargs):
+            self._discard_button = None
+            self._clicked_button = None
+
+        def setIcon(self, *args, **kwargs):
+            return None
+
+        def setWindowTitle(self, *args, **kwargs):
+            return None
+
+        def setText(self, *args, **kwargs):
+            return None
+
+        def setInformativeText(self, *args, **kwargs):
+            return None
+
+        def addButton(self, _label, role):
+            button = object()
+            if role is self.ButtonRole.DestructiveRole:
+                self._discard_button = button
+            return button
+
+        def setDefaultButton(self, *args, **kwargs):
+            return None
+
+        def exec(self):
+            self._clicked_button = self._discard_button
+
+        def clickedButton(self):
+            return self._clicked_button
+
+    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_preparer.QMessageBox", _FakeMessageBox)
+    assert win.preparer_tab.prompt_save_if_dirty() is True
+    assert not win.preparer_tab.has_unsaved_changes()
+    assert win.preparer_tab.text_editor.toPlainText() == "Persisted clean"
+
+
+def test_preparer_source_combo_includes_project_languages(main_window_with_project: MainWindow) -> None:
+    win = main_window_with_project
+    store = win._store
+    db = win._db
+    assert store is not None
+    assert db is not None
+
+    store.save_project_languages(["en", "fr", "es"])
+    db.add_track("S01E01:es", "S01E01", "es", "srt")
+    db.upsert_cues(
+        "S01E01:es",
+        "S01E01",
+        "es",
+        [
+            Cue(
+                episode_id="S01E01",
+                lang="es",
+                n=0,
+                start_ms=1000,
+                end_ms=1800,
+                text_raw="Hola",
+                text_clean="Hola",
+            )
+        ],
+    )
+
+    win._refresh_preparer(force=True)
+    source_keys = {win.preparer_tab.prep_source_combo.itemData(i) for i in range(win.preparer_tab.prep_source_combo.count())}
+    assert "srt_es" in source_keys
+
+    win.open_preparer_for_episode("S01E01", source="srt_es")
+    assert win.preparer_tab.prep_source_combo.currentData() == "srt_es"
+    assert win.preparer_tab.cue_table.rowCount() == 1

@@ -189,8 +189,13 @@ class EpisodesTreeModel(QAbstractItemModel):
             try:
                 r = self._season_numbers.index(ref.season)
                 return self.createIndex(r, 0, ("season", ref.season))
-            except ValueError:
-                pass
+            except ValueError as exc:
+                logger.debug(
+                    "EpisodesTreeModel.parent: season %s introuvable pour %s (%s)",
+                    ref.season,
+                    ref.episode_id,
+                    exc,
+                )
         return QModelIndex()
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
@@ -370,7 +375,7 @@ class EpisodesTreeFilterProxyModel(QSortFilterProxyModel):
 
     def set_season_filter(self, season: int | None) -> None:
         self._season_filter = season
-        self.invalidateFilter()
+        self.invalidate()
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
         if self._season_filter is None:
@@ -607,7 +612,7 @@ class EpisodesFilterProxyModel(QSortFilterProxyModel):
 
     def set_season_filter(self, season: int | None) -> None:
         self._season_filter = season
-        self.invalidateFilter()
+        self.invalidate()
 
     def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
         if self._season_filter is None:

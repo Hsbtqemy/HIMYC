@@ -29,6 +29,12 @@ class PreparerSaveController:
         self._build_service = build_service
         self._normalize_cue_timecodes_display = normalize_cue_timecodes_display
         self._undo_stack = undo_stack
+        self._last_abort_reason: str | None = None
+
+    def pop_abort_reason(self) -> str | None:
+        reason = self._last_abort_reason
+        self._last_abort_reason = None
+        return reason
 
     @staticmethod
     def speaker_to_character_id(speaker: str, lookup: dict[str, str]) -> str:
@@ -89,6 +95,7 @@ class PreparerSaveController:
         utterance_table: QTableWidget,
         text_value: str,
     ) -> bool:
+        self._last_abort_reason = None
         service = self._build_service()
         if service is None:
             return False
@@ -133,6 +140,25 @@ class PreparerSaveController:
         )
 
         if structure_changed:
+            runs = db.get_align_runs_for_episode(episode_id) or []
+            if runs:
+                preview = ", ".join([(r.get("align_run_id") or "") for r in runs[:3]])
+                if len(runs) > 3:
+                    preview += ", …"
+                reply = QMessageBox.question(
+                    owner,
+                    "Préparer",
+                    "Le découpage des tours a changé.\n\n"
+                    f"Enregistrer maintenant supprimera {len(runs)} run(s) d'alignement lié(s) à cet épisode.\n"
+                    "Point critique: les corrections manuelles d'alignement seront perdues.\n\n"
+                    f"Runs concernés: {preview}\n\n"
+                    "Voulez-vous continuer ?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    self._last_abort_reason = "align_runs_invalidation_cancelled"
+                    return False
             service.replace_utterance_rows(
                 episode_id,
                 rows,
@@ -152,6 +178,7 @@ class PreparerSaveController:
         cue_table: QTableWidget,
         strict: bool,
     ) -> bool:
+        self._last_abort_reason = None
         service = self._build_service()
         if service is None:
             return False

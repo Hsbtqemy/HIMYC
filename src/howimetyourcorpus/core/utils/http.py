@@ -2,11 +2,14 @@
 
 import hashlib
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any, Optional
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 # Dernière requête (monotonic) pour rate limit global entre appels get_html
 _last_get_html_time: Optional[float] = None
@@ -90,8 +93,13 @@ def get_html(
                     if retry_after:
                         try:
                             wait_time = float(retry_after)
-                        except ValueError:
-                            pass
+                        except ValueError as exc:
+                            logger.debug(
+                                "Invalid Retry-After header for %s: %r (%s)",
+                                url,
+                                retry_after,
+                                exc,
+                            )
                     if attempt < retries - 1:
                         time.sleep(wait_time)
                         continue
@@ -179,8 +187,13 @@ def get_json(
                     if retry_after:
                         try:
                             wait_time = float(retry_after)
-                        except ValueError:
-                            pass
+                        except ValueError as exc:
+                            logger.debug(
+                                "Invalid Retry-After header for %s: %r (%s)",
+                                url,
+                                retry_after,
+                                exc,
+                            )
                     if attempt < retries - 1:
                         time.sleep(wait_time)
                         continue

@@ -32,6 +32,7 @@ class PreparerContextController:
 
     def refresh(self) -> None:
         tab = self._tab
+        tab._refresh_source_combo_items()
         current_episode_id = tab._current_episode_id or tab.prep_episode_combo.currentData()
         tab.prep_episode_combo.blockSignals(True)
         tab.prep_episode_combo.clear()
@@ -52,6 +53,7 @@ class PreparerContextController:
 
     def set_episode_and_load(self, episode_id: str, source_key: str | None = None) -> None:
         tab = self._tab
+        tab._refresh_source_combo_items()
         if source_key:
             for i in range(tab.prep_source_combo.count()):
                 if tab.prep_source_combo.itemData(i) == source_key:
@@ -136,6 +138,7 @@ class PreparerContextController:
     def reset_empty_context(self) -> None:
         tab = self._tab
         tab._current_episode_id = None
+        tab._force_save_transcript_rows = False
         tab._set_dirty(False)
         tab._set_text("")
         tab._set_utterances([])
@@ -201,6 +204,7 @@ class PreparerContextController:
 
         tab._current_episode_id = episode_id
         tab._current_source_key = source_key
+        tab._force_save_transcript_rows = False
         tab._update_utterance_action_states()
         store = tab._get_store()
         default_status = self.default_status_for_loaded_data(source_key, data)

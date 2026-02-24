@@ -486,7 +486,7 @@ class ConcordanceTabWidget(QWidget):
         
         try:
             import matplotlib
-            matplotlib.use('Qt5Agg')  # Backend Qt
+            matplotlib.use('QtAgg')  # Backend Qt (PySide6 / Qt6)
             import matplotlib.pyplot as plt
             from collections import Counter
             

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "HowIMetYourCorpus"
-version = "0.6.3"
+version = "0.6.4"
 description = "Pipeline de corpus + exploration + QA — transcriptions et sous-titres"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,6 +27,7 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=4.9",
     "python-docx>=1.0",
+    "matplotlib>=3.5",
     "tomli-w>=1.0; python_version < '3.11'",
 ]
 

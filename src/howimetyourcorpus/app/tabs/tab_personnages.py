@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
+from howimetyourcorpus.core.align import parse_run_segment_kind
 
 logger = logging.getLogger(__name__)
 
@@ -480,14 +481,11 @@ class PersonnagesTabWidget(QWidget):
             )
             return
         run = db.get_align_run(run_id)
-        run_segment_kind = "sentence"
-        if run and run.get("params_json"):
-            try:
-                import json
-                params = json.loads(run["params_json"])
-                run_segment_kind = (params.get("segment_kind") or "sentence").strip().lower()
-            except (TypeError, ValueError) as e:
-                logger.debug("Could not parse align run params_json for %s: %s", run_id, e)
+        run_segment_kind, _ = parse_run_segment_kind(
+            run.get("params_json") if run else None,
+            run_id=run_id,
+            logger_obj=logger,
+        )
         has_phrase_or_cue = any(
             (a.get("source_type") == "segment" and ":sentence:" in (a.get("source_id") or ""))
             or (a.get("source_type") == "cue")

@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 import sqlite3
 
+from howimetyourcorpus.core.align import parse_run_segment_kind
 from howimetyourcorpus.core.storage import db_segments
 from howimetyourcorpus.core.storage import db_subtitles
+
+logger = logging.getLogger(__name__)
 
 
 def create_align_run(
@@ -242,15 +246,11 @@ def get_parallel_concordance(
     links = query_alignment_for_episode(conn, episode_id, run_id=run_id, status_filter=status_filter)
     run = get_align_run(conn, run_id)
     pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
-    segment_kind = "sentence"
-    if run and run.get("params_json"):
-        try:
-            params = json.loads(run["params_json"])
-            segment_kind = (params.get("segment_kind") or "sentence").strip().lower()
-            if segment_kind not in ("sentence", "utterance"):
-                segment_kind = "sentence"
-        except (TypeError, ValueError):
-            pass
+    segment_kind, _ = parse_run_segment_kind(
+        run.get("params_json") if run else None,
+        run_id=run_id,
+        logger_obj=logger,
+    )
     segments = db_segments.get_segments_for_episode(conn, episode_id, kind=segment_kind)
     cues_en = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "en")
     cues_fr = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "fr")

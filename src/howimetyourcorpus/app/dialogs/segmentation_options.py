@@ -45,7 +45,9 @@ class SegmentationOptionsDialog(QDialog):
 
         form = QFormLayout()
         self.speaker_regex_edit = QLineEdit()
-        self.speaker_regex_edit.setPlaceholderText(r"^([A-Z][A-Za-z0-9_ '\-]{0,24}):\s*(.*)$")
+        self.speaker_regex_edit.setPlaceholderText(
+            r"^([A-Z][A-Za-z0-9_'\-]{0,24}(?:\s+[A-Z][A-Za-z0-9_'\-]{0,24}){0,2}):\s*(.*)$"
+        )
         form.addRow("Regex locuteur:", self.speaker_regex_edit)
 
         self.enable_dash_cb = QCheckBox("Ligne commençant par tiret = nouveau tour")

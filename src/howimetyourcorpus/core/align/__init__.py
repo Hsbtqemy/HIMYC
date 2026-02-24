@@ -9,6 +9,11 @@ from howimetyourcorpus.core.align.aligner import (
     align_cues_by_similarity,
     cues_have_timecodes,
 )
+from howimetyourcorpus.core.align.run_metadata import (
+    normalize_segment_kind,
+    parse_run_segment_kind,
+    format_segment_kind_label,
+)
 
 __all__ = [
     "text_similarity",
@@ -18,4 +23,7 @@ __all__ = [
     "align_cues_by_order",
     "align_cues_by_similarity",
     "cues_have_timecodes",
+    "normalize_segment_kind",
+    "parse_run_segment_kind",
+    "format_segment_kind_label",
 ]

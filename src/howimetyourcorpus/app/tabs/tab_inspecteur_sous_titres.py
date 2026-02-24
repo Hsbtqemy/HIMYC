@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable
 
 from PySide6.QtCore import Qt, QSettings
@@ -17,6 +18,8 @@ from PySide6.QtWidgets import (
 
 from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget
 from howimetyourcorpus.app.tabs.tab_sous_titres import SubtitleTabWidget
+
+logger = logging.getLogger(__name__)
 
 
 class InspecteurEtSousTitresTabWidget(QWidget):
@@ -127,8 +130,8 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         if isinstance(val, (list, tuple)) and len(val) >= 2:
             try:
                 self._main_split.setSizes([int(x) for x in val[:2]])
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                logger.debug("Invalid inspecteur+sous-titres splitter state %r: %s", val, exc)
 
     def save_state(self) -> None:
         """Sauvegarde splitters et notes (délégué à l'Inspecteur + splitter fusionné)."""

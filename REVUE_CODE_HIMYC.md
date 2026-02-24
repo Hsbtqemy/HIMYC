@@ -1,90 +1,156 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : 24 février 2025 (revue à nouveau)  
+**Dernière mise à jour** : revue complète (état actuel)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
-**Objectif** : état réel après implémentations P1/P2 et refacto P3 finalisée.
+**Tests** : **160 passés**, 0 warning.
 
 ---
 
-## 1. État global
+## 1. Structure du projet
 
-- Architecture globalement propre : séparation `app/` (UI) / `core/` (métier + stockage).
-- Pipeline, DB et undo/redo cohérents.
-- Suite de tests verte : **118 tests passés** (`pytest -q`). Un avertissement de dépréciation Qt : `QSortFilterProxyModel.invalidateFilter()` (à remplacer par l’API recommandée à l’occasion).
+### 1.1 Packages et points d’entrée
 
----
+- **Point d’entrée CLI** : `howimetyourcorpus.app.main:main` (`pyproject.toml`). Fichier `app/main.py` : `setup_logging`, `QApplication`, `MainWindow`, boucle d’événements.
+- **`app/`** : UI Qt (fenêtre, onglets, dialogs, workers, models_qt, undo_commands).
+- **`core/`** : storage, pipeline, preparer, align, export, normalisation, adapters, segment, subtitles, opensubtitles, utils.
 
-## 2. Correctifs effectivement appliqués
+### 1.2 Câblage onglets et dialogs
 
-| Sujet | Statut | Détail |
-|------|--------|--------|
-| Erreurs silencieuses / observabilité | **Corrigé** | Logs `warning` ajoutés dans plusieurs `ProjectStore.load_*` sur JSON corrompu. |
-| Synchro config Projet dupliquée | **Corrigé** | Helper `_sync_config_from_project_tab()` factorisé et réutilisé dans `ui_mainwindow.py`. |
-| `cues_audit` dupliqué pipeline | **Corrigé** | Helper `cues_to_audit_rows()` extrait et utilisé par les étapes import/téléchargement SRT. |
-| Refresh statuts épisodes coûteux | **Corrigé** | API batch `get_episode_text_presence()` + usage dans `EpisodesTreeModel` et `EpisodesTableModel`. |
-| `_on_job_finished` trop monolithique | **Corrigé** | Découpage en `_build_job_summary_message()` et `_refresh_tabs_after_job()`. |
-| Undo Préparer trop global | **Corrigé** | Snapshots Undo ramenés au scope utile (assignations + statut ciblés). |
-| Sauvegarde cues SRT sans rollback complet | **Corrigé** | Rollback compensatoire DB/fichier dans `PreparerService.save_cue_edits()`. |
-| Préparer: duplication restauration snapshot | **Corrigé (P3 avancée)** | Extraction des helpers partagés dans `core/preparer/` (`status`, `timecodes`, `snapshots`, `persistence`) et allègement de `tab_preparer.py`. |
-| Préparer: flux save/undo trop concentré dans le widget | **Corrigé (P3 avancée)** | Contrôleur dédié `app/tabs/preparer_save.py` + sous-vues `app/tabs/preparer_views.py` branchés sur `PreparerTabWidget`. |
-| Préparer: navigation/chargement de contexte trop couplés au widget | **Corrigé (P3 avancée)** | Contrôleur dédié `app/tabs/preparer_context.py` pour refresh, chargement, restore épisode/source et disponibilité des pistes. |
-| Préparer: édition/recherche-remplacement trop couplés au widget | **Corrigé (P3 avancée)** | Contrôleur dédié `app/tabs/preparer_edit.py` (mutations table/texte, undo édition, segmentation, recherche/remplacement). |
-| Préparer: callbacks de statut/snapshots restants | **Corrigé (P3 finalisée)** | Contrôleur dédié `app/tabs/preparer_state.py` (captures/restaurations ciblées, fallback legacy encapsulé, états clean/utterance/cue). |
+- **MainWindow** (`ui_mainwindow.py`) : constantes `TAB_*`, construction via `_build_tab_*` ; injection par lambdas (`get_store`, `get_db`, `run_job`, `show_status`, `undo_stack`).
+- **Dialogs** : `ProfilesDialog`, `OpenSubtitlesDownloadDialog`, `NormalizeOptionsDialog`, `SegmentationOptionsDialog`, `SubtitleBatchImportDialog` (export depuis `app/dialogs/__init__.py`).
 
 ---
 
-## 3. Vérification “ancien schéma / appels non branchés”
+## 2. Core
 
-- Compatibilité legacy encore présente mais **encadrée**:
-  - clés de snapshot historiques (`prep_status_state`, `assignments`) gérées en fallback explicite;
-  - réexport local des utilitaires timecodes depuis `tab_preparer.py` maintenu pour compat tests/imports historiques;
-  - module `core/segment/legacy.py` conservé pour compat export.
-- Pas d’appel “ancien schéma” bloquant détecté dans le flux Préparer actuel.
-- Les wrappers DB utilisés par l’UI Préparer (`update_segment_text`, `update_cue_timecodes`, `get_cues_for_episode_lang`) sont bien exposés et testés.
+### 2.1 ProjectStore (`core/storage/project_store.py`)
 
----
+- Layout projet (config, series_index, episodes RAW/CLEAN, SRT, profils, personnages, prep status, langues). Méthodes load/save nombreuses.
+- Gestion d’erreurs : `load_custom_profiles` et validation personnages lèvent `ValueError` ; pas de `except: pass`.
 
-## 4. Points restant à améliorer
+### 2.2 CorpusDB (`core/storage/db.py`)
 
-### 4.1 Maintenabilité UI
+- Façade SQLite, délégation vers `db_align`, `db_segments`, `db_subtitles`, `db_kwic`. Context managers `connection()` / `transaction()`, PRAGMA WAL. Migrations via `migrations/*.sql`.
+- API batch : `get_tracks_for_episodes()`, `get_align_runs_for_episodes()`, `get_episode_text_presence()` (évitent N+1).
 
-- `tab_preparer.py` a nettement diminué (~764 lignes) mais reste le plus gros widget UI.
-- Les responsabilités sont désormais réparties (`app/tabs/preparer_context.py`, `app/tabs/preparer_save.py`, `app/tabs/preparer_edit.py`, `app/tabs/preparer_state.py`, `app/tabs/preparer_views.py`), avec un `PreparerTabWidget` recentré sur l'orchestration.
+### 2.3 Pipeline (tasks, runner, context)
 
-### 4.2 Homogénéité architecture
+- **Context** : TypedDict `config`, `store`, `db`, `custom_profiles`, `is_cancelled`.
+- **Runner** : boucle sur les steps, callbacks progress/log/error/cancelled.
+- **Tasks** : `BuildIndexStep`, `FetchEpisodeStep`, `NormalizeEpisodeStep`, etc. **Corrigé** : N+1 dans `BuildIndexStep` — un seul appel à `get_episode_ids_indexed()` avant la boucle (`indexed = set(db.get_episode_ids_indexed())` si `not force`).
 
-- Coexistence de contrôles projet de styles différents (décorateurs vs checks manuels) dans certains écrans.
-- Quelques méthodes UI restent longues (`tab_corpus.py` ~1055 lignes, portions d’initialisation/refresh dans `ui_mainwindow.py`).
-- **Corrigé (revue à nouveau)** : second `except (TypeError, ValueError): pass` dans `tab_personnages.py` (_propagate, parsing `params_json`) remplacé par un `logger.debug` pour traçabilité.
+### 2.4 Preparer, align, export
 
-### 4.3 Couverture de tests
-
-- Bonne couverture métier, mais couverture UI encore inégale hors onglet Préparer.
-- Peu de tests sur scénarios erreurs dialog/interaction pour certains onglets (`Corpus`, `Inspecteur`, `Concordance`, `Personnages`).
+- **Preparer** : `service.py`, `segmentation.py`, `persistence.py`, `status.py`, `snapshots.py`, `timecodes.py`.
+- **Align** : `aligner.py`, `similarity.py`.
+- **Export** : `export_utils.py` (corpus, segments, KWIC).
 
 ---
 
-## 5. Priorités recommandées
+## 3. App / UI
+
+### 3.1 MainWindow (`ui_mainwindow.py`)
+
+- Construction onglets, menu (Undo/Redo, Aide), gestion projet, JobRunner (run, progress, log, error, finished, cancel), handoffs (Préparer → Alignement, Concordance → Inspecteur), fermeture (save state, prompt Préparer dirty).
+- `_sync_config_from_project_tab()`, `_build_job_summary_message()`, `_refresh_tabs_after_job()` déjà factorisés.
+
+### 3.2 Onglets
+
+- **Projet** : formulaire, validation, callbacks vers MainWindow.
+- **Corpus** (~1080 lignes) : arbre épisodes, filtres saison, actions (découvrir, fetch, normaliser, indexer). Grosse classe.
+- **Inspecteur** + **Sous-titres** : conteneur fusionné `InspecteurEtSousTitresTabWidget`.
+- **Préparer** (~954 lignes) + `preparer_context.py`, `preparer_edit.py`, `preparer_save.py`, `preparer_state.py`, `preparer_views.py`.
+- **Alignement** (~822 lignes) : runs, liens, tableau, undo.
+- **Concordance** : KWIC, filtres, export, graphique fréquence (matplotlib).
+- **Personnages** : grille, assignations, propagation.
+- **Logs** : affichage log projet.
+
+### 3.3 Workers, models_qt, undo_commands
+
+- **JobRunner** : pipeline dans un `QThread`, signaux progress/log/error/finished/cancelled, option `QProgressDialog`.
+- **models_qt** : `EpisodesTreeModel`, `EpisodesTableModel`, `KwicTableModel`, `AlignLinksTableModel` ; `_compute_episode_text_presence` en batch + fallback.
+- **undo_commands** : commandes QUndoCommand pour alignement et sous-titres.
+
+---
+
+## 4. Correctifs déjà appliqués
+
+| Sujet | Statut |
+|-------|--------|
+| Synchro config Projet dupliquée | `_sync_config_from_project_tab()` factorisé |
+| `cues_audit` dupliqué pipeline | Helper `cues_to_audit_rows()` |
+| Refresh statuts épisodes coûteux | `get_episode_text_presence()` batch |
+| `_on_job_finished` trop long | `_build_job_summary_message()` + `_refresh_tabs_after_job()` |
+| Undo Préparer trop global | Snapshots ciblés |
+| Rollback sauvegarde cues SRT | `PreparerService.save_cue_edits()` rollback compensatoire |
+| Préparer refacto | Contrôleurs `preparer_context`, `preparer_save`, `preparer_edit`, `preparer_state`, `preparer_views` |
+| N+1 BuildIndexStep | Un seul appel `get_episode_ids_indexed()` avant la boucle |
+| Logs ProjectStore | `logger.warning` sur JSON corrompu dans plusieurs `load_*` |
+| Exceptions silencieuses Personnages | `logger.debug` sur parsing `summary_json` / `params_json` |
+| Exceptions silencieuses UI/Core ciblées | `logger.debug` ajouté (Alignement, Corpus, Inspecteur/Sous-titres, `db_align`, `models_qt`, `http`) |
+| Vérification « projet ouvert » | Uniformisée sur actions principales de `tab_corpus` via décorateurs |
+| Métadonnées run alignement | Parsing/fallback factorisés dans `core/align/run_metadata.py` |
+| Dépréciation Qt | `invalidateFilter()` remplacé par `invalidate()` |
+| Couverture tests | Ajouts sur MainWindow, workers, metadata alignement, regroupement aligné |
+
+---
+
+## 5. Qualité — points à améliorer
+
+### 5.1 Observabilité
+
+- Aucun `except ...: pass` résiduel détecté dans le périmètre ciblé de la revue.
+- Les chemins de fallback JSON/Qt réseau concernés tracent maintenant en `logger.debug`.
+
+### 5.2 Duplication
+
+- Le formatage de `segment_kind` des runs d’alignement est centralisé (`core/align/run_metadata.py`).
+- Il reste des checks manuels « projet ouvert » hors flux Corpus principal ; uniformisation complète encore possible.
+
+### 5.3 Fichiers volumineux (> 500 lignes)
+
+- **project_store.py** ~1298 — découper (ex. modules « characters », « prep_status », « config »).
+- **tab_corpus.py** ~1080 — sous-widgets ou mixins (arbre, filtres, actions).
+- **tab_preparer.py** ~954 — idem (vues transcript / cues, barre d’actions).
+- **tab_alignement.py** ~822 — idem.
+- **models_qt.py** ~765 — envisager un module par modèle ou par domaine.
+- **ui_mainwindow.py** ~702 — extraire construction onglets / gestion job.
+- **tasks.py** ~695, **db.py** ~620, **profiles.py** (dialogs) ~737 — à surveiller.
+
+### 5.4 Types et docstrings
+
+- Core en général bien typé. Certaines méthodes d’onglets sans type de retour ; docstrings inégales dans l’UI. Viser au moins les signatures publiques.
+
+---
+
+## 6. Performance
+
+- **N+1** : corrigé dans `BuildIndexStep`. Corpus refresh utilise déjà `get_tracks_for_episodes`, `get_align_runs_for_episodes`, `get_episode_text_presence` en batch.
+- **I/O** : fetch / indexation par épisode séquentiels (volontaire avec rate limit). Pour très gros corpus, envisager batch ou parallélisme contrôlé.
+- **UI** : JobRunner dans un thread ; refresh onglet Corpus synchrone — pour 100+ épisodes, envisager chargement asynchrone ou différé.
+
+---
+
+## 7. Tests
+
+- **Structure** : `tests/` à plat, `conftest.py` (fixtures_dir). **160 tests passés**, 0 warning.
+- **Couverture** : unit (segment, subtitles, align, normalize, preparer, db_*, export), intégration pipeline, UI (Corpus, Préparer, MainWindow), workers, undo, project_store.
+- **Manques** : couverture UI encore partielle sur certains dialogs/onglets secondaires (Inspecteur, Concordance, Logs, dialogs complexes).
+
+---
+
+## 8. Priorités recommandées
 
 | Priorité | Action |
 |----------|--------|
-| **P1** | Uniformiser la stratégie de vérification “projet ouvert” dans l’UI. |
-| **P1** | Ajouter des tests UI de robustesse sur prompts d’édition non sauvegardée hors Préparer. |
-| **P2** | Étendre les tests UI/intégration sur les onglets moins couverts. |
-| **P2** | Réduire les méthodes multi-responsabilités restantes dans `ui_mainwindow.py` / `tab_corpus.py`. |
-| **P3** | Remplacer `QSortFilterProxyModel.invalidateFilter()` par l’API non dépréciée (si documentée par Qt). |
+| **P1** | Finaliser l’uniformisation des checks « projet ouvert » sur les actions UI restantes hors Corpus principal. |
+| **P1** | Nettoyer/ignorer les artefacts de projet local sous `tests/` (runtime app) pour garder un arbre propre. |
+| **P2** | Découper les plus gros fichiers (project_store, tab_corpus, tab_preparer, tab_alignement, models_qt). |
+| **P2** | Étendre les tests UI/dialogs sur Inspecteur, Concordance, Logs et dialogs complexes. |
+| **P3** | Chargement asynchrone du refresh Corpus pour très gros corpus. |
 
 ---
 
-## 6. Conclusion
+## 9. Conclusion
 
-La majorité des points critiques remontés dans la revue précédente est désormais traitée et validée en tests.  
-Le risque résiduel principal reste **structurel** (widgets UI encore volumineux), plus que fonctionnel.
-
----
-
-## 7. Revue à nouveau (24 février 2025)
-
-- **Tests** : 118 passés, 1 warning (dépréciation `invalidateFilter()`).
-- **Code** : dernier `except` silencieux dans `tab_personnages.py` (_propagate, parsing `params_json`) remplacé par un log debug.
-- **Document** : date de mise à jour, compteur de tests et point P3 (invalidateFilter) alignés sur l’état actuel.
+Architecture claire (app / core), correctifs majeurs déjà en place (sync config, batch statuts, N+1 BuildIndexStep, refacto Préparer, undo ciblé, observabilité, factorisation alignement, dépréciation Qt résolue). Le risque résiduel est surtout **structurel** (fichiers longs) et **couverture UI partielle** sur quelques zones.

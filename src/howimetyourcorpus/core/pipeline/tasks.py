@@ -319,10 +319,11 @@ class BuildDbIndexStep(Step):
                         to_index.append(d.name)
         n = len(to_index)
         is_cancelled = context.get("is_cancelled")
+        indexed: set[str] = set(db.get_episode_ids_indexed()) if not force else set()
         for i, eid in enumerate(to_index):
             if is_cancelled and is_cancelled():
                 return StepResult(False, "Cancelled")
-            if not force and eid in db.get_episode_ids_indexed():
+            if not force and eid in indexed:
                 continue
             clean = store.load_episode_text(eid, kind="clean")
             if clean:

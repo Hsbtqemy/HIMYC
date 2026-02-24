@@ -497,9 +497,18 @@ class PreparerEditController:
             QMessageBox.information(tab, "Préparer", "Aucune ligne à regrouper.")
             return
         character_lookup = tab._save_controller.build_character_lookup()
+        episode_id = (tab.prep_episode_combo.currentData() or tab._current_episode_id or "").strip()
+        assignment_map: dict[str, str] = {}
+        if episode_id:
+            assignment_map = tab._load_assignment_map(
+                source_type="segment",
+                episode_id=episode_id,
+                prefix=f"{episode_id}:utterance:",
+            )
         after_rows = regroup_utterance_rows_by_character(
             before_rows,
             character_lookup=character_lookup,
+            assignment_by_segment_id=assignment_map,
             tolerant=tolerant,
         )
         self._apply_utterance_rows_with_undo(
@@ -525,3 +534,48 @@ class PreparerEditController:
             after_rows=after_rows,
             status_message="Renumérotation appliquée.",
         )
+
+    def reset_utterances_to_text(self) -> None:
+        tab = self._tab
+        if tab._current_source_key != "transcript":
+            return
+        before_rows = tab._export_utterance_rows()
+        if not before_rows:
+            tab.stack.setCurrentWidget(tab.text_editor)
+            tab._update_utterance_action_states()
+            return
+        previous_force = bool(getattr(tab, "_force_save_transcript_rows", False))
+
+        def _redo() -> None:
+            tab._updating_ui = True
+            try:
+                tab._set_utterances([])
+                tab.stack.setCurrentWidget(tab.text_editor)
+                tab._force_save_transcript_rows = True
+                tab._update_utterance_action_states()
+            finally:
+                tab._updating_ui = False
+            tab._set_dirty(True)
+
+        def _undo() -> None:
+            tab._updating_ui = True
+            try:
+                tab._set_utterances(before_rows)
+                tab.stack.setCurrentWidget(tab.utterance_table)
+                tab._force_save_transcript_rows = previous_force
+                tab._update_utterance_action_states()
+            finally:
+                tab._updating_ui = False
+            tab._set_dirty(True)
+
+        if tab.undo_stack:
+            tab.undo_stack.push(
+                CallbackUndoCommand(
+                    "Revenir au texte",
+                    redo_callback=_redo,
+                    undo_callback=_undo,
+                )
+            )
+        else:
+            _redo()
+        tab._show_status("Retour au texte (tours retirés).", 3000)

@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 DEFAULT_SEGMENTATION_OPTIONS: dict[str, Any] = {
-    "speaker_regex": r"^([A-Z][A-Za-z0-9_ '\-]{0,24}):\s*(.*)$",
+    "speaker_regex": r"^([A-Z][A-Za-z0-9_'\-]{0,24}(?:\s+[A-Z][A-Za-z0-9_'\-]{0,24}){0,2}):\s*(.*)$",
     "enable_dash_rule": True,
     "dash_regex": r"^[\-–—]\s*(.*)$",
     "continuation_markers": ["...", "…"],
@@ -131,6 +131,7 @@ def regroup_utterance_rows_by_character(
     rows: list[dict[str, Any]],
     *,
     character_lookup: dict[str, str],
+    assignment_by_segment_id: dict[str, str] | None = None,
     tolerant: bool = True,
 ) -> list[dict[str, Any]]:
     """
@@ -140,27 +141,35 @@ def regroup_utterance_rows_by_character(
     """
     grouped: list[dict[str, Any]] = []
     active_character_id: str | None = None
+    assignment_map = assignment_by_segment_id or {}
 
     for row in rows or []:
+        segment_id = (row.get("segment_id") or "").strip()
         speaker = (row.get("speaker_explicit") or "").strip()
         text = (row.get("text") or "").strip()
         if not text:
             continue
+        assigned_id = assignment_map.get(segment_id, "") if segment_id else ""
         explicit_id = character_lookup.get(speaker.lower(), "") if speaker else ""
-        current_id = explicit_id or None
+        if assigned_id:
+            current_id = assigned_id
+        elif explicit_id:
+            current_id = explicit_id
+        elif speaker:
+            # Fallback : éviter une fusion globale quand le label n'est pas mappé.
+            current_id = f"speaker:{speaker.lower()}"
+        else:
+            current_id = None
 
         if grouped:
             if current_id is not None:
-                if active_character_id is not None and current_id == active_character_id:
+                if active_character_id == current_id:
                     grouped[-1]["text"] = (grouped[-1]["text"].rstrip() + "\n" + text).strip()
                     if not grouped[-1]["speaker_explicit"] and speaker:
                         grouped[-1]["speaker_explicit"] = speaker
                     continue
             else:
                 if tolerant and active_character_id is not None:
-                    grouped[-1]["text"] = (grouped[-1]["text"].rstrip() + "\n" + text).strip()
-                    continue
-                if active_character_id is None:
                     grouped[-1]["text"] = (grouped[-1]["text"].rstrip() + "\n" + text).strip()
                     continue
 
@@ -172,11 +181,9 @@ def regroup_utterance_rows_by_character(
                 "text": text,
             }
         )
-        if current_id is not None:
-            active_character_id = current_id
+        active_character_id = current_id
 
     for idx, row in enumerate(grouped):
         row["n"] = idx
         row["segment_id"] = ""
     return grouped
-

@@ -30,6 +30,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from howimetyourcorpus.core.align import (
+    format_segment_kind_label,
+    normalize_segment_kind,
+    parse_run_segment_kind,
+)
 from howimetyourcorpus.core.pipeline.tasks import AlignEpisodeStep
 from howimetyourcorpus.core.export_utils import (
     export_parallel_concordance_csv,
@@ -185,6 +190,18 @@ class AlignmentTabWidget(QWidget):
         self.export_parallel_btn = QPushButton("Exporter concordancier parallèle")
         self.export_parallel_btn.clicked.connect(self._export_parallel_concordance)
         row.addWidget(self.export_parallel_btn)
+        self.align_group_btn = QPushButton("Générer groupes")
+        self.align_group_btn.setToolTip(
+            "Construit des groupes multi-langues par personnage à partir du run (non destructif)."
+        )
+        self.align_group_btn.clicked.connect(self._generate_alignment_groups)
+        row.addWidget(self.align_group_btn)
+        self.export_grouped_btn = QPushButton("Exporter groupes alignés")
+        self.export_grouped_btn.setToolTip(
+            "Exporte le concordancier à partir des groupes multi-langues générés (ou les génère si absents)."
+        )
+        self.export_grouped_btn.clicked.connect(self._export_grouped_alignment)
+        row.addWidget(self.export_grouped_btn)
         self.align_report_btn = QPushButton("Rapport HTML")
         self.align_report_btn.clicked.connect(self._export_align_report)
         row.addWidget(self.align_report_btn)
@@ -260,8 +277,8 @@ class AlignmentTabWidget(QWidget):
         if isinstance(val, (list, tuple)) and len(val) >= 2:
             try:
                 self.main_splitter.setSizes([int(x) for x in val[:2]])
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                logger.debug("Invalid AlignmentTab splitter state %r: %s", val, exc)
 
     def save_state(self) -> None:
         """Sauvegarde les proportions du splitter (appelé à la fermeture de l'application)."""
@@ -288,7 +305,7 @@ class AlignmentTabWidget(QWidget):
 
     def set_episode_and_segment_kind(self, episode_id: str, segment_kind: str = "sentence") -> None:
         """Sélectionne épisode + kind (utilisé par le handoff depuis Préparer)."""
-        sk = "utterance" if segment_kind == "utterance" else "sentence"
+        sk = normalize_segment_kind(segment_kind)
         idx_sk = self.align_segment_kind_combo.findData(sk)
         if idx_sk >= 0:
             self.align_segment_kind_combo.setCurrentIndex(idx_sk)
@@ -312,12 +329,13 @@ class AlignmentTabWidget(QWidget):
             params_json = r.get("params_json")
             segment_kind_label = ""
             if params_json:
-                try:
-                    params = json.loads(params_json)
-                    sk = (params.get("segment_kind") or "sentence").strip().lower()
-                    segment_kind_label = " (tours)" if sk == "utterance" else " (phrases)"
-                except (TypeError, ValueError):
-                    pass
+                parsed_kind, is_valid_payload = parse_run_segment_kind(
+                    params_json,
+                    run_id=run_id,
+                    logger_obj=logger,
+                )
+                if is_valid_payload:
+                    segment_kind_label = format_segment_kind_label(parsed_kind)
             self.align_run_combo.addItem(f"{run_id}{segment_kind_label} ({created})", run_id)
         self._on_run_changed()
 
@@ -616,6 +634,76 @@ class AlignmentTabWidget(QWidget):
                 segment_kind=segment_kind,
             )
         ])
+
+    @require_project_and_db
+    def _generate_alignment_groups(self) -> None:
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        db = self._get_db()
+        store = self._get_store()
+        if not eid or not run_id:
+            QMessageBox.warning(self, "Groupes alignés", "Sélectionnez un épisode et un run.")
+            return
+        if not db or not store:
+            return
+        try:
+            grouping = store.generate_align_grouping(db, eid, run_id, tolerant=True)
+            groups = grouping.get("groups") or []
+            QMessageBox.information(
+                self,
+                "Groupes alignés",
+                f"Groupes générés: {len(groups)} (run {run_id}).\n"
+                "Aucune donnée source n'a été modifiée.",
+            )
+        except Exception as exc:
+            logger.exception("Generate alignment groups")
+            QMessageBox.critical(self, "Groupes alignés", f"Erreur génération groupes: {exc}")
+
+    @require_project_and_db
+    def _export_grouped_alignment(self) -> None:
+        eid = self.align_episode_combo.currentData()
+        run_id = self.align_run_combo.currentData()
+        db = self._get_db()
+        store = self._get_store()
+        if not eid or not run_id:
+            QMessageBox.warning(self, "Export groupes alignés", "Sélectionnez un épisode et un run.")
+            return
+        if not db or not store:
+            return
+        path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Exporter groupes alignés",
+            "",
+            "CSV (*.csv);;TSV (*.tsv);;TXT (*.txt);;HTML (*.html);;JSONL (*.jsonl);;Word (*.docx)",
+        )
+        if not path:
+            return
+        path = Path(path)
+        if path.suffix.lower() != ".docx" and (selected_filter or "").strip().startswith("Word"):
+            path = path.with_suffix(".docx")
+        if path.suffix.lower() not in (".csv", ".tsv", ".txt", ".html", ".jsonl", ".docx"):
+            path = path.with_suffix(".csv")
+        try:
+            grouping = store.load_align_grouping(eid, run_id)
+            if not grouping:
+                grouping = store.generate_align_grouping(db, eid, run_id, tolerant=True)
+            rows = store.align_grouping_to_parallel_rows(grouping)
+            if path.suffix.lower() == ".jsonl":
+                export_parallel_concordance_jsonl(rows, path)
+            elif path.suffix.lower() == ".tsv":
+                export_parallel_concordance_tsv(rows, path)
+            elif path.suffix.lower() == ".txt":
+                export_parallel_concordance_txt(rows, path)
+            elif path.suffix.lower() == ".html":
+                export_parallel_concordance_html(rows, path, title=f"Groupes {eid} — {run_id}")
+            elif path.suffix.lower() == ".docx":
+                export_parallel_concordance_docx(rows, path)
+            else:
+                export_parallel_concordance_csv(rows, path)
+            QMessageBox.information(self, "Export", f"Groupes alignés exportés : {len(rows)} groupe(s).")
+        except Exception as exc:
+            logger.exception("Export grouped alignment")
+            QMessageBox.critical(self, "Export groupes alignés", f"Erreur export: {exc}")
 
     @require_project_and_db
     def _export_alignment(self) -> None:
