@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.normalize.profiles import PROFILES
+from howimetyourcorpus.app.ui_utils import require_project
 
 
 class ProjectTabWidget(QWidget):
@@ -288,11 +289,10 @@ class ProjectTabWidget(QWidget):
             and self.languages_list.currentRow() >= 0
         )
 
+    @require_project
     def _add_language(self) -> None:
         store = self._get_store()
-        if not store:
-            QMessageBox.warning(self, "Langues", "Ouvrez un projet d'abord.")
-            return
+        assert store is not None  # garanti par @require_project
         dlg = QDialog(self)
         dlg.setWindowTitle("Ajouter une langue")
         form = QFormLayout(dlg)
@@ -327,10 +327,10 @@ class ProjectTabWidget(QWidget):
         self._refresh_language_combos_callback()
         self._show_status(f"Langue « {code} » ajoutée.", 3000)
 
+    @require_project
     def _remove_language(self) -> None:
         store = self._get_store()
-        if not store:
-            return
+        assert store is not None  # garanti par @require_project
         row = self.languages_list.currentRow()
         if row < 0:
             QMessageBox.information(self, "Langues", "Sélectionnez une langue à supprimer.")

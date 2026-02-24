@@ -13,6 +13,7 @@ from howimetyourcorpus.app.tabs.tab_concordance import ConcordanceTabWidget  # n
 from howimetyourcorpus.app.tabs.tab_alignement import AlignmentTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_preparer import PreparerTabWidget  # noqa: E402
+from howimetyourcorpus.app.tabs.tab_projet import ProjectTabWidget  # noqa: E402
 from howimetyourcorpus.app.tabs.tab_sous_titres import SubtitleTabWidget  # noqa: E402
 
 
@@ -135,3 +136,27 @@ def test_preparer_normalize_warns_without_project(
     tab._normalize_transcript()
 
     assert calls == [("Préparer", "Ouvrez un projet d'abord.")]
+
+
+def test_project_add_language_warns_without_project(
+    qapp: QApplication,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tab = ProjectTabWidget(
+        get_store=lambda: None,
+        on_validate_clicked=lambda: None,
+        on_save_config=lambda: None,
+        on_open_profiles_dialog=lambda: None,
+        on_refresh_language_combos=lambda: None,
+        show_status=lambda _msg, _timeout=3000: None,
+    )
+    calls: list[tuple[str, str]] = []
+
+    def _warning(_parent, title: str, msg: str):
+        calls.append((title, msg))
+        return None
+
+    monkeypatch.setattr("howimetyourcorpus.app.ui_utils.QMessageBox.warning", _warning)
+    tab._add_language()
+
+    assert calls == [("Langues", "Ouvrez un projet d'abord.")]

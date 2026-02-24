@@ -2,7 +2,7 @@
 
 **Dernière mise à jour** : revue complète (état actuel)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
-**Tests** : **197 passés**, 0 warning.
+**Tests** : **198 passés**, 0 warning.
 
 ---
 
@@ -133,7 +133,7 @@
 
 ## 7. Tests
 
-- **Structure** : `tests/` à plat, `conftest.py` (fixtures_dir). **197 tests passés**, 0 warning.
+- **Structure** : `tests/` à plat, `conftest.py` (fixtures_dir). **198 tests passés**, 0 warning.
 - **Couverture** : unit (segment, subtitles, align, normalize, preparer, db_*, export), intégration pipeline, UI (Corpus, Préparer, MainWindow), workers, undo, project_store.
 - **Manques** : couverture UI encore partielle sur certains dialogs/onglets secondaires (Inspecteur, Concordance, Logs, dialogs complexes).
 
