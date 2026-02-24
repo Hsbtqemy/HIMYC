@@ -69,6 +69,16 @@ class CorpusDB:
         finally:
             conn.close()
 
+    @contextmanager
+    def transaction(self):
+        """Context manager transactionnel (commit/rollback automatique)."""
+        conn = self._conn()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def _migrate(self, conn: sqlite3.Connection) -> None:
         """Exécute les migrations en attente (schema_version)."""
         if not self._table_exists(conn, "schema_version"):
@@ -192,7 +202,7 @@ class CorpusDB:
         self, episode_id: str, status: str, timestamp: str | None = None
     ) -> None:
         """Met à jour le statut d'un épisode (et fetched_at / normalized_at si fourni)."""
-        ts = timestamp or datetime.datetime.utcnow().isoformat() + "Z"
+        ts = timestamp or datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
         conn = self._conn()
         try:
             if status == EpisodeStatus.FETCHED.value:
@@ -356,6 +366,15 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def update_segment_text(self, segment_id: str, text: str) -> None:
+        """Met à jour le texte d'un segment."""
+        conn = self._conn()
+        try:
+            db_segments.update_segment_text(conn, segment_id, text)
+            conn.commit()
+        finally:
+            conn.close()
+
     def get_distinct_speaker_explicit(self, episode_ids: list[str]) -> list[str]:
         """Retourne la liste des noms de locuteurs (speaker_explicit) présents dans les segments des épisodes donnés, triés."""
         conn = self._conn()
@@ -398,6 +417,15 @@ class CorpusDB:
         conn = self._conn()
         try:
             db_subtitles.update_cue_text_clean(conn, cue_id, text_clean)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def update_cue_timecodes(self, cue_id: str, start_ms: int, end_ms: int) -> None:
+        """Met à jour les timecodes d'une cue."""
+        conn = self._conn()
+        try:
+            db_subtitles.update_cue_timecodes(conn, cue_id, start_ms, end_ms)
             conn.commit()
         finally:
             conn.close()
@@ -509,6 +537,14 @@ class CorpusDB:
         conn = self._conn()
         try:
             return db_align.get_align_runs_for_episode(conn, episode_id)
+        finally:
+            conn.close()
+
+    def get_align_run(self, run_id: str) -> dict | None:
+        """Retourne un run d'alignement par son id (pour pivot_lang, etc.)."""
+        conn = self._conn()
+        try:
+            return db_align.get_align_run(conn, run_id)
         finally:
             conn.close()
 

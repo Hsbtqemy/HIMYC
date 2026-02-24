@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Callable
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -18,6 +22,8 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
+
+logger = logging.getLogger(__name__)
 
 
 class PersonnagesTabWidget(QWidget):
@@ -36,10 +42,16 @@ class PersonnagesTabWidget(QWidget):
         self._show_status = show_status
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(
-            "Liste des personnages du projet (noms canoniques et par langue). "
-            "Utilisée pour l'assignation et la propagation des noms (backlog §8)."
-        ))
+        workflow_label = QLabel(
+            "Workflow : 1) Définir la liste des personnages (Nouveau / Importer depuis les segments). "
+            "2) Par épisode : Charger Segments ou Cues, assigner, Enregistrer assignations. "
+            "3) Propager vers les fichiers (utilise l’alignement ; les noms apparaissent dans l’export SRT et le concordancier)."
+        )
+        workflow_label.setWordWrap(True)
+        workflow_label.setStyleSheet("color: #555; font-style: italic;")
+        layout.addWidget(workflow_label)
+
+        layout.addWidget(QLabel("1. Liste des personnages"))
         self.personnages_table = QTableWidget()
         self.personnages_table.setColumnCount(4)
         self.personnages_table.setHorizontalHeaderLabels(["Id", "Canonique", "EN", "FR"])
@@ -47,14 +59,18 @@ class PersonnagesTabWidget(QWidget):
         layout.addWidget(self.personnages_table)
         btn_row = QHBoxLayout()
         self.personnages_add_btn = QPushButton("Nouveau")
+        self.personnages_add_btn.setToolTip("Ajoute une ligne vide pour créer un personnage (Id, Canonique, noms par langue).")
         self.personnages_add_btn.clicked.connect(self._add_row)
         self.personnages_remove_btn = QPushButton("Supprimer")
+        self.personnages_remove_btn.setToolTip("Supprime le personnage de la ligne sélectionnée.")
         self.personnages_remove_btn.clicked.connect(self._remove_row)
         self.personnages_save_btn = QPushButton("Enregistrer")
+        self.personnages_save_btn.setToolTip("Enregistre la liste des personnages (à faire après ajout ou modification).")
         self.personnages_save_btn.clicked.connect(self._save)
         self.personnages_import_speakers_btn = QPushButton("Importer depuis les segments")
         self.personnages_import_speakers_btn.setToolTip(
-            "Récupère les noms de locuteurs (Marshall, Ted, etc.) détectés dans les segments de tous les épisodes et les ajoute à la grille s'ils n'y sont pas déjà."
+            "Récupère les noms de locuteurs (Marshall, Ted, etc.) détectés dans les segments du transcript (format « Nom : »). "
+            "N’ajoute pas les noms déjà présents dans la grille."
         )
         self.personnages_import_speakers_btn.clicked.connect(self._import_speakers_from_segments)
         btn_row.addWidget(self.personnages_add_btn)
@@ -63,20 +79,28 @@ class PersonnagesTabWidget(QWidget):
         btn_row.addWidget(self.personnages_import_speakers_btn)
         btn_row.addStretch()
         layout.addLayout(btn_row)
-        layout.addWidget(QLabel("Assignation (segment ou cue → personnage) :"))
+        layout.addWidget(QLabel("2. Assignation (segment ou cue → personnage)"))
         assign_row = QHBoxLayout()
         assign_row.addWidget(QLabel("Épisode:"))
         self.personnages_episode_combo = QComboBox()
         self.personnages_episode_combo.setMinimumWidth(200)
+        self.personnages_episode_combo.setToolTip("Épisode pour lequel charger et assigner les segments ou les cues.")
         assign_row.addWidget(self.personnages_episode_combo)
+        self.personnages_episode_combo.currentIndexChanged.connect(self._fill_propagate_run_combo)
         assign_row.addWidget(QLabel("Source:"))
         self.personnages_source_combo = QComboBox()
         self.personnages_source_combo.addItem("Segments (phrases)", "segments")
+        self.personnages_source_combo.addItem("Segments (tours)", "segments_utterance")
         self.personnages_source_combo.addItem("Cues EN", "cues_en")
         self.personnages_source_combo.addItem("Cues FR", "cues_fr")
         self.personnages_source_combo.addItem("Cues IT", "cues_it")
+        self.personnages_source_combo.setToolTip(
+            "Phrases = découpage . ? ! du transcript. Tours = une ligne par prise de parole (format « Nom : »). Cues = répliques des pistes sous-titres (EN/FR/IT)."
+        )
+        self.personnages_source_combo.currentIndexChanged.connect(self._on_assign_source_changed)
         assign_row.addWidget(self.personnages_source_combo)
         self.personnages_load_assign_btn = QPushButton("Charger")
+        self.personnages_load_assign_btn.setToolTip("Charge la liste des segments ou cues de l’épisode pour assigner un personnage à chaque ligne.")
         self.personnages_load_assign_btn.clicked.connect(self._load_assignments)
         assign_row.addWidget(self.personnages_load_assign_btn)
         layout.addLayout(assign_row)
@@ -85,18 +109,37 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_assign_table.setHorizontalHeaderLabels(["ID", "Texte", "Personnage"])
         self.personnages_assign_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.personnages_assign_table)
+        self.personnages_assign_note_label = QLabel("")
+        self.personnages_assign_note_label.setWordWrap(True)
+        self.personnages_assign_note_label.setStyleSheet("color: #666; font-size: 0.9em;")
+        layout.addWidget(self.personnages_assign_note_label)
         self.personnages_save_assign_btn = QPushButton("Enregistrer assignations")
+        self.personnages_save_assign_btn.setToolTip("Enregistre les personnages assignés pour cet épisode et cette source. À faire avant de lancer la propagation.")
         self.personnages_save_assign_btn.clicked.connect(self._save_assignments)
         layout.addWidget(self.personnages_save_assign_btn)
-        self.personnages_propagate_btn = QPushButton("Propager vers les autres fichiers")
+
+        layout.addWidget(QLabel("3. Propagation vers les fichiers"))
+        prop_row = QHBoxLayout()
+        prop_row.addWidget(QLabel("Run d’alignement:"))
+        self.personnages_run_combo = QComboBox()
+        self.personnages_run_combo.setMinimumWidth(220)
+        self.personnages_run_combo.setToolTip(
+            "Run utilisé pour propager les noms le long des liens d'alignement (phrase ↔ cue pivot ↔ cues cibles). Créé dans l’onglet Alignement."
+        )
+        prop_row.addWidget(self.personnages_run_combo)
+        self.personnages_propagate_btn = QPushButton("Propager")
         self.personnages_propagate_btn.setToolTip(
-            "Utilise les liens d'alignement pour propager les noms de personnages vers les positions alignées (fichiers cibles)."
+            "Suit les liens du run : assignations sur les phrases ou sur les cues pivot → préfixe « Nom : » sur les cues alignées et réécriture des SRT. "
+            "Les assignations sur les tours de parole ne sont pas propagées vers les SRT (seules phrases et cues le sont). Prérequis : assignations enregistrées, run sélectionné."
         )
         self.personnages_propagate_btn.clicked.connect(self._propagate)
-        layout.addWidget(self.personnages_propagate_btn)
+        prop_row.addWidget(self.personnages_propagate_btn)
+        prop_row.addStretch()
+        layout.addLayout(prop_row)
 
     def refresh(self) -> None:
-        """Charge la liste des personnages et le combo épisodes (appelé après ouverture projet)."""
+        """Charge la liste des personnages et le combo épisodes (préserve l'épisode courant si possible)."""
+        current_episode_id = self.personnages_episode_combo.currentData()
         self.personnages_table.setRowCount(0)
         self.personnages_episode_combo.clear()
         store = self._get_store()
@@ -108,7 +151,8 @@ class PersonnagesTabWidget(QWidget):
             ["Id", "Canonique"] + [lang.upper() for lang in langs]
         )
         self.personnages_source_combo.clear()
-        self.personnages_source_combo.addItem("Segments", "segments")
+        self.personnages_source_combo.addItem("Segments (phrases)", "segments")
+        self.personnages_source_combo.addItem("Segments (tours)", "segments_utterance")
         for lang in langs:
             self.personnages_source_combo.addItem(f"Cues {lang.upper()}", f"cues_{lang}")
         characters = store.load_character_names()
@@ -128,6 +172,68 @@ class PersonnagesTabWidget(QWidget):
                 self.personnages_episode_combo.addItem(
                     f"{e.episode_id} - {e.title}", e.episode_id
                 )
+            if current_episode_id:
+                for i in range(self.personnages_episode_combo.count()):
+                    if self.personnages_episode_combo.itemData(i) == current_episode_id:
+                        self.personnages_episode_combo.setCurrentIndex(i)
+                        break
+        self._fill_propagate_run_combo()
+
+    def _on_assign_source_changed(self) -> None:
+        """Affiche la note explicative lorsque la source est « Segments (tours) »."""
+        source_key = self.personnages_source_combo.currentData()
+        if source_key == "segments_utterance":
+            self.personnages_assign_note_label.setText(
+                "Assignation par tours : enregistrée pour le transcript (speaker_explicit). "
+                "La propagation vers les SRT utilise les liens d'alignement : si le run choisi est basé sur les tours (onglet Alignement), les assignations ici seront propagées ; "
+                "si le run est basé sur les phrases, seules les assignations sur les phrases ou sur les cues sont propagées."
+            )
+        else:
+            self.personnages_assign_note_label.setText("")
+
+    def _ask_languages_to_rewrite(self, langs_available: list[str]) -> set[str] | None:
+        """Demande à l'utilisateur quelles langues réécrire (fichiers SRT). Retourne le set des langues cochées ou None si annulé."""
+        if not langs_available:
+            return set()
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Propagation — langues à réécrire")
+        layout = QVBoxLayout(dlg)
+        layout.addWidget(QLabel("Réécrire les fichiers SRT pour les langues suivantes :\n(Décocher pour ne pas modifier le fichier.)"))
+        checkboxes: dict[str, QCheckBox] = {}
+        for lang in langs_available:
+            cb = QCheckBox(lang.upper(), dlg)
+            cb.setChecked(True)
+            checkboxes[lang] = cb
+            layout.addWidget(cb)
+        bbox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        bbox.accepted.connect(dlg.accept)
+        bbox.rejected.connect(dlg.reject)
+        layout.addWidget(bbox)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return {lang for lang, cb in checkboxes.items() if cb.isChecked()}
+
+    def _fill_propagate_run_combo(self) -> None:
+        """Remplit le combo des runs d'alignement pour l'épisode sélectionné."""
+        self.personnages_run_combo.clear()
+        eid = self.personnages_episode_combo.currentData()
+        db = self._get_db()
+        if not eid or not db:
+            return
+        runs = db.get_align_runs_for_episode(eid)
+        for r in runs:
+            run_id = r.get("align_run_id") or ""
+            summary = r.get("summary_json") or ""
+            label = run_id
+            if summary:
+                try:
+                    import json
+                    s = json.loads(summary)
+                    if isinstance(s, dict) and s.get("nb_links") is not None:
+                        label = f"{run_id} ({s.get('nb_links', 0)} liens)"
+                except (TypeError, ValueError) as e:
+                    logger.debug("Could not parse align run summary_json for %s: %s", run_id, e)
+            self.personnages_run_combo.addItem(label, run_id)
 
     def _add_row(self) -> None:
         row = self.personnages_table.rowCount()
@@ -182,7 +288,11 @@ class PersonnagesTabWidget(QWidget):
             existing_id_lower.add(norm_id)
             added += 1
         if added:
-            store.save_character_names(characters)
+            try:
+                store.save_character_names(characters)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Personnages", str(exc))
+                return
             self.refresh()
             self._show_status(f"{added} nom(s) importé(s) depuis les segments.", 4000)
         else:
@@ -213,7 +323,11 @@ class PersonnagesTabWidget(QWidget):
                 "canonical": canon or cid,
                 "names_by_lang": names_by_lang,
             })
-        store.save_character_names(characters)
+        try:
+            store.save_character_names(characters)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Personnages", str(exc))
+            return
         self._show_status("Personnages enregistrés.", 3000)
 
     @require_project_and_db
@@ -231,7 +345,7 @@ class PersonnagesTabWidget(QWidget):
             if ch.get("id") or ch.get("canonical")
         ]
         assignments = store.load_character_assignments()
-        source_type = "segment" if source_key == "segments" else "cue"
+        source_type = "segment" if source_key in ("segments", "segments_utterance") else "cue"
         assign_map = {
             a["source_id"]: a.get("character_id") or ""
             for a in assignments
@@ -240,6 +354,25 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_assign_table.setRowCount(0)
         if source_key == "segments":
             segments = db.get_segments_for_episode(eid, kind="sentence")
+            for s in segments:
+                sid = s.get("segment_id") or ""
+                text = (s.get("text") or "")[:80]
+                if len((s.get("text") or "")) > 80:
+                    text += "…"
+                row = self.personnages_assign_table.rowCount()
+                self.personnages_assign_table.insertRow(row)
+                self.personnages_assign_table.setItem(row, 0, QTableWidgetItem(sid))
+                self.personnages_assign_table.setItem(row, 1, QTableWidgetItem(text))
+                combo = QComboBox()
+                combo.addItem("—", "")
+                for cid in character_ids:
+                    combo.addItem(cid, cid)
+                idx = combo.findData(assign_map.get(sid, ""))
+                if idx >= 0:
+                    combo.setCurrentIndex(idx)
+                self.personnages_assign_table.setCellWidget(row, 2, combo)
+        elif source_key == "segments_utterance":
+            segments = db.get_segments_for_episode(eid, kind="utterance")
             for s in segments:
                 sid = s.get("segment_id") or ""
                 text = (s.get("text") or "")[:80]
@@ -277,6 +410,7 @@ class PersonnagesTabWidget(QWidget):
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
                 self.personnages_assign_table.setCellWidget(row, 2, combo)
+        self._on_assign_source_changed()
 
     @require_project
     def _save_assignments(self) -> None:
@@ -286,7 +420,7 @@ class PersonnagesTabWidget(QWidget):
         if not eid:
             QMessageBox.warning(self, "Personnages", "Ouvrez un projet et sélectionnez un épisode.")
             return
-        source_type = "segment" if source_key == "segments" else "cue"
+        source_type = "segment" if source_key in ("segments", "segments_utterance") else "cue"
         new_assignments = []
         for row in range(self.personnages_assign_table.rowCount()):
             id_item = self.personnages_assign_table.item(row, 0)
@@ -303,11 +437,21 @@ class PersonnagesTabWidget(QWidget):
                     "character_id": character_id,
                 })
         all_assignments = store.load_character_assignments()
-        all_assignments = [
-            a
-            for a in all_assignments
-            if not (a.get("episode_id") == eid and a.get("source_type") == source_type)
-        ]
+
+        def _assignment_belongs_to_current_source(a: dict) -> bool:
+            if a.get("episode_id") != eid:
+                return False
+            if source_key == "segments":
+                return a.get("source_type") == "segment" and ":sentence:" in (a.get("source_id") or "")
+            if source_key == "segments_utterance":
+                return a.get("source_type") == "segment" and ":utterance:" in (a.get("source_id") or "")
+            if source_key and source_key.startswith("cues_"):
+                lang = source_key.replace("cues_", "", 1).strip().lower()
+                prefix = f"{eid}:{lang}:"
+                return a.get("source_type") == "cue" and (a.get("source_id") or "").startswith(prefix)
+            return False
+
+        all_assignments = [a for a in all_assignments if not _assignment_belongs_to_current_source(a)]
         all_assignments.extend(new_assignments)
         store.save_character_assignments(all_assignments)
         self._show_status(f"Assignations enregistrées : {len(new_assignments)}.", 3000)
@@ -320,27 +464,66 @@ class PersonnagesTabWidget(QWidget):
         if not eid:
             QMessageBox.warning(self, "Personnages", "Sélectionnez un épisode (section Assignation).")
             return
+        run_id = self.personnages_run_combo.currentData()
+        if not run_id:
+            QMessageBox.warning(
+                self,
+                "Propagation",
+                "Aucun run d'alignement sélectionné pour cet épisode. Choisissez un run dans la liste « Run d'alignement », ou lancez l'alignement dans l'onglet Alignement.",
+            )
+            return
         assignments = store.load_character_assignments()
         episode_assignments = [a for a in assignments if a.get("episode_id") == eid]
         if not episode_assignments:
             QMessageBox.information(
-                self, "Propagation", "Aucune assignation pour cet épisode. Enregistrez des assignations d'abord."
+                self, "Propagation", "Aucune assignation pour cet épisode. Enregistrez des assignations (section 2) puis réessayez."
             )
             return
-        runs = db.get_align_runs_for_episode(eid)
-        if not runs:
-            QMessageBox.information(
+        run = db.get_align_run(run_id)
+        run_segment_kind = "sentence"
+        if run and run.get("params_json"):
+            try:
+                import json
+                params = json.loads(run["params_json"])
+                run_segment_kind = (params.get("segment_kind") or "sentence").strip().lower()
+            except (TypeError, ValueError) as e:
+                logger.debug("Could not parse align run params_json for %s: %s", run_id, e)
+        has_phrase_or_cue = any(
+            (a.get("source_type") == "segment" and ":sentence:" in (a.get("source_id") or ""))
+            or (a.get("source_type") == "cue")
+            or (run_segment_kind == "utterance" and a.get("source_type") == "segment" and ":utterance:" in (a.get("source_id") or ""))
+            for a in episode_assignments
+        )
+        if not has_phrase_or_cue:
+            if QMessageBox.question(
                 self,
                 "Propagation",
-                "Aucun run d'alignement pour cet épisode. Lancez l'alignement (onglet Alignement) d'abord.",
-            )
+                "Aucune assignation sur les phrases ni sur les cues. La propagation ne mettra à jour que les segments (speaker_explicit) ; "
+                "les fichiers SRT ne seront pas modifiés.\n\nContinuer quand même ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            ) != QMessageBox.StandardButton.Yes:
+                return
+        links = db.query_alignment_for_episode(eid, run_id=run_id)
+        pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
+        target_langs = {(lnk.get("lang") or "").strip().lower() for lnk in links if lnk.get("role") == "target" and (lnk.get("lang") or "").strip()}
+        langs_available = sorted({pivot_lang} | target_langs)
+        languages_to_rewrite = self._ask_languages_to_rewrite(langs_available)
+        if languages_to_rewrite is None:
             return
-        run_id = runs[0].get("align_run_id")
         try:
-            nb_seg, nb_cue = store.propagate_character_names(db, eid, run_id)
+            nb_seg, nb_cue = store.propagate_character_names(db, eid, run_id, languages_to_rewrite=languages_to_rewrite)
             self._show_status(
                 f"Propagation : {nb_seg} segment(s), {nb_cue} cue(s) mis à jour ; fichiers SRT réécrits.",
                 6000,
+            )
+            QMessageBox.information(
+                self,
+                "Propagation terminée",
+                f"{nb_seg} segment(s) et {nb_cue} cue(s) mis à jour.\n\n"
+                "Les noms de personnages apparaissent maintenant dans :\n"
+                "• l’export SRT (Inspecteur, piste sous-titres)\n"
+                "• le concordancier parallèle (onglet Alignement, export).",
             )
         except Exception as e:
             QMessageBox.critical(

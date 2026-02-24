@@ -22,6 +22,7 @@ class KwicHit:
     kind: str | None = None  # "sentence" | "utterance"
     cue_id: str | None = None  # Phase 3: hit au niveau cue sous-titre
     lang: str | None = None  # Phase 3: langue de la cue
+    speaker: str | None = None  # Phase 3: personnage / locuteur (segment speaker_explicit ou cue)
 
 
 def fts5_match_query(term: str) -> str:
@@ -137,7 +138,7 @@ def query_kwic_segments(
         params.append(episode)
     rows = conn.execute(
         f"""
-        SELECT s.segment_id, s.episode_id, s.kind, s.text, e.title
+        SELECT s.segment_id, s.episode_id, s.kind, s.text, s.speaker_explicit, e.title
         FROM segments_fts
         JOIN segments s ON s.rowid = segments_fts.rowid
         JOIN episodes e ON e.episode_id = s.episode_id
@@ -154,6 +155,7 @@ def query_kwic_segments(
         k = row["kind"]
         title = row["title"] or ""
         text = row["text"] or ""
+        speaker = (row["speaker_explicit"] or "").strip() or None
         for m in pattern.finditer(text):
             start, end = m.start(), m.end()
             left = text[max(0, start - window) : start]
@@ -174,6 +176,7 @@ def query_kwic_segments(
                     score=1.0,
                     segment_id=segment_id,
                     kind=k,
+                    speaker=speaker,
                 )
             )
             if len(hits) >= limit:
@@ -225,6 +228,10 @@ def query_kwic_cues(
         lang_val = row["lang"]
         title = row["title"] or ""
         text = row["text_clean"] or ""
+        speaker = None
+        speaker_match = re.match(r"^([^:]+):\s*", text.strip())
+        if speaker_match:
+            speaker = speaker_match.group(1).strip() or None
         for m in pattern.finditer(text):
             start, end = m.start(), m.end()
             left = text[max(0, start - window) : start]
@@ -245,6 +252,7 @@ def query_kwic_cues(
                     score=1.0,
                     cue_id=cue_id,
                     lang=lang_val,
+                    speaker=speaker,
                 )
             )
             if len(hits) >= limit:

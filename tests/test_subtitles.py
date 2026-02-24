@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from howimetyourcorpus.core.subtitles import Cue, parse_srt, parse_vtt, parse_subtitle_file
+from howimetyourcorpus.core.subtitles import Cue, cues_to_audit_rows, parse_srt, parse_vtt, parse_subtitle_file
 
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -88,3 +88,16 @@ def test_parse_subtitle_file_vtt():
     assert fmt == "vtt"
     assert len(cues) >= 2
     assert any("Legendary" in c.text_clean for c in cues)
+
+
+def test_cues_to_audit_rows():
+    cues = [
+        Cue(episode_id="S01E01", lang="en", n=0, start_ms=1000, end_ms=2000, text_raw="Hi", text_clean="Hi"),
+        Cue(episode_id="S01E01", lang="en", n=1, start_ms=2100, end_ms=3000, text_raw="There", text_clean="There"),
+    ]
+    rows = cues_to_audit_rows(cues)
+    assert len(rows) == 2
+    assert rows[0]["cue_id"] == "S01E01:en:0"
+    assert rows[0]["start_ms"] == 1000
+    assert rows[1]["cue_id"] == "S01E01:en:1"
+    assert rows[1]["text_clean"] == "There"

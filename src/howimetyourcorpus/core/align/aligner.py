@@ -45,11 +45,15 @@ def align_segments_to_cues(
     max_cues_per_segment: int = 5,
     min_confidence: float = 0.3,
     on_progress: callable | None = None,
+    monotonic: bool = True,
 ) -> list[AlignLink]:
     """
     Aligne les segments (phrases) aux cues EN par similarité textuelle.
     Chaque segment est comparé à chaque cue (et à des concaténations de 1..K cues).
     Retourne une liste de AlignLink (segment_id, cue_id, role=pivot, confidence).
+
+    Si monotonic=True (défaut), les liens respectent l'ordre : un segment ne peut s'aligner
+    qu'à une cue d'index >= dernière cue utilisée, ce qui évite les croisements (segment 1 ↔ cue 45).
 
     Choix métier : une même cue peut être liée à plusieurs segments (une ligne de
     sous-titre peut couvrir plusieurs phrases). used_cue_indices est maintenu pour
@@ -57,9 +61,11 @@ def align_segments_to_cues(
     
     Args:
         on_progress: callback(current, total) pour progression granulaire (optionnel).
+        monotonic: si True, contrainte d'ordre (pas de réorganisation en croix).
     """
     links: list[AlignLink] = []
     used_cue_indices: set[int] = set()  # Réservé pour évolution (bijection partielle)
+    last_used_cue_index: int = -1  # Pour contrainte monotone
     total_segments = len(segments)
     for idx, seg in enumerate(segments):
         seg_id = seg.get("segment_id") or ""
@@ -69,13 +75,18 @@ def align_segments_to_cues(
         best_score = min_confidence
         best_cue_id: str | None = None
         best_n = 0
-        for i, cue in enumerate(cues_en):
+        best_cue_index = -1
+        # Si monotonic : ne considérer que les cues à partir de last_used_cue_index + 1
+        start_i = (last_used_cue_index + 1) if monotonic else 0
+        for i in range(start_i, len(cues_en)):
+            cue = cues_en[i]
             cue_text = (cue.get("text_clean") or cue.get("text_raw") or "").strip()
             score = text_similarity(seg_text, cue_text)
             if score > best_score:
                 best_score = score
                 best_cue_id = cue.get("cue_id")
                 best_n = 1
+                best_cue_index = i
             for n in range(2, min(max_cues_per_segment + 1, len(cues_en) - i + 1)):
                 combined = " ".join(
                     (c.get("text_clean") or c.get("text_raw") or "").strip()
@@ -86,8 +97,11 @@ def align_segments_to_cues(
                     best_score = s
                     best_cue_id = cue.get("cue_id")
                     best_n = n
+                    best_cue_index = i
         if best_cue_id and best_score >= min_confidence:
             used_cue_indices.add(next(j for j, c in enumerate(cues_en) if c.get("cue_id") == best_cue_id))
+            if monotonic and best_cue_index >= 0:
+                last_used_cue_index = max(last_used_cue_index, best_cue_index + best_n - 1)
             links.append(
                 AlignLink(
                     segment_id=seg_id,

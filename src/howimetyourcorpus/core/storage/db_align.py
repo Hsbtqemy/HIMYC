@@ -21,7 +21,7 @@ def create_align_run(
 ) -> None:
     """Crée une entrée de run d'alignement."""
     if not created_at:
-        created_at = datetime.datetime.utcnow().isoformat() + "Z"
+        created_at = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
     conn.execute(
         """
         INSERT INTO align_runs (align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json)
@@ -93,6 +93,16 @@ def get_align_runs_for_episode(conn: sqlite3.Connection, episode_id: str) -> lis
         (episode_id,),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_align_run(conn: sqlite3.Connection, run_id: str) -> dict | None:
+    """Retourne un run d'alignement par son id (pour connaître pivot_lang)."""
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT align_run_id, episode_id, pivot_lang, params_json, created_at, summary_json FROM align_runs WHERE align_run_id = ?",
+        (run_id,),
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def get_align_runs_for_episodes(conn: sqlite3.Connection, episode_ids: list[str]) -> dict[str, list[dict]]:
@@ -224,16 +234,30 @@ def get_parallel_concordance(
     status_filter: str | None = None,
 ) -> list[dict]:
     """
-    Construit les lignes du concordancier parallèle : segment (transcript) + cue EN + cues FR/IT
-    à partir des liens d'alignement.
+    Construit les lignes du concordancier parallèle : segment (transcript) + cue pivot + cues cibles
+    à partir des liens d'alignement. Si pivot_lang est FR (alignement segment↔FR direct),
+    text_fr est rempli depuis les liens pivot ; text_en reste vide sauf si des liens cible existent.
+    Utilise le segment_kind du run (params_json) pour charger les bons segments (sentence ou utterance).
     """
     links = query_alignment_for_episode(conn, episode_id, run_id=run_id, status_filter=status_filter)
-    segments = db_segments.get_segments_for_episode(conn, episode_id, kind="sentence")
+    run = get_align_run(conn, run_id)
+    pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
+    segment_kind = "sentence"
+    if run and run.get("params_json"):
+        try:
+            params = json.loads(run["params_json"])
+            segment_kind = (params.get("segment_kind") or "sentence").strip().lower()
+            if segment_kind not in ("sentence", "utterance"):
+                segment_kind = "sentence"
+        except (TypeError, ValueError):
+            pass
+    segments = db_segments.get_segments_for_episode(conn, episode_id, kind=segment_kind)
     cues_en = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "en")
     cues_fr = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "fr")
     cues_it = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "it")
 
     seg_by_id = {s["segment_id"]: (s.get("text") or "").strip() for s in segments}
+    seg_speaker_by_id = {s["segment_id"]: (s.get("speaker_explicit") or "").strip() for s in segments}
 
     def cue_text(c: dict) -> str:
         return (c.get("text_clean") or c.get("text_raw") or "").strip()
@@ -241,6 +265,7 @@ def get_parallel_concordance(
     cue_en_by_id = {c["cue_id"]: cue_text(c) for c in cues_en}
     cue_fr_by_id = {c["cue_id"]: cue_text(c) for c in cues_fr}
     cue_it_by_id = {c["cue_id"]: cue_text(c) for c in cues_it}
+    cues_by_lang: dict[str, dict[str, str]] = {"en": cue_en_by_id, "fr": cue_fr_by_id, "it": cue_it_by_id}
 
     pivot_links = [lnk for lnk in links if lnk.get("role") == "pivot"]
     target_by_cue_en: dict[str, list[dict]] = {}
@@ -253,15 +278,19 @@ def get_parallel_concordance(
     result: list[dict] = []
     for pl in pivot_links:
         seg_id = pl.get("segment_id")
-        cue_id_en = pl.get("cue_id")
+        cue_id_pivot = pl.get("cue_id")
         text_seg = seg_by_id.get(seg_id, "")
-        text_en = cue_en_by_id.get(cue_id_en or "", "")
         conf_pivot = pl.get("confidence")
-        text_fr = ""
+        # Texte pivot : selon pivot_lang du run (ex. FR si alignement segment↔FR direct)
+        pivot_cues = cues_by_lang.get(pivot_lang, {})
+        text_pivot = pivot_cues.get(cue_id_pivot or "", "")
+        text_en = text_pivot if pivot_lang == "en" else ""
+        text_fr = text_pivot if pivot_lang == "fr" else ""
+        text_it = text_pivot if pivot_lang == "it" else ""
         conf_fr = None
-        text_it = ""
         conf_it = None
-        for tl in target_by_cue_en.get(cue_id_en or "", []):
+        # Liens cible (cue pivot EN ↔ cue FR/IT) si pivot était EN
+        for tl in target_by_cue_en.get(cue_id_pivot or "", []):
             lang = (tl.get("lang") or "").lower()
             cid_t = tl.get("cue_id_target")
             if lang == "fr" and cid_t:
@@ -272,6 +301,7 @@ def get_parallel_concordance(
                 conf_it = tl.get("confidence")
         result.append({
             "segment_id": seg_id,
+            "personnage": seg_speaker_by_id.get(seg_id, ""),
             "text_segment": text_seg,
             "text_en": text_en,
             "confidence_pivot": conf_pivot,

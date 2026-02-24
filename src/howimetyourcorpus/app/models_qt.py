@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from PySide6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex, QSortFilterProxyModel
@@ -9,6 +10,8 @@ from PySide6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIn
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus
 from howimetyourcorpus.core.storage.db import CorpusDB, KwicHit
 from howimetyourcorpus.core.storage.project_store import ProjectStore
+
+logger = logging.getLogger(__name__)
 
 
 def _node_season(node: tuple) -> int | None:
@@ -23,6 +26,33 @@ def _node_episode(node: tuple) -> EpisodeRef | None:
     if isinstance(node, tuple) and len(node) >= 2 and node[0] == "episode":
         return node[1]
     return None
+
+
+def _compute_episode_text_presence(
+    store: ProjectStore | None,
+    episode_ids: list[str],
+) -> tuple[set[str], set[str]]:
+    """Retourne (raw_ids, clean_ids) pour les épisodes demandés, avec fallback robuste."""
+    if not store or not episode_ids:
+        return set(), set()
+    requested = set(episode_ids)
+    try:
+        raw_ids, clean_ids = store.get_episode_text_presence()
+        return raw_ids & requested, clean_ids & requested
+    except Exception:
+        logger.exception("Batch text presence failed; fallback to per-episode checks")
+
+    raw_ids: set[str] = set()
+    clean_ids: set[str] = set()
+    for episode_id in requested:
+        try:
+            if store.has_episode_raw(episode_id):
+                raw_ids.add(episode_id)
+            if store.has_episode_clean(episode_id):
+                clean_ids.add(episode_id)
+        except Exception:
+            logger.exception("Error while checking text presence for %s", episode_id)
+    return raw_ids, clean_ids
 
 
 class EpisodesTreeModel(QAbstractItemModel):
@@ -103,15 +133,15 @@ class EpisodesTreeModel(QAbstractItemModel):
                 return
             indexed = set(self._db.get_episode_ids_indexed()) if self._db else set()
             episode_ids = [ref.episode_id for ref in self._episodes]
+            raw_ids, clean_ids = _compute_episode_text_presence(self._store, episode_ids)
             tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
             runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
             for ref in self._episodes:
                 s = EpisodeStatus.NEW.value
-                if self._store:
-                    if self._store.has_episode_raw(ref.episode_id):
-                        s = EpisodeStatus.FETCHED.value
-                    if self._store.has_episode_clean(ref.episode_id):
-                        s = EpisodeStatus.NORMALIZED.value
+                if ref.episode_id in raw_ids:
+                    s = EpisodeStatus.FETCHED.value
+                if ref.episode_id in clean_ids:
+                    s = EpisodeStatus.NORMALIZED.value
                 if ref.episode_id in indexed:
                     s = EpisodeStatus.INDEXED.value
                 self._status_map[ref.episode_id] = s
@@ -124,9 +154,7 @@ class EpisodesTreeModel(QAbstractItemModel):
                 else:
                     self._srt_map[ref.episode_id] = "—"
                     self._align_map[ref.episode_id] = "—"
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
+        except Exception:
             logger.exception("Error in EpisodesTreeModel._refresh_status()")
             # Continue silencieusement pour ne pas bloquer l'UI
 
@@ -427,15 +455,15 @@ class EpisodesTableModel(QAbstractTableModel):
         else:
             indexed = set()
         episode_ids = [ref.episode_id for ref in self._episodes]
+        raw_ids, clean_ids = _compute_episode_text_presence(self._store, episode_ids)
         tracks_by_ep = self._db.get_tracks_for_episodes(episode_ids) if self._db else {}
         runs_by_ep = self._db.get_align_runs_for_episodes(episode_ids) if self._db else {}
         for ref in self._episodes:
             s = EpisodeStatus.NEW.value
-            if self._store:
-                if self._store.has_episode_clean(ref.episode_id):
-                    s = EpisodeStatus.NORMALIZED.value
-                elif self._store.has_episode_raw(ref.episode_id):
-                    s = EpisodeStatus.FETCHED.value
+            if ref.episode_id in clean_ids:
+                s = EpisodeStatus.NORMALIZED.value
+            elif ref.episode_id in raw_ids:
+                s = EpisodeStatus.FETCHED.value
             if ref.episode_id in indexed:
                 s = EpisodeStatus.INDEXED.value
             self._status_map[ref.episode_id] = s
@@ -686,9 +714,11 @@ class AlignLinksTableModel(QAbstractTableModel):
                 seg_id = lnk.get("segment_id")
                 cue_id = lnk.get("cue_id")
                 cue_tid = lnk.get("cue_id_target")
-                lang = ((lnk.get("lang") or "fr") or "fr").lower()
+                pivot_lang = (lnk.get("lang") or "en").lower() if lnk.get("role") == "pivot" else "en"
+                cue_pivot_map = cues_by_lang.get(pivot_lang, cues_en)
                 lnk["_segment_text"] = _truncate(segments_by_id.get(seg_id, "")) if seg_id else ""
-                lnk["_cue_text"] = _truncate(cues_en.get(cue_id, "")) if cue_id else ""
+                lnk["_cue_text"] = _truncate(cue_pivot_map.get(cue_id, "")) if cue_id else ""
+                lang = ((lnk.get("lang") or "fr") or "fr").lower()
                 cues_t = cues_by_lang.get(lang, {})
                 lnk["_cue_target_text"] = _truncate(cues_t.get(cue_tid, "")) if cue_tid else ""
         self.endResetModel()

@@ -181,7 +181,8 @@ class SubtitleTabWidget(QWidget):
                 break
 
     def refresh(self) -> None:
-        """Recharge la liste des épisodes et les pistes (appelé après ouverture projet / import)."""
+        """Recharge la liste des épisodes et les pistes (préserve l'épisode courant si possible)."""
+        current_episode_id = self.subs_episode_combo.currentData()
         self.subs_episode_combo.clear()
         store = self._get_store()
         if not store:
@@ -190,6 +191,11 @@ class SubtitleTabWidget(QWidget):
         if index and index.episodes:
             for e in index.episodes:
                 self.subs_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+            if current_episode_id:
+                for i in range(self.subs_episode_combo.count()):
+                    if self.subs_episode_combo.itemData(i) == current_episode_id:
+                        self.subs_episode_combo.setCurrentIndex(i)
+                        break
         self._on_episode_changed()
 
     def _on_episode_changed(self) -> None:
@@ -264,7 +270,6 @@ class SubtitleTabWidget(QWidget):
         if not eid or not data or not isinstance(data, dict):
             return
         lang = data.get("lang", "")
-        track_format = data.get("fmt", "srt")
         if not lang:
             return
         
@@ -283,13 +288,12 @@ class SubtitleTabWidget(QWidget):
         # Basse Priorité #3 : Utiliser commande Undo/Redo
         undo_stack = getattr(self, "undo_stack", None)
         if undo_stack:
-            cmd = DeleteSubtitleTrackCommand(db, eid, lang, track_format)
+            cmd = DeleteSubtitleTrackCommand(db, store, eid, lang)
             undo_stack.push(cmd)
         else:
             db.delete_subtitle_track(eid, lang)
-        
-        db.delete_align_runs_for_episode(eid)
-        store.remove_episode_subtitle(eid, lang)
+            db.delete_align_runs_for_episode(eid)
+            store.remove_episode_subtitle(eid, lang)
         self._on_episode_changed()
         self._refresh_episodes()
         self._show_status(f"Piste {lang} supprimée.", 3000)

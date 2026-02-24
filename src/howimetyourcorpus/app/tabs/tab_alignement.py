@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, Qt, QSettings
 from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -159,11 +159,19 @@ class AlignmentTabWidget(QWidget):
         self.align_run_combo = QComboBox()
         self.align_run_combo.currentIndexChanged.connect(self._on_run_changed)
         row.addWidget(self.align_run_combo)
+        row.addWidget(QLabel("Segments:"))
+        self.align_segment_kind_combo = QComboBox()
+        self.align_segment_kind_combo.addItem("Phrases", "sentence")
+        self.align_segment_kind_combo.addItem("Tours", "utterance")
+        self.align_segment_kind_combo.setToolTip(
+            "Type de segments transcript à aligner avec les cues (phrases ou tours)."
+        )
+        row.addWidget(self.align_segment_kind_combo)
         self.align_run_btn = QPushButton("Lancer alignement")
         self.align_run_btn.clicked.connect(self._run_align_episode)
         row.addWidget(self.align_run_btn)
         self.align_delete_run_btn = QPushButton("Supprimer ce run")
-        self.align_delete_run_btn.setToolTip("Supprime le run sélectionné et tous ses liens (irréversible).")
+        self.align_delete_run_btn.setToolTip("Supprime le run sélectionné et tous ses liens. Annulable avec Ctrl+Z.")
         self.align_delete_run_btn.clicked.connect(self._delete_current_run)
         row.addWidget(self.align_delete_run_btn)
         self.align_by_similarity_cb = QCheckBox("Forcer alignement par similarité")
@@ -189,15 +197,15 @@ class AlignmentTabWidget(QWidget):
         layout.addLayout(row)
         help_label = QLabel(
             "Flux : 1) Onglet Sous-titres : importer SRT EN (pivot) et FR (cible). "
-            "2) Inspecteur : segmenter l'épisode (transcript → segments). "
-            "3) Ici : « Lancer alignement » crée un run (segment↔cue EN, puis cue EN↔cue FR). "
+            "2) Inspecteur : segmenter l'épisode (transcript → segments phrases et/ou tours). "
+            "3) Ici : choisir Segment (Phrases ou Tours), puis « Lancer alignement » crée un run (segment↔cue pivot, puis cue pivot↔cue cible). "
             "Un run = un calcul d'alignement ; vous pouvez en relancer un autre ou supprimer un run. "
             "Clic droit sur une ligne : Accepter, Rejeter, Modifier la cible."
         )
         help_label.setStyleSheet("color: gray; font-size: 0.9em;")
         help_label.setWordWrap(True)
         help_label.setToolTip(
-            "Segment = phrase du transcript (Inspecteur). Cue pivot = réplique SRT EN. Cue cible = réplique SRT FR/IT."
+            "Segment = phrase du transcript (Phrases) ou tour de parole (Tours, une ligne par réplique). Cue pivot = réplique SRT. Cue cible = réplique SRT autre langue."
         )
         layout.addWidget(help_label)
         
@@ -243,9 +251,26 @@ class AlignmentTabWidget(QWidget):
         self.main_splitter.setStretchFactor(1, 1)  # Stats prend 25%
         
         layout.addWidget(self.main_splitter)
+        self._restore_align_splitter()
+
+    def _restore_align_splitter(self) -> None:
+        """Restaure les proportions du splitter table | stats depuis QSettings."""
+        settings = QSettings("HIMYC", "AlignmentTab")
+        val = settings.value("mainSplitter")
+        if isinstance(val, (list, tuple)) and len(val) >= 2:
+            try:
+                self.main_splitter.setSizes([int(x) for x in val[:2]])
+            except (TypeError, ValueError):
+                pass
+
+    def save_state(self) -> None:
+        """Sauvegarde les proportions du splitter (appelé à la fermeture de l'application)."""
+        settings = QSettings("HIMYC", "AlignmentTab")
+        settings.setValue("mainSplitter", self.main_splitter.sizes())
 
     def refresh(self) -> None:
-        """Recharge la liste des épisodes et des runs (appelé après ouverture projet / alignement)."""
+        """Recharge la liste des épisodes et des runs (préserve la sélection d'épisode si possible)."""
+        current_episode_id = self.align_episode_combo.currentData()
         self.align_episode_combo.clear()
         store = self._get_store()
         if not store:
@@ -254,6 +279,23 @@ class AlignmentTabWidget(QWidget):
         if index and index.episodes:
             for e in index.episodes:
                 self.align_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+            if current_episode_id:
+                for i in range(self.align_episode_combo.count()):
+                    if self.align_episode_combo.itemData(i) == current_episode_id:
+                        self.align_episode_combo.setCurrentIndex(i)
+                        break
+        self._on_episode_changed()
+
+    def set_episode_and_segment_kind(self, episode_id: str, segment_kind: str = "sentence") -> None:
+        """Sélectionne épisode + kind (utilisé par le handoff depuis Préparer)."""
+        sk = "utterance" if segment_kind == "utterance" else "sentence"
+        idx_sk = self.align_segment_kind_combo.findData(sk)
+        if idx_sk >= 0:
+            self.align_segment_kind_combo.setCurrentIndex(idx_sk)
+        for i in range(self.align_episode_combo.count()):
+            if self.align_episode_combo.itemData(i) == episode_id:
+                self.align_episode_combo.setCurrentIndex(i)
+                break
         self._on_episode_changed()
 
     def _on_episode_changed(self) -> None:
@@ -267,7 +309,16 @@ class AlignmentTabWidget(QWidget):
         for r in runs:
             run_id = r.get("align_run_id", "")
             created = r.get("created_at", "")[:19] if r.get("created_at") else ""
-            self.align_run_combo.addItem(f"{run_id} ({created})", run_id)
+            params_json = r.get("params_json")
+            segment_kind_label = ""
+            if params_json:
+                try:
+                    params = json.loads(params_json)
+                    sk = (params.get("segment_kind") or "sentence").strip().lower()
+                    segment_kind_label = " (tours)" if sk == "utterance" else " (phrases)"
+                except (TypeError, ValueError):
+                    pass
+            self.align_run_combo.addItem(f"{run_id}{segment_kind_label} ({created})", run_id)
         self._on_run_changed()
 
     def _on_run_changed(self) -> None:
@@ -300,6 +351,12 @@ class AlignmentTabWidget(QWidget):
         eid = self.align_episode_combo.currentData()
         
         if not run_id or not db or not eid:
+            if not run_id:
+                QMessageBox.information(
+                    self,
+                    "Supprimer le run",
+                    "Aucun run sélectionné. Choisissez un run dans la liste déroulante « Run ».",
+                )
             return
         
         # Compter les liens avant suppression
@@ -310,21 +367,37 @@ class AlignmentTabWidget(QWidget):
             self,
             "Supprimer le run",
             f"Supprimer le run « {run_id} » ?\n\n"
-            f"⚠️ Cette action est irréversible (même avec Undo/Redo) :\n"
             f"• {nb_links} lien(s) d'alignement seront supprimés\n"
             f"• Les corrections manuelles seront perdues\n"
             f"• Vous devrez relancer l'alignement pour recréer les liens\n\n"
-            f"Note : Undo/Redo peut restaurer cette suppression (données sauvegardées)."
+            f"Vous pourrez annuler cette suppression avec Ctrl+Z (Undo) après validation."
         ):
             return
-        
-        # Basse Priorité #3 : Utiliser commande Undo/Redo
-        if self.undo_stack:
-            cmd = DeleteAlignRunCommand(db, run_id, eid)
-            self.undo_stack.push(cmd)
-        else:
-            db.delete_align_run(run_id)
-        
+
+        try:
+            if self.undo_stack:
+                cmd = DeleteAlignRunCommand(db, run_id, eid)
+                self.undo_stack.push(cmd)
+            else:
+                db.delete_align_run(run_id)
+        except Exception as e:
+            logger.exception("Suppression run (Undo)")
+            try:
+                db.delete_align_run(run_id)
+                QMessageBox.information(
+                    self,
+                    "Run supprimé",
+                    "Le run a été supprimé (annulation Undo non disponible).",
+                )
+            except Exception as e2:
+                logger.exception("Suppression run directe")
+                QMessageBox.critical(
+                    self,
+                    "Erreur",
+                    f"Impossible de supprimer le run : {e2}",
+                )
+                return
+
         self.refresh()
         self._fill_links()
     
@@ -506,7 +579,7 @@ class AlignmentTabWidget(QWidget):
             dlg = EditAlignLinkDialog(link, eid, db, self)
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 # Basse Priorité #3 : Utiliser commande Undo/Redo
-                old_target_id = link.get("target_id")
+                old_target_id = link.get("cue_id_target")
                 new_target_id = dlg.selected_cue_id_target()
                 
                 if self.undo_stack and old_target_id != new_target_id:
@@ -533,12 +606,14 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.warning(self, "Alignement", "Sélectionnez un épisode.")
             return
         use_similarity = self.align_by_similarity_cb.isChecked()
+        segment_kind = self.align_segment_kind_combo.currentData() or "sentence"
         self._run_job([
             AlignEpisodeStep(
                 eid,
                 pivot_lang="en",
                 target_langs=["fr"],
                 use_similarity_for_cues=use_similarity,
+                segment_kind=segment_kind,
             )
         ])
 
@@ -580,7 +655,12 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.information(self, "Export", f"Alignement exporté : {len(links)} lien(s).")
         except Exception as e:
             logger.exception("Export alignement")
-            QMessageBox.critical(self, "Erreur", str(e))
+            QMessageBox.critical(
+                self,
+                "Erreur export",
+                f"Erreur lors de l'export : {e}\n\n"
+                "Vérifiez les droits d'écriture, que le fichier n'est pas ouvert ailleurs et l'encodage (UTF-8)."
+            )
 
     @require_project_and_db
     def _export_parallel_concordance(self) -> None:
@@ -621,7 +701,12 @@ class AlignmentTabWidget(QWidget):
             )
         except Exception as e:
             logger.exception("Export concordancier parallèle")
-            QMessageBox.critical(self, "Erreur", str(e))
+            QMessageBox.critical(
+                self,
+                "Erreur export",
+                f"Erreur lors de l'export : {e}\n\n"
+                "Vérifiez les droits d'écriture et que le fichier n'est pas ouvert ailleurs."
+            )
 
     @require_project_and_db
     def _export_align_report(self) -> None:
@@ -647,5 +732,9 @@ class AlignmentTabWidget(QWidget):
             QMessageBox.information(self, "Rapport", f"Rapport enregistré : {path.name}")
         except Exception as e:
             logger.exception("Rapport alignement")
-            QMessageBox.critical(self, "Erreur", str(e))
-
+            QMessageBox.critical(
+                self,
+                "Erreur rapport",
+                f"Erreur lors de la génération du rapport : {e}\n\n"
+                "Vérifiez les droits d'écriture et que le fichier n'est pas ouvert ailleurs."
+            )

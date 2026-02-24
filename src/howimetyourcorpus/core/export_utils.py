@@ -9,8 +9,8 @@ from pathlib import Path
 from docx import Document
 
 from howimetyourcorpus.core.models import EpisodeRef
+from howimetyourcorpus.core.segment import segmenter_sentences, segmenter_utterances
 from howimetyourcorpus.core.storage.db import KwicHit
-from howimetyourcorpus.core.segment import segment_utterances, segment_utterances_into_phrases
 
 
 def _corpus_row(ref: EpisodeRef, clean_text: str) -> dict:
@@ -140,15 +140,17 @@ def export_segments_docx(segments: list[dict], path: Path) -> None:
 
 
 def export_kwic_csv(hits: list[KwicHit], path: Path) -> None:
-    """Exporte les résultats KWIC en CSV (inclut segment_id/kind/cue_id/lang si présents)."""
+    """Exporte les résultats KWIC en CSV (inclut segment_id/kind/cue_id/lang/speaker si présents)."""
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         row0 = ["episode_id", "title", "left", "match", "right", "position", "score"]
-        if hits and (getattr(hits[0], "segment_id", None) or getattr(hits[0], "kind", None) or getattr(hits[0], "cue_id", None) or getattr(hits[0], "lang", None)):
+        if hits and (getattr(hits[0], "segment_id", None) or getattr(hits[0], "kind", None) or getattr(hits[0], "cue_id", None) or getattr(hits[0], "lang", None) or getattr(hits[0], "speaker", None)):
             if getattr(hits[0], "segment_id", None) or getattr(hits[0], "kind", None):
                 row0.extend(["segment_id", "kind"])
             if getattr(hits[0], "cue_id", None) or getattr(hits[0], "lang", None):
                 row0.extend(["cue_id", "lang"])
+            if getattr(hits[0], "speaker", None):
+                row0.append("speaker")
         w.writerow(row0)
         for h in hits:
             r = [h.episode_id, h.title, h.left, h.match, h.right, h.position, h.score]
@@ -156,20 +158,24 @@ def export_kwic_csv(hits: list[KwicHit], path: Path) -> None:
                 r.extend([getattr(h, "segment_id", "") or "", getattr(h, "kind", "") or ""])
             if len(row0) > 9:
                 r.extend([getattr(h, "cue_id", "") or "", getattr(h, "lang", "") or ""])
+            if "speaker" in row0:
+                r.append(getattr(h, "speaker", "") or "")
             w.writerow(r)
     return None
 
 
 def export_kwic_tsv(hits: list[KwicHit], path: Path) -> None:
-    """Exporte les résultats KWIC en TSV (inclut segment_id/kind si présents)."""
+    """Exporte les résultats KWIC en TSV (inclut segment_id/kind/cue_id/lang/speaker si présents)."""
     with path.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f, delimiter="\t")
         row0 = ["episode_id", "title", "left", "match", "right", "position", "score"]
-        if hits and (getattr(hits[0], "segment_id", None) or getattr(hits[0], "kind", None) or getattr(hits[0], "cue_id", None) or getattr(hits[0], "lang", None)):
+        if hits and (getattr(hits[0], "segment_id", None) or getattr(hits[0], "kind", None) or getattr(hits[0], "cue_id", None) or getattr(hits[0], "lang", None) or getattr(hits[0], "speaker", None)):
             if getattr(hits[0], "segment_id", None) or getattr(hits[0], "kind", None):
                 row0.extend(["segment_id", "kind"])
             if getattr(hits[0], "cue_id", None) or getattr(hits[0], "lang", None):
                 row0.extend(["cue_id", "lang"])
+            if getattr(hits[0], "speaker", None):
+                row0.append("speaker")
         w.writerow(row0)
         for h in hits:
             r = [h.episode_id, h.title, h.left, h.match, h.right, h.position, h.score]
@@ -177,6 +183,8 @@ def export_kwic_tsv(hits: list[KwicHit], path: Path) -> None:
                 r.extend([getattr(h, "segment_id", "") or "", getattr(h, "kind", "") or ""])
             if len(row0) > 9:
                 r.extend([getattr(h, "cue_id", "") or "", getattr(h, "lang", "") or ""])
+            if "speaker" in row0:
+                r.append(getattr(h, "speaker", "") or "")
             w.writerow(r)
     return None
 
@@ -202,6 +210,8 @@ def export_kwic_json(hits: list[KwicHit], path: Path) -> None:
             row["cue_id"] = h.cue_id
         if getattr(h, "lang", None):
             row["lang"] = h.lang
+        if getattr(h, "speaker", None):
+            row["speaker"] = h.speaker
         data.append(row)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return None
@@ -228,6 +238,8 @@ def export_kwic_jsonl(hits: list[KwicHit], path: Path) -> None:
                 row["cue_id"] = h.cue_id
             if getattr(h, "lang", None):
                 row["lang"] = h.lang
+            if getattr(h, "speaker", None):
+                row["speaker"] = h.speaker
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     return None
 
@@ -258,6 +270,8 @@ def _kwic_row_values(h: KwicHit, cols: list[str]) -> list[str]:
             values.append(getattr(h, "cue_id", "") or "")
         elif c == "lang":
             values.append(getattr(h, "lang", "") or "")
+        elif c == "speaker":
+            values.append(getattr(h, "speaker", "") or "")
         else:
             values.append("")
     return values
@@ -277,6 +291,8 @@ def export_kwic_docx(hits: list[KwicHit], path: Path) -> None:
         cols.extend(["segment_id", "kind"])
     if getattr(h0, "cue_id", None) or getattr(h0, "lang", None):
         cols.extend(["cue_id", "lang"])
+    if getattr(h0, "speaker", None):
+        cols.append("speaker")
     table = doc.add_table(rows=1 + len(hits), cols=len(cols))
     table.style = "Table Grid"
     for j, c in enumerate(cols):
@@ -291,21 +307,56 @@ def export_kwic_docx(hits: list[KwicHit], path: Path) -> None:
 # --- Export segmenté (Phase 2 : utterances / phrases, JSONL + CSV) ---
 
 
+def _iter_utterance_rows(clean_text: str) -> list[dict]:
+    """Construit des lignes d'utterances à partir du segmenter courant (non legacy)."""
+    rows: list[dict] = []
+    for seg in segmenter_utterances(clean_text):
+        rows.append(
+            {
+                "speaker": seg.speaker_explicit,
+                "text": seg.text,
+                "index": seg.n,
+            }
+        )
+    return rows
+
+
+def _iter_phrase_rows(clean_text: str) -> list[dict]:
+    """
+    Construit des lignes de phrases à partir du segmenter courant.
+    Le speaker est propagé depuis l'utterance d'origine.
+    """
+    rows: list[dict] = []
+    idx = 0
+    for utt in segmenter_utterances(clean_text):
+        sentences = segmenter_sentences(utt.text, lang_hint="en")
+        if not sentences:
+            text = (utt.text or "").strip()
+            if text:
+                rows.append({"speaker": utt.speaker_explicit, "text": text, "index": idx})
+                idx += 1
+            continue
+        for sent in sentences:
+            rows.append({"speaker": utt.speaker_explicit, "text": sent.text, "index": idx})
+            idx += 1
+    return rows
+
+
 def export_corpus_utterances_jsonl(
     episodes: list[tuple[EpisodeRef, str]], path: Path
 ) -> None:
     """Exporte le corpus segmenté en utterances : une ligne JSON par utterance (JSONL)."""
     with path.open("w", encoding="utf-8") as f:
         for ref, text in episodes:
-            for u in segment_utterances(text):
+            for u in _iter_utterance_rows(text):
                 obj = {
                     "episode_id": ref.episode_id,
                     "season": ref.season,
                     "episode": ref.episode,
                     "title": ref.title or "",
-                    "speaker": u.speaker,
-                    "text": u.text,
-                    "index": u.index,
+                    "speaker": u.get("speaker"),
+                    "text": u.get("text", ""),
+                    "index": u.get("index", 0),
                 }
                 f.write(json.dumps(obj, ensure_ascii=False) + "\n")
     return None
@@ -319,15 +370,15 @@ def export_corpus_utterances_csv(
         w = csv.writer(f)
         w.writerow(["episode_id", "season", "episode", "title", "speaker", "text", "index"])
         for ref, text in episodes:
-            for u in segment_utterances(text):
+            for u in _iter_utterance_rows(text):
                 w.writerow([
                     ref.episode_id,
                     ref.season,
                     ref.episode,
                     ref.title or "",
-                    u.speaker or "",
-                    u.text,
-                    u.index,
+                    u.get("speaker") or "",
+                    u.get("text", ""),
+                    u.get("index", 0),
                 ])
     return None
 
@@ -338,15 +389,15 @@ def export_corpus_phrases_jsonl(
     """Exporte le corpus segmenté en phrases : une ligne JSON par phrase (JSONL)."""
     with path.open("w", encoding="utf-8") as f:
         for ref, text in episodes:
-            for ph in segment_utterances_into_phrases(text):
+            for ph in _iter_phrase_rows(text):
                 obj = {
                     "episode_id": ref.episode_id,
                     "season": ref.season,
                     "episode": ref.episode,
                     "title": ref.title or "",
-                    "speaker": ph.speaker,
-                    "text": ph.text,
-                    "index": ph.index,
+                    "speaker": ph.get("speaker"),
+                    "text": ph.get("text", ""),
+                    "index": ph.get("index", 0),
                 }
                 f.write(json.dumps(obj, ensure_ascii=False) + "\n")
     return None
@@ -360,15 +411,15 @@ def export_corpus_phrases_csv(
         w = csv.writer(f)
         w.writerow(["episode_id", "season", "episode", "title", "speaker", "text", "index"])
         for ref, text in episodes:
-            for ph in segment_utterances_into_phrases(text):
+            for ph in _iter_phrase_rows(text):
                 w.writerow([
                     ref.episode_id,
                     ref.season,
                     ref.episode,
                     ref.title or "",
-                    ph.speaker or "",
-                    ph.text,
-                    ph.index,
+                    ph.get("speaker") or "",
+                    ph.get("text", ""),
+                    ph.get("index", 0),
                 ])
     return None
 
@@ -376,7 +427,7 @@ def export_corpus_phrases_csv(
 # --- Phase 5 : concordancier parallèle et rapports ---
 
 PARALLEL_CONCORDANCE_COLUMNS = [
-    "segment_id", "text_segment", "text_en", "confidence_pivot",
+    "segment_id", "personnage", "text_segment", "text_en", "confidence_pivot",
     "text_fr", "confidence_fr", "text_it", "confidence_it",
 ]
 
@@ -501,7 +552,7 @@ def export_align_report_html(
         "</ul>",
         "<h2>Échantillon concordancier parallèle</h2>",
         "<table border='1' cellpadding='4' style='border-collapse: collapse;'>",
-        "<thead><tr><th>segment_id</th><th>Segment (transcript)</th><th>EN</th><th>conf.</th><th>FR</th><th>conf.</th><th>IT</th><th>conf.</th></tr></thead>",
+        "<thead><tr><th>segment_id</th><th>Personnage</th><th>Segment (transcript)</th><th>EN</th><th>conf.</th><th>FR</th><th>conf.</th><th>IT</th><th>conf.</th></tr></thead>",
         "<tbody>",
     ]
     for r in sample_rows[:100]:
@@ -509,9 +560,11 @@ def export_align_report_html(
         t_en = str(r.get("text_en", ""))
         t_fr = str(r.get("text_fr", ""))
         t_it = str(r.get("text_it", ""))
+        personnage = str(r.get("personnage", ""))
         lines.append(
-            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
+            "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
                 _escape(str(r.get("segment_id", ""))),
+                _escape(personnage),
                 _escape((t_seg[:80] + "…") if len(t_seg) > 80 else t_seg),
                 _escape((t_en[:60] + "…") if len(t_en) > 60 else t_en),
                 _escape(str(r.get("confidence_pivot") if r.get("confidence_pivot") is not None else "")),

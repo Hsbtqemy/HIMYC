@@ -18,7 +18,7 @@ from howimetyourcorpus.core.segment import Segment, segmenter_sentences, segment
 from howimetyourcorpus.core.storage.db import CorpusDB
 from howimetyourcorpus.core.storage.project_store import ProjectStore
 from howimetyourcorpus.core.opensubtitles import OpenSubtitlesClient, OpenSubtitlesError
-from howimetyourcorpus.core.subtitles import Cue, parse_subtitle_content
+from howimetyourcorpus.core.subtitles import Cue, cues_to_audit_rows, parse_subtitle_content
 from howimetyourcorpus.core.subtitles.parsers import read_subtitle_file_content
 
 logger = logging.getLogger(__name__)
@@ -472,20 +472,10 @@ class ImportSubtitlesStep(Step):
             c.episode_id = self.episode_id
             c.lang = self.lang
         track_id = f"{self.episode_id}:{self.lang}"
-        cues_audit = [
-            {
-                "cue_id": c.cue_id,
-                "n": c.n,
-                "start_ms": c.start_ms,
-                "end_ms": c.end_ms,
-                "text_raw": c.text_raw,
-                "text_clean": c.text_clean,
-            }
-            for c in cues
-        ]
+        cues_audit = cues_to_audit_rows(cues)
         store.save_episode_subtitles(self.episode_id, self.lang, content, fmt, cues_audit)
         if db:
-            imported_at = datetime.datetime.utcnow().isoformat() + "Z"
+            imported_at = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
             db.add_track(
                 track_id=track_id,
                 episode_id=self.episode_id,
@@ -561,20 +551,10 @@ class DownloadOpenSubtitlesStep(Step):
             c.episode_id = self.episode_id
             c.lang = self.lang
         track_id = f"{self.episode_id}:{self.lang}"
-        cues_audit = [
-            {
-                "cue_id": c.cue_id,
-                "n": c.n,
-                "start_ms": c.start_ms,
-                "end_ms": c.end_ms,
-                "text_raw": c.text_raw,
-                "text_clean": c.text_clean,
-            }
-            for c in cues
-        ]
+        cues_audit = cues_to_audit_rows(cues)
         store.save_episode_subtitles(self.episode_id, self.lang, content, "srt", cues_audit)
         if db:
-            imported_at = datetime.datetime.utcnow().isoformat() + "Z"
+            imported_at = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
             db.add_track(
                 track_id=track_id,
                 episode_id=self.episode_id,
@@ -591,7 +571,7 @@ class DownloadOpenSubtitlesStep(Step):
 
 
 class AlignEpisodeStep(Step):
-    """Phase 4 : aligne segments (phrases) ↔ cues EN puis cues EN ↔ cues target (FR) par temps."""
+    """Phase 4 : aligne segments (phrases ou tours de parole) ↔ cues pivot puis cues pivot ↔ cues target."""
 
     name = "align_episode"
 
@@ -602,12 +582,14 @@ class AlignEpisodeStep(Step):
         target_langs: list[str] | None = None,
         min_confidence: float = 0.3,
         use_similarity_for_cues: bool = False,
+        segment_kind: str = "sentence",
     ):
         self.episode_id = episode_id
         self.pivot_lang = pivot_lang
         self.target_langs = target_langs or ["fr"]
         self.min_confidence = min_confidence
         self.use_similarity_for_cues = use_similarity_for_cues
+        self.segment_kind = segment_kind if segment_kind in ("sentence", "utterance") else "sentence"
 
     def run(
         self,
@@ -632,12 +614,25 @@ class AlignEpisodeStep(Step):
             return StepResult(False, "No DB in context")
         if on_progress:
             on_progress(self.name, 0.0, f"Loading segments and cues for {self.episode_id}...")
-        segments = db.get_segments_for_episode(self.episode_id, kind="sentence")
+        segments = db.get_segments_for_episode(self.episode_id, kind=self.segment_kind)
         cues_en = db.get_cues_for_episode_lang(self.episode_id, self.pivot_lang)
         if not segments:
-            return StepResult(False, f"No segments (sentence) for {self.episode_id}. Run segmentation first.")
+            return StepResult(False, f"No segments ({self.segment_kind}) for {self.episode_id}. Run segmentation first.")
+        # Pivot optionnel : si pas de piste pivot (ex. EN), utiliser la première langue cible qui a des cues (ex. FR)
+        effective_pivot_lang = self.pivot_lang
+        if not cues_en and self.target_langs:
+            for tl in self.target_langs:
+                cues_t = db.get_cues_for_episode_lang(self.episode_id, tl)
+                if cues_t:
+                    effective_pivot_lang = tl
+                    cues_en = cues_t
+                    break
         if not cues_en:
-            return StepResult(False, f"No cues ({self.pivot_lang}) for {self.episode_id}. Import subtitles first.")
+            return StepResult(
+                False,
+                f"Pour cet épisode, aucune piste de sous-titres (pivot {self.pivot_lang.upper()} ni cibles {', '.join(self.target_langs).upper()}). "
+                f"Importez au moins une piste SRT dans l'onglet Inspecteur (ex. FR pour comparer transcript EN ↔ sous-titres FR)."
+            )
         
         # Callback de progression granulaire pour l'alignement
         def on_align_progress(current: int, total: int):
@@ -647,9 +642,16 @@ class AlignEpisodeStep(Step):
         
         pivot_links = align_segments_to_cues(segments, cues_en, min_confidence=self.min_confidence, on_progress=on_align_progress)
         all_links: list[AlignLink] = list(pivot_links)
+        # Mettre à jour la langue des liens pivot si pivot effectif != EN (ex. segment↔FR direct)
+        if effective_pivot_lang != self.pivot_lang:
+            for link in all_links:
+                if link.role == "pivot":
+                    link.lang = effective_pivot_lang
         if on_progress:
             on_progress(self.name, 0.4, f"Aligned {len(pivot_links)} segment↔cue links; aligning target langs...")
-        for tl in self.target_langs:
+        # Liens cible (cue pivot ↔ cue autre langue) uniquement si pivot classique et autres langues ont des cues
+        remaining_targets = [tl for tl in self.target_langs if tl != effective_pivot_lang]
+        for tl in remaining_targets:
             cues_target = db.get_cues_for_episode_lang(self.episode_id, tl)
             if cues_target:
                 use_time = (
@@ -666,16 +668,24 @@ class AlignEpisodeStep(Step):
                     if not target_links and cues_target:
                         target_links = align_cues_by_order(cues_en, cues_target)
                 all_links.extend(target_links)
-        run_id = f"{self.episode_id}:align:{datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}"
-        created_at = datetime.datetime.utcnow().isoformat() + "Z"
+        run_id = f"{self.episode_id}:align:{datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%SZ')}"
+        created_at = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
         params = {
             "pivot_lang": self.pivot_lang,
+            "effective_pivot_lang": effective_pivot_lang,
             "target_langs": self.target_langs,
             "min_confidence": self.min_confidence,
             "use_similarity_for_cues": self.use_similarity_for_cues,
+            "segment_kind": self.segment_kind,
         }
-        summary = {"pivot_links": len(pivot_links), "total_links": len(all_links), "segments_count": len(segments), "cues_en_count": len(cues_en)}
-        db.create_align_run(run_id, self.episode_id, self.pivot_lang, json.dumps(params), created_at, json.dumps(summary))
+        summary = {
+            "pivot_links": len(pivot_links),
+            "total_links": len(all_links),
+            "segments_count": len(segments),
+            "cues_pivot_count": len(cues_en),
+            "segment_kind": self.segment_kind,
+        }
+        db.create_align_run(run_id, self.episode_id, effective_pivot_lang, json.dumps(params), created_at, json.dumps(summary))
         links_dicts = [link.to_dict(link_id=f"{run_id}:{i}") for i, link in enumerate(all_links)]
         db.upsert_align_links(run_id, self.episode_id, links_dicts)
         links_audit = [{"link_id": d.get("link_id"), "segment_id": d.get("segment_id"), "cue_id": d.get("cue_id"), "cue_id_target": d.get("cue_id_target"), "lang": d.get("lang"), "role": d.get("role"), "confidence": d.get("confidence"), "status": d.get("status")} for d in links_dicts]

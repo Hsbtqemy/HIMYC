@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex, TransformStats
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
+from howimetyourcorpus.core.preparer.status import PREP_STATUS_VALUES as PREPARER_STATUS_VALUES
+
+logger = logging.getLogger(__name__)
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -33,10 +37,11 @@ def _write_toml(path: Path, data: dict[str, Any]) -> None:
             # Échapper les guillemets dans la chaîne
             escaped = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
             lines.append(f'{k} = "{escaped}"')
+        elif isinstance(v, bool):
+            # bool doit être traité avant int/float (bool est un sous-type de int).
+            lines.append(f"{k} = {str(v).lower()}")
         elif isinstance(v, (int, float)):
             lines.append(f"{k} = {v}")
-        elif isinstance(v, bool):
-            lines.append(f"{k} = {str(v).lower()}")
         else:
             lines.append(f'{k} = "{v!s}"')
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -203,6 +208,134 @@ class ProjectStore:
 
     CHARACTER_NAMES_JSON = "character_names.json"
 
+    @staticmethod
+    def _normalize_character_entry(raw: dict[str, Any]) -> dict[str, Any] | None:
+        """Normalise une entrée personnage (id/canonical/names_by_lang) ou retourne None si vide."""
+        if not isinstance(raw, dict):
+            return None
+        cid = (str(raw.get("id") or "")).strip()
+        canonical = (str(raw.get("canonical") or "")).strip()
+        if not cid and not canonical:
+            return None
+        cid = cid or canonical
+        canonical = canonical or cid
+
+        names_by_lang: dict[str, str] = {}
+        raw_names = raw.get("names_by_lang")
+        if isinstance(raw_names, dict):
+            for lang, name in raw_names.items():
+                lang_key = (str(lang or "")).strip().lower()
+                label = (str(name or "")).strip()
+                if lang_key and label:
+                    names_by_lang[lang_key] = label
+
+        return {
+            "id": cid,
+            "canonical": canonical,
+            "names_by_lang": names_by_lang,
+        }
+
+    def _validate_character_catalog(self, characters: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """
+        Valide le catalogue personnages:
+        - id unique (insensible à la casse)
+        - alias uniques (id/canonical/names_by_lang) entre personnages
+        """
+        normalized: list[dict[str, Any]] = []
+        id_owner: dict[str, str] = {}
+        token_owner: dict[str, str] = {}
+        token_owner_display: dict[str, str] = {}
+        duplicate_ids: list[str] = []
+        token_conflicts: list[tuple[str, str, str]] = []
+
+        for raw in characters or []:
+            entry = self._normalize_character_entry(raw)
+            if entry is None:
+                continue
+            cid = entry["id"]
+            cid_key = cid.lower()
+            prev_id = id_owner.get(cid_key)
+            if prev_id is not None:
+                duplicate_ids.append(cid)
+                continue
+            id_owner[cid_key] = cid
+            normalized.append(entry)
+
+            tokens = {cid, entry.get("canonical") or ""}
+            tokens.update((entry.get("names_by_lang") or {}).values())
+            for token in tokens:
+                token_raw = (token or "").strip()
+                if not token_raw:
+                    continue
+                token_key = token_raw.lower()
+                prev_owner = token_owner.get(token_key)
+                if prev_owner is not None and prev_owner != cid_key:
+                    token_conflicts.append(
+                        (
+                            token_raw,
+                            token_owner_display.get(token_key, prev_owner),
+                            cid,
+                        )
+                    )
+                    continue
+                token_owner[token_key] = cid_key
+                token_owner_display[token_key] = cid
+
+        errors: list[str] = []
+        if duplicate_ids:
+            errors.append(
+                "ID personnages dupliqués: " + ", ".join(sorted({x for x in duplicate_ids if x}))
+            )
+        if token_conflicts:
+            preview = token_conflicts[:6]
+            lines = [f"{token!r} ({left} / {right})" for token, left, right in preview]
+            suffix = ""
+            if len(token_conflicts) > len(preview):
+                suffix = f" (+{len(token_conflicts) - len(preview)} autre(s))"
+            errors.append("Collision d'alias personnages: " + "; ".join(lines) + suffix)
+        if errors:
+            raise ValueError("Catalogue personnages invalide: " + " | ".join(errors))
+        return normalized
+
+    def _validate_assignment_references(self, valid_character_ids: set[str]) -> None:
+        """
+        Vérifie que toutes les assignations référencent un character_id existant.
+        """
+        valid = {cid.lower() for cid in valid_character_ids if cid}
+        if not valid:
+            # Pas de catalogue: on autorise seulement absence d'assignations.
+            orphan_ids = sorted(
+                {
+                    (a.get("character_id") or "").strip()
+                    for a in self.load_character_assignments()
+                    if (a.get("character_id") or "").strip()
+                }
+            )
+            if orphan_ids:
+                raise ValueError(
+                    "Assignations invalides: aucun personnage défini mais des assignations existent "
+                    f"({', '.join(orphan_ids[:8])}{'…' if len(orphan_ids) > 8 else ''})."
+                )
+            return
+
+        orphan_ids = sorted(
+            {
+                cid
+                for cid in (
+                    (a.get("character_id") or "").strip()
+                    for a in self.load_character_assignments()
+                )
+                if cid and cid.lower() not in valid
+            }
+        )
+        if orphan_ids:
+            preview = ", ".join(orphan_ids[:8])
+            suffix = "…" if len(orphan_ids) > 8 else ""
+            raise ValueError(
+                "Assignations invalides: character_id inconnus référencés: "
+                f"{preview}{suffix}."
+            )
+
     def load_character_names(self) -> list[dict[str, Any]]:
         """
         Charge la liste des personnages du projet (noms canoniques + par langue).
@@ -213,15 +346,24 @@ class ProjectStore:
             return []
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:
+            logger.warning("Impossible de charger %s: %s", path, exc)
             return []
         return data.get("characters", [])
 
     def save_character_names(self, characters: list[dict[str, Any]]) -> None:
-        """Sauvegarde la liste des personnages du projet."""
+        """
+        Sauvegarde la liste des personnages du projet.
+
+        Validation:
+        - pas de collisions id/alias entre personnages
+        - pas d'assignations référencant un character_id absent
+        """
+        normalized = self._validate_character_catalog(characters)
+        self._validate_assignment_references({(c.get("id") or "").strip() for c in normalized})
         path = self.root_dir / self.CHARACTER_NAMES_JSON
         path.write_text(
-            json.dumps({"characters": characters}, ensure_ascii=False, indent=2),
+            json.dumps({"characters": normalized}, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
@@ -234,7 +376,8 @@ class ProjectStore:
             return []
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:
+            logger.warning("Impossible de charger %s: %s", path, exc)
             return []
         return data.get("assignments", [])
 
@@ -256,7 +399,8 @@ class ProjectStore:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             return dict(data) if isinstance(data, dict) else {}
-        except Exception:
+        except Exception as exc:
+            logger.warning("Impossible de charger %s: %s", path, exc)
             return {}
 
     def save_source_profile_defaults(self, defaults: dict[str, str]) -> None:
@@ -274,13 +418,104 @@ class ProjectStore:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             return dict(data) if isinstance(data, dict) else {}
-        except Exception:
+        except Exception as exc:
+            logger.warning("Impossible de charger %s: %s", path, exc)
             return {}
 
     def save_episode_preferred_profiles(self, preferred: dict[str, str]) -> None:
         """Sauvegarde le mapping episode_id -> profile_id."""
         path = self.root_dir / self.EPISODE_PREFERRED_PROFILES_JSON
         path.write_text(json.dumps(preferred, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    EPISODE_PREP_STATUS_JSON = "episode_prep_status.json"
+    PREP_STATUS_VALUES = set(PREPARER_STATUS_VALUES)
+
+    def load_episode_prep_status(self) -> dict[str, dict[str, str]]:
+        """
+        Charge les statuts de préparation par fichier.
+
+        Format persistant:
+        {
+          "statuses": {
+            "S01E01": {"transcript": "edited", "srt_en": "verified"}
+          }
+        }
+        """
+        path = self.root_dir / self.EPISODE_PREP_STATUS_JSON
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("Impossible de charger %s: %s", path, exc)
+            return {}
+        raw_statuses = data.get("statuses", data if isinstance(data, dict) else {})
+        if not isinstance(raw_statuses, dict):
+            return {}
+        statuses: dict[str, dict[str, str]] = {}
+        for episode_id, by_source in raw_statuses.items():
+            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
+                continue
+            clean_by_source: dict[str, str] = {}
+            for source_key, status in by_source.items():
+                if not isinstance(source_key, str) or not isinstance(status, str):
+                    continue
+                s = status.strip().lower()
+                if s in self.PREP_STATUS_VALUES:
+                    clean_by_source[source_key.strip()] = s
+            if clean_by_source:
+                statuses[episode_id.strip()] = clean_by_source
+        return statuses
+
+    def save_episode_prep_status(self, statuses: dict[str, dict[str, str]]) -> None:
+        """Sauvegarde les statuts de préparation par fichier."""
+        clean: dict[str, dict[str, str]] = {}
+        for episode_id, by_source in (statuses or {}).items():
+            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
+                continue
+            clean_by_source: dict[str, str] = {}
+            for source_key, status in by_source.items():
+                if not isinstance(source_key, str) or not isinstance(status, str):
+                    continue
+                s = status.strip().lower()
+                if s in self.PREP_STATUS_VALUES:
+                    clean_by_source[source_key.strip()] = s
+            if clean_by_source:
+                clean[episode_id.strip()] = clean_by_source
+        path = self.root_dir / self.EPISODE_PREP_STATUS_JSON
+        path.write_text(
+            json.dumps({"statuses": clean}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def get_episode_prep_status(self, episode_id: str, source_key: str, default: str = "raw") -> str:
+        """Retourne le statut de préparation pour (épisode, source)."""
+        statuses = self.load_episode_prep_status()
+        status = (
+            statuses.get((episode_id or "").strip(), {})
+            .get((source_key or "").strip(), "")
+            .strip()
+            .lower()
+        )
+        if status in self.PREP_STATUS_VALUES:
+            return status
+        d = (default or "raw").strip().lower()
+        return d if d in self.PREP_STATUS_VALUES else "raw"
+
+    def set_episode_prep_status(self, episode_id: str, source_key: str, status: str) -> None:
+        """Définit le statut de préparation pour (épisode, source)."""
+        ep = (episode_id or "").strip()
+        source = (source_key or "").strip()
+        st = (status or "").strip().lower()
+        if not ep or not source:
+            return
+        if st not in self.PREP_STATUS_VALUES:
+            raise ValueError(f"Statut de préparation invalide: {status!r}")
+        statuses = self.load_episode_prep_status()
+        if ep not in statuses:
+            statuses[ep] = {}
+        statuses[ep][source] = st
+        self.save_episode_prep_status(statuses)
 
     LANGUAGES_JSON = "languages.json"
     DEFAULT_LANGUAGES = ["en", "fr", "it"]
@@ -294,7 +529,8 @@ class ProjectStore:
             data = json.loads(path.read_text(encoding="utf-8"))
             langs = data.get("languages", data if isinstance(data, list) else [])
             return [str(x).strip().lower() for x in langs if str(x).strip()]
-        except Exception:
+        except Exception as exc:
+            logger.warning("Impossible de charger %s: %s", path, exc)
             return list(self.DEFAULT_LANGUAGES)
 
     def save_project_languages(self, languages: list[str]) -> None:
@@ -400,6 +636,30 @@ class ProjectStore:
 
     def has_episode_clean(self, episode_id: str) -> bool:
         return (self._episode_dir(episode_id) / "clean.txt").exists()
+
+    def get_episode_text_presence(self) -> tuple[set[str], set[str]]:
+        """
+        Retourne les IDs d'épisodes disposant d'un `raw.txt` et/ou `clean.txt`.
+
+        Permet de calculer les statuts en lot côté UI (évite N appels disque par épisode).
+        """
+        raw_ids: set[str] = set()
+        clean_ids: set[str] = set()
+        episodes_dir = self.root_dir / "episodes"
+        if not episodes_dir.exists():
+            return raw_ids, clean_ids
+        try:
+            for ep_dir in episodes_dir.iterdir():
+                if not ep_dir.is_dir():
+                    continue
+                episode_id = ep_dir.name
+                if (ep_dir / "raw.txt").exists():
+                    raw_ids.add(episode_id)
+                if (ep_dir / "clean.txt").exists():
+                    clean_ids.add(episode_id)
+        except OSError as exc:
+            logger.warning("Impossible de scanner %s: %s", episodes_dir, exc)
+        return raw_ids, clean_ids
 
     def get_db_path(self) -> Path:
         return self.root_dir / "corpus.db"
@@ -558,10 +818,13 @@ class ProjectStore:
         db: Any,
         episode_id: str,
         run_id: str,
+        languages_to_rewrite: set[str] | None = None,
     ) -> tuple[int, int]:
         """
         Propagation §8 : à partir des assignations et des liens d'alignement,
         met à jour segments.speaker_explicit et les text_clean des cues, puis réécrit les SRT.
+        Si languages_to_rewrite est fourni, seules ces langues ont leur fichier SRT réécrit
+        (par défaut toutes les langues modifiées sont réécrites).
         Retourne (nb_segments_updated, nb_cues_updated).
         """
         from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
@@ -591,6 +854,9 @@ class ProjectStore:
                 if seg_id in assign_segment and cue_id not in assign_cue:
                     assign_cue[cue_id] = assign_segment[seg_id]
 
+        run = db.get_align_run(run_id)
+        pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
+
         nb_seg = 0
         for seg_id, cid in assign_segment.items():
             db.update_segment_speaker(seg_id, cid)
@@ -603,17 +869,17 @@ class ProjectStore:
 
         langs_updated: set[str] = set()
         nb_cue = 0
+        cues_pivot = db.get_cues_for_episode_lang(episode_id, pivot_lang)
         for cue_id, cid in assign_cue.items():
-            cues_en = db.get_cues_for_episode_lang(episode_id, "en")
-            cue_row = next((c for c in cues_en if c.get("cue_id") == cue_id), None)
+            cue_row = next((c for c in cues_pivot if c.get("cue_id") == cue_id), None)
             if cue_row:
                 text = (cue_row.get("text_clean") or cue_row.get("text_raw") or "").strip()
-                prefix = name_for_lang(cid, "en") + ": "
+                prefix = name_for_lang(cid, pivot_lang) + ": "
                 if not text.startswith(prefix):
                     new_text = prefix + text
                     db.update_cue_text_clean(cue_id, new_text)
                     nb_cue += 1
-                    langs_updated.add("en")
+                    langs_updated.add(pivot_lang)
 
         for lnk in links:
             if lnk.get("role") != "target" or not lnk.get("cue_id") or not lnk.get("cue_id_target"):
@@ -637,6 +903,8 @@ class ProjectStore:
                     langs_updated.add(lang)
 
         for lang in langs_updated:
+            if languages_to_rewrite is not None and lang not in languages_to_rewrite:
+                continue
             cues = db.get_cues_for_episode_lang(episode_id, lang)
             if cues:
                 srt_content = cues_to_srt(cues)

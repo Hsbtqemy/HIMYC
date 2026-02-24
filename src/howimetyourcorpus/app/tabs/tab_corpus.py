@@ -387,6 +387,30 @@ class CorpusTabWidget(QWidget):
     def _emit_cancel_job(self) -> None:
         self._on_cancel_job()
 
+    def _get_selected_or_checked_episode_ids(self) -> list[str]:
+        """Retourne les episode_id cochés, ou à défaut ceux des lignes sélectionnées."""
+        ids = self.episodes_tree_model.get_checked_episode_ids()
+        if not ids:
+            proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
+            source_indices = [
+                self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
+            ]
+            ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+        return ids
+
+    def _set_no_project_state(self) -> None:
+        """Met l'UI dans l'état « pas de projet » (labels vides, boutons désactivés)."""
+        self.season_filter_combo.clear()
+        self.season_filter_combo.addItem("Toutes les saisons", None)
+        self.corpus_status_label.setText("")
+        self.transcripts_status_label.setText("Status : 0/0 téléchargés")
+        self.subtitles_status_label.setText("Status : 0/0 importés")
+        self.norm_sel_btn.setEnabled(False)
+        self.norm_all_btn.setEnabled(False)
+        self.segment_sel_btn.setEnabled(False)
+        self.segment_all_btn.setEnabled(False)
+        self.all_in_one_btn.setEnabled(False)
+
     def _resume_failed_episodes(self) -> None:
         """Relance les opérations sur les épisodes en échec (téléchargement, normalisation, etc.)."""
         if not self._failed_episode_ids:
@@ -420,29 +444,11 @@ class CorpusTabWidget(QWidget):
             store = self._get_store()
             db = self._get_db()
             if not store:
-                self.season_filter_combo.clear()
-                self.season_filter_combo.addItem("Toutes les saisons", None)
-                self.corpus_status_label.setText("")
-                self.transcripts_status_label.setText("Status : 0/0 téléchargés")
-                self.subtitles_status_label.setText("Status : 0/0 importés")
-                self.norm_sel_btn.setEnabled(False)
-                self.norm_all_btn.setEnabled(False)
-                self.segment_sel_btn.setEnabled(False)
-                self.segment_all_btn.setEnabled(False)
-                self.all_in_one_btn.setEnabled(False)
+                self._set_no_project_state()
                 return
             index = store.load_series_index()
             if not index or not index.episodes:
-                self.season_filter_combo.clear()
-                self.season_filter_combo.addItem("Toutes les saisons", None)
-                self.corpus_status_label.setText("")
-                self.transcripts_status_label.setText("Status : 0/0 téléchargés")
-                self.subtitles_status_label.setText("Status : 0/0 importés")
-                self.norm_sel_btn.setEnabled(False)
-                self.norm_all_btn.setEnabled(False)
-                self.segment_sel_btn.setEnabled(False)
-                self.segment_all_btn.setEnabled(False)
-                self.all_in_one_btn.setEnabled(False)
+                self._set_no_project_state()
                 return
             n_total = len(index.episodes)
             n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
@@ -673,14 +679,7 @@ class CorpusTabWidget(QWidget):
             return
         
         # Récupérer les épisodes sélectionnés
-        ids = self.episodes_tree_model.get_checked_episode_ids()
-        if not ids:
-            proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-            source_indices = [
-                self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-            ]
-            ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
-        
+        ids = self._get_selected_or_checked_episode_ids()
         if not ids:
             QMessageBox.warning(
                 self, "Sous-titres",
@@ -838,13 +837,7 @@ class CorpusTabWidget(QWidget):
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
         if selection_only:
-            ids = self.episodes_tree_model.get_checked_episode_ids()
-            if not ids:
-                proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-                source_indices = [
-                    self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-                ]
-                ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+            ids = self._get_selected_or_checked_episode_ids()
             if not ids:
                 QMessageBox.warning(
                     self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
@@ -872,13 +865,7 @@ class CorpusTabWidget(QWidget):
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
         if selection_only:
-            ids = self.episodes_tree_model.get_checked_episode_ids()
-            if not ids:
-                proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-                source_indices = [
-                    self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-                ]
-                ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+            ids = self._get_selected_or_checked_episode_ids()
             if not ids:
                 QMessageBox.warning(
                     self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
@@ -913,13 +900,7 @@ class CorpusTabWidget(QWidget):
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
         if selection_only:
-            ids = self.episodes_tree_model.get_checked_episode_ids()
-            if not ids:
-                proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-                source_indices = [
-                    self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-                ]
-                ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+            ids = self._get_selected_or_checked_episode_ids()
             if not ids:
                 QMessageBox.warning(
                     self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
@@ -953,13 +934,7 @@ class CorpusTabWidget(QWidget):
         if not index or not index.episodes:
             QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
             return
-        ids = self.episodes_tree_model.get_checked_episode_ids()
-        if not ids:
-            proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-            source_indices = [
-                self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-            ]
-            ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
+        ids = self._get_selected_or_checked_episode_ids()
         if not ids:
             QMessageBox.warning(
                 self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
@@ -1009,14 +984,7 @@ class CorpusTabWidget(QWidget):
             return
         
         # Demander si on exporte tout ou seulement la sélection
-        selected_ids = self.episodes_tree_model.get_checked_episode_ids()
-        if not selected_ids:
-            proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-            source_indices = [
-                self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-            ]
-            selected_ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
-        
+        selected_ids = self._get_selected_or_checked_episode_ids()
         export_selection_only = False
         if selected_ids:
             reply = QMessageBox.question(

@@ -77,6 +77,18 @@ def update_segment_speaker(
     )
 
 
+def update_segment_text(
+    conn: sqlite3.Connection,
+    segment_id: str,
+    text: str,
+) -> None:
+    """Met à jour le texte d'un segment (édition manuelle dans Préparer)."""
+    conn.execute(
+        "UPDATE segments SET text = ? WHERE segment_id = ?",
+        (text, segment_id),
+    )
+
+
 def get_distinct_speaker_explicit(
     conn: sqlite3.Connection,
     episode_ids: list[str],

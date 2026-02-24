@@ -2,6 +2,7 @@
 
 from howimetyourcorpus.core.subtitles.parsers import (
     Cue,
+    cues_to_audit_rows,
     parse_srt,
     parse_vtt,
     parse_subtitle_content,
@@ -11,6 +12,7 @@ from howimetyourcorpus.core.subtitles.parsers import (
 
 __all__ = [
     "Cue",
+    "cues_to_audit_rows",
     "parse_srt",
     "parse_vtt",
     "parse_subtitle_content",

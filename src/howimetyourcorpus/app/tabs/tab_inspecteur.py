@@ -191,7 +191,8 @@ class InspectorTabWidget(QWidget):
             )
 
     def refresh(self) -> None:
-        """Recharge la liste des épisodes et l'épisode courant."""
+        """Recharge la liste des épisodes et l'épisode courant (préserve la sélection si possible)."""
+        current_episode_id = self.inspect_episode_combo.currentData()
         self.inspect_episode_combo.clear()
         store = self._get_store()
         if not store:
@@ -200,6 +201,12 @@ class InspectorTabWidget(QWidget):
         if index and index.episodes:
             for e in index.episodes:
                 self.inspect_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+            # Restaurer la sélection d'épisode (évite le retour à S01E01 après enregistrement)
+            if current_episode_id:
+                for i in range(self.inspect_episode_combo.count()):
+                    if self.inspect_episode_combo.itemData(i) == current_episode_id:
+                        self.inspect_episode_combo.setCurrentIndex(i)
+                        break
         self._load_episode()
 
     def refresh_profile_combo(self, profile_ids: list[str], current: str | None) -> None:
@@ -332,7 +339,7 @@ class InspectorTabWidget(QWidget):
         db = self._get_db()
         if not db:
             return
-        kind_filter = self.inspect_kind_combo.currentData() if hasattr(self, 'inspect_kind_combo') else ""
+        kind_filter = self.inspect_kind_combo.currentData() or ""
         segments = db.get_segments_for_episode(episode_id, kind=kind_filter if kind_filter else None)
         for s in segments:
             kind = s.get("kind", "")
@@ -441,4 +448,9 @@ class InspectorTabWidget(QWidget):
             )
         except Exception as e:
             logger.exception("Export segments Inspecteur")
-            QMessageBox.critical(self, "Erreur", str(e))
+            QMessageBox.critical(
+                self,
+                "Erreur export",
+                f"Erreur lors de l'export : {e}\n\n"
+                "Vérifiez les droits d'écriture, que le fichier n'est pas ouvert ailleurs et l'encodage (UTF-8)."
+            )

@@ -249,3 +249,18 @@ def cues_to_srt(cues: list[dict]) -> str:
         text = (c.get("text_clean") or c.get("text_raw") or "").strip()
         blocks.append(f"{n}\n{_ms_to_srt_time(start_ms)} --> {_ms_to_srt_time(end_ms)}\n{text}")
     return "\n\n".join(blocks) + "\n" if blocks else ""
+
+
+def cues_to_audit_rows(cues: list[Cue]) -> list[dict[str, Any]]:
+    """Convertit une liste de `Cue` en lignes JSON auditables/persistables."""
+    return [
+        {
+            "cue_id": c.cue_id,
+            "n": c.n,
+            "start_ms": c.start_ms,
+            "end_ms": c.end_ms,
+            "text_raw": c.text_raw,
+            "text_clean": c.text_clean,
+        }
+        for c in cues
+    ]

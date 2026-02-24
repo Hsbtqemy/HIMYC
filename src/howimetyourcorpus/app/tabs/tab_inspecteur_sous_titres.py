@@ -99,7 +99,8 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         self.subtitles_tab.set_episode_and_load(eid)
 
     def refresh(self) -> None:
-        """Recharge la liste des épisodes et synchronise les deux panneaux."""
+        """Recharge la liste des épisodes et synchronise les deux panneaux (préserve l'épisode courant)."""
+        current_episode_id = self.episode_combo.currentData()
         self.episode_combo.blockSignals(True)
         self.episode_combo.clear()
         store = self._get_store()
@@ -108,18 +109,17 @@ class InspecteurEtSousTitresTabWidget(QWidget):
             if index and index.episodes:
                 for e in index.episodes:
                     self.episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+                if current_episode_id:
+                    for i in range(self.episode_combo.count()):
+                        if self.episode_combo.itemData(i) == current_episode_id:
+                            self.episode_combo.setCurrentIndex(i)
+                            break
         self.episode_combo.blockSignals(False)
         self.inspector_tab.refresh()
         self.subtitles_tab.refresh()
-        # Synchroniser le combo du haut avec l'épisode chargé (sans déclencher _on_episode_changed)
-        current_inspect = self.inspector_tab.inspect_episode_combo.currentData()
-        if current_inspect:
-            self.episode_combo.blockSignals(True)
-            for i in range(self.episode_combo.count()):
-                if self.episode_combo.itemData(i) == current_inspect:
-                    self.episode_combo.setCurrentIndex(i)
-                    break
-            self.episode_combo.blockSignals(False)
+        # Recharger l'épisode conservé dans les deux panneaux (inspector_tab.refresh a pu remettre le sien à 0)
+        if current_episode_id:
+            self.set_episode_and_load(current_episode_id)
 
     def _restore_combined_splitter(self) -> None:
         settings = QSettings()

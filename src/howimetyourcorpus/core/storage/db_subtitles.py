@@ -86,6 +86,19 @@ def update_cue_text_clean(conn: sqlite3.Connection, cue_id: str, text_clean: str
     )
 
 
+def update_cue_timecodes(
+    conn: sqlite3.Connection,
+    cue_id: str,
+    start_ms: int,
+    end_ms: int,
+) -> None:
+    """Met à jour les timecodes d'une cue."""
+    conn.execute(
+        "UPDATE subtitle_cues SET start_ms = ?, end_ms = ? WHERE cue_id = ?",
+        (int(start_ms), int(end_ms), cue_id),
+    )
+
+
 def get_tracks_for_episode(conn: sqlite3.Connection, episode_id: str) -> list[dict]:
     """Retourne les pistes sous-titres d'un épisode avec nb_cues (pour l'UI)."""
     conn.row_factory = sqlite3.Row

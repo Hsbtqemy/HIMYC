@@ -1,4 +1,4 @@
-"""Fenêtre principale : onglets Projet, Corpus, Inspecteur, Concordance, Logs."""
+"""Fenêtre principale : onglets Projet, Corpus, Inspecteur, Préparer, Alignement, Concordance, Personnages, Logs."""
 
 from __future__ import annotations
 
@@ -62,6 +62,7 @@ from howimetyourcorpus.app.tabs import (
     InspecteurEtSousTitresTabWidget,
     LogsTabWidget,
     PersonnagesTabWidget,
+    PreparerTabWidget,
     ProjectTabWidget,
 )
 from howimetyourcorpus.app.workers import JobRunner
@@ -70,14 +71,15 @@ from howimetyourcorpus import __version__
 
 logger = logging.getLogger(__name__)
 
-# Index des onglets (§15.4 : Inspecteur + Sous-titres fusionnés → 7 onglets)
+# Index des onglets (§15.4 + Préparer entre Inspecteur et Alignement)
 TAB_PROJET = 0
 TAB_CORPUS = 1
 TAB_INSPECTEUR = 2
-TAB_ALIGNEMENT = 3
-TAB_CONCORDANCE = 4
-TAB_PERSONNAGES = 5
-TAB_LOGS = 6
+TAB_PREPARER = 3
+TAB_ALIGNEMENT = 4
+TAB_CONCORDANCE = 5
+TAB_PERSONNAGES = 6
+TAB_LOGS = 7
 
 
 class MainWindow(QMainWindow):
@@ -120,11 +122,14 @@ class MainWindow(QMainWindow):
         self._build_tab_projet()
         self._build_tab_corpus()
         self._build_tab_inspecteur()
+        self._build_tab_preparer()
         self._build_tab_alignement()
         self._build_tab_concordance()
         self._build_tab_personnages()
         self._build_tab_logs()
         self.tabs.setCurrentIndex(TAB_PROJET)
+        self._previous_tab_index = TAB_PROJET
+        self._reverting_tab_change = False
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
     def _build_menu_bar(self):
@@ -211,26 +216,8 @@ class MainWindow(QMainWindow):
         """Enregistre la configuration de l'onglet Projet dans config.toml (source, URL, etc.)."""
         if not self._config or not self._store or not (hasattr(self, "project_tab") and self.project_tab):
             return
-        data = self.project_tab.get_form_data()
-        root = data.get("root")
-        if not root or Path(root).resolve() != self._config.root_dir.resolve():
-            self.statusBar().showMessage("Ouvrez un projet puis modifiez le formulaire du projet ouvert.", 4000)
+        if not self._sync_config_from_project_tab(show_mismatch_status=True):
             return
-        self._store.save_config_main(
-            series_url=data.get("series_url", ""),
-            source_id=data.get("source_id"),
-            rate_limit_s=float(data.get("rate_limit", 2)),
-            normalize_profile=data.get("normalize_profile"),
-        )
-        self._config = ProjectConfig(
-            project_name=self._config.project_name,
-            root_dir=self._config.root_dir,
-            source_id=data.get("source_id", self._config.source_id),
-            series_url=data.get("series_url", self._config.series_url),
-            rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
-            user_agent=self._config.user_agent,
-            normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
-        )
         self.statusBar().showMessage("Configuration enregistrée (source, URL série, profil).", 3000)
 
     def _open_profiles_dialog(self):
@@ -291,6 +278,7 @@ class MainWindow(QMainWindow):
             self._refresh_profile_combos()
             self._refresh_language_combos()
             self._refresh_inspecteur_episodes()
+            self._refresh_preparer()
             self._refresh_subs_tracks()
             self._refresh_align_runs()
             self._refresh_personnages()
@@ -328,6 +316,7 @@ class MainWindow(QMainWindow):
         # Ne pas remplir le Corpus ici : provoque segfault Qt/macOS. Le Corpus se remplit au clic sur l'onglet.
         def _deferred_refresh() -> None:
             self._refresh_inspecteur_episodes()
+            self._refresh_preparer()
             self._refresh_subs_tracks()
             self._refresh_align_runs()
             self._refresh_personnages()
@@ -361,6 +350,7 @@ class MainWindow(QMainWindow):
             refresh_after_episodes_added=lambda: (
                 self._refresh_episodes_from_store(),
                 self._refresh_inspecteur_episodes(),
+                self._refresh_preparer(),
                 self._refresh_personnages(),
             ),
             on_cancel_job=self._cancel_job,
@@ -385,24 +375,7 @@ class MainWindow(QMainWindow):
 
     def _run_job(self, steps: list):
         # Synchroniser la config depuis l'onglet Projet (URL série, etc.) avant tout job
-        if self._config and self._store and hasattr(self, "project_tab") and self.project_tab:
-            data = self.project_tab.get_form_data()
-            if data.get("root") and Path(data["root"]).resolve() == self._config.root_dir.resolve():
-                self._store.save_config_main(
-                    series_url=data.get("series_url", ""),
-                    source_id=data.get("source_id"),
-                    rate_limit_s=float(data.get("rate_limit", 2)),
-                    normalize_profile=data.get("normalize_profile"),
-                )
-                self._config = ProjectConfig(
-                    project_name=self._config.project_name,
-                    root_dir=self._config.root_dir,
-                    source_id=data.get("source_id", self._config.source_id),
-                    series_url=data.get("series_url", self._config.series_url),
-                    rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
-                    user_agent=self._config.user_agent,
-                    normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
-                )
+        self._sync_config_from_project_tab()
         context = self._get_context()
         if not context.get("config"):
             return
@@ -425,6 +398,38 @@ class MainWindow(QMainWindow):
             self.corpus_tab.set_progress(0)
         self._job_runner.run_async()
 
+    def _sync_config_from_project_tab(self, *, show_mismatch_status: bool = False) -> bool:
+        """
+        Synchronise la config en mémoire + config.toml depuis le formulaire Projet.
+
+        Retourne True si la synchro est appliquée, False sinon (pas de projet ouvert, onglet absent,
+        root du formulaire qui ne correspond pas au projet courant, etc.).
+        """
+        if not self._config or not self._store or not (hasattr(self, "project_tab") and self.project_tab):
+            return False
+        data = self.project_tab.get_form_data()
+        root = data.get("root")
+        if not root or Path(root).resolve() != self._config.root_dir.resolve():
+            if show_mismatch_status:
+                self.statusBar().showMessage("Ouvrez un projet puis modifiez le formulaire du projet ouvert.", 4000)
+            return False
+        self._store.save_config_main(
+            series_url=data.get("series_url", ""),
+            source_id=data.get("source_id"),
+            rate_limit_s=float(data.get("rate_limit", 2)),
+            normalize_profile=data.get("normalize_profile"),
+        )
+        self._config = ProjectConfig(
+            project_name=self._config.project_name,
+            root_dir=self._config.root_dir,
+            source_id=data.get("source_id", self._config.source_id),
+            series_url=data.get("series_url", self._config.series_url),
+            rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
+            user_agent=self._config.user_agent,
+            normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
+        )
+        return True
+
     def _on_job_progress(self, step_name: str, percent: float, message: str):
         if hasattr(self, "corpus_tab") and self.corpus_tab:
             self.corpus_tab.set_progress(int(percent * 100))
@@ -446,63 +451,56 @@ class MainWindow(QMainWindow):
                 if te:
                     te.appendPlainText(f"[info] {summary}")
 
+    def _build_job_summary_message(self, results: list) -> tuple[str, set[str], int]:
+        """Construit le message de fin de job + la liste d'épisodes en échec."""
+        ok = sum(1 for r in results if getattr(r, "success", True))
+        fail = len(results) - ok
+        msg = f"Terminé : {ok} réussie(s), {fail} échec(s)."
+        failed_episode_ids: set[str] = set()
+        if fail:
+            first_fail_msg = ""
+            for r in results:
+                if not getattr(r, "success", True):
+                    m = (getattr(r, "message", None) or str(r)) or ""
+                    if not first_fail_msg:
+                        first_fail_msg = m[:80] + ("…" if len(m) > 80 else "")
+                    ep_match = re.search(r"S\d+E\d+", m, re.IGNORECASE)
+                    if ep_match:
+                        failed_episode_ids.add(ep_match.group(0).upper())
+            if failed_episode_ids:
+                msg += f" Échec(s) : {', '.join(sorted(failed_episode_ids))}."
+            elif first_fail_msg:
+                msg += f" Premier échec : {first_fail_msg}"
+        return msg, failed_episode_ids, fail
+
+    def _refresh_tabs_after_job(self) -> None:
+        """Rafraîchit les onglets dépendants après exécution d'un job."""
+        refreshers: list[tuple[str, Any, bool]] = [
+            ("_refresh_episodes_from_store", self._refresh_episodes_from_store, True),
+            ("_refresh_inspecteur_episodes", self._refresh_inspecteur_episodes, False),
+            ("_refresh_preparer", self._refresh_preparer, False),
+            ("_refresh_subs_tracks", self._refresh_subs_tracks, False),
+            ("_refresh_align_runs", self._refresh_align_runs, False),
+        ]
+        for name, refresh_fn, show_warning in refreshers:
+            try:
+                refresh_fn()
+            except Exception as exc:
+                logger.exception("Error in %s", name)
+                if show_warning:
+                    QMessageBox.warning(self, "Avertissement", f"Erreur lors du rafraîchissement des épisodes: {exc}")
+
     def _on_job_finished(self, results: list):
         try:
             if hasattr(self, "corpus_tab") and self.corpus_tab:
                 self.corpus_tab.set_cancel_btn_enabled(False)
                 self.corpus_tab.set_progress(100)
-            ok = sum(1 for r in results if getattr(r, "success", True))
-            fail = len(results) - ok
-            # Résumé unifié : X réussis, Y échecs (toujours affiché)
-            msg = f"Terminé : {ok} réussie(s), {fail} échec(s)."
-            failed_episode_ids: set[str] = set()
-            if fail:
-                first_fail_msg = ""
-                for r in results:
-                    if not getattr(r, "success", True):
-                        m = (getattr(r, "message", None) or str(r)) or ""
-                        if not first_fail_msg:
-                            first_fail_msg = m[:80] + ("…" if len(m) > 80 else "")
-                        # Extraire episode_id (ex. S01E01) du message pour reprise ciblée
-                        ep_match = re.search(r"S\d+E\d+", m, re.IGNORECASE)
-                        if ep_match:
-                            failed_episode_ids.add(ep_match.group(0).upper())
-                if failed_episode_ids:
-                    msg += f" Échec(s) : {', '.join(sorted(failed_episode_ids))}."
-                elif first_fail_msg:
-                    msg += f" Premier échec : {first_fail_msg}"
-                self.statusBar().showMessage(msg, 10000)
-                # Stocker les échecs pour la reprise
-                if hasattr(self, "corpus_tab") and self.corpus_tab:
-                    self.corpus_tab.store_failed_episodes(failed_episode_ids)
-            else:
-                self.statusBar().showMessage(msg, 5000)
-                # Pas d'échec : désactiver le bouton reprise
-                if hasattr(self, "corpus_tab") and self.corpus_tab:
-                    self.corpus_tab.store_failed_episodes(set())
+            msg, failed_episode_ids, fail = self._build_job_summary_message(results)
+            self.statusBar().showMessage(msg, 10000 if fail else 5000)
+            if hasattr(self, "corpus_tab") and self.corpus_tab:
+                self.corpus_tab.store_failed_episodes(failed_episode_ids if fail else set())
             self._append_job_summary_to_log(msg)
-            
-            try:
-                self._refresh_episodes_from_store()
-            except Exception as e:
-                logger.exception("Error in _refresh_episodes_from_store")
-                QMessageBox.warning(self, "Avertissement", f"Erreur lors du rafraîchissement des épisodes: {e}")
-            
-            try:
-                self._refresh_inspecteur_episodes()
-            except Exception as e:
-                logger.exception("Error in _refresh_inspecteur_episodes")
-            
-            try:
-                self._refresh_subs_tracks()
-            except Exception as e:
-                logger.exception("Error in _refresh_subs_tracks")
-            
-            try:
-                self._refresh_align_runs()
-            except Exception as e:
-                logger.exception("Error in _refresh_align_runs")
-            
+            self._refresh_tabs_after_job()
             self._job_runner = None
         except Exception as e:
             logger.exception("Critical error in _on_job_finished")
@@ -537,6 +535,17 @@ class MainWindow(QMainWindow):
 
     def _on_tab_changed(self, index: int) -> None:
         """Remplit le Corpus au passage sur l'onglet (évite segfault Qt/macOS au chargement du projet)."""
+        if self._reverting_tab_change:
+            return
+        previous = getattr(self, "_previous_tab_index", TAB_PROJET)
+        if previous == TAB_PREPARER and index != TAB_PREPARER:
+            if hasattr(self, "preparer_tab") and self.preparer_tab:
+                if not self.preparer_tab.prompt_save_if_dirty():
+                    self._reverting_tab_change = True
+                    self.tabs.setCurrentIndex(TAB_PREPARER)
+                    self._reverting_tab_change = False
+                    return
+        self._previous_tab_index = index
         if index == TAB_CORPUS and self._store is not None:
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
             QTimer.singleShot(50, self._refresh_episodes_from_store)
@@ -570,10 +579,31 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.inspector_tab, "Inspecteur")
         self.tabs.setTabToolTip(TAB_INSPECTEUR, "§15.4 — Transcript (RAW/CLEAN, segments) + Sous-titres (pistes, import, normaliser) pour l'épisode courant.")
 
+    def _build_tab_preparer(self):
+        self.preparer_tab = PreparerTabWidget(
+            get_store=lambda: self._store,
+            get_db=lambda: self._db,
+            show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
+            on_go_alignement=self.open_alignement_for_episode,
+            undo_stack=self.undo_stack,
+        )
+        self.tabs.addTab(self.preparer_tab, "Préparer")
+        self.tabs.setTabToolTip(
+            TAB_PREPARER,
+            "Préparer un fichier (transcript/SRT): normaliser explicitement, éditer, segmenter en tours, puis passer à l'alignement.",
+        )
+
     def closeEvent(self, event):
         """Sauvegarde les tailles des splitters et les notes Inspecteur à la fermeture."""
+        if hasattr(self, "preparer_tab") and self.preparer_tab:
+            if not self.preparer_tab.prompt_save_if_dirty():
+                event.ignore()
+                return
+            self.preparer_tab.save_state()
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.save_state()
+        if hasattr(self, "alignment_tab") and self.alignment_tab:
+            self.alignment_tab.save_state()
         super().closeEvent(event)
 
     def _refresh_inspecteur_episodes(self):
@@ -584,6 +614,18 @@ class MainWindow(QMainWindow):
         """Rafraîchit les pistes Sous-titres (§15.4 : même onglet que Inspecteur)."""
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.refresh()
+
+    def _refresh_preparer(self, *, force: bool = False):
+        if not (hasattr(self, "preparer_tab") and self.preparer_tab):
+            return
+        if not force and self.preparer_tab.has_unsaved_changes():
+            logger.info("Skip preparer refresh: unsaved draft in progress")
+            self.statusBar().showMessage(
+                "Préparer: brouillon non enregistré conservé (rafraîchissement ignoré).",
+                4000,
+            )
+            return
+        self.preparer_tab.refresh()
 
     def _build_tab_alignement(self):
         self.alignment_tab = AlignmentTabWidget(
@@ -626,6 +668,23 @@ class MainWindow(QMainWindow):
         if hasattr(self, "inspector_tab") and self.inspector_tab:
             self.inspector_tab.set_episode_and_load(episode_id)
 
+    def open_preparer_for_episode(self, episode_id: str, source: str | None = None) -> None:
+        """Ouvre l'onglet Préparer sur un épisode/source donnés."""
+        if hasattr(self, "preparer_tab") and self.preparer_tab and self.preparer_tab.has_unsaved_changes():
+            if not self.preparer_tab.prompt_save_if_dirty():
+                return
+        self.tabs.setCurrentIndex(TAB_PREPARER)
+        if hasattr(self, "preparer_tab") and self.preparer_tab:
+            self.preparer_tab.refresh()
+            self.preparer_tab.set_episode_and_load(episode_id, source_key=source or "transcript")
+
+    def open_alignement_for_episode(self, episode_id: str, segment_kind: str = "sentence") -> None:
+        """Handoff explicite vers Alignement avec épisode + type de segments."""
+        self.tabs.setCurrentIndex(TAB_ALIGNEMENT)
+        if hasattr(self, "alignment_tab") and self.alignment_tab:
+            self.alignment_tab.refresh()
+            self.alignment_tab.set_episode_and_segment_kind(episode_id, segment_kind=segment_kind)
+
     def _build_tab_logs(self):
         w = LogsTabWidget(on_open_log=self._open_log_file)
         self.tabs.addTab(w, "Logs")
@@ -638,5 +697,5 @@ class MainWindow(QMainWindow):
         if not log_path.exists():
             QMessageBox.information(self, "Logs", "Aucun fichier log pour l'instant.")
             return
-        import os
-        os.startfile(str(log_path))
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_path))):
+            QMessageBox.warning(self, "Logs", f"Impossible d'ouvrir le fichier:\n{log_path}")
