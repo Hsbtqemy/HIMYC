@@ -351,34 +351,17 @@ class ConcordanceTabWidget(QWidget):
         return hits
     
     def _filter_hits_by_speaker(self, hits: list, speaker: str) -> list:
-        """Pack Analyse C5: Filtre les hits par speaker (segments/cues avec metadata)."""
-        db = self._get_db()
-        if not db:
+        """Pack Analyse C5: Filtre les hits par speaker à partir du speaker déjà présent sur les hits."""
+        target = (speaker or "").strip().casefold()
+        if not target:
             return hits
-        
-        # Récupérer les segments/cues avec ce speaker
+
         filtered = []
         for hit in hits:
-            # Vérifier si le hit a un segment_id ou cue_id
-            segment_id = getattr(hit, "segment_id", None)
-            cue_id = getattr(hit, "cue_id", None)
-            
-            if segment_id:
-                # Vérifier speaker du segment
-                with db.connection() as conn:
-                    cursor = conn.execute(
-                        "SELECT speaker_explicit FROM segments WHERE segment_id = ?",
-                        (segment_id,)
-                    )
-                    row = cursor.fetchone()
-                    if row and row[0] == speaker:
-                        filtered.append(hit)
-            elif cue_id:
-                # Les cues n'ont pas de speaker direct, filtrer par segment associé
-                # Pour l'instant, on garde tous les hits de cues
+            hit_speaker = (getattr(hit, "speaker", None) or "").strip().casefold()
+            if hit_speaker == target:
                 filtered.append(hit)
-        
-        return filtered if filtered else hits  # Si aucun résultat, retourner original
+        return filtered
 
     def _on_page_changed(self) -> None:
         """Affiche la page sélectionnée."""
