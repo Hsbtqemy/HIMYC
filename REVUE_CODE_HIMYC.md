@@ -97,6 +97,7 @@
 | Couverture UI/dialogs P2 | Tests ajoutés sur Inspecteur + dialog Profils (`tests/test_ui_inspecteur_profiles.py`) |
 | Refacto `tab_alignement` | Exports + dialogue d’édition déplacés vers `app/tabs/alignement_exporters.py` et `app/dialogs/edit_align_link.py` |
 | Refacto `models_qt` | Modèles séparés en modules dédiés (`models_qt_episodes.py`, `models_qt_kwic.py`, `models_qt_align.py`, `models_qt_common.py`) avec façade compatibilité `models_qt.py` |
+| Refacto `tab_preparer` | Actions UI extraites vers `app/tabs/preparer_actions.py` + dialogue déplacé vers `app/dialogs/search_replace.py` |
 
 ---
 
@@ -116,7 +117,7 @@
 
 - **project_store.py** ~990 — allégé via `character_propagation.py` et `align_grouping.py`, reste à découper (ex. « characters », « prep_status », « config »).
 - **tab_corpus.py** ~1080 — sous-widgets ou mixins (arbre, filtres, actions).
-- **tab_preparer.py** ~970 — idem (vues transcript / cues, barre d’actions).
+- **tab_preparer.py** ~800 — allégé via `preparer_actions.py`, reste à découper (save workflow / snapshots).
 - **tab_alignement.py** ~697 — allégé via extraction des exports/dialogue, reste à découper (actions run/bulk/table).
 - **models_qt.py** ~21 — façade de compatibilité ; logique déplacée dans des modules dédiés (~545 épisodes, ~115 align, ~62 kwic).
 - **ui_mainwindow.py** ~702 — extraire construction onglets / gestion job.
@@ -150,7 +151,7 @@
 |----------|--------|
 | **P1** | ✅ Uniformisation des checks « projet ouvert » et « DB ouverte » sur les actions UI principales (Corpus, Préparer, Alignement, Projet, Concordance, Personnages). |
 | **P1** | ✅ Nettoyage des artefacts runtime sous `tests/` via script dédié (`scripts/clean_test_artifacts.sh`) et `.gitignore`. |
-| **P2** | 🟡 Découper les plus gros fichiers (project_store et models_qt allégés ; restent tab_corpus, tab_preparer, tab_alignement). |
+| **P2** | 🟡 Découper les plus gros fichiers (project_store/models_qt allégés ; restent surtout tab_corpus, tab_preparer, tab_alignement). |
 | **P2** | 🟡 Étendre les tests UI/dialogs (Inspecteur/Concordance/Logs couverts; poursuivre sur flows dialogs avancés). |
 | **P3** | Chargement asynchrone du refresh Corpus pour très gros corpus. |
 

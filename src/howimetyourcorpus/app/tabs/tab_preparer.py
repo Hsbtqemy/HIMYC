@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any, Callable
 
 from PySide6.QtCore import Qt
@@ -11,11 +10,8 @@ from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDialog,
-    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QStackedWidget,
@@ -25,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from howimetyourcorpus.app.dialogs import NormalizeOptionsDialog, SegmentationOptionsDialog
+from howimetyourcorpus.app.tabs.preparer_actions import PreparerActionsController
 from howimetyourcorpus.app.tabs.preparer_context import PreparerContextController
 from howimetyourcorpus.app.tabs.preparer_edit import PreparerEditController
 from howimetyourcorpus.app.tabs.preparer_save import PreparerSaveController
@@ -35,12 +31,10 @@ from howimetyourcorpus.app.ui_utils import require_project, require_project_and_
 from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
 from howimetyourcorpus.core.models import TransformStats
 from howimetyourcorpus.core.preparer import (
-    DEFAULT_SEGMENTATION_OPTIONS,
     PREP_STATUS_CHOICES,
     PREP_STATUS_VALUES,
     PreparerService,
     format_ms_to_srt_time as _format_ms_to_srt_time,
-    normalize_segmentation_options,
     parse_srt_time_to_ms as _parse_srt_time_to_ms,
 )
 
@@ -55,50 +49,6 @@ def parse_srt_time_to_ms(value: str) -> int:
 def format_ms_to_srt_time(ms: int) -> str:
     """Compat tests/modules: réexport local des utilitaires timecodes."""
     return _format_ms_to_srt_time(ms)
-
-
-class SearchReplaceDialog(QDialog):
-    """Dialogue simple de recherche/remplacement."""
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self.setWindowTitle("Rechercher / Remplacer")
-        layout = QVBoxLayout(self)
-
-        row_find = QHBoxLayout()
-        row_find.addWidget(QLabel("Rechercher:"))
-        self.find_edit = QLineEdit()
-        row_find.addWidget(self.find_edit)
-        layout.addLayout(row_find)
-
-        row_replace = QHBoxLayout()
-        row_replace.addWidget(QLabel("Remplacer par:"))
-        self.replace_edit = QLineEdit()
-        row_replace.addWidget(self.replace_edit)
-        layout.addLayout(row_replace)
-
-        opts = QHBoxLayout()
-        self.case_sensitive_cb = QCheckBox("Respecter la casse")
-        self.regex_cb = QCheckBox("Regex")
-        opts.addWidget(self.case_sensitive_cb)
-        opts.addWidget(self.regex_cb)
-        opts.addStretch()
-        layout.addLayout(opts)
-
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
-
-    def get_params(self) -> tuple[str, str, bool, bool]:
-        return (
-            self.find_edit.text(),
-            self.replace_edit.text(),
-            self.case_sensitive_cb.isChecked(),
-            self.regex_cb.isChecked(),
-        )
 
 
 class PreparerTabWidget(QWidget):
@@ -128,6 +78,7 @@ class PreparerTabWidget(QWidget):
         self._force_save_transcript_rows = False
         self._updating_ui = False
         self._edit_role = int(Qt.ItemDataRole.UserRole) + 1
+        self._actions_controller = PreparerActionsController(self, logger)
         self._context_controller = PreparerContextController(self, logger)
         self._edit_controller = PreparerEditController(self)
         self._state_controller = PreparerStateController(self, valid_status_values=PREP_STATUS_VALUES)
@@ -494,85 +445,10 @@ class PreparerTabWidget(QWidget):
 
     @require_project_and_db
     def _normalize_transcript(self) -> None:
-        episode_id = self.prep_episode_combo.currentData()
-        store = self._get_store()
-        assert store is not None  # garanti par @require_project_and_db
-        service = self._build_service()
-        if not episode_id:
-            QMessageBox.warning(self, "Préparer", "Sélectionnez un épisode.")
-            return
-        if service is None:
-            QMessageBox.warning(self, "Préparer", "Service de préparation indisponible.")
-            return
-        if self._current_source_key != "transcript":
-            QMessageBox.information(self, "Préparer", "MVP: normalisation explicite disponible sur Transcript.")
-            return
-        dlg = NormalizeOptionsDialog(self, store=store)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        options = dlg.get_options()
-        options["input_text"] = self.text_editor.toPlainText()
-        try:
-            result = service.apply_normalization(episode_id, "transcript", options)
-            clean_text = result.get("clean_text") or ""
-            stats = result.get("stats")
-            debug = result.get("debug")
-            self._set_text(clean_text)
-            self.save_clean_text_with_meta(episode_id, clean_text, stats=stats, debug=debug)
-            self._apply_status_value("normalized", persist=True, mark_dirty=False)
-            merges = int(getattr(stats, "merges", 0)) if stats else 0
-            self._show_status(f"Normalisation appliquée ({merges} fusion(s)).", 4000)
-        except Exception as exc:
-            logger.exception("Normalize transcript preparer")
-            QMessageBox.critical(self, "Préparer", f"Erreur normalisation: {exc}")
+        self._actions_controller.normalize_transcript()
 
     def _search_replace(self) -> None:
-        dlg = SearchReplaceDialog(self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        needle, repl, case_sensitive, is_regex = dlg.get_params()
-        if not needle:
-            QMessageBox.warning(self, "Préparer", "Le texte à rechercher est vide.")
-            return
-
-        try:
-            if self.stack.currentWidget() == self.utterance_table and self.utterance_table.rowCount() > 0:
-                count = self._search_replace_table(
-                    self.utterance_table,
-                    needle,
-                    repl,
-                    case_sensitive,
-                    is_regex,
-                    text_col=2,
-                )
-            elif self.stack.currentWidget() == self.cue_table and self.cue_table.rowCount() > 0:
-                count = self._search_replace_table(
-                    self.cue_table,
-                    needle,
-                    repl,
-                    case_sensitive,
-                    is_regex,
-                    text_col=4,
-                )
-            else:
-                before = self.text_editor.toPlainText()
-                after, count = self._replace_text(before, needle, repl, case_sensitive, is_regex)
-                if count > 0:
-                    if self.undo_stack:
-                        cmd = CallbackUndoCommand(
-                            f"Rechercher/remplacer ({count})",
-                            redo_callback=lambda v=after: self._apply_plain_text_value(v),
-                            undo_callback=lambda v=before: self._apply_plain_text_value(v),
-                        )
-                        self.undo_stack.push(cmd)
-                    else:
-                        self._apply_plain_text_value(after)
-            if count > 0:
-                self._show_status(f"{count} remplacement(s).", 3000)
-            else:
-                QMessageBox.information(self, "Préparer", "Aucune occurrence trouvée.")
-        except re.error as exc:
-            QMessageBox.warning(self, "Préparer", f"Regex invalide: {exc}")
+        self._actions_controller.search_replace()
 
     def _search_replace_table(
         self,
@@ -607,47 +483,11 @@ class PreparerTabWidget(QWidget):
         return self._transcript_widgets.export_utterance_rows()
 
     def _load_segmentation_options(self, episode_id: str, source_key: str) -> dict[str, Any]:
-        store = self._get_store()
-        if not store:
-            return dict(DEFAULT_SEGMENTATION_OPTIONS)
-        try:
-            return store.get_episode_segmentation_options(
-                episode_id,
-                source_key,
-                default=DEFAULT_SEGMENTATION_OPTIONS,
-            )
-        except Exception:
-            logger.exception("Load segmentation options")
-            return dict(DEFAULT_SEGMENTATION_OPTIONS)
+        return self._actions_controller.load_segmentation_options(episode_id, source_key)
 
     @require_project
     def _open_segmentation_options(self) -> None:
-        episode_id = self.prep_episode_combo.currentData()
-        if not episode_id:
-            QMessageBox.warning(self, "Préparer", "Sélectionnez un épisode.")
-            return
-        if self._current_source_key != "transcript":
-            QMessageBox.information(
-                self,
-                "Préparer",
-                "Les paramètres de segmentation sont disponibles sur la source Transcript.",
-            )
-            return
-        store = self._get_store()
-        assert store is not None  # garanti par @require_project
-
-        initial = self._load_segmentation_options(episode_id, self._current_source_key)
-        dlg = SegmentationOptionsDialog(self, initial_options=initial)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        options = normalize_segmentation_options(dlg.get_options())
-        try:
-            store.set_episode_segmentation_options(episode_id, self._current_source_key, options)
-        except Exception as exc:
-            logger.exception("Save segmentation options")
-            QMessageBox.critical(self, "Préparer", f"Impossible d'enregistrer les paramètres: {exc}")
-            return
-        self._show_status("Paramètres segmentation enregistrés.", 3000)
+        self._actions_controller.open_segmentation_options()
 
     def _segment_to_utterances(self) -> None:
         self._edit_controller.segment_to_utterances()
@@ -912,17 +752,7 @@ class PreparerTabWidget(QWidget):
             return False
 
     def _go_to_alignement(self) -> None:
-        episode_id = self.prep_episode_combo.currentData()
-        if not episode_id:
-            QMessageBox.warning(self, "Préparer", "Sélectionnez un épisode.")
-            return
-        if self._dirty and not self.prompt_save_if_dirty():
-            return
-        if self._current_source_key == "transcript":
-            segment_kind = "utterance" if self.utterance_table.rowCount() > 0 else "sentence"
-        else:
-            segment_kind = "sentence"
-        self._on_go_alignement(episode_id, segment_kind)
+        self._actions_controller.go_to_alignement()
 
     def _load_assignment_map(
         self,
