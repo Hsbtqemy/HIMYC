@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel, après extraction de la gestion projet de `ui_mainwindow`)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction de la construction UI de `tab_preparer`)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -62,7 +62,7 @@
 - **Projet** : formulaire, validation, callbacks vers MainWindow.
 - **Corpus** (~370 lignes) : wrappers UI + actions (découvrir, fetch, normaliser, indexer), avec construction déplacée vers `corpus_ui.py`, orchestration batch vers `corpus_workflow.py` et logique vue vers `corpus_view.py`.
 - **Inspecteur** + **Sous-titres** : conteneur fusionné `InspecteurEtSousTitresTabWidget`.
-- **Préparer** (~595 lignes) + `preparer_context.py`, `preparer_edit.py`, `preparer_save.py`, `preparer_state.py`, `preparer_views.py`, `preparer_actions.py`, `preparer_persistence.py`.
+- **Préparer** (~473 lignes) + `preparer_context.py`, `preparer_edit.py`, `preparer_save.py`, `preparer_state.py`, `preparer_views.py`, `preparer_actions.py`, `preparer_persistence.py`, `preparer_ui.py`.
 - **Alignement** (~344 lignes) + `alignement_actions.py`, `alignement_exporters.py` : runs, liens, tableau, undo.
 - **Concordance** : KWIC, filtres, export, graphique fréquence (matplotlib).
 - **Personnages** : grille, assignations, propagation.
@@ -108,6 +108,7 @@
 | Correctif compatibilité `tab_corpus` | `corpus_ui.py` repasse par les wrappers `_build_transcripts_group`/`_build_subtitles_group` du tab pour préserver monkeypatch/tests existants |
 | Refacto `tab_corpus` (contexte) | Résolution sélection/projet/cibles + reprise échecs extraite vers `app/tabs/corpus_context.py` ; wrappers historiques conservés |
 | Refacto `tab_preparer` (persistence) | Orchestration save/snapshots extraite vers `app/tabs/preparer_persistence.py` |
+| Refacto `tab_preparer` (construction UI) | Construction des lignes top/actions/aide/éditeurs extraite vers `app/tabs/preparer_ui.py` ; wrappers `_build_*` conservés dans `tab_preparer.py` |
 | Refacto `tab_alignement` (actions) | Actions run/bulk/menu/export/groupes extraites vers `app/tabs/alignement_actions.py` ; `tab_alignement.py` recentré sur la vue |
 | Refacto `ui_mainwindow` (jobs) | Orchestration JobRunner/progress/log/finished/error/cancel extraite vers `app/mainwindow_jobs.py` ; `ui_mainwindow.py` garde des wrappers compatibles |
 | Refacto `ui_mainwindow` (onglets) | Construction/refresh/navigation des onglets extraits vers `app/mainwindow_tabs.py` ; wrappers `_build_tab_*`/`_refresh_*` conservés pour compatibilité |
@@ -137,7 +138,7 @@
 
 - **project_store.py** ~524 — allégé via `character_propagation.py`, `align_grouping.py`, `project_store_prep.py`, `project_store_characters.py`, `project_store_profiles.py`, `project_store_config.py`, `project_store_episode_io.py`, `project_store_subtitles.py`, `project_store_series_index.py`, `project_store_custom_profiles.py`, `project_store_align_io.py`; reste à découper (façade encore dense).
 - **tab_corpus.py** ~328 — allégé via `corpus_sources.py`/`corpus_export.py`/`corpus_workflow.py`/`corpus_view.py`/`corpus_ui.py`/`corpus_context.py`; reste une façade d’orchestration.
-- **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
+- **tab_preparer.py** ~473 — allégé via `preparer_actions.py`, `preparer_persistence.py` et `preparer_ui.py` (~161).
 - **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).
 - **models_qt.py** ~21 — façade de compatibilité ; logique déplacée dans des modules dédiés (~545 épisodes, ~115 align, ~62 kwic).
 - **ui_mainwindow.py** ~376 — allégé via `mainwindow_jobs.py` (~163), `mainwindow_tabs.py` (~228) et `mainwindow_project.py` (~181) ; reste une façade/wrappers UI.

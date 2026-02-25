@@ -8,13 +8,7 @@ from typing import Any, Callable
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QUndoStack
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QHBoxLayout,
-    QLabel,
     QMessageBox,
-    QPushButton,
-    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -27,11 +21,10 @@ from howimetyourcorpus.app.tabs.preparer_edit import PreparerEditController
 from howimetyourcorpus.app.tabs.preparer_persistence import PreparerPersistenceController
 from howimetyourcorpus.app.tabs.preparer_save import PreparerSaveController
 from howimetyourcorpus.app.tabs.preparer_state import PreparerStateController
-from howimetyourcorpus.app.tabs.preparer_views import CueWidgets, TranscriptWidgets
+from howimetyourcorpus.app.tabs.preparer_ui import PreparerUiBuilder
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
 from howimetyourcorpus.core.preparer import (
-    PREP_STATUS_CHOICES,
     PREP_STATUS_VALUES,
     PreparerService,
     format_ms_to_srt_time as _format_ms_to_srt_time,
@@ -83,6 +76,7 @@ class PreparerTabWidget(QWidget):
         self._context_controller = PreparerContextController(self, logger)
         self._edit_controller = PreparerEditController(self)
         self._state_controller = PreparerStateController(self, valid_status_values=PREP_STATUS_VALUES)
+        self._ui_builder = PreparerUiBuilder(self)
         self._save_controller = PreparerSaveController(
             get_store=self._get_store,
             get_db=self._get_db,
@@ -100,135 +94,19 @@ class PreparerTabWidget(QWidget):
         self._update_utterance_action_states()
 
     def _build_top_row(self, layout: QVBoxLayout) -> None:
-        top = QHBoxLayout()
-        top.addWidget(QLabel("Épisode:"))
-        self.prep_episode_combo = QComboBox()
-        self.prep_episode_combo.currentIndexChanged.connect(self._on_episode_changed)
-        top.addWidget(self.prep_episode_combo)
-
-        top.addWidget(QLabel("Fichier:"))
-        self.prep_source_combo = QComboBox()
-        self._refresh_source_combo_items()
-        self.prep_source_combo.currentIndexChanged.connect(self._on_source_changed)
-        top.addWidget(self.prep_source_combo)
-
-        top.addWidget(QLabel("Statut:"))
-        self.prep_status_combo = QComboBox()
-        for label, value in PREP_STATUS_CHOICES:
-            self.prep_status_combo.addItem(label, value)
-        self.prep_status_combo.currentIndexChanged.connect(self._on_status_changed)
-        top.addWidget(self.prep_status_combo)
-
-        self.dirty_label = QLabel("")
-        self.dirty_label.setStyleSheet("color: #b00020; font-weight: bold;")
-        top.addWidget(self.dirty_label)
-        top.addStretch()
-        layout.addLayout(top)
+        self._ui_builder.build_top_row(layout)
 
     def _build_actions_row(self, layout: QVBoxLayout) -> None:
-        actions = QHBoxLayout()
-        self.prep_normalize_btn = QPushButton("Nettoyer")
-        self.prep_normalize_btn.clicked.connect(self._normalize_transcript)
-        actions.addWidget(self.prep_normalize_btn)
-
-        self.prep_search_replace_btn = QPushButton("Rechercher / Remplacer")
-        self.prep_search_replace_btn.clicked.connect(self._search_replace)
-        actions.addWidget(self.prep_search_replace_btn)
-
-        self.prep_segment_btn = QPushButton("Segmenter en tours")
-        self.prep_segment_btn.clicked.connect(self._segment_to_utterances)
-        actions.addWidget(self.prep_segment_btn)
-
-        self.prep_segment_options_btn = QPushButton("Paramètres segmentation")
-        self.prep_segment_options_btn.clicked.connect(self._open_segmentation_options)
-        actions.addWidget(self.prep_segment_options_btn)
-
-        self.prep_edit_timecodes_cb = QCheckBox("Éditer timecodes")
-        self.prep_edit_timecodes_cb.setToolTip(
-            "Autorise l'édition des colonnes Début/Fin sur les cues SRT."
-        )
-        self.prep_edit_timecodes_cb.toggled.connect(self._on_edit_timecodes_toggled)
-        self.prep_edit_timecodes_cb.setEnabled(False)
-        actions.addWidget(self.prep_edit_timecodes_cb)
-
-        self.prep_strict_timecodes_cb = QCheckBox("Validation stricte")
-        self.prep_strict_timecodes_cb.setToolTip(
-            "En mode édition timecodes, refuse les chevauchements entre cues adjacentes."
-        )
-        self.prep_strict_timecodes_cb.setEnabled(False)
-        actions.addWidget(self.prep_strict_timecodes_cb)
-
-        self.prep_save_btn = QPushButton("Enregistrer")
-        self.prep_save_btn.clicked.connect(self.save_current)
-        actions.addWidget(self.prep_save_btn)
-
-        self.prep_go_align_btn = QPushButton("Aller à l'alignement")
-        self.prep_go_align_btn.clicked.connect(self._go_to_alignement)
-        actions.addWidget(self.prep_go_align_btn)
-        actions.addStretch()
-        layout.addLayout(actions)
+        self._ui_builder.build_actions_row(layout)
 
     def _build_utterance_actions_row(self, layout: QVBoxLayout) -> None:
-        utterance_actions = QHBoxLayout()
-        self.prep_add_utt_btn = QPushButton("Ajouter ligne")
-        self.prep_add_utt_btn.clicked.connect(self._add_utterance_row_below)
-        utterance_actions.addWidget(self.prep_add_utt_btn)
-
-        self.prep_delete_utt_btn = QPushButton("Supprimer ligne")
-        self.prep_delete_utt_btn.clicked.connect(self._delete_selected_utterance_rows)
-        utterance_actions.addWidget(self.prep_delete_utt_btn)
-
-        self.prep_merge_utt_btn = QPushButton("Fusionner")
-        self.prep_merge_utt_btn.clicked.connect(self._merge_selected_utterances)
-        utterance_actions.addWidget(self.prep_merge_utt_btn)
-
-        self.prep_split_utt_btn = QPushButton("Scinder au curseur")
-        self.prep_split_utt_btn.clicked.connect(self._split_selected_utterance_at_cursor)
-        utterance_actions.addWidget(self.prep_split_utt_btn)
-
-        self.prep_group_utt_btn = QPushButton("Regrouper par assignations")
-        self.prep_group_utt_btn.clicked.connect(self._group_utterances_by_assignments)
-        utterance_actions.addWidget(self.prep_group_utt_btn)
-
-        self.prep_renumber_utt_btn = QPushButton("Renuméroter")
-        self.prep_renumber_utt_btn.clicked.connect(self._renumber_utterances)
-        utterance_actions.addWidget(self.prep_renumber_utt_btn)
-
-        self.prep_reset_utt_btn = QPushButton("Revenir au texte")
-        self.prep_reset_utt_btn.clicked.connect(self._reset_utterances_to_text)
-        utterance_actions.addWidget(self.prep_reset_utt_btn)
-        utterance_actions.addStretch()
-        layout.addLayout(utterance_actions)
+        self._ui_builder.build_utterance_actions_row(layout)
 
     def _build_help_label(self, layout: QVBoxLayout) -> None:
-        self.help_label = QLabel(
-            "Transcript: normaliser, segmenter (règles paramétrables), éditer les tours.\n"
-            "SRT: éditer personnage/texte des cues, timecodes éditables via « Éditer timecodes »."
-        )
-        self.help_label.setWordWrap(True)
-        self.help_label.setStyleSheet("color: #666;")
-        layout.addWidget(self.help_label)
+        self._ui_builder.build_help_label(layout)
 
     def _build_editors_stack(self, layout: QVBoxLayout) -> None:
-        self._transcript_widgets = TranscriptWidgets(
-            edit_role=self._edit_role,
-            on_text_changed=self._on_text_changed,
-            on_table_item_changed=self._on_table_item_changed,
-        )
-        self._cue_widgets = CueWidgets(
-            edit_role=self._edit_role,
-            on_table_item_changed=self._on_table_item_changed,
-        )
-        # Attributs publics conservés pour compatibilité (tests et intégrations).
-        self.text_editor = self._transcript_widgets.text_editor
-        self.utterance_table = self._transcript_widgets.utterance_table
-        self.cue_table = self._cue_widgets.cue_table
-
-        self.stack = QStackedWidget()
-        self.stack.addWidget(self.text_editor)
-        self.stack.addWidget(self.utterance_table)
-        self.stack.addWidget(self.cue_table)
-        layout.addWidget(self.stack)
+        self._ui_builder.build_editors_stack(layout)
 
     def _build_service(self) -> PreparerService | None:
         store = self._get_store()
