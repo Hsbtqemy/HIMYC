@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel, après extraction vue/refresh de tab_corpus)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction construction UI de tab_corpus)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -59,7 +59,7 @@
 ### 3.2 Onglets
 
 - **Projet** : formulaire, validation, callbacks vers MainWindow.
-- **Corpus** (~754 lignes) : arbre épisodes, filtres saison, actions (découvrir, fetch, normaliser, indexer), avec orchestration batch déplacée vers `corpus_workflow.py`.
+- **Corpus** (~370 lignes) : wrappers UI + actions (découvrir, fetch, normaliser, indexer), avec construction déplacée vers `corpus_ui.py`, orchestration batch vers `corpus_workflow.py` et logique vue vers `corpus_view.py`.
 - **Inspecteur** + **Sous-titres** : conteneur fusionné `InspecteurEtSousTitresTabWidget`.
 - **Préparer** (~595 lignes) + `preparer_context.py`, `preparer_edit.py`, `preparer_save.py`, `preparer_state.py`, `preparer_views.py`, `preparer_actions.py`, `preparer_persistence.py`.
 - **Alignement** (~344 lignes) + `alignement_actions.py`, `alignement_exporters.py` : runs, liens, tableau, undo.
@@ -103,6 +103,7 @@
 | Refacto `tab_corpus` | Actions sources + import/export extraites vers `app/tabs/corpus_sources.py` et `app/tabs/corpus_export.py` |
 | Refacto `tab_corpus` (workflow) | Orchestration batch (fetch/normalize/segment/run-all/index) extraite vers `app/tabs/corpus_workflow.py` ; wrappers décorés conservés dans `tab_corpus.py` |
 | Refacto `tab_corpus` (vue) | Logique de refresh/statuts/filtres saison/navigation inspecteur extraite vers `app/tabs/corpus_view.py` ; wrappers UI conservés dans `tab_corpus.py` |
+| Refacto `tab_corpus` (construction UI) | Construction des blocs filtres/vue/ribbon/sources/normalisation/statut extraite vers `app/tabs/corpus_ui.py` ; wrappers `_build_*` conservés |
 | Refacto `tab_preparer` (persistence) | Orchestration save/snapshots extraite vers `app/tabs/preparer_persistence.py` |
 | Refacto `tab_alignement` (actions) | Actions run/bulk/menu/export/groupes extraites vers `app/tabs/alignement_actions.py` ; `tab_alignement.py` recentré sur la vue |
 | Refacto `ui_mainwindow` (jobs) | Orchestration JobRunner/progress/log/finished/error/cancel extraite vers `app/mainwindow_jobs.py` ; `ui_mainwindow.py` garde des wrappers compatibles |
@@ -131,7 +132,7 @@
 ### 5.3 Fichiers volumineux (> 500 lignes)
 
 - **project_store.py** ~524 — allégé via `character_propagation.py`, `align_grouping.py`, `project_store_prep.py`, `project_store_characters.py`, `project_store_profiles.py`, `project_store_config.py`, `project_store_episode_io.py`, `project_store_subtitles.py`, `project_store_series_index.py`, `project_store_custom_profiles.py`, `project_store_align_io.py`; reste à découper (façade encore dense).
-- **tab_corpus.py** ~654 — allégé via `corpus_sources.py`/`corpus_export.py`/`corpus_workflow.py`/`corpus_view.py`; reste surtout la construction UI.
+- **tab_corpus.py** ~370 — allégé via `corpus_sources.py`/`corpus_export.py`/`corpus_workflow.py`/`corpus_view.py`/`corpus_ui.py`; reste une façade d’orchestration.
 - **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
 - **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).
 - **models_qt.py** ~21 — façade de compatibilité ; logique déplacée dans des modules dédiés (~545 épisodes, ~115 align, ~62 kwic).
