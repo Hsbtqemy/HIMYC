@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel, après extraction domaine config TOML de ProjectStore)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction I/O épisodes/sous-titres de ProjectStore)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -110,6 +110,7 @@
 | Refacto `ProjectStore` (characters domain) | Catalogue personnages + assignations + validations extraits vers `core/storage/project_store_characters.py` ; wrappers `ProjectStore` conservés |
 | Refacto `ProjectStore` (profiles domain) | Mappings profils par source/épisode extraits vers `core/storage/project_store_profiles.py` ; API publique conservée |
 | Refacto `ProjectStore` (config domain) | Lecture/écriture TOML et init projet extraits vers `core/storage/project_store_config.py` ; wrappers publics conservés (`load_project_config`, `save_config_*`) |
+| Refacto `ProjectStore` (episode/subtitles IO) | I/O épisodes (html/raw/clean/meta/notes) et sous-titres (save/load/remove/normalize) extraits vers `core/storage/project_store_episode_io.py` et `core/storage/project_store_subtitles.py` |
 
 ---
 
@@ -127,7 +128,7 @@
 
 ### 5.3 Fichiers volumineux (> 500 lignes)
 
-- **project_store.py** ~684 — allégé via `character_propagation.py`, `align_grouping.py`, `project_store_prep.py`, `project_store_characters.py`, `project_store_profiles.py`, `project_store_config.py`; reste à découper (ex. « episodes/text IO », « subtitles IO »).
+- **project_store.py** ~611 — allégé via `character_propagation.py`, `align_grouping.py`, `project_store_prep.py`, `project_store_characters.py`, `project_store_profiles.py`, `project_store_config.py`, `project_store_episode_io.py`, `project_store_subtitles.py`; reste à découper (ex. index série / profils custom / align audit).
 - **tab_corpus.py** ~754 — allégé via `corpus_sources.py`/`corpus_export.py`/`corpus_workflow.py`; reste à découper (construction UI/rendu statut).
 - **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
 - **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).

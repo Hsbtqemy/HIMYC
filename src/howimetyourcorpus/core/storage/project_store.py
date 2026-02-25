@@ -52,7 +52,32 @@ from howimetyourcorpus.core.storage.project_store_prep import (
     set_episode_prep_status as _set_episode_prep_status,
     set_episode_segmentation_options as _set_episode_segmentation_options,
 )
+from howimetyourcorpus.core.storage.project_store_episode_io import (
+    episode_dir as _episode_dir_impl,
+    get_episode_text_presence as _get_episode_text_presence,
+    get_episode_transform_meta_path as _get_episode_transform_meta_path,
+    has_episode_clean as _has_episode_clean,
+    has_episode_html as _has_episode_html,
+    has_episode_raw as _has_episode_raw,
+    load_episode_notes as _load_episode_notes,
+    load_episode_text as _load_episode_text,
+    load_episode_transform_meta as _load_episode_transform_meta,
+    save_episode_clean as _save_episode_clean,
+    save_episode_html as _save_episode_html,
+    save_episode_notes as _save_episode_notes,
+    save_episode_raw as _save_episode_raw,
+)
 from howimetyourcorpus.core.preparer.status import PREP_STATUS_VALUES as PREPARER_STATUS_VALUES
+from howimetyourcorpus.core.storage.project_store_subtitles import (
+    get_episode_subtitle_path as _get_episode_subtitle_path,
+    has_episode_subs as _has_episode_subs,
+    load_episode_subtitle_content as _load_episode_subtitle_content,
+    normalize_subtitle_track as _normalize_subtitle_track,
+    remove_episode_subtitle as _remove_episode_subtitle,
+    save_episode_subtitle_content as _save_episode_subtitle_content,
+    save_episode_subtitles as _save_episode_subtitles,
+    subs_dir as _subs_dir_impl,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -370,29 +395,17 @@ class ProjectStore:
 
     def _episode_dir(self, episode_id: str) -> Path:
         r"""Répertoire d'un épisode. Sanitize episode_id pour éviter path traversal (.., /, \)."""
-        safe_id = (
-            episode_id.replace("\\", "_").replace("/", "_").replace("..", "_").strip("._ ")
-        )
-        if not safe_id:
-            safe_id = "_"
-        return self.root_dir / "episodes" / safe_id
+        return _episode_dir_impl(self, episode_id)
 
     def save_episode_html(self, episode_id: str, html: str) -> None:
         """Sauvegarde le HTML brut de la page épisode."""
-        d = self._episode_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        (d / "page.html").write_text(html, encoding="utf-8")
+        _save_episode_html(self, episode_id, html)
 
     def save_episode_raw(
         self, episode_id: str, raw_text: str, meta: dict[str, Any]
     ) -> None:
         """Sauvegarde le texte brut extrait + métadonnées parse."""
-        d = self._episode_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        (d / "raw.txt").write_text(raw_text, encoding="utf-8")
-        (d / "parse_meta.json").write_text(
-            json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        _save_episode_raw(self, episode_id, raw_text, meta)
 
     def save_episode_clean(
         self,
@@ -402,40 +415,20 @@ class ProjectStore:
         debug: dict[str, Any],
     ) -> None:
         """Sauvegarde le texte normalisé + stats + debug (exemples merges)."""
-        d = self._episode_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        (d / "clean.txt").write_text(clean_text, encoding="utf-8")
-        transform_meta = {
-            "raw_lines": stats.raw_lines,
-            "clean_lines": stats.clean_lines,
-            "merges": stats.merges,
-            "kept_breaks": stats.kept_breaks,
-            "duration_ms": stats.duration_ms,
-            "debug": debug,
-        }
-        (d / "transform_meta.json").write_text(
-            json.dumps(transform_meta, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        _save_episode_clean(self, episode_id, clean_text, stats, debug)
 
     def load_episode_text(self, episode_id: str, kind: str = "raw") -> str:
         """Charge le texte d'un épisode (kind = 'raw' ou 'clean')."""
-        d = self._episode_dir(episode_id)
-        if kind == "clean":
-            path = d / "clean.txt"
-        else:
-            path = d / "raw.txt"
-        if not path.exists():
-            return ""
-        return path.read_text(encoding="utf-8")
+        return _load_episode_text(self, episode_id, kind=kind)
 
     def has_episode_html(self, episode_id: str) -> bool:
-        return (self._episode_dir(episode_id) / "page.html").exists()
+        return _has_episode_html(self, episode_id)
 
     def has_episode_raw(self, episode_id: str) -> bool:
-        return (self._episode_dir(episode_id) / "raw.txt").exists()
+        return _has_episode_raw(self, episode_id)
 
     def has_episode_clean(self, episode_id: str) -> bool:
-        return (self._episode_dir(episode_id) / "clean.txt").exists()
+        return _has_episode_clean(self, episode_id)
 
     def get_episode_text_presence(self) -> tuple[set[str], set[str]]:
         """
@@ -443,23 +436,7 @@ class ProjectStore:
 
         Permet de calculer les statuts en lot côté UI (évite N appels disque par épisode).
         """
-        raw_ids: set[str] = set()
-        clean_ids: set[str] = set()
-        episodes_dir = self.root_dir / "episodes"
-        if not episodes_dir.exists():
-            return raw_ids, clean_ids
-        try:
-            for ep_dir in episodes_dir.iterdir():
-                if not ep_dir.is_dir():
-                    continue
-                episode_id = ep_dir.name
-                if (ep_dir / "raw.txt").exists():
-                    raw_ids.add(episode_id)
-                if (ep_dir / "clean.txt").exists():
-                    clean_ids.add(episode_id)
-        except OSError as exc:
-            logger.warning("Impossible de scanner %s: %s", episodes_dir, exc)
-        return raw_ids, clean_ids
+        return _get_episode_text_presence(self, logger_obj=logger)
 
     def get_db_path(self) -> Path:
         return self.root_dir / "corpus.db"
@@ -470,33 +447,25 @@ class ProjectStore:
 
     def get_episode_transform_meta_path(self, episode_id: str) -> Path:
         """Chemin du fichier transform_meta.json pour un épisode."""
-        return self._episode_dir(episode_id) / "transform_meta.json"
+        return _get_episode_transform_meta_path(self, episode_id)
 
     def load_episode_transform_meta(self, episode_id: str) -> dict[str, Any] | None:
         """Charge les métadonnées de transformation d'un épisode, ou None si absent."""
-        path = self.get_episode_transform_meta_path(episode_id)
-        if not path.exists():
-            return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        return _load_episode_transform_meta(self, episode_id)
 
     def load_episode_notes(self, episode_id: str) -> str:
         """Charge les notes « à vérifier / à affiner » pour un épisode (Inspecteur)."""
-        path = self._episode_dir(episode_id) / "notes.txt"
-        if not path.exists():
-            return ""
-        return path.read_text(encoding="utf-8")
+        return _load_episode_notes(self, episode_id)
 
     def save_episode_notes(self, episode_id: str, text: str) -> None:
         """Sauvegarde les notes « à vérifier / à affiner » pour un épisode."""
-        d = self._episode_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        (d / "notes.txt").write_text(text, encoding="utf-8")
+        _save_episode_notes(self, episode_id, text)
 
     # ----- Phase 3: sous-titres (audit) -----
 
     def _subs_dir(self, episode_id: str) -> Path:
         """Répertoire episodes/<id>/subs/ pour les sous-titres."""
-        return self._episode_dir(episode_id) / "subs"
+        return _subs_dir_impl(self, episode_id)
 
     def save_episode_subtitles(
         self,
@@ -507,53 +476,27 @@ class ProjectStore:
         cues_audit: list[dict[str, Any]],
     ) -> None:
         """Sauvegarde le fichier sous-titre + audit cues (episodes/<id>/subs/<lang>.(srt|vtt) + <lang>_cues.jsonl)."""
-        d = self._subs_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        ext = "srt" if fmt == "srt" else "vtt"
-        (d / f"{lang}.{ext}").write_text(content, encoding="utf-8")
-        (d / f"{lang}_cues.jsonl").write_text(
-            "\n".join(json.dumps(c, ensure_ascii=False) for c in cues_audit),
-            encoding="utf-8",
-        )
+        _save_episode_subtitles(self, episode_id, lang, content, fmt, cues_audit)
 
     def has_episode_subs(self, episode_id: str, lang: str) -> bool:
         """True si un fichier subs existe pour cet épisode et cette langue."""
-        d = self._subs_dir(episode_id)
-        return (d / f"{lang}.srt").exists() or (d / f"{lang}.vtt").exists()
+        return _has_episode_subs(self, episode_id, lang)
 
     def get_episode_subtitle_path(self, episode_id: str, lang: str) -> tuple[Path, str] | None:
         """Retourne (chemin du fichier, "srt"|"vtt") si une piste existe pour cet épisode et langue."""
-        d = self._subs_dir(episode_id)
-        if (d / f"{lang}.srt").exists():
-            return (d / f"{lang}.srt", "srt")
-        if (d / f"{lang}.vtt").exists():
-            return (d / f"{lang}.vtt", "vtt")
-        return None
+        return _get_episode_subtitle_path(self, episode_id, lang)
 
     def remove_episode_subtitle(self, episode_id: str, lang: str) -> None:
         """Supprime les fichiers sous-titres pour cet épisode et langue (.srt/.vtt et _cues.jsonl)."""
-        d = self._subs_dir(episode_id)
-        for name in [f"{lang}.srt", f"{lang}.vtt", f"{lang}_cues.jsonl"]:
-            p = d / name
-            if p.exists():
-                p.unlink()
+        _remove_episode_subtitle(self, episode_id, lang)
 
     def load_episode_subtitle_content(self, episode_id: str, lang: str) -> tuple[str, str] | None:
         """Charge le contenu brut du fichier SRT/VTT. Retourne (contenu, "srt"|"vtt") ou None."""
-        res = self.get_episode_subtitle_path(episode_id, lang)
-        if not res:
-            return None
-        path, fmt = res
-        return (path.read_text(encoding="utf-8"), fmt)
+        return _load_episode_subtitle_content(self, episode_id, lang)
 
     def save_episode_subtitle_content(self, episode_id: str, lang: str, content: str, fmt: str) -> Path:
         """Sauvegarde le contenu brut SRT/VTT (écrase le fichier). Retourne le chemin du fichier."""
-        d = self._subs_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        ext = "srt" if fmt == "srt" else "vtt"
-        path = d / f"{lang}.{ext}"
-        path.write_text(content, encoding="utf-8")
-        return path
+        return _save_episode_subtitle_content(self, episode_id, lang, content, fmt)
 
     def normalize_subtitle_track(
         self,
@@ -569,30 +512,14 @@ class ProjectStore:
         Retourne le nombre de cues mises à jour.
         Si rewrite_srt=True, réécrit le fichier SRT sur disque à partir de text_clean (écrase l'original).
         """
-        from howimetyourcorpus.core.normalize.profiles import get_profile
-        from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
-
-        custom = self.load_custom_profiles()
-        profile = get_profile(profile_id, custom)
-        if not profile:
-            return 0
-        cues = db.get_cues_for_episode_lang(episode_id, lang)
-        if not cues:
-            return 0
-        nb = 0
-        for cue in cues:
-            raw = (cue.get("text_raw") or "").strip()
-            clean_text, _, _ = profile.apply(raw)
-            cue_id = cue.get("cue_id")
-            if cue_id:
-                db.update_cue_text_clean(cue_id, clean_text)
-                nb += 1
-        if rewrite_srt and nb > 0:
-            cues = db.get_cues_for_episode_lang(episode_id, lang)
-            if cues:
-                srt_content = cues_to_srt(cues)
-                self.save_episode_subtitle_content(episode_id, lang, srt_content, "srt")
-        return nb
+        return _normalize_subtitle_track(
+            self,
+            db,
+            episode_id,
+            lang,
+            profile_id,
+            rewrite_srt=rewrite_srt,
+        )
 
     # ----- Phase 4: alignement (audit) -----
 
