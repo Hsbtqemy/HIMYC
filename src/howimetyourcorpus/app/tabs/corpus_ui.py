@@ -121,9 +121,10 @@ class CorpusUiBuilder:
         global_btn_row.addStretch()
         sources_main_layout.addLayout(global_btn_row)
 
+        # Passer par les wrappers du tab pour préserver la compatibilité des patchs/tests.
         two_columns_layout = QHBoxLayout()
-        two_columns_layout.addWidget(self.build_transcripts_group())
-        two_columns_layout.addWidget(self.build_subtitles_group())
+        two_columns_layout.addWidget(tab._build_transcripts_group())  # noqa: SLF001
+        two_columns_layout.addWidget(tab._build_subtitles_group())  # noqa: SLF001
         sources_main_layout.addLayout(two_columns_layout)
 
         workflow_help = QLabel(
