@@ -41,6 +41,7 @@ from howimetyourcorpus.app.tabs.corpus_export import (
     export_corpus_by_filter,
 )
 from howimetyourcorpus.app.tabs.corpus_sources import CorpusSourcesController
+from howimetyourcorpus.app.tabs.corpus_view import CorpusViewController
 from howimetyourcorpus.app.tabs.corpus_workflow import CorpusWorkflowController
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 
@@ -74,6 +75,7 @@ class CorpusTabWidget(QWidget):
         self._failed_episode_ids: set[str] = set()  # Stocke les episode_id en échec
         self._sources_controller = CorpusSourcesController(self)
         self._workflow_controller = CorpusWorkflowController(self)
+        self._view_controller = CorpusViewController(self, logger)
 
         layout = QVBoxLayout(self)
         self._build_filter_row(layout)
@@ -379,13 +381,7 @@ class CorpusTabWidget(QWidget):
         ribbon_layout.addWidget(scope_label)
 
     def _on_corpus_ribbon_toggled(self, expanded: bool) -> None:
-        self.corpus_ribbon_content.setVisible(bool(expanded))
-        if expanded:
-            self.corpus_ribbon_toggle_btn.setArrowType(Qt.ArrowType.DownArrow)
-            self.corpus_ribbon_toggle_btn.setText("Masquer le panneau d'actions")
-        else:
-            self.corpus_ribbon_toggle_btn.setArrowType(Qt.ArrowType.RightArrow)
-            self.corpus_ribbon_toggle_btn.setText("Afficher le panneau d'actions")
+        self._view_controller.on_corpus_ribbon_toggled(expanded)
 
     def set_progress(self, value: int) -> None:
         self.corpus_progress.setValue(value)
@@ -473,16 +469,7 @@ class CorpusTabWidget(QWidget):
 
     def _set_no_project_state(self) -> None:
         """Met l'UI dans l'état « pas de projet » (labels vides, boutons désactivés)."""
-        self.season_filter_combo.clear()
-        self.season_filter_combo.addItem("Toutes les saisons", None)
-        self.corpus_status_label.setText("")
-        self.transcripts_status_label.setText("Status : 0/0 téléchargés")
-        self.subtitles_status_label.setText("Status : 0/0 importés")
-        self.norm_sel_btn.setEnabled(False)
-        self.norm_all_btn.setEnabled(False)
-        self.segment_sel_btn.setEnabled(False)
-        self.segment_all_btn.setEnabled(False)
-        self.all_in_one_btn.setEnabled(False)
+        self._view_controller.set_no_project_state()
 
     def _resume_failed_episodes(self) -> None:
         """Relance les opérations sur les épisodes en échec (téléchargement, normalisation, etc.)."""
@@ -513,69 +500,7 @@ class CorpusTabWidget(QWidget):
 
     def refresh(self) -> None:
         """Recharge l'arbre et le statut depuis le store (appelé après ouverture projet / fin de job)."""
-        try:
-            store = self._get_store()
-            db = self._get_db()
-            if not store:
-                self._set_no_project_state()
-                return
-            index = store.load_series_index()
-            if not index or not index.episodes:
-                self._set_no_project_state()
-                return
-            n_total = len(index.episodes)
-            n_fetched = sum(1 for e in index.episodes if store.has_episode_raw(e.episode_id))
-            n_norm = sum(1 for e in index.episodes if store.has_episode_clean(e.episode_id))
-            n_indexed = len(db.get_episode_ids_indexed()) if db else 0
-            n_with_srt = 0
-            n_aligned = 0
-            if db and index.episodes:
-                episode_ids = [e.episode_id for e in index.episodes]
-                tracks_by_ep = db.get_tracks_for_episodes(episode_ids)
-                runs_by_ep = db.get_align_runs_for_episodes(episode_ids)
-                n_with_srt = sum(1 for e in index.episodes if tracks_by_ep.get(e.episode_id))
-                n_aligned = sum(1 for e in index.episodes if runs_by_ep.get(e.episode_id))
-            
-            # Status global
-            self.corpus_status_label.setText(
-                f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | SRT {n_with_srt} | Alignés {n_aligned}"
-            )
-            
-            # Status colonne Transcripts
-            missing_transcripts = n_total - n_fetched
-            if missing_transcripts > 0:
-                self.transcripts_status_label.setText(f"Status : {n_fetched}/{n_total} téléchargés ⚠️ ({missing_transcripts} manquants)")
-                self.transcripts_status_label.setStyleSheet("color: orange; font-style: italic;")
-            else:
-                self.transcripts_status_label.setText(f"Status : {n_fetched}/{n_total} téléchargés ✅")
-                self.transcripts_status_label.setStyleSheet("color: green; font-style: italic;")
-            
-            # Status colonne Sous-titres
-            missing_srt = n_total - n_with_srt
-            if missing_srt > 0:
-                self.subtitles_status_label.setText(f"Status : {n_with_srt}/{n_total} importés ⚠️ ({missing_srt} manquants)")
-                self.subtitles_status_label.setStyleSheet("color: orange; font-style: italic;")
-            else:
-                self.subtitles_status_label.setText(f"Status : {n_with_srt}/{n_total} importés ✅")
-                self.subtitles_status_label.setStyleSheet("color: green; font-style: italic;")
-            
-            self.norm_sel_btn.setEnabled(n_fetched > 0 or n_with_srt > 0)  # Normaliser si transcripts OU sous-titres
-            self.norm_all_btn.setEnabled(n_fetched > 0 or n_with_srt > 0)
-            self.segment_sel_btn.setEnabled(n_norm > 0)
-            self.segment_all_btn.setEnabled(n_norm > 0)
-            self.all_in_one_btn.setEnabled(n_total > 0)
-            
-            # Mise à jour de l'arbre : synchrone (refresh est déjà appelé après OK, pas au même moment que la boîte de dialogue)
-            # Pas d'expandAll() : provoque segfault sur macOS ; déplier à la main (flèche à gauche de « Saison N »)
-            logger.debug(f"Corpus refresh: updating tree model with {len(index.episodes)} episodes")
-            self.episodes_tree_model.set_store(store)
-            self.episodes_tree_model.set_db(db)
-            self.episodes_tree_model.set_episodes(index.episodes)
-            self._refresh_season_filter_combo()
-            logger.debug("Corpus refresh completed successfully")
-        except Exception as e:
-            logger.exception("Error in corpus_tab.refresh()")
-            QMessageBox.critical(self, "Erreur Corpus", f"Erreur lors du rafraîchissement du corpus:\n\n{type(e).__name__}: {e}\n\nVoir l'onglet Logs pour plus de détails.")
+        self._view_controller.refresh()
 
     def refresh_profile_combo(self, profile_ids: list[str], current: str | None) -> None:
         """Met à jour le combo profil batch (après ouverture projet ou dialogue profils)."""
@@ -588,42 +513,17 @@ class CorpusTabWidget(QWidget):
             self.norm_batch_profile_combo.setCurrentText(current)
 
     def _refresh_season_filter_combo(self) -> None:
-        self.season_filter_combo.blockSignals(True)
-        self.season_filter_combo.clear()
-        self.season_filter_combo.addItem("Toutes les saisons", None)
-        for sn in self.episodes_tree_model.get_season_numbers():
-            self.season_filter_combo.addItem(f"Saison {sn}", sn)
-        self.season_filter_combo.blockSignals(False)
-        self._on_season_filter_changed()
+        self._view_controller.refresh_season_filter_combo()
 
     def _on_season_filter_changed(self) -> None:
-        season = self.season_filter_combo.currentData()
-        self.episodes_tree_proxy.set_season_filter(season)
-        if season is not None and isinstance(self.episodes_tree, QTreeView):
-            try:
-                row = self.episodes_tree_model.get_season_numbers().index(season)
-                source_ix = self.episodes_tree_model.index(row, 0, QModelIndex())
-                proxy_ix = self.episodes_tree_proxy.mapFromSource(source_ix)
-                if proxy_ix.isValid():
-                    self.episodes_tree.expand(proxy_ix)
-            except (ValueError, AttributeError) as exc:
-                logger.debug("Season expand skipped for %r: %s", season, exc)
+        self._view_controller.on_season_filter_changed()
 
     def _on_episode_double_clicked(self, proxy_index: QModelIndex) -> None:
         """Double-clic sur un épisode : ouvrir l'Inspecteur sur cet épisode (comme Concordance)."""
-        if not proxy_index.isValid() or not self._on_open_inspector:
-            return
-        source_index = self.episodes_tree_proxy.mapToSource(proxy_index)
-        episode_id = self.episodes_tree_model.get_episode_id_for_index(source_index)
-        if episode_id:
-            self._on_open_inspector(episode_id)
+        self._view_controller.on_episode_double_clicked(proxy_index)
 
     def _on_check_season_clicked(self) -> None:
-        season = self.season_filter_combo.currentData()
-        ids = self.episodes_tree_model.get_episode_ids_for_season(season)
-        if not ids:
-            return
-        self.episodes_tree_model.set_checked(set(ids), True)
+        self._view_controller.on_check_season_clicked()
 
     @require_project_and_db
     def _discover_episodes(self) -> None:
