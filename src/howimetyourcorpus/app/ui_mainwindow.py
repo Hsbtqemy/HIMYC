@@ -20,7 +20,6 @@ from PySide6.QtWidgets import QMenuBar
 from PySide6.QtGui import QDesktopServices
 
 from howimetyourcorpus.core.models import ProjectConfig
-from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.pipeline.context import PipelineContext
 from howimetyourcorpus.core.storage.project_store import ProjectStore
 from howimetyourcorpus.core.storage.db import CorpusDB
@@ -28,6 +27,7 @@ from howimetyourcorpus.core.utils.logging import get_log_file_for_project
 from howimetyourcorpus.app.dialogs import ProfilesDialog
 from howimetyourcorpus.app.workers import JobRunner
 from howimetyourcorpus.app.mainwindow_jobs import MainWindowJobsController
+from howimetyourcorpus.app.mainwindow_project import MainWindowProjectController
 from howimetyourcorpus.app.mainwindow_tabs import MainWindowTabsController
 from howimetyourcorpus import __version__
 
@@ -69,6 +69,7 @@ class MainWindow(QMainWindow):
         self._db: CorpusDB | None = None
         self._job_runner: JobRunner | None = None
         self._log_handler: logging.Handler | None = None
+        self._project_controller = MainWindowProjectController(self, logger)
         self._jobs_controller = MainWindowJobsController(self, logger)
         self._tabs_controller = MainWindowTabsController(
             self,
@@ -206,113 +207,23 @@ class MainWindow(QMainWindow):
             self.project_tab.refresh_languages_list()
 
     def _refresh_language_combos(self) -> None:
-        """Met à jour les listes de langues (Sous-titres, Concordance, Personnages) à partir du projet."""
-        langs = self._store.load_project_languages() if self._store else ["en", "fr", "it"]
-        if hasattr(self, "inspector_tab") and self.inspector_tab and hasattr(self.inspector_tab, "subtitles_tab"):
-            self.inspector_tab.subtitles_tab.set_languages(langs)
-        if hasattr(self, "concordance_tab") and hasattr(self.concordance_tab, "set_languages"):
-            self.concordance_tab.set_languages(langs)
-            # Pack Analyse C5: Refresh speakers
-            self.concordance_tab.refresh_speakers()
-        if hasattr(self, "personnages_tab") and self.personnages_tab:
-            self.personnages_tab.refresh()
+        self._project_controller.refresh_language_combos()
 
     def _validate_and_init_project_from_tab(self) -> None:
-        data = self.project_tab.get_form_data()
-        root = data["root"]
-        if not root:
-            QMessageBox.warning(self, "Projet", "Indiquez un dossier projet.")
-            return
-        root_path = Path(root)
-        config_toml = root_path / "config.toml"
-        try:
-            if config_toml.exists():
-                self._load_existing_project(root_path)
-                return
-            config = ProjectConfig(
-                project_name=root_path.name,
-                root_dir=root_path,
-                source_id=data["source_id"],
-                series_url=data["series_url"],
-                rate_limit_s=float(data["rate_limit"]),
-                user_agent="HowIMetYourCorpus/0.1 (research)",
-                normalize_profile=data["normalize_profile"],
-            )
-            ProjectStore.init_project(config)
-            self._config = config
-            self._store = ProjectStore(config.root_dir)
-            self._db = CorpusDB(self._store.get_db_path())
-            self._db.init()
-            self._setup_logging_for_project()
-            if data["srt_only"]:
-                from howimetyourcorpus.core.models import SeriesIndex
-                self._store.save_series_index(SeriesIndex(series_title="", series_url="", episodes=[]))
-            self.project_tab.set_project_state(root_path, config)
-            self.project_tab.refresh_languages_list()
-            self._refresh_profile_combos()
-            self._refresh_language_combos()
-            self._refresh_inspecteur_episodes()
-            self._refresh_preparer()
-            self._refresh_subs_tracks()
-            self._refresh_align_runs()
-            self._refresh_personnages()
-            QMessageBox.information(self, "Projet", "Projet initialisé.")
-        except Exception as e:
-            logger.exception("Init project failed")
-            QMessageBox.critical(self, "Erreur", str(e))
+        self._project_controller.validate_and_init_project_from_tab(
+            message_box=QMessageBox,
+            timer=QTimer,
+        )
 
     def _load_existing_project(self, root_path: Path) -> None:
-        """Charge un projet existant (config.toml présent)."""
-        from howimetyourcorpus.core.storage.project_store import load_project_config
-        data = load_project_config(root_path / "config.toml")
-        config = ProjectConfig(
-            project_name=data.get("project_name", root_path.name),
-            root_dir=root_path,
-            source_id=data.get("source_id", "subslikescript"),
-            series_url=data.get("series_url", ""),
-            rate_limit_s=float(data.get("rate_limit_s", 2)),
-            user_agent=data.get("user_agent", "HowIMetYourCorpus/0.1 (research)"),
-            normalize_profile=data.get("normalize_profile", "default_en_v1"),
+        self._project_controller.load_existing_project(
+            root_path,
+            message_box=QMessageBox,
+            timer=QTimer,
         )
-        self._config = config
-        self._store = ProjectStore(config.root_dir)
-        self._db = CorpusDB(self._store.get_db_path())
-        if not self._db.db_path.exists():
-            self._db.init()
-        else:
-            self._db.ensure_migrated()
-        self._setup_logging_for_project()
-        self.project_tab.set_project_state(root_path, config)
-        self.project_tab.refresh_languages_list()
-        self._refresh_profile_combos()
-        self._refresh_language_combos()
-        QMessageBox.information(self, "Projet", "Projet ouvert.")
-        # Ne pas remplir le Corpus ici : provoque segfault Qt/macOS. Le Corpus se remplit au clic sur l'onglet.
-        def _deferred_refresh() -> None:
-            self._refresh_inspecteur_episodes()
-            self._refresh_preparer()
-            self._refresh_subs_tracks()
-            self._refresh_align_runs()
-            self._refresh_personnages()
-
-        QTimer.singleShot(0, _deferred_refresh)
 
     def _setup_logging_for_project(self) -> None:
-        corpus_logger = logging.getLogger("howimetyourcorpus")
-        if self._log_handler:
-            corpus_logger.removeHandler(self._log_handler)
-        if self._config:
-            log_file = get_log_file_for_project(self._config.root_dir)
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            file_handler = logging.FileHandler(log_file, encoding="utf-8")
-            file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-            corpus_logger.addHandler(file_handler)
-            self._log_handler = file_handler
-            # Mettre à jour le label chemin log dans l'onglet Logs
-            if hasattr(self, "tabs") and self.tabs.count() > TAB_LOGS:
-                log_widget = self.tabs.widget(TAB_LOGS)
-                if hasattr(log_widget, "set_log_path"):
-                    log_widget.set_log_path(str(log_file))
+        self._project_controller.setup_logging_for_project(tab_logs_index=TAB_LOGS)
 
     def _build_tab_corpus(self) -> None:
         self._tabs_controller.build_tab_corpus()
@@ -330,36 +241,9 @@ class MainWindow(QMainWindow):
         self._jobs_controller.run_job(steps, job_runner_cls=JobRunner)
 
     def _sync_config_from_project_tab(self, *, show_mismatch_status: bool = False) -> bool:
-        """
-        Synchronise la config en mémoire + config.toml depuis le formulaire Projet.
-
-        Retourne True si la synchro est appliquée, False sinon (pas de projet ouvert, onglet absent,
-        root du formulaire qui ne correspond pas au projet courant, etc.).
-        """
-        if not self._config or not self._store or not (hasattr(self, "project_tab") and self.project_tab):
-            return False
-        data = self.project_tab.get_form_data()
-        root = data.get("root")
-        if not root or Path(root).resolve() != self._config.root_dir.resolve():
-            if show_mismatch_status:
-                self.statusBar().showMessage("Ouvrez un projet puis modifiez le formulaire du projet ouvert.", 4000)
-            return False
-        self._store.save_config_main(
-            series_url=data.get("series_url", ""),
-            source_id=data.get("source_id"),
-            rate_limit_s=float(data.get("rate_limit", 2)),
-            normalize_profile=data.get("normalize_profile"),
+        return self._project_controller.sync_config_from_project_tab(
+            show_mismatch_status=show_mismatch_status
         )
-        self._config = ProjectConfig(
-            project_name=self._config.project_name,
-            root_dir=self._config.root_dir,
-            source_id=data.get("source_id", self._config.source_id),
-            series_url=data.get("series_url", self._config.series_url),
-            rate_limit_s=float(data.get("rate_limit", self._config.rate_limit_s)),
-            user_agent=self._config.user_agent,
-            normalize_profile=data.get("normalize_profile", self._config.normalize_profile),
-        )
-        return True
 
     def _on_job_progress(self, step_name: str, percent: float, message: str) -> None:
         self._jobs_controller.on_job_progress(step_name, percent, message)
@@ -416,15 +300,7 @@ class MainWindow(QMainWindow):
         self._tabs_controller.refresh_episodes_from_store()
 
     def _refresh_profile_combos(self) -> None:
-        """Met à jour les listes de profils (prédéfinis + personnalisés projet) dans les combos."""
-        custom = self._store.load_custom_profiles() if self._store else {}
-        profile_ids = get_all_profile_ids(custom)
-        current = self._config.normalize_profile if self._config else None
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.refresh_profile_combo(profile_ids, current)
-        current_inspect = self._config.normalize_profile if self._config else None
-        if hasattr(self, "inspector_tab") and self.inspector_tab:
-            self.inspector_tab.refresh_profile_combo(profile_ids, current_inspect)
+        self._project_controller.refresh_profile_combos()
 
     def _build_tab_inspecteur(self) -> None:
         self._tabs_controller.build_tab_inspecteur()

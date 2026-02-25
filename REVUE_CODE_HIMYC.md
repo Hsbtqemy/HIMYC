@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel, après extraction helpers contexte/sélection de tab_corpus)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction de la gestion projet de `ui_mainwindow`)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -17,7 +17,7 @@
 ### 1.2 Câblage onglets et dialogs
 
 - **MainWindow** (`ui_mainwindow.py`) : constantes `TAB_*`, wrappers `_build_tab_*` / `_refresh_*` conservés pour compatibilité tests/patchs.
-- **Contrôleurs MainWindow** : `app/mainwindow_jobs.py` (orchestration JobRunner) et `app/mainwindow_tabs.py` (construction/refresh/navigation des onglets).
+- **Contrôleurs MainWindow** : `app/mainwindow_jobs.py` (orchestration JobRunner), `app/mainwindow_tabs.py` (construction/refresh/navigation des onglets) et `app/mainwindow_project.py` (cycle projet/config/logging).
 - **Dialogs** : `ProfilesDialog`, `OpenSubtitlesDownloadDialog`, `NormalizeOptionsDialog`, `SegmentationOptionsDialog`, `SubtitleBatchImportDialog` (export depuis `app/dialogs/__init__.py`).
 
 ---
@@ -54,6 +54,7 @@
 
 - Construction onglets, menu (Undo/Redo, Aide), gestion projet, JobRunner (run, progress, log, error, finished, cancel), handoffs (Préparer → Alignement, Concordance → Inspecteur), fermeture (save state, prompt Préparer dirty).
 - `_sync_config_from_project_tab()`, `_build_job_summary_message()`, `_refresh_tabs_after_job()` déjà factorisés.
+- Cycle projet (`_validate_and_init_project_from_tab`, `_load_existing_project`, `_setup_logging_for_project`, `_sync_config_from_project_tab`, refresh profils/langues) déplacé vers `app/mainwindow_project.py` avec wrappers conservés dans `ui_mainwindow.py`.
 - Garde-fou menu Undo/Redo ajouté : fallback `QAction` explicite si `createUndoAction/createRedoAction` retourne un type inattendu côté Qt.
 
 ### 3.2 Onglets
@@ -104,11 +105,13 @@
 | Refacto `tab_corpus` (workflow) | Orchestration batch (fetch/normalize/segment/run-all/index) extraite vers `app/tabs/corpus_workflow.py` ; wrappers décorés conservés dans `tab_corpus.py` |
 | Refacto `tab_corpus` (vue) | Logique de refresh/statuts/filtres saison/navigation inspecteur extraite vers `app/tabs/corpus_view.py` ; wrappers UI conservés dans `tab_corpus.py` |
 | Refacto `tab_corpus` (construction UI) | Construction des blocs filtres/vue/ribbon/sources/normalisation/statut extraite vers `app/tabs/corpus_ui.py` ; wrappers `_build_*` conservés |
+| Correctif compatibilité `tab_corpus` | `corpus_ui.py` repasse par les wrappers `_build_transcripts_group`/`_build_subtitles_group` du tab pour préserver monkeypatch/tests existants |
 | Refacto `tab_corpus` (contexte) | Résolution sélection/projet/cibles + reprise échecs extraite vers `app/tabs/corpus_context.py` ; wrappers historiques conservés |
 | Refacto `tab_preparer` (persistence) | Orchestration save/snapshots extraite vers `app/tabs/preparer_persistence.py` |
 | Refacto `tab_alignement` (actions) | Actions run/bulk/menu/export/groupes extraites vers `app/tabs/alignement_actions.py` ; `tab_alignement.py` recentré sur la vue |
 | Refacto `ui_mainwindow` (jobs) | Orchestration JobRunner/progress/log/finished/error/cancel extraite vers `app/mainwindow_jobs.py` ; `ui_mainwindow.py` garde des wrappers compatibles |
 | Refacto `ui_mainwindow` (onglets) | Construction/refresh/navigation des onglets extraits vers `app/mainwindow_tabs.py` ; wrappers `_build_tab_*`/`_refresh_*` conservés pour compatibilité |
+| Refacto `ui_mainwindow` (projet) | Cycle projet/config/logging/profils/langues extrait vers `app/mainwindow_project.py` ; wrappers historiques conservés pour compatibilité tests/patchs |
 | Refacto `ProjectStore` (prep domain) | Statuts de préparation, options de segmentation et langues projet extraits vers `core/storage/project_store_prep.py` ; API publique inchangée via délégation |
 | Refacto `ProjectStore` (characters domain) | Catalogue personnages + assignations + validations extraits vers `core/storage/project_store_characters.py` ; wrappers `ProjectStore` conservés |
 | Refacto `ProjectStore` (profiles domain) | Mappings profils par source/épisode extraits vers `core/storage/project_store_profiles.py` ; API publique conservée |
@@ -137,7 +140,7 @@
 - **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
 - **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).
 - **models_qt.py** ~21 — façade de compatibilité ; logique déplacée dans des modules dédiés (~545 épisodes, ~115 align, ~62 kwic).
-- **ui_mainwindow.py** ~500 — orchestration jobs déplacée vers `mainwindow_jobs.py` (~163) et orchestration onglets vers `mainwindow_tabs.py` (~228) ; reste surtout la gestion projet/menu.
+- **ui_mainwindow.py** ~376 — allégé via `mainwindow_jobs.py` (~163), `mainwindow_tabs.py` (~228) et `mainwindow_project.py` (~181) ; reste une façade/wrappers UI.
 - **tasks.py** ~695, **db.py** ~619, **profiles.py** (dialogs) ~735 — à surveiller.
 
 ### 5.4 Types et docstrings
