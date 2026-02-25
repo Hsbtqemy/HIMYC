@@ -16,10 +16,17 @@ from howimetyourcorpus.core.storage.align_grouping import (
 from howimetyourcorpus.core.storage.character_propagation import (
     propagate_character_names as _propagate_character_names,
 )
-from howimetyourcorpus.core.preparer import (
-    DEFAULT_SEGMENTATION_OPTIONS,
-    normalize_segmentation_options,
-    validate_segmentation_options,
+from howimetyourcorpus.core.storage.project_store_prep import (
+    get_episode_prep_status as _get_episode_prep_status,
+    get_episode_segmentation_options as _get_episode_segmentation_options,
+    load_episode_prep_status as _load_episode_prep_status,
+    load_episode_segmentation_options as _load_episode_segmentation_options,
+    load_project_languages as _load_project_languages,
+    save_episode_prep_status as _save_episode_prep_status,
+    save_episode_segmentation_options as _save_episode_segmentation_options,
+    save_project_languages as _save_project_languages,
+    set_episode_prep_status as _set_episode_prep_status,
+    set_episode_segmentation_options as _set_episode_segmentation_options,
 )
 from howimetyourcorpus.core.preparer.status import PREP_STATUS_VALUES as PREPARER_STATUS_VALUES
 
@@ -455,81 +462,19 @@ class ProjectStore:
           }
         }
         """
-        path = self.root_dir / self.EPISODE_PREP_STATUS_JSON
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return {}
-        raw_statuses = data.get("statuses", data if isinstance(data, dict) else {})
-        if not isinstance(raw_statuses, dict):
-            return {}
-        statuses: dict[str, dict[str, str]] = {}
-        for episode_id, by_source in raw_statuses.items():
-            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
-                continue
-            clean_by_source: dict[str, str] = {}
-            for source_key, status in by_source.items():
-                if not isinstance(source_key, str) or not isinstance(status, str):
-                    continue
-                s = status.strip().lower()
-                if s in self.PREP_STATUS_VALUES:
-                    clean_by_source[source_key.strip()] = s
-            if clean_by_source:
-                statuses[episode_id.strip()] = clean_by_source
-        return statuses
+        return _load_episode_prep_status(self, logger_obj=logger)
 
     def save_episode_prep_status(self, statuses: dict[str, dict[str, str]]) -> None:
         """Sauvegarde les statuts de préparation par fichier."""
-        clean: dict[str, dict[str, str]] = {}
-        for episode_id, by_source in (statuses or {}).items():
-            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
-                continue
-            clean_by_source: dict[str, str] = {}
-            for source_key, status in by_source.items():
-                if not isinstance(source_key, str) or not isinstance(status, str):
-                    continue
-                s = status.strip().lower()
-                if s in self.PREP_STATUS_VALUES:
-                    clean_by_source[source_key.strip()] = s
-            if clean_by_source:
-                clean[episode_id.strip()] = clean_by_source
-        path = self.root_dir / self.EPISODE_PREP_STATUS_JSON
-        path.write_text(
-            json.dumps({"statuses": clean}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _save_episode_prep_status(self, statuses)
 
     def get_episode_prep_status(self, episode_id: str, source_key: str, default: str = "raw") -> str:
         """Retourne le statut de préparation pour (épisode, source)."""
-        statuses = self.load_episode_prep_status()
-        status = (
-            statuses.get((episode_id or "").strip(), {})
-            .get((source_key or "").strip(), "")
-            .strip()
-            .lower()
-        )
-        if status in self.PREP_STATUS_VALUES:
-            return status
-        d = (default or "raw").strip().lower()
-        return d if d in self.PREP_STATUS_VALUES else "raw"
+        return _get_episode_prep_status(self, episode_id, source_key, default=default)
 
     def set_episode_prep_status(self, episode_id: str, source_key: str, status: str) -> None:
         """Définit le statut de préparation pour (épisode, source)."""
-        ep = (episode_id or "").strip()
-        source = (source_key or "").strip()
-        st = (status or "").strip().lower()
-        if not ep or not source:
-            return
-        if st not in self.PREP_STATUS_VALUES:
-            raise ValueError(f"Statut de préparation invalide: {status!r}")
-        statuses = self.load_episode_prep_status()
-        if ep not in statuses:
-            statuses[ep] = {}
-        statuses[ep][source] = st
-        self.save_episode_prep_status(statuses)
+        _set_episode_prep_status(self, episode_id, source_key, status)
 
     def load_episode_segmentation_options(self) -> dict[str, dict[str, dict[str, Any]]]:
         """
@@ -544,55 +489,11 @@ class ProjectStore:
           }
         }
         """
-        path = self.root_dir / self.EPISODE_SEGMENTATION_OPTIONS_JSON
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return {}
-        raw = data.get("options", data if isinstance(data, dict) else {})
-        if not isinstance(raw, dict):
-            return {}
-        out: dict[str, dict[str, dict[str, Any]]] = {}
-        for episode_id, by_source in raw.items():
-            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
-                continue
-            clean_by_source: dict[str, dict[str, Any]] = {}
-            for source_key, options in by_source.items():
-                if not isinstance(source_key, str) or not isinstance(options, dict):
-                    continue
-                normalized = normalize_segmentation_options(options)
-                try:
-                    validate_segmentation_options(normalized)
-                except ValueError:
-                    continue
-                clean_by_source[source_key.strip()] = normalized
-            if clean_by_source:
-                out[episode_id.strip()] = clean_by_source
-        return out
+        return _load_episode_segmentation_options(self, logger_obj=logger)
 
     def save_episode_segmentation_options(self, options_map: dict[str, dict[str, dict[str, Any]]]) -> None:
         """Sauvegarde les options de segmentation par (épisode, source)."""
-        clean: dict[str, dict[str, dict[str, Any]]] = {}
-        for episode_id, by_source in (options_map or {}).items():
-            if not isinstance(episode_id, str) or not isinstance(by_source, dict):
-                continue
-            clean_by_source: dict[str, dict[str, Any]] = {}
-            for source_key, options in by_source.items():
-                if not isinstance(source_key, str) or not isinstance(options, dict):
-                    continue
-                normalized = normalize_segmentation_options(options)
-                validate_segmentation_options(normalized)
-                clean_by_source[source_key.strip()] = normalized
-            if clean_by_source:
-                clean[episode_id.strip()] = clean_by_source
-        path = self.root_dir / self.EPISODE_SEGMENTATION_OPTIONS_JSON
-        path.write_text(
-            json.dumps({"options": clean}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _save_episode_segmentation_options(self, options_map)
 
     def get_episode_segmentation_options(
         self,
@@ -601,51 +502,22 @@ class ProjectStore:
         default: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Retourne les options de segmentation pour (épisode, source), normalisées."""
-        ep = (episode_id or "").strip()
-        src = (source_key or "").strip()
-        options_map = self.load_episode_segmentation_options()
-        source_options = options_map.get(ep, {}).get(src, {})
-        merged = dict(DEFAULT_SEGMENTATION_OPTIONS)
-        merged.update(normalize_segmentation_options(default))
-        if isinstance(source_options, dict):
-            merged.update(normalize_segmentation_options(source_options))
-        return normalize_segmentation_options(merged)
+        return _get_episode_segmentation_options(self, episode_id, source_key, default=default)
 
     def set_episode_segmentation_options(self, episode_id: str, source_key: str, options: dict[str, Any]) -> None:
         """Définit les options de segmentation pour (épisode, source)."""
-        ep = (episode_id or "").strip()
-        src = (source_key or "").strip()
-        if not ep or not src:
-            return
-        normalized = normalize_segmentation_options(options)
-        validate_segmentation_options(normalized)
-        options_map = self.load_episode_segmentation_options()
-        options_map.setdefault(ep, {})[src] = normalized
-        self.save_episode_segmentation_options(options_map)
+        _set_episode_segmentation_options(self, episode_id, source_key, options)
 
     LANGUAGES_JSON = "languages.json"
     DEFAULT_LANGUAGES = ["en", "fr", "it"]
 
     def load_project_languages(self) -> list[str]:
         """Charge la liste des langues du projet (sous-titres, personnages, etc.)."""
-        path = self.root_dir / self.LANGUAGES_JSON
-        if not path.exists():
-            return list(self.DEFAULT_LANGUAGES)
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            langs = data.get("languages", data if isinstance(data, list) else [])
-            return [str(x).strip().lower() for x in langs if str(x).strip()]
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return list(self.DEFAULT_LANGUAGES)
+        return _load_project_languages(self, logger_obj=logger)
 
     def save_project_languages(self, languages: list[str]) -> None:
         """Sauvegarde la liste des langues du projet."""
-        path = self.root_dir / self.LANGUAGES_JSON
-        path.write_text(
-            json.dumps({"languages": [str(x).strip().lower() for x in languages if str(x).strip()]}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _save_project_languages(self, languages)
 
     def load_series_index(self) -> SeriesIndex | None:
         """Charge l'index série depuis JSON. Retourne None si absent."""

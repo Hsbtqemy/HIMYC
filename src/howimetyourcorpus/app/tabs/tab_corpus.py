@@ -29,10 +29,6 @@ from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import PROFILES, get_all_profile_ids
 from howimetyourcorpus.core.pipeline.tasks import (
     FetchSeriesIndexStep,
-    FetchEpisodeStep,
-    NormalizeEpisodeStep,
-    SegmentEpisodeStep,
-    BuildDbIndexStep,
 )
 from howimetyourcorpus.app.models_qt import (
     EpisodesTreeModel,
@@ -45,6 +41,7 @@ from howimetyourcorpus.app.tabs.corpus_export import (
     export_corpus_by_filter,
 )
 from howimetyourcorpus.app.tabs.corpus_sources import CorpusSourcesController
+from howimetyourcorpus.app.tabs.corpus_workflow import CorpusWorkflowController
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 
 logger = logging.getLogger(__name__)
@@ -76,6 +73,7 @@ class CorpusTabWidget(QWidget):
         self._on_open_inspector = on_open_inspector
         self._failed_episode_ids: set[str] = set()  # Stocke les episode_id en échec
         self._sources_controller = CorpusSourcesController(self)
+        self._workflow_controller = CorpusWorkflowController(self)
 
         layout = QVBoxLayout(self)
         self._build_filter_row(layout)
@@ -674,112 +672,25 @@ class CorpusTabWidget(QWidget):
 
     @require_project_and_db
     def _fetch_episodes(self, selection_only: bool) -> None:
-        payload = self._get_project_index_context()
-        if not payload:
-            return
-        _store, _config, index = payload
-        ids = self._resolve_target_episode_ids(index=index, selection_only=selection_only)
-        if not ids:
-            return
-        steps = [
-            FetchEpisodeStep(ref.episode_id, ref.url)
-            for ref in index.episodes
-            if ref.episode_id in ids
-        ]
-        if not steps:
-            return
-        self._run_job(steps)
+        self._workflow_controller.fetch_episodes(selection_only)
 
     @require_project
     def _normalize_episodes(self, selection_only: bool) -> None:
-        payload = self._get_project_index_context()
-        if not payload:
-            return
-        store, _config, index = payload
-        ids = self._resolve_target_episode_ids(index=index, selection_only=selection_only)
-        if not ids:
-            return
-        ref_by_id = {e.episode_id: e for e in index.episodes}
-        episode_preferred = store.load_episode_preferred_profiles()
-        source_defaults = store.load_source_profile_defaults()
-        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        steps = [
-            NormalizeEpisodeStep(
-                eid,
-                self._resolve_episode_profile(
-                    episode_id=eid,
-                    ref_by_id=ref_by_id,
-                    episode_preferred=episode_preferred,
-                    source_defaults=source_defaults,
-                    batch_profile=batch_profile,
-                ),
-            )
-            for eid in ids
-        ]
-        self._run_job(steps)
+        self._workflow_controller.normalize_episodes(selection_only)
 
     @require_project
     def _segment_episodes(self, selection_only: bool) -> None:
         """Bloc 2 — Segmente les épisodes (sélection ou tout) ayant clean.txt."""
-        payload = self._get_project_index_context()
-        if not payload:
-            return
-        store, config, index = payload
-        ids = self._resolve_target_episode_ids(index=index, selection_only=selection_only)
-        if not ids:
-            return
-        eids_with_clean = [eid for eid in ids if store.has_episode_clean(eid)]
-        if not eids_with_clean:
-            QMessageBox.warning(
-                self, "Corpus",
-                "Aucun épisode sélectionné n'a de fichier CLEAN. Normalisez d'abord la sélection."
-            )
-            return
-        lang_hint = self._lang_hint_from_profile(getattr(config, "normalize_profile", None))
-        steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in eids_with_clean]
-        self._run_job(steps)
+        self._workflow_controller.segment_episodes(selection_only)
 
     @require_project_and_db
     def _run_all_for_selection(self) -> None:
         """§5 — Enchaînement : Télécharger → Normaliser → Segmenter → Indexer DB pour les épisodes cochés."""
-        payload = self._get_project_index_context()
-        if not payload:
-            return
-        store, config, index = payload
-        ids = self._resolve_target_episode_ids(index=index, selection_only=True)
-        if not ids:
-            return
-        ref_by_id = {e.episode_id: e for e in index.episodes}
-        episode_preferred = store.load_episode_preferred_profiles()
-        source_defaults = store.load_source_profile_defaults()
-        batch_profile = self.norm_batch_profile_combo.currentText() or "default_en_v1"
-        lang_hint = self._lang_hint_from_profile(getattr(config, "normalize_profile", None))
-        fetch_steps = [
-            FetchEpisodeStep(ref_by_id[eid].episode_id, ref_by_id[eid].url)
-            for eid in ids if eid in ref_by_id
-        ]
-        norm_steps = [
-            NormalizeEpisodeStep(
-                eid,
-                self._resolve_episode_profile(
-                    episode_id=eid,
-                    ref_by_id=ref_by_id,
-                    episode_preferred=episode_preferred,
-                    source_defaults=source_defaults,
-                    batch_profile=batch_profile,
-                ),
-            )
-            for eid in ids
-        ]
-        segment_steps = [SegmentEpisodeStep(eid, lang_hint=lang_hint) for eid in ids]
-        steps = fetch_steps + norm_steps + segment_steps + [BuildDbIndexStep()]
-        self._run_job(steps)
+        self._workflow_controller.run_all_for_selection()
 
     @require_project_and_db
     def _index_db(self) -> None:
-        store = self._get_store()
-        assert store is not None  # garanti par @require_project_and_db
-        self._run_job([BuildDbIndexStep()])
+        self._workflow_controller.index_db()
 
     @require_project
     def _export_corpus(self) -> None:
