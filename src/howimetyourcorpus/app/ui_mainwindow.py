@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +12,6 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QWidget,
     QVBoxLayout,
-    QPlainTextEdit,
     QMessageBox,
 )
 from PySide6.QtCore import QTimer, QUrl
@@ -39,6 +37,7 @@ from howimetyourcorpus.app.tabs import (
     ProjectTabWidget,
 )
 from howimetyourcorpus.app.workers import JobRunner
+from howimetyourcorpus.app.mainwindow_jobs import MainWindowJobsController
 from howimetyourcorpus import __version__
 
 logger = logging.getLogger(__name__)
@@ -79,6 +78,7 @@ class MainWindow(QMainWindow):
         self._db: CorpusDB | None = None
         self._job_runner: JobRunner | None = None
         self._log_handler: logging.Handler | None = None
+        self._jobs_controller = MainWindowJobsController(self, logger)
         
         # Basse Priorité #3 : Undo/Redo stack global
         self.undo_stack = QUndoStack(self)
@@ -346,29 +346,7 @@ class MainWindow(QMainWindow):
         }
 
     def _run_job(self, steps: list[Any]) -> None:
-        # Synchroniser la config depuis l'onglet Projet (URL série, etc.) avant tout job
-        self._sync_config_from_project_tab()
-        context = self._get_context()
-        if not context.get("config"):
-            return
-        
-        # Phase 7 HP3 : JobRunner avec QProgressDialog activé
-        self._job_runner = JobRunner(
-            steps, 
-            context, 
-            force=False,
-            parent=self,
-            show_progress_dialog=True
-        )
-        self._job_runner.progress.connect(self._on_job_progress)
-        self._job_runner.log.connect(self._on_job_log)
-        self._job_runner.error.connect(self._on_job_error)
-        self._job_runner.finished.connect(self._on_job_finished)
-        self._job_runner.cancelled.connect(self._on_job_cancelled)
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_cancel_btn_enabled(True)
-            self.corpus_tab.set_progress(0)
-        self._job_runner.run_async()
+        self._jobs_controller.run_job(steps, job_runner_cls=JobRunner)
 
     def _sync_config_from_project_tab(self, *, show_mismatch_status: bool = False) -> bool:
         """
@@ -403,109 +381,38 @@ class MainWindow(QMainWindow):
         return True
 
     def _on_job_progress(self, step_name: str, percent: float, message: str) -> None:
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_progress(int(percent * 100))
+        self._jobs_controller.on_job_progress(step_name, percent, message)
 
     def _on_job_log(self, level: str, message: str) -> None:
-        if self.tabs.count() > TAB_LOGS:
-            log_widget = self.tabs.widget(TAB_LOGS)
-            if isinstance(log_widget, QWidget) and log_widget.layout() and log_widget.layout().itemAt(0):
-                te = log_widget.findChild(QPlainTextEdit)
-                if te:
-                    te.appendPlainText(f"[{level}] {message}")
+        self._jobs_controller.on_job_log(level, message, tab_logs_index=TAB_LOGS)
 
     def _append_job_summary_to_log(self, summary: str) -> None:
         """Ajoute le résumé de fin de job dans l'onglet Logs."""
-        if self.tabs.count() > TAB_LOGS:
-            log_widget = self.tabs.widget(TAB_LOGS)
-            if isinstance(log_widget, QWidget):
-                te = log_widget.findChild(QPlainTextEdit)
-                if te:
-                    te.appendPlainText(f"[info] {summary}")
+        self._jobs_controller.append_job_summary_to_log(summary, tab_logs_index=TAB_LOGS)
 
     def _build_job_summary_message(self, results: list) -> tuple[str, set[str], int]:
         """Construit le message de fin de job + la liste d'épisodes en échec."""
-        ok = sum(1 for r in results if getattr(r, "success", True))
-        fail = len(results) - ok
-        msg = f"Terminé : {ok} réussie(s), {fail} échec(s)."
-        failed_episode_ids: set[str] = set()
-        if fail:
-            first_fail_msg = ""
-            for r in results:
-                if not getattr(r, "success", True):
-                    m = (getattr(r, "message", None) or str(r)) or ""
-                    if not first_fail_msg:
-                        first_fail_msg = m[:80] + ("…" if len(m) > 80 else "")
-                    ep_match = re.search(r"S\d+E\d+", m, re.IGNORECASE)
-                    if ep_match:
-                        failed_episode_ids.add(ep_match.group(0).upper())
-            if failed_episode_ids:
-                msg += f" Échec(s) : {', '.join(sorted(failed_episode_ids))}."
-            elif first_fail_msg:
-                msg += f" Premier échec : {first_fail_msg}"
-        return msg, failed_episode_ids, fail
+        return self._jobs_controller.build_job_summary_message(results)
 
     def _refresh_tabs_after_job(self) -> None:
         """Rafraîchit les onglets dépendants après exécution d'un job."""
-        refreshers: list[tuple[str, Any, bool]] = [
-            ("_refresh_episodes_from_store", self._refresh_episodes_from_store, True),
-            ("_refresh_inspecteur_episodes", self._refresh_inspecteur_episodes, False),
-            ("_refresh_preparer", self._refresh_preparer, False),
-            ("_refresh_subs_tracks", self._refresh_subs_tracks, False),
-            ("_refresh_align_runs", self._refresh_align_runs, False),
-            ("_refresh_concordance", self._refresh_concordance, False),
-            ("_refresh_personnages", self._refresh_personnages, False),
-        ]
-        for name, refresh_fn, show_warning in refreshers:
-            try:
-                refresh_fn()
-            except Exception as exc:
-                logger.exception("Error in %s", name)
-                if show_warning:
-                    QMessageBox.warning(self, "Avertissement", f"Erreur lors du rafraîchissement des épisodes: {exc}")
+        self._jobs_controller.refresh_tabs_after_job(message_box=QMessageBox)
 
     def _on_job_finished(self, results: list[Any]) -> None:
-        try:
-            if hasattr(self, "corpus_tab") and self.corpus_tab:
-                self.corpus_tab.set_cancel_btn_enabled(False)
-                self.corpus_tab.set_progress(100)
-            msg, failed_episode_ids, fail = self._build_job_summary_message(results)
-            self.statusBar().showMessage(msg, 10000 if fail else 5000)
-            if hasattr(self, "corpus_tab") and self.corpus_tab:
-                self.corpus_tab.store_failed_episodes(failed_episode_ids if fail else set())
-            self._append_job_summary_to_log(msg)
-            self._refresh_tabs_after_job()
-            self._job_runner = None
-        except Exception as e:
-            logger.exception("Critical error in _on_job_finished")
-            QMessageBox.critical(self, "Erreur critique", f"Erreur lors de la finalisation du job: {e}")
-            self._job_runner = None
+        self._jobs_controller.on_job_finished(
+            results,
+            message_box=QMessageBox,
+            tab_logs_index=TAB_LOGS,
+        )
 
     def _on_job_cancelled(self) -> None:
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_cancel_btn_enabled(False)
-        self._job_runner = None
+        self._jobs_controller.on_job_cancelled()
 
     def _on_job_error(self, step_name: str, exc: object) -> None:
-        logger.error(f"Job error in step '{step_name}': {exc}", exc_info=exc if isinstance(exc, Exception) else None)
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.set_cancel_btn_enabled(False)
-        try:
-            msg = str(exc) if exc is not None else "Erreur inconnue"
-        except Exception as e:
-            logger.exception("Error while formatting error message")
-            msg = f"Erreur inconnue (impossible de formater le message: {e})"
-        if len(msg) > 500:
-            msg = msg[:497] + "..."
-        try:
-            QMessageBox.critical(self, "Erreur", f"{step_name}: {msg}")
-        except Exception:
-            logger.exception("Error while showing error dialog")
-            print(f"CRITICAL ERROR: {step_name}: {msg}")
+        self._jobs_controller.on_job_error(step_name, exc, message_box=QMessageBox)
 
     def _cancel_job(self) -> None:
-        if self._job_runner:
-            self._job_runner.cancel()
+        self._jobs_controller.cancel_job()
 
     def _on_tab_changed(self, index: int) -> None:
         """Remplit le Corpus au passage sur l'onglet (évite segfault Qt/macOS au chargement du projet)."""

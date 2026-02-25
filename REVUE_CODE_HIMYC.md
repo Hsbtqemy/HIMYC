@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel, après extraction des actions Alignement)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction des actions Alignement + jobs MainWindow)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -101,6 +101,7 @@
 | Refacto `tab_corpus` | Actions sources + import/export extraites vers `app/tabs/corpus_sources.py` et `app/tabs/corpus_export.py` |
 | Refacto `tab_preparer` (persistence) | Orchestration save/snapshots extraite vers `app/tabs/preparer_persistence.py` |
 | Refacto `tab_alignement` (actions) | Actions run/bulk/menu/export/groupes extraites vers `app/tabs/alignement_actions.py` ; `tab_alignement.py` recentré sur la vue |
+| Refacto `ui_mainwindow` (jobs) | Orchestration JobRunner/progress/log/finished/error/cancel extraite vers `app/mainwindow_jobs.py` ; `ui_mainwindow.py` garde des wrappers compatibles |
 
 ---
 
@@ -123,7 +124,7 @@
 - **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
 - **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).
 - **models_qt.py** ~21 — façade de compatibilité ; logique déplacée dans des modules dédiés (~545 épisodes, ~115 align, ~62 kwic).
-- **ui_mainwindow.py** ~681 — extraire construction onglets / gestion job.
+- **ui_mainwindow.py** ~588 — orchestration jobs déplacée vers `mainwindow_jobs.py` (~163) ; reste à découper côté construction d’onglets/projet.
 - **tasks.py** ~695, **db.py** ~619, **profiles.py** (dialogs) ~735 — à surveiller.
 
 ### 5.4 Types et docstrings
