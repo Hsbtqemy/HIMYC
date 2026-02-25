@@ -25,6 +25,11 @@ from howimetyourcorpus.app.tabs.corpus_export import (
     export_corpus_by_filter,
 )
 from howimetyourcorpus.app.tabs.corpus_sources import CorpusSourcesController
+from howimetyourcorpus.app.tabs.corpus_context import (
+    CorpusContextController,
+    lang_hint_from_profile,
+    resolve_episode_profile,
+)
 from howimetyourcorpus.app.tabs.corpus_ui import CorpusUiBuilder
 from howimetyourcorpus.app.tabs.corpus_view import CorpusViewController
 from howimetyourcorpus.app.tabs.corpus_workflow import CorpusWorkflowController
@@ -59,6 +64,7 @@ class CorpusTabWidget(QWidget):
         self._on_open_inspector = on_open_inspector
         self._failed_episode_ids: set[str] = set()  # Stocke les episode_id en échec
         self._sources_controller = CorpusSourcesController(self)
+        self._context_controller = CorpusContextController(self)
         self._workflow_controller = CorpusWorkflowController(self)
         self._view_controller = CorpusViewController(self, logger)
         self._ui_builder = CorpusUiBuilder(self)
@@ -119,27 +125,11 @@ class CorpusTabWidget(QWidget):
 
     def _get_selected_or_checked_episode_ids(self) -> list[str]:
         """Retourne les episode_id cochés, ou à défaut ceux des lignes sélectionnées."""
-        ids = self.episodes_tree_model.get_checked_episode_ids()
-        if not ids:
-            proxy_indices = self.episodes_tree.selectionModel().selectedIndexes()
-            source_indices = [
-                self.episodes_tree_proxy.mapToSource(ix) for ix in proxy_indices
-            ]
-            ids = self.episodes_tree_model.get_episode_ids_selection(source_indices)
-        return ids
+        return self._context_controller.get_selected_or_checked_episode_ids()
 
     def _get_project_index_context(self) -> tuple[Any, Any, SeriesIndex] | None:
         """Retourne (store, config, index) pour les actions batch, sinon affiche un warning."""
-        store = self._get_store()
-        context = self._get_context()
-        if not context or not context.get("config") or not store:
-            QMessageBox.warning(self, "Corpus", "Ouvrez un projet d'abord.")
-            return None
-        index = store.load_series_index()
-        if not index or not index.episodes:
-            QMessageBox.warning(self, "Corpus", "Découvrez d'abord les épisodes.")
-            return None
-        return store, context["config"], index
+        return self._context_controller.get_project_index_context()
 
     def _resolve_target_episode_ids(
         self,
@@ -148,15 +138,10 @@ class CorpusTabWidget(QWidget):
         selection_only: bool,
     ) -> list[str] | None:
         """Résout la cible épisodes (sélection cochée/lignes ou tout le corpus)."""
-        if selection_only:
-            ids = self._get_selected_or_checked_episode_ids()
-            if not ids:
-                QMessageBox.warning(
-                    self, "Corpus", "Cochez au moins un épisode ou sélectionnez des lignes."
-                )
-                return None
-            return ids
-        return [e.episode_id for e in index.episodes]
+        return self._context_controller.resolve_target_episode_ids(
+            index=index,
+            selection_only=selection_only,
+        )
 
     @staticmethod
     def _resolve_episode_profile(
@@ -167,21 +152,17 @@ class CorpusTabWidget(QWidget):
         source_defaults: dict[str, str],
         batch_profile: str,
     ) -> str:
-        ref = ref_by_id.get(episode_id)
-        return (
-            episode_preferred.get(episode_id)
-            or (source_defaults.get(ref.source_id or "") if ref else None)
-            or batch_profile
+        return resolve_episode_profile(
+            episode_id=episode_id,
+            ref_by_id=ref_by_id,
+            episode_preferred=episode_preferred,
+            source_defaults=source_defaults,
+            batch_profile=batch_profile,
         )
 
     @staticmethod
     def _lang_hint_from_profile(profile_id: str | None) -> str:
-        profile = (profile_id or "").strip()
-        if not profile:
-            return "en"
-        token = profile.split("_")[0]
-        hint = token.replace("default", "en")
-        return hint or "en"
+        return lang_hint_from_profile(profile_id)
 
     def _set_no_project_state(self) -> None:
         """Met l'UI dans l'état « pas de projet » (labels vides, boutons désactivés)."""
@@ -189,30 +170,7 @@ class CorpusTabWidget(QWidget):
 
     def _resume_failed_episodes(self) -> None:
         """Relance les opérations sur les épisodes en échec (téléchargement, normalisation, etc.)."""
-        if not self._failed_episode_ids:
-            QMessageBox.information(
-                self, "Reprendre échecs", "Aucun échec récent à reprendre."
-            )
-            return
-        # Cocher les épisodes en échec
-        self.episodes_tree_model.set_checked(self._failed_episode_ids, True)
-        # Message de confirmation
-        reply = QMessageBox.question(
-            self,
-            "Reprendre les échecs",
-            f"{len(self._failed_episode_ids)} épisode(s) en échec cochés.\n\n"
-            "Relancer maintenant le même type d'opération ?\n"
-            "(Télécharger/Normaliser/Segmenter selon ce qui a échoué)",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            # L'utilisateur doit cliquer sur le bouton approprié (Télécharger/Normaliser/etc.)
-            QMessageBox.information(
-                self,
-                "Reprendre",
-                f"{len(self._failed_episode_ids)} épisode(s) cochés. Cliquez sur le bouton d'action approprié (Télécharger, Normaliser, etc.).",
-            )
+        self._context_controller.resume_failed_episodes()
 
     def refresh(self) -> None:
         """Recharge l'arbre et le statut depuis le store (appelé après ouverture projet / fin de job)."""
