@@ -25,6 +25,15 @@ from howimetyourcorpus.core.storage.project_store_characters import (
     validate_assignment_references as _validate_assignment_references,
     validate_character_catalog as _validate_character_catalog,
 )
+from howimetyourcorpus.core.storage.project_store_config import (
+    init_project as _init_project,
+    load_config_extra as _load_config_extra,
+    load_project_config as _load_project_config,
+    read_toml as _read_toml_impl,
+    save_config_extra as _save_config_extra,
+    save_config_main as _save_config_main,
+    write_toml as _write_toml_impl,
+)
 from howimetyourcorpus.core.storage.project_store_profiles import (
     load_episode_preferred_profiles as _load_episode_preferred_profiles,
     load_source_profile_defaults as _load_source_profile_defaults,
@@ -50,36 +59,17 @@ logger = logging.getLogger(__name__)
 
 def _read_toml(path: Path) -> dict[str, Any]:
     """Lit un fichier TOML (stdlib tomllib en 3.11+)."""
-    try:
-        import tomllib
-    except ImportError:
-        import tomli as tomllib  # type: ignore
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    return _read_toml_impl(path)
 
 
 def load_project_config(path: Path) -> dict[str, Any]:
     """API publique : charge la config projet depuis un fichier TOML."""
-    return _read_toml(path)
+    return _load_project_config(path)
 
 
 def _write_toml(path: Path, data: dict[str, Any]) -> None:
     """Écrit un fichier TOML (écriture manuelle pour éviter dépendance)."""
-    lines = []
-    for k, v in data.items():
-        if isinstance(v, str):
-            # Échapper les guillemets dans la chaîne
-            escaped = v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-            lines.append(f'{k} = "{escaped}"')
-        elif isinstance(v, bool):
-            # bool doit être traité avant int/float (bool est un sous-type de int).
-            lines.append(f"{k} = {str(v).lower()}")
-        elif isinstance(v, (int, float)):
-            lines.append(f"{k} = {v}")
-        else:
-            lines.append(f'{k} = "{v!s}"')
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines), encoding="utf-8")
+    _write_toml_impl(path, data)
 
 
 class ProjectStore:
@@ -101,38 +91,15 @@ class ProjectStore:
     @staticmethod
     def init_project(config: ProjectConfig) -> None:
         """Crée le layout du projet et écrit config.toml."""
-        root = Path(config.root_dir)
-        root.mkdir(parents=True, exist_ok=True)
-        (root / "runs").mkdir(exist_ok=True)
-        (root / "episodes").mkdir(exist_ok=True)
-        (root / ".cache").mkdir(exist_ok=True)  # Cache HTTP pour éviter requêtes répétées
-
-        data = {
-            "project_name": config.project_name,
-            "source_id": config.source_id,
-            "series_url": config.series_url,
-            "rate_limit_s": config.rate_limit_s,
-            "user_agent": config.user_agent,
-            "normalize_profile": config.normalize_profile,
-        }
-        _write_toml(root / "config.toml", data)
+        _init_project(config)
 
     def load_config_extra(self) -> dict[str, Any]:
         """Charge config.toml en dict (clés optionnelles : opensubtitles_api_key, series_imdb_id, etc.)."""
-        path = self.root_dir / "config.toml"
-        if not path.exists():
-            return {}
-        return _read_toml(path)
+        return _load_config_extra(self)
 
     def save_config_extra(self, updates: dict[str, str | int | float | bool]) -> None:
         """Met à jour des clés dans config.toml (ex. opensubtitles_api_key, series_imdb_id)."""
-        path = self.root_dir / "config.toml"
-        data = dict(self.load_config_extra())
-        for k, v in updates.items():
-            if v is not None and v != "":
-                data[k] = v
-        if data:
-            _write_toml(path, data)
+        _save_config_extra(self, updates)
 
     def save_config_main(
         self,
@@ -143,21 +110,14 @@ class ProjectStore:
         project_name: str | None = None,
     ) -> None:
         """Met à jour les champs principaux de config.toml (URL série, source, etc.) sans écraser les clés extra."""
-        path = self.root_dir / "config.toml"
-        if not path.exists():
-            return
-        data = dict(_read_toml(path))
-        if series_url is not None:
-            data["series_url"] = series_url
-        if source_id is not None:
-            data["source_id"] = source_id
-        if rate_limit_s is not None:
-            data["rate_limit_s"] = rate_limit_s
-        if normalize_profile is not None:
-            data["normalize_profile"] = normalize_profile
-        if project_name is not None:
-            data["project_name"] = project_name
-        _write_toml(path, data)
+        _save_config_main(
+            self,
+            series_url=series_url,
+            source_id=source_id,
+            rate_limit_s=rate_limit_s,
+            normalize_profile=normalize_profile,
+            project_name=project_name,
+        )
 
     def save_series_index(self, series_index: SeriesIndex) -> None:
         """Sauvegarde l'index série en JSON."""
