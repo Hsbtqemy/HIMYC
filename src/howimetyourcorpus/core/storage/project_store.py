@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -66,6 +65,22 @@ from howimetyourcorpus.core.storage.project_store_episode_io import (
     save_episode_html as _save_episode_html,
     save_episode_notes as _save_episode_notes,
     save_episode_raw as _save_episode_raw,
+)
+from howimetyourcorpus.core.storage.project_store_align_io import (
+    align_dir as _align_dir,
+    align_grouping_path as _align_grouping_path_impl,
+    load_align_grouping as _load_align_grouping_impl,
+    safe_run_id as _safe_run_id_impl,
+    save_align_audit as _save_align_audit,
+    save_align_grouping as _save_align_grouping_impl,
+)
+from howimetyourcorpus.core.storage.project_store_custom_profiles import (
+    load_custom_profiles as _load_custom_profiles_impl,
+    save_custom_profiles as _save_custom_profiles_impl,
+)
+from howimetyourcorpus.core.storage.project_store_series_index import (
+    load_series_index as _load_series_index_impl,
+    save_series_index as _save_series_index_impl,
 )
 from howimetyourcorpus.core.preparer.status import PREP_STATUS_VALUES as PREPARER_STATUS_VALUES
 from howimetyourcorpus.core.storage.project_store_subtitles import (
@@ -146,23 +161,7 @@ class ProjectStore:
 
     def save_series_index(self, series_index: SeriesIndex) -> None:
         """Sauvegarde l'index série en JSON."""
-        path = self.root_dir / "series_index.json"
-        obj = {
-            "series_title": series_index.series_title,
-            "series_url": series_index.series_url,
-            "episodes": [
-                {
-                    "episode_id": e.episode_id,
-                    "season": e.season,
-                    "episode": e.episode,
-                    "title": e.title,
-                    "url": e.url,
-                    **({"source_id": e.source_id} if e.source_id else {}),
-                }
-                for e in series_index.episodes
-            ],
-        }
-        path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+        _save_series_index_impl(self, series_index)
 
     PROFILES_JSON = "profiles.json"
 
@@ -173,57 +172,11 @@ class ProjectStore:
                           "fix_double_spaces": true, "case_transform": "none", 
                           "custom_regex_rules": [{"pattern": "...", "replacement": "..."}], ...}]}
         """
-        from howimetyourcorpus.core.normalize.profiles import validate_profiles_json, ProfileValidationError
-        
-        path = self.root_dir / self.PROFILES_JSON
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as e:
-            # Syntaxe JSON invalide
-            raise ValueError(f"Fichier profiles.json invalide (syntaxe JSON) : {e}")
-        
-        # Valider le schéma
-        try:
-            validate_profiles_json(data)
-        except ProfileValidationError as e:
-            raise ValueError(f"Fichier profiles.json invalide : {e}")
-        
-        out: dict[str, NormalizationProfile] = {}
-        for p in data.get("profiles", []):
-            pid = p.get("id") or ""
-            if not pid or not isinstance(p.get("merge_subtitle_breaks"), bool):
-                continue
-            
-            # Charger custom_regex_rules
-            custom_regex = []
-            if "custom_regex_rules" in p and isinstance(p["custom_regex_rules"], list):
-                for rule in p["custom_regex_rules"]:
-                    if isinstance(rule, dict) and "pattern" in rule and "replacement" in rule:
-                        custom_regex.append((rule["pattern"], rule["replacement"]))
-            
-            out[pid] = NormalizationProfile(
-                id=pid,
-                merge_subtitle_breaks=bool(p.get("merge_subtitle_breaks", True)),
-                max_merge_examples_in_debug=int(p.get("max_merge_examples_in_debug", 20)),
-                fix_double_spaces=bool(p.get("fix_double_spaces", True)),
-                fix_french_punctuation=bool(p.get("fix_french_punctuation", False)),
-                normalize_apostrophes=bool(p.get("normalize_apostrophes", False)),
-                normalize_quotes=bool(p.get("normalize_quotes", False)),
-                strip_line_spaces=bool(p.get("strip_line_spaces", True)),
-                case_transform=str(p.get("case_transform", "none")),
-                custom_regex_rules=custom_regex,
-            )
-        return out
+        return _load_custom_profiles_impl(self)
 
     def save_custom_profiles(self, profiles: list[dict[str, Any]]) -> None:
         """Sauvegarde les profils personnalisés du projet (profiles.json)."""
-        path = self.root_dir / self.PROFILES_JSON
-        path.write_text(
-            json.dumps({"profiles": profiles}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _save_custom_profiles_impl(self, profiles)
 
     CHARACTER_NAMES_JSON = "character_names.json"
 
@@ -368,30 +321,7 @@ class ProjectStore:
 
     def load_series_index(self) -> SeriesIndex | None:
         """Charge l'index série depuis JSON. Retourne None si absent."""
-        path = self.root_dir / "series_index.json"
-        if not path.exists():
-            return None
-        from howimetyourcorpus.core.models import EpisodeRef
-        obj = json.loads(path.read_text(encoding="utf-8"))
-        episodes = []
-        for e in obj.get("episodes", []):
-            if not isinstance(e, dict):
-                continue
-            episodes.append(
-                EpisodeRef(
-                    episode_id=e.get("episode_id", ""),
-                    season=int(e.get("season", 0)),
-                    episode=int(e.get("episode", 0)),
-                    title=e.get("title", "") or "",
-                    url=e.get("url", "") or "",
-                    source_id=e.get("source_id"),
-                )
-            )
-        return SeriesIndex(
-            series_title=obj.get("series_title", ""),
-            series_url=obj.get("series_url", ""),
-            episodes=episodes,
-        )
+        return _load_series_index_impl(self)
 
     def _episode_dir(self, episode_id: str) -> Path:
         r"""Répertoire d'un épisode. Sanitize episode_id pour éviter path traversal (.., /, \)."""
@@ -525,48 +455,31 @@ class ProjectStore:
 
     def align_dir(self, episode_id: str) -> Path:
         """Répertoire episodes/<id>/align/ pour les runs d'alignement."""
-        return self._episode_dir(episode_id) / "align"
+        return _align_dir(self, episode_id)
 
     def save_align_audit(self, episode_id: str, run_id: str, links_audit: list[dict], report: dict) -> None:
         """Sauvegarde l'audit d'un run : align/<run_id>.jsonl + report.json (run_id sans ':' pour Windows)."""
-        d = self.align_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        safe_run_id = run_id.replace(":", "_")
-        with (d / f"{safe_run_id}.jsonl").open("w", encoding="utf-8") as f:
-            for row in links_audit:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
-        (d / f"{safe_run_id}_report.json").write_text(
-            json.dumps(report, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _save_align_audit(self, episode_id, run_id, links_audit, report)
 
     @staticmethod
     def _safe_run_id(run_id: str) -> str:
-        return (run_id or "").replace(":", "_").strip() or "_"
+        return _safe_run_id_impl(run_id)
 
     def _align_grouping_path(self, episode_id: str, run_id: str) -> Path:
-        return self.align_dir(episode_id) / f"{self._safe_run_id(run_id)}_groups.json"
+        return _align_grouping_path_impl(self, episode_id, run_id)
 
     def save_align_grouping(self, episode_id: str, run_id: str, grouping: dict[str, Any]) -> None:
         """Sauvegarde un regroupement multi-langues non destructif d'un run d'alignement."""
-        d = self.align_dir(episode_id)
-        d.mkdir(parents=True, exist_ok=True)
-        path = self._align_grouping_path(episode_id, run_id)
-        path.write_text(json.dumps(grouping, ensure_ascii=False, indent=2), encoding="utf-8")
+        _save_align_grouping_impl(self, episode_id, run_id, grouping)
 
     def load_align_grouping(self, episode_id: str, run_id: str) -> dict[str, Any] | None:
         """Charge un regroupement multi-langues sauvegardé pour un run, si présent."""
-        path = self._align_grouping_path(episode_id, run_id)
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return None
-        if not isinstance(data, dict):
-            return None
-        return data
+        return _load_align_grouping_impl(
+            self,
+            episode_id,
+            run_id,
+            logger_obj=logger,
+        )
 
     def generate_align_grouping(
         self,
