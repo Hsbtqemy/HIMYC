@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel, après extraction workflow Corpus + domaine Préparer de ProjectStore)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction domaine profils de ProjectStore)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -107,6 +107,8 @@
 | Refacto `ui_mainwindow` (jobs) | Orchestration JobRunner/progress/log/finished/error/cancel extraite vers `app/mainwindow_jobs.py` ; `ui_mainwindow.py` garde des wrappers compatibles |
 | Refacto `ui_mainwindow` (onglets) | Construction/refresh/navigation des onglets extraits vers `app/mainwindow_tabs.py` ; wrappers `_build_tab_*`/`_refresh_*` conservés pour compatibilité |
 | Refacto `ProjectStore` (prep domain) | Statuts de préparation, options de segmentation et langues projet extraits vers `core/storage/project_store_prep.py` ; API publique inchangée via délégation |
+| Refacto `ProjectStore` (characters domain) | Catalogue personnages + assignations + validations extraits vers `core/storage/project_store_characters.py` ; wrappers `ProjectStore` conservés |
+| Refacto `ProjectStore` (profiles domain) | Mappings profils par source/épisode extraits vers `core/storage/project_store_profiles.py` ; API publique conservée |
 
 ---
 
@@ -124,7 +126,7 @@
 
 ### 5.3 Fichiers volumineux (> 500 lignes)
 
-- **project_store.py** ~862 — allégé via `character_propagation.py`, `align_grouping.py`, `project_store_prep.py`; reste à découper (ex. « characters », « config »).
+- **project_store.py** ~724 — allégé via `character_propagation.py`, `align_grouping.py`, `project_store_prep.py`, `project_store_characters.py`, `project_store_profiles.py`; reste à découper (ex. « config TOML », « episodes/text IO »).
 - **tab_corpus.py** ~754 — allégé via `corpus_sources.py`/`corpus_export.py`/`corpus_workflow.py`; reste à découper (construction UI/rendu statut).
 - **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
 - **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).

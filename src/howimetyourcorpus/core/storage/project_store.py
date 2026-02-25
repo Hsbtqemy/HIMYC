@@ -16,6 +16,21 @@ from howimetyourcorpus.core.storage.align_grouping import (
 from howimetyourcorpus.core.storage.character_propagation import (
     propagate_character_names as _propagate_character_names,
 )
+from howimetyourcorpus.core.storage.project_store_characters import (
+    load_character_assignments as _load_character_assignments,
+    load_character_names as _load_character_names,
+    normalize_character_entry as _normalize_character_entry,
+    save_character_assignments as _save_character_assignments,
+    save_character_names as _save_character_names,
+    validate_assignment_references as _validate_assignment_references,
+    validate_character_catalog as _validate_character_catalog,
+)
+from howimetyourcorpus.core.storage.project_store_profiles import (
+    load_episode_preferred_profiles as _load_episode_preferred_profiles,
+    load_source_profile_defaults as _load_source_profile_defaults,
+    save_episode_preferred_profiles as _save_episode_preferred_profiles,
+    save_source_profile_defaults as _save_source_profile_defaults,
+)
 from howimetyourcorpus.core.storage.project_store_prep import (
     get_episode_prep_status as _get_episode_prep_status,
     get_episode_segmentation_options as _get_episode_segmentation_options,
@@ -230,29 +245,7 @@ class ProjectStore:
     @staticmethod
     def _normalize_character_entry(raw: dict[str, Any]) -> dict[str, Any] | None:
         """Normalise une entrée personnage (id/canonical/names_by_lang) ou retourne None si vide."""
-        if not isinstance(raw, dict):
-            return None
-        cid = (str(raw.get("id") or "")).strip()
-        canonical = (str(raw.get("canonical") or "")).strip()
-        if not cid and not canonical:
-            return None
-        cid = cid or canonical
-        canonical = canonical or cid
-
-        names_by_lang: dict[str, str] = {}
-        raw_names = raw.get("names_by_lang")
-        if isinstance(raw_names, dict):
-            for lang, name in raw_names.items():
-                lang_key = (str(lang or "")).strip().lower()
-                label = (str(name or "")).strip()
-                if lang_key and label:
-                    names_by_lang[lang_key] = label
-
-        return {
-            "id": cid,
-            "canonical": canonical,
-            "names_by_lang": names_by_lang,
-        }
+        return _normalize_character_entry(raw)
 
     def _validate_character_catalog(self, characters: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
@@ -260,115 +253,20 @@ class ProjectStore:
         - id unique (insensible à la casse)
         - alias uniques (id/canonical/names_by_lang) entre personnages
         """
-        normalized: list[dict[str, Any]] = []
-        id_owner: dict[str, str] = {}
-        token_owner: dict[str, str] = {}
-        token_owner_display: dict[str, str] = {}
-        duplicate_ids: list[str] = []
-        token_conflicts: list[tuple[str, str, str]] = []
-
-        for raw in characters or []:
-            entry = self._normalize_character_entry(raw)
-            if entry is None:
-                continue
-            cid = entry["id"]
-            cid_key = cid.lower()
-            prev_id = id_owner.get(cid_key)
-            if prev_id is not None:
-                duplicate_ids.append(cid)
-                continue
-            id_owner[cid_key] = cid
-            normalized.append(entry)
-
-            tokens = {cid, entry.get("canonical") or ""}
-            tokens.update((entry.get("names_by_lang") or {}).values())
-            for token in tokens:
-                token_raw = (token or "").strip()
-                if not token_raw:
-                    continue
-                token_key = token_raw.lower()
-                prev_owner = token_owner.get(token_key)
-                if prev_owner is not None and prev_owner != cid_key:
-                    token_conflicts.append(
-                        (
-                            token_raw,
-                            token_owner_display.get(token_key, prev_owner),
-                            cid,
-                        )
-                    )
-                    continue
-                token_owner[token_key] = cid_key
-                token_owner_display[token_key] = cid
-
-        errors: list[str] = []
-        if duplicate_ids:
-            errors.append(
-                "ID personnages dupliqués: " + ", ".join(sorted({x for x in duplicate_ids if x}))
-            )
-        if token_conflicts:
-            preview = token_conflicts[:6]
-            lines = [f"{token!r} ({left} / {right})" for token, left, right in preview]
-            suffix = ""
-            if len(token_conflicts) > len(preview):
-                suffix = f" (+{len(token_conflicts) - len(preview)} autre(s))"
-            errors.append("Collision d'alias personnages: " + "; ".join(lines) + suffix)
-        if errors:
-            raise ValueError("Catalogue personnages invalide: " + " | ".join(errors))
-        return normalized
+        return _validate_character_catalog(characters)
 
     def _validate_assignment_references(self, valid_character_ids: set[str]) -> None:
         """
         Vérifie que toutes les assignations référencent un character_id existant.
         """
-        valid = {cid.lower() for cid in valid_character_ids if cid}
-        if not valid:
-            # Pas de catalogue: on autorise seulement absence d'assignations.
-            orphan_ids = sorted(
-                {
-                    (a.get("character_id") or "").strip()
-                    for a in self.load_character_assignments()
-                    if (a.get("character_id") or "").strip()
-                }
-            )
-            if orphan_ids:
-                raise ValueError(
-                    "Assignations invalides: aucun personnage défini mais des assignations existent "
-                    f"({', '.join(orphan_ids[:8])}{'…' if len(orphan_ids) > 8 else ''})."
-                )
-            return
-
-        orphan_ids = sorted(
-            {
-                cid
-                for cid in (
-                    (a.get("character_id") or "").strip()
-                    for a in self.load_character_assignments()
-                )
-                if cid and cid.lower() not in valid
-            }
-        )
-        if orphan_ids:
-            preview = ", ".join(orphan_ids[:8])
-            suffix = "…" if len(orphan_ids) > 8 else ""
-            raise ValueError(
-                "Assignations invalides: character_id inconnus référencés: "
-                f"{preview}{suffix}."
-            )
+        _validate_assignment_references(self.load_character_assignments(), valid_character_ids)
 
     def load_character_names(self) -> list[dict[str, Any]]:
         """
         Charge la liste des personnages du projet (noms canoniques + par langue).
         Format : {"characters": [{"id": "...", "canonical": "...", "names_by_lang": {"en": "...", "fr": "..."}}]}
         """
-        path = self.root_dir / self.CHARACTER_NAMES_JSON
-        if not path.exists():
-            return []
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return []
-        return data.get("characters", [])
+        return _load_character_names(self, logger_obj=logger)
 
     def save_character_names(self, characters: list[dict[str, Any]]) -> None:
         """
@@ -378,73 +276,37 @@ class ProjectStore:
         - pas de collisions id/alias entre personnages
         - pas d'assignations référencant un character_id absent
         """
-        normalized = self._validate_character_catalog(characters)
-        self._validate_assignment_references({(c.get("id") or "").strip() for c in normalized})
-        path = self.root_dir / self.CHARACTER_NAMES_JSON
-        path.write_text(
-            json.dumps({"characters": normalized}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _save_character_names(self, characters)
 
     CHARACTER_ASSIGNMENTS_JSON = "character_assignments.json"
 
     def load_character_assignments(self) -> list[dict[str, Any]]:
         """Charge les assignations personnage (segment_id ou cue_id -> character_id)."""
-        path = self.root_dir / self.CHARACTER_ASSIGNMENTS_JSON
-        if not path.exists():
-            return []
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return []
-        return data.get("assignments", [])
+        return _load_character_assignments(self, logger_obj=logger)
 
     def save_character_assignments(self, assignments: list[dict[str, Any]]) -> None:
         """Sauvegarde les assignations personnage."""
-        path = self.root_dir / self.CHARACTER_ASSIGNMENTS_JSON
-        path.write_text(
-            json.dumps({"assignments": assignments}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _save_character_assignments(self, assignments)
 
     SOURCE_PROFILE_DEFAULTS_JSON = "source_profile_defaults.json"
 
     def load_source_profile_defaults(self) -> dict[str, str]:
         """Charge le mapping source_id -> profile_id (profil par défaut par source)."""
-        path = self.root_dir / self.SOURCE_PROFILE_DEFAULTS_JSON
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return dict(data) if isinstance(data, dict) else {}
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return {}
+        return _load_source_profile_defaults(self, logger_obj=logger)
 
     def save_source_profile_defaults(self, defaults: dict[str, str]) -> None:
         """Sauvegarde le mapping source_id -> profile_id."""
-        path = self.root_dir / self.SOURCE_PROFILE_DEFAULTS_JSON
-        path.write_text(json.dumps(defaults, ensure_ascii=False, indent=2), encoding="utf-8")
+        _save_source_profile_defaults(self, defaults)
 
     EPISODE_PREFERRED_PROFILES_JSON = "episode_preferred_profiles.json"
 
     def load_episode_preferred_profiles(self) -> dict[str, str]:
         """Charge le mapping episode_id -> profile_id (profil préféré par épisode)."""
-        path = self.root_dir / self.EPISODE_PREFERRED_PROFILES_JSON
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return dict(data) if isinstance(data, dict) else {}
-        except Exception as exc:
-            logger.warning("Impossible de charger %s: %s", path, exc)
-            return {}
+        return _load_episode_preferred_profiles(self, logger_obj=logger)
 
     def save_episode_preferred_profiles(self, preferred: dict[str, str]) -> None:
         """Sauvegarde le mapping episode_id -> profile_id."""
-        path = self.root_dir / self.EPISODE_PREFERRED_PROFILES_JSON
-        path.write_text(json.dumps(preferred, ensure_ascii=False, indent=2), encoding="utf-8")
+        _save_episode_preferred_profiles(self, preferred)
 
     EPISODE_PREP_STATUS_JSON = "episode_prep_status.json"
     PREP_STATUS_VALUES = set(PREPARER_STATUS_VALUES)
