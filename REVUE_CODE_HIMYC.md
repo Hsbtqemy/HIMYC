@@ -1,6 +1,6 @@
 # Revue de code — HowIMetYourCorpus (HIMYC)
 
-**Dernière mise à jour** : revue complète (état actuel, après extraction des actions Alignement + jobs MainWindow)  
+**Dernière mise à jour** : revue complète (état actuel, après extraction actions Alignement + contrôleurs MainWindow jobs/onglets)  
 **Périmètre** : `src/howimetyourcorpus/`, `tests/`  
 **Tests** : **203 passés**, 0 warning.
 
@@ -16,7 +16,8 @@
 
 ### 1.2 Câblage onglets et dialogs
 
-- **MainWindow** (`ui_mainwindow.py`) : constantes `TAB_*`, construction via `_build_tab_*` ; injection par lambdas (`get_store`, `get_db`, `run_job`, `show_status`, `undo_stack`).
+- **MainWindow** (`ui_mainwindow.py`) : constantes `TAB_*`, wrappers `_build_tab_*` / `_refresh_*` conservés pour compatibilité tests/patchs.
+- **Contrôleurs MainWindow** : `app/mainwindow_jobs.py` (orchestration JobRunner) et `app/mainwindow_tabs.py` (construction/refresh/navigation des onglets).
 - **Dialogs** : `ProfilesDialog`, `OpenSubtitlesDownloadDialog`, `NormalizeOptionsDialog`, `SegmentationOptionsDialog`, `SubtitleBatchImportDialog` (export depuis `app/dialogs/__init__.py`).
 
 ---
@@ -53,14 +54,15 @@
 
 - Construction onglets, menu (Undo/Redo, Aide), gestion projet, JobRunner (run, progress, log, error, finished, cancel), handoffs (Préparer → Alignement, Concordance → Inspecteur), fermeture (save state, prompt Préparer dirty).
 - `_sync_config_from_project_tab()`, `_build_job_summary_message()`, `_refresh_tabs_after_job()` déjà factorisés.
+- Garde-fou menu Undo/Redo ajouté : fallback `QAction` explicite si `createUndoAction/createRedoAction` retourne un type inattendu côté Qt.
 
 ### 3.2 Onglets
 
 - **Projet** : formulaire, validation, callbacks vers MainWindow.
-- **Corpus** (~1080 lignes) : arbre épisodes, filtres saison, actions (découvrir, fetch, normaliser, indexer). Grosse classe.
+- **Corpus** (~843 lignes) : arbre épisodes, filtres saison, actions (découvrir, fetch, normaliser, indexer). Grosse classe.
 - **Inspecteur** + **Sous-titres** : conteneur fusionné `InspecteurEtSousTitresTabWidget`.
-- **Préparer** (~954 lignes) + `preparer_context.py`, `preparer_edit.py`, `preparer_save.py`, `preparer_state.py`, `preparer_views.py`.
-- **Alignement** (~822 lignes) : runs, liens, tableau, undo.
+- **Préparer** (~595 lignes) + `preparer_context.py`, `preparer_edit.py`, `preparer_save.py`, `preparer_state.py`, `preparer_views.py`, `preparer_actions.py`, `preparer_persistence.py`.
+- **Alignement** (~344 lignes) + `alignement_actions.py`, `alignement_exporters.py` : runs, liens, tableau, undo.
 - **Concordance** : KWIC, filtres, export, graphique fréquence (matplotlib).
 - **Personnages** : grille, assignations, propagation.
 - **Logs** : affichage log projet.
@@ -102,6 +104,7 @@
 | Refacto `tab_preparer` (persistence) | Orchestration save/snapshots extraite vers `app/tabs/preparer_persistence.py` |
 | Refacto `tab_alignement` (actions) | Actions run/bulk/menu/export/groupes extraites vers `app/tabs/alignement_actions.py` ; `tab_alignement.py` recentré sur la vue |
 | Refacto `ui_mainwindow` (jobs) | Orchestration JobRunner/progress/log/finished/error/cancel extraite vers `app/mainwindow_jobs.py` ; `ui_mainwindow.py` garde des wrappers compatibles |
+| Refacto `ui_mainwindow` (onglets) | Construction/refresh/navigation des onglets extraits vers `app/mainwindow_tabs.py` ; wrappers `_build_tab_*`/`_refresh_*` conservés pour compatibilité |
 
 ---
 
@@ -124,7 +127,7 @@
 - **tab_preparer.py** ~595 — allégé via `preparer_actions.py` + `preparer_persistence.py`.
 - **tab_alignement.py** ~344 — fortement allégé ; actions déplacées vers `alignement_actions.py` (~449).
 - **models_qt.py** ~21 — façade de compatibilité ; logique déplacée dans des modules dédiés (~545 épisodes, ~115 align, ~62 kwic).
-- **ui_mainwindow.py** ~588 — orchestration jobs déplacée vers `mainwindow_jobs.py` (~163) ; reste à découper côté construction d’onglets/projet.
+- **ui_mainwindow.py** ~500 — orchestration jobs déplacée vers `mainwindow_jobs.py` (~163) et orchestration onglets vers `mainwindow_tabs.py` (~228) ; reste surtout la gestion projet/menu.
 - **tasks.py** ~695, **db.py** ~619, **profiles.py** (dialogs) ~735 — à surveiller.
 
 ### 5.4 Types et docstrings
@@ -155,7 +158,7 @@
 |----------|--------|
 | **P1** | ✅ Uniformisation des checks « projet ouvert » et « DB ouverte » sur les actions UI principales (Corpus, Préparer, Alignement, Projet, Concordance, Personnages). |
 | **P1** | ✅ Nettoyage des artefacts runtime sous `tests/` via script dédié (`scripts/clean_test_artifacts.sh`) et `.gitignore`. |
-| **P2** | 🟡 Découper les plus gros fichiers (project_store/models_qt allégés ; tab_preparer fortement réduit ; poursuivre sur tab_corpus/tab_alignement). |
+| **P2** | 🟡 Découper les plus gros fichiers (project_store/models_qt allégés ; tab_preparer/alignement/ui_mainwindow déjà réduits ; poursuivre sur tab_corpus et découpage domain-driven de project_store). |
 | **P2** | 🟡 Étendre les tests UI/dialogs (Inspecteur/Concordance/Logs couverts; poursuivre sur flows dialogs avancés). |
 | **P3** | Chargement asynchrone du refresh Corpus pour très gros corpus. |
 

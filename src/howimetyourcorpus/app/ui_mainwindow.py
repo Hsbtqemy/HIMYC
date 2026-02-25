@@ -26,18 +26,9 @@ from howimetyourcorpus.core.storage.project_store import ProjectStore
 from howimetyourcorpus.core.storage.db import CorpusDB
 from howimetyourcorpus.core.utils.logging import get_log_file_for_project
 from howimetyourcorpus.app.dialogs import ProfilesDialog
-from howimetyourcorpus.app.tabs import (
-    AlignmentTabWidget,
-    ConcordanceTabWidget,
-    CorpusTabWidget,
-    InspecteurEtSousTitresTabWidget,
-    LogsTabWidget,
-    PersonnagesTabWidget,
-    PreparerTabWidget,
-    ProjectTabWidget,
-)
 from howimetyourcorpus.app.workers import JobRunner
 from howimetyourcorpus.app.mainwindow_jobs import MainWindowJobsController
+from howimetyourcorpus.app.mainwindow_tabs import MainWindowTabsController
 from howimetyourcorpus import __version__
 
 logger = logging.getLogger(__name__)
@@ -79,7 +70,18 @@ class MainWindow(QMainWindow):
         self._job_runner: JobRunner | None = None
         self._log_handler: logging.Handler | None = None
         self._jobs_controller = MainWindowJobsController(self, logger)
-        
+        self._tabs_controller = MainWindowTabsController(
+            self,
+            logger,
+            tab_projet=TAB_PROJET,
+            tab_corpus=TAB_CORPUS,
+            tab_inspecteur=TAB_INSPECTEUR,
+            tab_preparer=TAB_PREPARER,
+            tab_alignement=TAB_ALIGNEMENT,
+            tab_concordance=TAB_CONCORDANCE,
+            tab_personnages=TAB_PERSONNAGES,
+        )
+
         # Basse Priorité #3 : Undo/Redo stack global
         self.undo_stack = QUndoStack(self)
         self.undo_stack.setUndoLimit(50)  # Limite à 50 actions
@@ -108,28 +110,36 @@ class MainWindow(QMainWindow):
         """Barre de menu : Édition (Undo/Redo), Aide (À propos, Mises à jour)."""
         menu_bar = QMenuBar(self)
         self.setMenuBar(menu_bar)
-        
+
         # Basse Priorité #3 : Menu Édition avec Undo/Redo
         edit_menu = menu_bar.addMenu("É&dition")
-        
+
         # Action Undo (Ctrl+Z)
-        self.undo_action = self.undo_stack.createUndoAction(self, "Annuler")
-        self.undo_action.setShortcut(QKeySequence.StandardKey.Undo)
-        edit_menu.addAction(self.undo_action)
-        
+        undo_action = self.undo_stack.createUndoAction(self, "Annuler")
+        if not isinstance(undo_action, QAction):
+            undo_action = QAction("Annuler", self)
+            undo_action.triggered.connect(self.undo_stack.undo)
+        undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        edit_menu.addAction(undo_action)
+        self.undo_action = undo_action
+
         # Action Redo (Ctrl+Y ou Ctrl+Shift+Z)
-        self.redo_action = self.undo_stack.createRedoAction(self, "Refaire")
-        self.redo_action.setShortcut(QKeySequence.StandardKey.Redo)
-        edit_menu.addAction(self.redo_action)
-        
+        redo_action = self.undo_stack.createRedoAction(self, "Refaire")
+        if not isinstance(redo_action, QAction):
+            redo_action = QAction("Refaire", self)
+            redo_action.triggered.connect(self.undo_stack.redo)
+        redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        edit_menu.addAction(redo_action)
+        self.redo_action = redo_action
+
         edit_menu.addSeparator()
-        
+
         # Action Effacer historique
         clear_history_act = QAction("Effacer l'historique Undo/Redo", self)
         clear_history_act.setToolTip("Vide la pile d'annulation (libère mémoire)")
         clear_history_act.triggered.connect(self._clear_undo_history)
         edit_menu.addAction(clear_history_act)
-        
+
         # Menu Aide
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
@@ -138,14 +148,14 @@ class MainWindow(QMainWindow):
         update_act = QAction("Vérifier les mises à jour", self)
         update_act.triggered.connect(self._open_releases_page)
         aide.addAction(update_act)
-    
+
     def _clear_undo_history(self) -> None:
         """Efface l'historique Undo/Redo (Basse Priorité #3)."""
         count = self.undo_stack.count()
         if count == 0:
             QMessageBox.information(self, "Historique", "L'historique est déjà vide.")
             return
-        
+
         reply = QMessageBox.question(
             self,
             "Effacer historique",
@@ -154,7 +164,7 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
             self.undo_stack.clear()
             QMessageBox.information(self, "Historique", "Historique effacé.")
@@ -174,15 +184,7 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl("https://github.com/Hsbtqemy/HIMYC/releases"))
 
     def _build_tab_projet(self) -> None:
-        self.project_tab = ProjectTabWidget(
-            get_store=lambda: self._store,
-            on_validate_clicked=self._validate_and_init_project_from_tab,
-            on_save_config=self._save_project_config,
-            on_open_profiles_dialog=self._open_profiles_dialog,
-            on_refresh_language_combos=self._refresh_language_combos,
-            show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
-        )
-        self.tabs.addTab(self.project_tab, "Projet")
+        self._tabs_controller.build_tab_projet()
 
     def _save_project_config(self) -> None:
         """Enregistre la configuration de l'onglet Projet dans config.toml (source, URL, etc.)."""
@@ -313,28 +315,7 @@ class MainWindow(QMainWindow):
                     log_widget.set_log_path(str(log_file))
 
     def _build_tab_corpus(self) -> None:
-        self.corpus_tab = CorpusTabWidget(
-            get_store=lambda: self._store,
-            get_db=lambda: self._db,
-            get_context=self._get_context,
-            run_job=self._run_job,
-            show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
-            refresh_after_episodes_added=lambda: (
-                self._refresh_episodes_from_store(),
-                self._refresh_inspecteur_episodes(),
-                self._refresh_preparer(),
-                self._refresh_personnages(),
-            ),
-            on_cancel_job=self._cancel_job,
-            on_open_inspector=self._kwic_open_inspector_impl,
-        )
-        self.tabs.addTab(self.corpus_tab, "Corpus")
-        self.tabs.setTabToolTip(TAB_CORPUS, "Workflow §14 — Bloc 1 (Import) + Bloc 2 (Normalisation / segmentation) : découverte, téléchargement, normaliser, indexer.")
-        # §15.3 — Projet = lieu du téléchargement : connecter les boutons Projet à la logique Corpus
-        self.project_tab.set_acquisition_callbacks(
-            on_discover_episodes=lambda: self.corpus_tab._discover_episodes(),
-            on_fetch_all=lambda: self.corpus_tab._fetch_episodes(False),
-        )
+        self._tabs_controller.build_tab_corpus()
 
     def _get_context(self) -> PipelineContext:
         custom_profiles = self._store.load_custom_profiles() if self._store else {}
@@ -432,8 +413,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(50, self._refresh_episodes_from_store)
 
     def _refresh_episodes_from_store(self) -> None:
-        if hasattr(self, "corpus_tab") and self.corpus_tab:
-            self.corpus_tab.refresh()
+        self._tabs_controller.refresh_episodes_from_store()
 
     def _refresh_profile_combos(self) -> None:
         """Met à jour les listes de profils (prédéfinis + personnalisés projet) dans les combos."""
@@ -447,32 +427,10 @@ class MainWindow(QMainWindow):
             self.inspector_tab.refresh_profile_combo(profile_ids, current_inspect)
 
     def _build_tab_inspecteur(self) -> None:
-        """§15.4 — Onglet Inspecteur fusionné avec Sous-titres (un épisode, deux panneaux)."""
-        self.inspector_tab = InspecteurEtSousTitresTabWidget(
-            get_store=lambda: self._store,
-            get_db=lambda: self._db,
-            get_config=lambda: self._config,
-            run_job=self._run_job,
-            refresh_episodes=self._refresh_episodes_from_store,
-            show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
-            undo_stack=self.undo_stack,  # Basse Priorité #3
-        )
-        self.tabs.addTab(self.inspector_tab, "Inspecteur")
-        self.tabs.setTabToolTip(TAB_INSPECTEUR, "§15.4 — Transcript (RAW/CLEAN, segments) + Sous-titres (pistes, import, normaliser) pour l'épisode courant.")
+        self._tabs_controller.build_tab_inspecteur()
 
     def _build_tab_preparer(self) -> None:
-        self.preparer_tab = PreparerTabWidget(
-            get_store=lambda: self._store,
-            get_db=lambda: self._db,
-            show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
-            on_go_alignement=self.open_alignement_for_episode,
-            undo_stack=self.undo_stack,
-        )
-        self.tabs.addTab(self.preparer_tab, "Préparer")
-        self.tabs.setTabToolTip(
-            TAB_PREPARER,
-            "Préparer un fichier (transcript/SRT): normaliser explicitement, éditer, segmenter en tours, puis passer à l'alignement.",
-        )
+        self._tabs_controller.build_tab_preparer()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Sauvegarde les tailles des splitters et les notes Inspecteur à la fermeture."""
@@ -488,93 +446,47 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
     def _refresh_inspecteur_episodes(self) -> None:
-        if hasattr(self, "inspector_tab") and self.inspector_tab:
-            self.inspector_tab.refresh()
+        self._tabs_controller.refresh_inspecteur_episodes()
 
     def _refresh_subs_tracks(self) -> None:
         """Rafraîchit les pistes Sous-titres (§15.4 : même onglet que Inspecteur)."""
-        if hasattr(self, "inspector_tab") and self.inspector_tab:
-            self.inspector_tab.refresh()
+        self._tabs_controller.refresh_subs_tracks()
 
     def _refresh_preparer(self, *, force: bool = False) -> None:
-        if not (hasattr(self, "preparer_tab") and self.preparer_tab):
-            return
-        if not force and self.preparer_tab.has_unsaved_changes():
-            logger.info("Skip preparer refresh: unsaved draft in progress")
-            self.statusBar().showMessage(
-                "Préparer: brouillon non enregistré conservé (rafraîchissement ignoré).",
-                4000,
-            )
-            return
-        self.preparer_tab.refresh()
+        self._tabs_controller.refresh_preparer(force=force)
 
     def _build_tab_alignement(self) -> None:
-        self.alignment_tab = AlignmentTabWidget(
-            get_store=lambda: self._store,
-            get_db=lambda: self._db,
-            run_job=self._run_job,
-            undo_stack=self.undo_stack,  # Basse Priorité #3
-        )
-        self.tabs.addTab(self.alignment_tab, "Alignement")
-        self.tabs.setTabToolTip(TAB_ALIGNEMENT, "Workflow §14 — Bloc 3 : Alignement transcript↔cues, liens, export concordancier.")
+        self._tabs_controller.build_tab_alignement()
 
     def _refresh_align_runs(self) -> None:
-        if hasattr(self, "alignment_tab") and self.alignment_tab:
-            self.alignment_tab.refresh()
+        self._tabs_controller.refresh_align_runs()
 
     def _build_tab_concordance(self) -> None:
-        self.concordance_tab = ConcordanceTabWidget(
-            get_db=lambda: self._db,
-            on_open_inspector=self._kwic_open_inspector_impl,
-        )
-        self.tabs.addTab(self.concordance_tab, "Concordance")
-        self.tabs.setTabToolTip(TAB_CONCORDANCE, "Workflow §14 — Bloc 3 : Concordancier parallèle (segment | EN | FR…), export KWIC.")
+        self._tabs_controller.build_tab_concordance()
 
     def _build_tab_personnages(self) -> None:
-        self.personnages_tab = PersonnagesTabWidget(
-            get_store=lambda: self._store,
-            get_db=lambda: self._db,
-            show_status=lambda msg, timeout=3000: self.statusBar().showMessage(msg, timeout),
-        )
-        self.tabs.addTab(self.personnages_tab, "Personnages")
-        self.tabs.setTabToolTip(TAB_PERSONNAGES, "Workflow §14 — Bloc 3 : Assignation segment/cue→personnage, propagation (après alignement).")
+        self._tabs_controller.build_tab_personnages()
 
     def _refresh_personnages(self) -> None:
-        if hasattr(self, "personnages_tab") and self.personnages_tab:
-            self.personnages_tab.refresh()
+        self._tabs_controller.refresh_personnages()
 
     def _refresh_concordance(self) -> None:
-        if hasattr(self, "concordance_tab") and self.concordance_tab:
-            self.concordance_tab.refresh_speakers()
+        self._tabs_controller.refresh_concordance()
 
     def _kwic_open_inspector_impl(self, episode_id: str) -> None:
         """Passe à l'onglet Inspecteur et charge l'épisode (appelé depuis l'onglet Concordance)."""
-        self.tabs.setCurrentIndex(TAB_INSPECTEUR)
-        if self.tabs.currentIndex() != TAB_INSPECTEUR:
-            return
-        if hasattr(self, "inspector_tab") and self.inspector_tab:
-            self.inspector_tab.set_episode_and_load(episode_id)
+        self._tabs_controller.kwic_open_inspector(episode_id)
 
     def open_preparer_for_episode(self, episode_id: str, source: str | None = None) -> None:
         """Ouvre l'onglet Préparer sur un épisode/source donnés."""
-        if hasattr(self, "preparer_tab") and self.preparer_tab and self.preparer_tab.has_unsaved_changes():
-            if not self.preparer_tab.prompt_save_if_dirty():
-                return
-        self.tabs.setCurrentIndex(TAB_PREPARER)
-        if hasattr(self, "preparer_tab") and self.preparer_tab:
-            self.preparer_tab.refresh()
-            self.preparer_tab.set_episode_and_load(episode_id, source_key=source or "transcript")
+        self._tabs_controller.open_preparer_for_episode(episode_id, source=source)
 
     def open_alignement_for_episode(self, episode_id: str, segment_kind: str = "sentence") -> None:
         """Handoff explicite vers Alignement avec épisode + type de segments."""
-        self.tabs.setCurrentIndex(TAB_ALIGNEMENT)
-        if hasattr(self, "alignment_tab") and self.alignment_tab:
-            self.alignment_tab.refresh()
-            self.alignment_tab.set_episode_and_segment_kind(episode_id, segment_kind=segment_kind)
+        self._tabs_controller.open_alignement_for_episode(episode_id, segment_kind=segment_kind)
 
     def _build_tab_logs(self) -> None:
-        w = LogsTabWidget(on_open_log=self._open_log_file)
-        self.tabs.addTab(w, "Logs")
+        self._tabs_controller.build_tab_logs()
 
     def _open_log_file(self) -> None:
         if not self._config:
