@@ -8,7 +8,9 @@ from howimetyourcorpus.core.export_utils import (
     export_parallel_concordance_csv,
     export_parallel_concordance_tsv,
     export_parallel_concordance_jsonl,
+    export_parallel_concordance_txt,
     export_align_report_html,
+    export_segments_srt_like,
     PARALLEL_CONCORDANCE_COLUMNS,
 )
 
@@ -82,6 +84,18 @@ def test_export_parallel_concordance_jsonl(sample_rows):
         path.unlink(missing_ok=True)
 
 
+def test_export_parallel_concordance_txt_accepts_numeric_confidence(sample_rows):
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
+        path = Path(f.name)
+    try:
+        export_parallel_concordance_txt(sample_rows, path)
+        text = path.read_text(encoding="utf-8")
+        assert "0.9" in text
+        assert "Bonjour le monde" in text
+    finally:
+        path.unlink(missing_ok=True)
+
+
 def test_export_align_report_html(sample_stats, sample_rows):
     with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as f:
         path = Path(f.name)
@@ -102,3 +116,22 @@ def test_parallel_concordance_columns():
     assert "text_en" in PARALLEL_CONCORDANCE_COLUMNS
     assert "text_fr" in PARALLEL_CONCORDANCE_COLUMNS
     assert "text_it" in PARALLEL_CONCORDANCE_COLUMNS
+
+
+def test_export_segments_srt_like():
+    segments = [
+        {"text": "First segment.", "n": 0},
+        {"text": "Second segment.", "n": 1},
+    ]
+    with tempfile.NamedTemporaryFile(suffix=".srt", delete=False) as f:
+        path = Path(f.name)
+    try:
+        export_segments_srt_like(segments, path)
+        text = path.read_text(encoding="utf-8")
+        assert "1\n" in text
+        assert "00:00:00,000 --> 00:00:00,000" in text
+        assert "First segment." in text
+        assert "2\n" in text
+        assert "Second segment." in text
+    finally:
+        path.unlink(missing_ok=True)

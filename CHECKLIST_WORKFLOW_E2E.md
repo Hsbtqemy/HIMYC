@@ -9,7 +9,7 @@ Version code vérifiée: HEAD local
 ```bash
 pytest -q
 ```
-2. Attendu: `198 passed`.
+2. Attendu: tous les tests passent (ex. `242 passed` en 2026-02).
 
 ## Scénario A: Transcript -> Préparer -> Alignement -> Personnages
 

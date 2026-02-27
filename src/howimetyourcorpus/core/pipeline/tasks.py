@@ -353,7 +353,7 @@ class SegmentEpisodeStep(Step):
     ) -> StepResult:
         store: ProjectStore = context["store"]
         db: CorpusDB | None = context.get("db")
-        ep_dir = store.root_dir / "episodes" / self.episode_id
+        ep_dir = store._episode_dir(self.episode_id)  # noqa: SLF001 - sanitation centralisée côté store
         segments_path = ep_dir / "segments.jsonl"
         if not force and segments_path.exists():
             if on_progress:
@@ -439,14 +439,21 @@ class RebuildSegmentsIndexStep(Step):
 
 
 class ImportSubtitlesStep(Step):
-    """Phase 3 : importe un fichier SRT/VTT pour un épisode et une langue."""
+    """Phase 3 : importe un fichier SRT/VTT pour un épisode et une langue. §11 : option profile_id pour normaliser à l'import."""
 
     name = "import_subtitles"
 
-    def __init__(self, episode_id: str, lang: str, file_path: Path | str) -> None:
+    def __init__(
+        self,
+        episode_id: str,
+        lang: str,
+        file_path: Path | str,
+        profile_id: str | None = None,
+    ) -> None:
         self.episode_id = episode_id
         self.lang = lang
         self.file_path = Path(file_path)
+        self.profile_id = profile_id
 
     def run(
         self,
@@ -486,6 +493,15 @@ class ImportSubtitlesStep(Step):
                 meta_json=json.dumps({"source": self.file_path.name}),
             )
             db.upsert_cues(track_id, self.episode_id, self.lang, cues)
+            if self.profile_id:
+                if on_progress:
+                    on_progress(self.name, 0.9, f"Application du profil {self.profile_id}…")
+                try:
+                    store.normalize_subtitle_track(db, self.episode_id, self.lang, self.profile_id, rewrite_srt=False)
+                except Exception as e:
+                    logger.exception("Normalisation à l'import")
+                    if on_log:
+                        on_log("warn", f"Profil non appliqué: {e}")
         if on_progress:
             on_progress(self.name, 1.0, f"Imported {len(cues)} cues for {self.episode_id} ({self.lang})")
         return StepResult(True, f"Imported {len(cues)} cues", {"cues_count": len(cues), "format": fmt})
@@ -662,11 +678,22 @@ class AlignEpisodeStep(Step):
                 if use_time:
                     target_links = align_cues_by_time(cues_en, cues_target)
                 else:
-                    target_links = align_cues_by_similarity(
-                        cues_en, cues_target, min_confidence=self.min_confidence
-                    )
-                    if not target_links and cues_target:
+                    # Sans timecodes (backlog §3) : par ordre d'abord si les deux pistes n'ont pas de timecodes
+                    # (fichiers parallèles cue i ↔ cue i), sinon par similarité puis ordre en secours.
+                    no_time_pivot = not cues_have_timecodes(cues_en)
+                    no_time_target = not cues_have_timecodes(cues_target)
+                    if no_time_pivot and no_time_target:
                         target_links = align_cues_by_order(cues_en, cues_target)
+                        if not target_links:
+                            target_links = align_cues_by_similarity(
+                                cues_en, cues_target, min_confidence=self.min_confidence
+                            )
+                    else:
+                        target_links = align_cues_by_similarity(
+                            cues_en, cues_target, min_confidence=self.min_confidence
+                        )
+                        if not target_links and cues_target:
+                            target_links = align_cues_by_order(cues_en, cues_target)
                 all_links.extend(target_links)
         run_id = f"{self.episode_id}:align:{datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%SZ')}"
         created_at = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")

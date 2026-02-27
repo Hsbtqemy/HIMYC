@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -140,10 +141,13 @@ class PreparerUiBuilder:
 
     def build_editors_stack(self, layout: QVBoxLayout) -> None:
         tab = self._tab
+        settings = QSettings("HIMYC", "MainWindow")
+        show_per_line_status = settings.value("Preparer/ShowPerLineStatus", False, type=bool)
         tab._transcript_widgets = TranscriptWidgets(  # noqa: SLF001
             edit_role=tab._edit_role,  # noqa: SLF001
             on_text_changed=tab._on_text_changed,  # noqa: SLF001
             on_table_item_changed=tab._on_table_item_changed,  # noqa: SLF001
+            show_status_column=show_per_line_status,
         )
         tab._cue_widgets = CueWidgets(  # noqa: SLF001
             edit_role=tab._edit_role,  # noqa: SLF001

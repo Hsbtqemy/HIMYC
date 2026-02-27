@@ -9,6 +9,32 @@ from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QMessageBox, QTreeView
 
 
+def _workflow_next_step_hint(
+    n_total: int,
+    n_fetched: int,
+    n_norm: int,
+    n_indexed: int,
+    n_with_srt: int,
+    n_aligned: int,
+) -> str:
+    """Retourne une phrase de recommandation pour la prochaine étape du workflow."""
+    if n_total == 0:
+        return ""
+    if n_fetched == 0:
+        return "Prochaine étape : cochez des épisodes puis Télécharger (ou Découvrir d'abord)."
+    if n_fetched < n_total:
+        return "Prochaine étape : téléchargez les épisodes manquants ou Normalisez la sélection."
+    if n_norm < n_fetched:
+        return "Prochaine étape : Normalisez la sélection (ou Normaliser tout)."
+    if n_indexed < n_norm:
+        return "Prochaine étape : Segmentez la sélection (ou Segmenter tout) puis Indexer DB."
+    if n_with_srt < n_total:
+        return "Prochaine étape : importez les SRT (onglet Sous-titres)."
+    if n_aligned < n_with_srt and n_with_srt > 0:
+        return "Prochaine étape : alignez (onglet Alignement)."
+    return "Workflow à jour. Export ou Concordance selon besoin."
+
+
 class CorpusViewController:
     """Regroupe les comportements de vue (filtres, refresh, navigation)."""
 
@@ -32,6 +58,9 @@ class CorpusViewController:
         tab.season_filter_combo.clear()
         tab.season_filter_combo.addItem("Toutes les saisons", None)
         tab.corpus_status_label.setText("")
+        if hasattr(tab, "workflow_next_step_label"):
+            tab.workflow_next_step_label.setText("")
+            tab.workflow_next_step_label.setVisible(False)
         tab.transcripts_status_label.setText("Status : 0/0 téléchargés")
         tab.subtitles_status_label.setText("Status : 0/0 importés")
         tab.norm_sel_btn.setEnabled(False)
@@ -69,6 +98,12 @@ class CorpusViewController:
             tab.corpus_status_label.setText(
                 f"Workflow : Découverts {n_total} | Téléchargés {n_fetched} | Normalisés {n_norm} | Segmentés {n_indexed} | SRT {n_with_srt} | Alignés {n_aligned}"
             )
+
+            next_step = _workflow_next_step_hint(
+                n_total, n_fetched, n_norm, n_indexed, n_with_srt, n_aligned
+            )
+            tab.workflow_next_step_label.setText(next_step)
+            tab.workflow_next_step_label.setVisible(bool(next_step))
 
             missing_transcripts = n_total - n_fetched
             if missing_transcripts > 0:
@@ -151,3 +186,15 @@ class CorpusViewController:
         if not episode_ids:
             return
         tab.episodes_tree_model.set_checked(set(episode_ids), True)
+        label = f"Saison {season}" if season is not None else "Tous"
+        tab._show_status(f"{label} : {len(episode_ids)} épisode(s) coché(s).", 3000)  # noqa: SLF001
+
+    def on_uncheck_season_clicked(self) -> None:
+        tab = self._tab
+        season = tab.season_filter_combo.currentData()
+        episode_ids = tab.episodes_tree_model.get_episode_ids_for_season(season)
+        if not episode_ids:
+            return
+        tab.episodes_tree_model.set_checked(set(episode_ids), False)
+        label = f"Saison {season}" if season is not None else "Tous"
+        tab._show_status(f"{label} : {len(episode_ids)} épisode(s) décoché(s).", 3000)  # noqa: SLF001

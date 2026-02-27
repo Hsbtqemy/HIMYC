@@ -4,6 +4,7 @@ import pytest
 from howimetyourcorpus.core.normalize.profiles import (
     NormalizationProfile,
     get_profile,
+    format_profile_rules_summary,
     PROFILES,
 )
 
@@ -71,3 +72,17 @@ def test_get_profile():
     assert get_profile("default_en_v1") is not None
     assert get_profile("nonexistent") is None
     assert "default_en_v1" in PROFILES
+
+
+def test_format_profile_rules_summary():
+    """Aperçu des règles du profil : contient le nom et les options principales."""
+    p = NormalizationProfile(id="test_v1", merge_subtitle_breaks=True, max_merge_examples_in_debug=20)
+    summary = format_profile_rules_summary(p)
+    assert "test_v1" in summary
+    assert "Fusion césures" in summary
+    assert "20" in summary
+    assert "oui" in summary or "non" in summary
+    p2 = NormalizationProfile(id="custom", custom_regex_rules=[(r"\s+", " ")])
+    summary2 = format_profile_rules_summary(p2)
+    assert "custom" in summary2
+    assert "Règles regex" in summary2

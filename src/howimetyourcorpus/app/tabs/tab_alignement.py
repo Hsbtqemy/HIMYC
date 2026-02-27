@@ -121,8 +121,9 @@ class AlignmentTabWidget(QWidget):
             "Un run = un calcul d'alignement ; vous pouvez en relancer un autre ou supprimer un run. "
             "Clic droit sur une ligne : Accepter, Rejeter, Modifier la cible."
         )
-        help_label.setStyleSheet("color: gray; font-size: 0.9em;")
+        help_label.setStyleSheet("color: gray; font-size: 0.85em;")
         help_label.setWordWrap(True)
+        help_label.setMaximumHeight(44)
         help_label.setToolTip(
             "Segment = phrase du transcript (Phrases) ou tour de parole (Tours, une ligne par réplique). Cue pivot = réplique SRT. Cue cible = réplique SRT autre langue."
         )
@@ -169,7 +170,7 @@ class AlignmentTabWidget(QWidget):
         self.main_splitter.setStretchFactor(0, 3)  # Table prend 75%
         self.main_splitter.setStretchFactor(1, 1)  # Stats prend 25%
         
-        layout.addWidget(self.main_splitter)
+        layout.addWidget(self.main_splitter, 1)
         self._restore_align_splitter()
 
     def _restore_align_splitter(self) -> None:

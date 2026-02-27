@@ -25,7 +25,16 @@ class CorpusWorkflowController:
         payload = tab._get_project_index_context()  # noqa: SLF001
         if not payload:
             return
-        _store, _config, index = payload
+        _store, config, index = payload
+        if (getattr(config, "source_id", "") or "").strip().lower() == "tvmaze":
+            QMessageBox.information(
+                tab,
+                "Corpus",
+                "TVMaze ne fournit pas de transcripts d'épisodes. "
+                "Utilisez TVMaze pour découvrir la liste des épisodes, puis importez des fichiers SRT/VTT "
+                "ou utilisez une source transcript compatible.",
+            )
+            return
         ids = tab._resolve_target_episode_ids(index=index, selection_only=selection_only)  # noqa: SLF001
         if not ids:
             return
@@ -93,6 +102,14 @@ class CorpusWorkflowController:
         if not payload:
             return
         store, config, index = payload
+        if (getattr(config, "source_id", "") or "").strip().lower() == "tvmaze":
+            QMessageBox.information(
+                tab,
+                "Corpus",
+                "Le workflow « Tout pour la sélection » nécessite des transcripts (fetch + normalisation). "
+                "Avec TVMaze, commencez par importer des sous-titres SRT/VTT.",
+            )
+            return
         ids = tab._resolve_target_episode_ids(index=index, selection_only=True)  # noqa: SLF001
         if not ids:
             return

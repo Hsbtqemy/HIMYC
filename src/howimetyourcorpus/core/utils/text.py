@@ -3,6 +3,12 @@
 import re
 
 
+def extract_episode_id_from_message(message: str) -> str | None:
+    """Extrait l'ID épisode (ex. S01E01) depuis un message d'erreur ou de log."""
+    match = re.search(r"S\d+E\d+", message, re.IGNORECASE)
+    return match.group(0).upper() if match else None
+
+
 def normalize_whitespace(text: str) -> str:
     """Remplace les séquences d'espaces/blancs par un seul espace."""
     return " ".join(text.split())

@@ -199,6 +199,9 @@ class CorpusTabWidget(QWidget):
     def _on_check_season_clicked(self) -> None:
         self._view_controller.on_check_season_clicked()
 
+    def _on_uncheck_season_clicked(self) -> None:
+        self._view_controller.on_uncheck_season_clicked()
+
     @require_project_and_db
     def _discover_episodes(self) -> None:
         context = self._get_context()
@@ -325,4 +328,9 @@ class CorpusTabWidget(QWidget):
             QMessageBox.information(self, "Export", f"Corpus exporté : {len(episodes_data)} épisode(s).")
         except Exception as e:
             logger.exception("Export corpus")
-            QMessageBox.critical(self, "Erreur", str(e))
+            QMessageBox.critical(
+                self,
+                "Export corpus",
+                f"L'export du corpus a échoué : {e}\n\n"
+                "Vérifiez les droits d'écriture sur le dossier cible et que le fichier n'est pas ouvert ailleurs.",
+            )

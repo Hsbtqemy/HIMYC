@@ -4,9 +4,59 @@ Ce fichier recense les idées / demandes discutées (brainstorming) pour les imp
 
 **Lors du nettoyage des doc**, utiliser aussi **DOC_NETTOYAGE.md** : ce rituel sert à affiner les items du backlog, à marquer ce qu’on souhaite changer et ce qu’on veut vérifier.
 
+**Référence statut global** : [STATUT_PHASES.md](STATUT_PHASES.md). Dernière mise à jour doc : 2026-02-27.
+
+### Synthèse des statuts
+
+| § | Sujet | État |
+|---|--------|------|
+| 1 | Corpus — cases à cocher | ✅ Fait |
+| 2 | Inspecteur — redimensionnement et export | ✅ Fait |
+| 3 | Alignement sans timecodes | ✅ Fait |
+| 4 | Version Mac (.app, icône) | ✅ Fait |
+| 5 | Workflow — visibilité / enchaînement | ✅ Fait |
+| 6 | Filtre saison, batch par saison | ✅ Fait |
+| 6.1 | Import SRT en masse | ✅ Fait |
+| 6.1 | Workflow SRT-first / projet SRT only | ✅ Fait (voir ci-dessous) |
+| 6.2 | Télécharger SRT depuis OpenSubtitles | ✅ Fait (client API, dialogue, DownloadOpenSubtitlesStep) |
+| 7 | Profil de normalisation modifiable | ✅ Fait (ProfilesDialog, profiles.json, Nouveau/Modifier/Supprimer) |
+| 7.1 | Choix du profil à la normalisation | ✅ Fait (piste 1 : combo « Profil (batch) » dans Corpus) |
+| 7.2 | Plusieurs sources dans un projet | ✅ Fait (source_id par épisode, FetchAndMergeSeriesIndexStep, fusion index) |
+| SRT-first / projet SRT only | Workflow sans transcriptions | ✅ Fait (case « Projet SRT uniquement », ajout épisodes à la main, OpenSubtitles) |
+| 8 | Personnages (assignation, propagation, alias) | ✅ Fait (onglet Personnages, assignation, propagation, **colonne Alias + Suggérer par alias**, réécriture SRT) |
+| 9 | Arborescence / filtre par saison | ✅ Fait (QTreeView Saison→Épisodes, Cocher/Décocher la saison) |
+| 10 | Aperçu épisode depuis Corpus | ✅ Fait (double-clic → Inspecteur) |
+| 10.1 | Corpus = gestionnaire docs (SRT, Aligné) | ✅ Fait (colonnes SRT + Aligné, comptage) |
+| 11 | Normalisation des sous-titres (profil) | ✅ Fait (Normaliser la piste, réécriture SRT, **à l'import** fichier + batch) |
+| 13 | Export Word (.docx) étendu | ✅ Fait (segments, concordancier, KWIC) |
+| 14 | Workflow 3 blocs (UI) | ✅ Fait (GroupBox Bloc 1/2, tooltips) |
+| 15.1 | Comparaison de traductions | ✅ Fait (export TXT/HTML concordancier) |
+| 15.2 | Export sous-titres finaux | ✅ Fait (Exporter SRT final… dans Sous-titres) |
+| 15.3 | Projet = lieu téléchargement tout | ✅ Fait (Découvrir / Télécharger tout dans onglet Projet) |
+| 15.4 | Inspecteur + Sous-titres fusionnés | ✅ Fait (un onglet Inspecteur avec Transcript + Sous-titres) |
+| 15.5 | Inspecteur — outils de normalisation | ✅ Fait (GroupBox « Normalisation (transcript) », bouton Gérer les profils…) |
+| Préparer Phase 3.2 | Statut par ligne | ✅ Option menu Affichage ; persistance DB optionnelle |
+
+**Important — avant de proposer une « suite » :** vérifier la section **Réalisé** (fin de fichier) et le code. Les §8 à §15.5 ci-dessus sont déjà implémentés ; ne pas les proposer comme prochaines tâches.
+
+### Suite possible (ce qui reste ouvert)
+
+| Priorité | Sujet | Description courte |
+|----------|--------|---------------------|
+| **1. Validation** | Checklist E2E | Exécuter [CHECKLIST_WORKFLOW_E2E.md](CHECKLIST_WORKFLOW_E2E.md) (scénarios A, B, C + vérifs inter-onglets), corriger les bugs éventuels. Pas de nouvelle feature, mais stabilisation. |
+| ~~2. §15.5~~ | Inspecteur normalisation | ✅ Fait. Optionnel : zone avant/après. |
+| ~~3. §11~~ | Normalisation SRT à l’import | ✅ Fait (case + combo à l'import fichier et batch). |
+| ~~4. §8~~ | Personnages alias | ✅ Fait (colonne Alias, bouton Suggérer par alias). |
+| **5. Optionnel** | Préparer Phase 3.2 persistance DB | Statut par ligne en base (migration segments/cues). Actuellement : option d’affichage + QSettings uniquement. |
+| **6. Doc / idées** | §12, §14, §10 | §12 = synthèse formats (référence). §14 = vision déjà en place (UI). §10 visualiseuse = décision « non », double-clic → Inspecteur. |
+
+En résumé : **suite recommandée = validation E2E** ; puis au choix : Phase 3.2, zone avant/après §15.5, ou doc. §11 et §8 déjà faits.
+
 ---
 
 ## 1. Onglet Corpus — cases à cocher pour la sélection
+
+**✅ Fait (2026-02-26)** : colonne case à cocher, Tout cocher / Tout décocher, tooltips et ligne d'aide.
 
 **Demande :** Pouvoir sélectionner les épisodes via des **cases à cocher** (au lieu ou en complément de la sélection par clic / Shift+Ctrl).
 
@@ -21,6 +71,8 @@ Ce fichier recense les idées / demandes discutées (brainstorming) pour les imp
 ---
 
 ## 2. Onglet Inspecteur — redimensionnement et export
+
+**✅ Fait (2026-02-26)** : splitters redimensionnables, sauvegarde des proportions à la sortie de l'onglet, tailles minimales ; export SRT-like depuis l'Inspecteur (filtre + tooltip).
 
 ### 2.1 Redimensionner les box
 
@@ -47,6 +99,8 @@ Ce fichier recense les idées / demandes discutées (brainstorming) pour les imp
 
 ## 3. Alignement sans timecodes
 
+**✅ Fait (2026-02-26)** : sans timecodes sur les deux pistes, alignement par ordre d'abord (cue i ↔ cue i), puis par similarité en secours. Pipeline (tasks.py) et tests (test_align.py) à jour.
+
 **Contexte :** Aujourd’hui, l’alignement **segment (transcript) ↔ cue EN** se fait par **similarité textuelle** (pas de timecodes). L’alignement **cue EN ↔ cue cible (FR, IT, etc.)** se fait par **recouvrement temporel** (`start_ms` / `end_ms` du SRT). Si on n’a **pas de timecodes** (fichiers “une phrase par ligne” ou SRT sans timings), la partie EN↔cible ne fonctionne plus.
 
 **Pistes à mettre en œuvre :**
@@ -67,6 +121,8 @@ Ce fichier recense les idées / demandes discutées (brainstorming) pour les imp
 
 ## 4. Version Mac — programme avec une icône
 
+**✅ Fait** : spec PyInstaller (darwin → .app), icône icns (make_icns.sh), scripts/macos/build_app.sh et README, CI release (tag v* → build .exe + .app). README mis à jour (Windows + macOS) en 2026-02-26.
+
 **Demande :** Proposer une **version Mac** du programme, livrée avec une **icône d’application** (bundle .app avec icône dans le Dock / Finder).
 
 **Pistes :**
@@ -80,6 +136,8 @@ Ce fichier recense les idées / demandes discutées (brainstorming) pour les imp
 ---
 
 ## 5. Workflow — visibilité, enchaînement, retour après action
+
+**✅ Fait (2026-02-26)** : indicateur « Prochaine étape » et label dans l'onglet Corpus, tooltips « Périmètre : sélection / tout » sur les boutons concernés.
 
 **Contexte :** Le workflow (Découvrir → Télécharger → Normaliser → Segmenter → SRT → Aligner → Export) n’est pas encore figé ; en parallèle, améliorer la lisibilité et le guidage.
 
@@ -105,14 +163,16 @@ Ce fichier recense les idées / demandes discutées (brainstorming) pour les imp
 **Pistes :**
 
 - **Filtre / sélection par saison** — Dans l’onglet Corpus : moyen de sélectionner rapidement « toute la saison N » (ex. bouton « Sélectionner saison 1 », ou filtre par colonne Saison puis « Tout cocher »). Les cases à cocher permettent déjà le batch ; il s’agit de faciliter le ciblage « une saison ».
-- **Documenter le workflow** — Dans le README ou une doc dédiée : décrire un ou deux scénarios recommandés (ex. « batch saison par saison » vs « tout normaliser puis batch saison pour le reste ») pour que le choix soit explicite.
+- **Documenter le workflow** — Dans le README ou une doc dédiée : décrire un ou deux scénarios recommandés (ex. « batch saison par saison » vs « tout normaliser puis batch saison pour le reste ») pour que le choix soit explicite. **✅ Fait** : README section « Workflow recommandé (batch par saison) » (Options A et B).
+
+**Fait (2026-02-26)** : Filtre saison (combo) + « Cocher la saison » / « Décocher la saison », tooltips et aide « batch par saison », README à jour.
 
 **Fichiers concernés (à vérifier) :**  
 `ui_mainwindow.py` (onglet Corpus, liste épisodes), `models_qt.py`, README ou `DOC_*.md`.
 
 ### 6.1 Workflow — commencer par les SRT
 
-**Contexte :** Aujourd’hui le workflow par défaut part des **transcriptions** (Découvrir → Télécharger → Normaliser → Segmenter → Importer SRT → Aligner). Certains utilisateurs ont déjà des **fichiers SRT** (opensubtitles, DVD, autre source) et veulent construire un corpus à partir des SRT sans passer par le scraping ni la transcription.
+**Contexte :** Aujourd’hui le workflow par défaut part des **transcriptions** (Découvrir → Télécharger → Normaliser → Segmenter → Importer SRT → Aligner). **✅ Fait** : Case « Projet SRT uniquement », ajout d’épisodes à la main, import SRT / OpenSubtitles. Certains utilisateurs ont déjà des **fichiers SRT** (opensubtitles, DVD, autre source) et veulent construire un corpus à partir des SRT sans passer par le scraping ni la transcription.
 
 **Demande :** Pouvoir avoir un **workflow qui commence par les SRT** : créer ou ouvrir un projet, définir la liste des épisodes (sans « Découvrir » ni « Télécharger »), importer les SRT comme première étape, puis aligner (EN↔cible) et utiliser le Concordancier sur les cues. Pas obligatoirement de transcript (raw/clean) ni de segments ; les cues SRT servent de base pour la recherche et l’alignement multilingue.
 
@@ -130,6 +190,8 @@ Faut-il un « type de projet » (transcript-first vs SRT-first) ou suffit-il de 
 Oui : si on commence uniquement avec les SRT, on doit pouvoir **rajouter les transcriptions ensuite** (par épisode ou en lot). Un même épisode peut avoir d’abord des pistes SRT (alignement cue↔cue, concordancier sur cues), puis plus tard raw/clean (téléchargement, import manuel ou collage) ; on peut alors lancer Normaliser → Segmenter → alignement segment↔cue EN. Le projet n’est pas figé « SRT only » : les boutons Télécharger / Normaliser / Segmenter restent utilisables dès qu’un épisode a du raw (ou on prévoit un moyen d’ajouter du raw sans « Découvrir », ex. importer un fichier texte par épisode). À documenter dans le backlog : workflow « SRT first, transcriptions ajoutées plus tard » comme scénario supporté.
 
 #### Import SRT en masse
+
+**✅ Fait (2026-02-26)** : bouton « Importer SRT en masse », scan récursif, sous-dossiers (ex. S01E01/en.srt), parsing 1x01/S01E01, dialogue mapping + combo épisode/langue éditable.
 
 **Contexte :** Aujourd’hui l’import SRT est **un fichier à la fois** : on choisit l’épisode dans l’onglet Sous-titres, on clique « Importer SRT/VTT… », on sélectionne un fichier et la langue. Pour des dizaines d’épisodes ou plusieurs langues, c’est fastidieux.
 
@@ -154,6 +216,8 @@ Oui : si on commence uniquement avec les SRT, on doit pouvoir **rajouter les tra
 ---
 
 ### 6.2 Télécharger des sous-titres depuis OpenSubtitles (ou similaire)
+
+**✅ Fait** : Client REST `core/opensubtitles/client.py` (recherche par IMDb + saison/épisode/langue, download). Step `DownloadOpenSubtitlesStep` (search → download → save store + DB). Onglet Sous-titres : bouton « Télécharger depuis OpenSubtitles… », dialogue (clé API, IMDb série, langue, liste d’épisodes avec multi-sélection). Clé API et IMDb série sauvegardés dans config.toml (config_extra).
 
 **Contexte :** Aujourd’hui les SRT sont **importés** depuis des fichiers locaux (ouverture d’un fichier, ou import en masse depuis un dossier). L’utilisateur doit avoir déjà téléchargé les sous-titres (ex. depuis opensubtitles.com à la main). On pourrait proposer de **télécharger directement** des sous-titres depuis une source en ligne (ex. [OpenSubtitles](https://www.opensubtitles.com/)).
 
@@ -193,6 +257,8 @@ Nouveau `core/adapters/opensubtitles.py` (ou équivalent), `core/utils/http.py` 
 
 ### 7.1 Normalisation multi-sources / profils multiples (brainstorming)
 
+**✅ Fait (piste 1)** : Dans le Corpus, combo « Profil (batch) » avant Normaliser sélection / Normaliser tout (pré-rempli avec `config.normalize_profile` à l’ouverture du projet ; inclut les profils personnalisés). Inspecteur : liste « Profil pour cet épisode » + bouton « Normaliser cet épisode » déjà en place. Les steps utilisent le profil choisi (priorité : préféré épisode > défaut source > profil batch).
+
 **Contexte :** Les problèmes de normalisation ne sont pas les mêmes selon la **source** (site web) dont vient le raw : un autre site = autre structure HTML, autre bruit, autres règles utiles. Par ailleurs on peut avoir **plusieurs sites** pour une même série (ex. saison 1 sur le site A, saison 2 ou trous comblés sur le site B). Il faut pouvoir adapter la normalisation (batch + réglage par épisode) et, à terme, associer des profils différents selon la source ou le lot.
 
 **Pistes :**
@@ -217,7 +283,9 @@ Nouveau `core/adapters/opensubtitles.py` (ou équivalent), `core/utils/http.py` 
 
 ## 7.2 Plusieurs sources (sites web) dans un même projet
 
-**État actuel :** **Non.** Aujourd’hui un projet a **un seul** `source_id` et **une seule** `series_url`. « Découvrir épisodes » utilise cet adapteur et cette URL, et **remplace** tout l’index (series_index.json). Au téléchargement, tous les épisodes sont traités avec le **même** adapteur (`config.source_id`). On ne peut pas mélanger des épisodes venant de subslikescript et d’un autre site dans le même projet sans changer la config (et en changeant, la prochaine découverte écrase l’index).
+**✅ Fait** : EpisodeRef.source_id (optionnel) ; FetchAndMergeSeriesIndexStep (découvrir depuis une autre source/URL et fusionner sans écraser) ; FetchEpisodeStep utilise ref.source_id ou config.source_id ; series_index et project_store sauvegardent/chargent source_id par épisode. Onglet Corpus : « Découvrir (fusionner une autre source) » avec choix de la source et de l’URL.
+
+**État actuel (avant implémentation, conservé pour référence) :** **Non.** Aujourd’hui un projet a **un seul** `source_id` et **une seule** `series_url`. « Découvrir épisodes » utilise cet adapteur et cette URL, et **remplace** tout l’index (series_index.json). Au téléchargement, tous les épisodes sont traités avec le **même** adapteur (`config.source_id`). On ne peut pas mélanger des épisodes venant de subslikescript et d’un autre site dans le même projet sans changer la config (et en changeant, la prochaine découverte écrase l’index).
 
 **Demande :** Pouvoir faire intervenir **plusieurs sites** dans un même projet (ex. récupérer la saison 1 sur le site A, combler des manques ou la saison 2 sur le site B), avec la bonne logique de fetch/parse par source et, à terme, un profil de normalisation adapté par source (§7.1).
 
@@ -249,8 +317,9 @@ Nouveau `core/adapters/opensubtitles.py` (ou équivalent), `core/utils/http.py` 
 - **Proches** : Final Draft / Arc Studio (renommage personnage dans un seul script) ; outils de NER / identification de locuteurs (détection, pas normalisation ciblée) ; Subtitle Edit (recherche/remplacement manuel par fichier).  
 - Donc soit on intègre la fonctionnalité dans l’app, soit on s’appuie sur un **script externe** ou des **remplacements batch** avec une table de mapping partagée.
 
-**Pistes à mettre en œuvre :**
+**✅ Fait (alias §8)** : Colonne « Alias » dans la grille personnages (virgules ou retours à la ligne) ; stockage `aliases` dans `character_names.json` ; unicité des alias entre personnages (validate_character_catalog) ; bouton « Suggérer par alias » qui remplit la colonne Personnage quand le début du texte correspond à un alias (ex. TED:, Marshall:). Fichiers : `project_store_characters.py`, `tab_personnages.py`.
 
+**Pistes à mettre en œuvre :**
 - **Assignation (construire la table)** — Fichier ou écran projet « Personnages » : pour chaque nom canonique (ex. Ted, Barney, Marshall, Lily, Robin), lister les alias / variantes à lui associer (TED, Ted -, Marshall:, Marshall -, etc., et éventuellement équivalents FR). Stockage par projet (ex. `character_names.toml` ou section dans `config.toml`). Option : détection des candidats (patterns récurrents en début de réplique) puis validation manuelle.
 - **Table de mapping (alias → nom canonique) + noms par langue** — Résultat de l’assignation : table utilisée pour l’assignation et la propagation ; chaque personnage peut avoir un nom (ou une forme) par langue pour l’affichage / l’écriture dans les fichiers cibles.
 - **Propagation pilotée par l’alignement (concordancier)** — Utiliser les **liens d’alignement** (segment ↔ cue EN ↔ cue FR) pour propager le personnage assigné d’un segment/cue vers les **positions alignées** dans les autres fichiers (transcription, SRT EN, SRT FR, etc.). Le « bon endroit » = la position liée par l’alignement, pas un simple rechercher-remplacer global.
@@ -345,6 +414,8 @@ Dans ce modèle, pas de visualiseuse dans le Corpus (évite l’encombrement) ; 
 ---
 
 ## 11. Normalisation des sous-titres (profil optionnel)
+
+**✅ Fait (à l'import)** : Case « Appliquer le profil à l'import » (onglet Sous-titres) pour import fichier ; dans le dialogue « Importer SRT en masse », case + combo profil. `ImportSubtitlesStep(..., profile_id=...)` applique le profil après import (normalize_subtitle_track). Fichiers : `tasks.py`, `tab_sous_titres.py`, `subtitle_batch_import.py`.
 
 **Contexte :** Aujourd’hui les cues SRT/VTT subissent uniquement une **normalisation minimaliste** à l’import (tags supprimés, sauts de ligne → espace, espaces collapsés). Les **transcripts** passent eux par un **profil** (fusion césures, didascalies, locuteurs). Les sous-titres peuvent avoir les mêmes besoins (césures incohérentes, ponctuation, marqueurs type `MARSHALL:`).
 
@@ -526,9 +597,11 @@ Ces sorties et ce détail UI/UX servent de référence. **Implémentation UI §1
 
 ### 15.5 Inspecteur avec les outils de normalisation ?
 
+**✅ Fait (2026-02)** : GroupBox « Normalisation (transcript) » dans l'Inspecteur regroupant : Profil (combo), « Normaliser cet épisode », « Définir comme préféré pour cet épisode », « Gérer les profils… » (ouvre ProfilesDialog, rafraîchit le combo après fermeture). Tooltips sur le groupe et les boutons. Fichier : `tab_inspecteur.py`.
+
 **Idée :** Regrouper ou renforcer dans l'onglet **Inspecteur** les outils liés à la **normalisation** (transcript RAW → CLEAN, profils, éventuellement aperçu des règles, test sur un extrait, etc.), pour que tout le travail « par épisode » (voir le texte, normaliser, segmenter, puis pistes SRT) soit au même endroit.
 
-**Pistes :** Exposer plus clairement dans l'Inspecteur le choix de profil + « Normaliser cet épisode » + « Définir comme préféré » ; optionnel : lien rapide vers « Gérer les profils », aperçu des règles du profil, ou zone « avant / après » sur un extrait. À discuter avec la fusion §15.4 (Transcript | SRT) pour éviter la surcharge.
+**Pistes restantes (optionnel) :** Aperçu des règles du profil sélectionné ; zone « avant / après » sur un extrait (prévisualisation sans écraser).
 
 ---
 
@@ -563,3 +636,6 @@ Ces sorties et ce détail UI/UX servent de référence. **Implémentation UI §1
 - **§15.2 — Export sous-titres finaux** — Bouton « Exporter SRT final… » dans l’onglet Sous-titres (piste sélectionnée) : récupère les cues via `get_cues_for_episode_lang`, sérialise avec `cues_to_srt`, enregistre en .srt via dialogue. Fichiers : `tab_sous_titres.py` (`_export_srt_final`), `core/subtitles/parsers.py` (`cues_to_srt`).
 - **§15.3 — Projet = lieu du téléchargement tout (remplit Corpus)** — Onglet Projet : groupe « Acquisition — Remplir le corpus » avec boutons « Découvrir épisodes » et « Télécharger tout » ; callbacks reliés à la logique de l’onglet Corpus (`_discover_episodes`, `_fetch_episodes(False)`). Après téléchargement, le Corpus est rafraîchi automatiquement (fin de job). Boutons activés uniquement si un projet est ouvert. Fichiers : `tab_projet.py` (groupe, `set_acquisition_callbacks`, handlers), `ui_mainwindow.py` (connexion après création du Corpus).
 - **§15.4 — Inspecteur + Sous-titres fusionnés** — Un seul onglet « Inspecteur » avec deux panneaux (Transcript + Sous-titres) et un sélecteur d'épisode partagé en haut. Widget fusionné `InspecteurEtSousTitresTabWidget` (splitter vertical, labels « Transcript » / « Sous-titres ») ; sélecteurs d'épisode des deux panneaux masqués via `set_episode_selector_visible(False)`. Onglet « Sous-titres » supprimé ; 7 onglets au total. Fichiers : `tab_inspecteur_sous_titres.py`, `tab_inspecteur.py` (set_episode_selector_visible), `tab_sous_titres.py` (set_episode_and_load, set_episode_selector_visible), `ui_mainwindow.py` (build fusionné, TAB_* mis à jour).
+- **§15.5 — Inspecteur outils de normalisation** — GroupBox « Normalisation (transcript) » regroupant : Profil (combo), « Normaliser cet épisode », « Définir comme préféré pour cet épisode », « Gérer les profils… » (ouvre ProfilesDialog, rafraîchit le combo). Fichier : `tab_inspecteur.py`.
+- **§11 — Normalisation SRT à l'import** — Case « Appliquer le profil à l'import » (onglet Sous-titres) pour import fichier ; dialogue « Importer SRT en masse » : case + combo profil. `ImportSubtitlesStep(..., profile_id=...)` applique le profil après import. Fichiers : `tasks.py`, `tab_sous_titres.py`, `subtitle_batch_import.py`.
+- **§8 — Personnages alias** — Colonne « Alias » (grille personnages), stockage `aliases` dans character_names.json, bouton « Suggérer par alias ». Fichiers : `project_store_characters.py`, `tab_personnages.py`.

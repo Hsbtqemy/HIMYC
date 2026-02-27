@@ -1,10 +1,10 @@
 # HowIMetYourCorpus
 
-Application desktop Windows pour construire, normaliser, indexer et explorer des transcriptions (et sous-titres) depuis des sources web. Interface PySide6, architecture modulaire et extensible.
+Application desktop (Windows, macOS) pour construire, normaliser, indexer et explorer des transcriptions (et sous-titres) depuis des sources web. Interface PySide6, architecture modulaire et extensible.
 
 ## Prérequis
 
-- **Windows 10/11**
+- **Windows 10/11** ou **macOS**
 - Connexion internet (pour le scraping des sources configurées)
 - Pour l’installation depuis les sources : **Python 3.11+**
 
@@ -12,8 +12,9 @@ Application desktop Windows pour construire, normaliser, indexer et explorer des
 
 ## Installation
 
-### Option A — Exécutable .exe (sans Python)
+### Option A — Exécutable (sans Python)
 
+**Windows :**
 1. **Télécharger le .exe** depuis la dernière [release GitHub](https://github.com/Hsbtqemy/HIMYC/releases/latest) : l’asset **HowIMetYourCorpus.exe** est un fichier unique (pas de zip).
 2. Ou exécuter le script de téléchargement (place le .exe dans le dossier courant) :
    ```bat
@@ -26,6 +27,8 @@ Application desktop Windows pour construire, normaliser, indexer et explorer des
 3. Lancer l’application en double-cliquant sur **HowIMetYourCorpus.exe** ou depuis un terminal : `.\HowIMetYourCorpus.exe`.
 
 Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l’avez téléchargé) ; il n’est pas extrait d’une archive.
+
+**macOS :** Télécharger **HowIMetYourCorpus.app** depuis la [release GitHub](https://github.com/Hsbtqemy/HIMYC/releases/latest), puis double-clic pour lancer. Build local : `scripts/macos/README.md`.
 
 ### Option B — Depuis les sources (Python)
 
@@ -42,9 +45,10 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
 
 ## Lancement
 
-### Avec l’exécutable .exe
+### Avec l’exécutable
 
-- Double-clic sur **HowIMetYourCorpus.exe**, ou en ligne de commande : `.\HowIMetYourCorpus.exe`.
+- **Windows** : double-clic sur **HowIMetYourCorpus.exe**, ou `.\HowIMetYourCorpus.exe`.
+- **macOS** : double-clic sur **HowIMetYourCorpus.app**, ou `open HowIMetYourCorpus.app`.
 
 ### Avec Python (sources)
 
@@ -88,7 +92,7 @@ Voir **example/README.md** pour les instructions détaillées.
 
 2. **Construire le corpus** (onglet Corpus)  
    - « Découvrir épisodes » : récupère la liste des épisodes depuis la source.  
-   - **Filtre Saison** : choisir « Toutes les saisons » ou « Saison 1 », « Saison 2 », etc. pour afficher uniquement les épisodes d’une saison ; **« Cocher la saison »** coche tous les épisodes de la saison affichée (ou tout si « Toutes les saisons »).  
+   - **Filtre Saison** : choisir « Toutes les saisons » ou « Saison 1 », « Saison 2 », etc. pour afficher uniquement les épisodes d’une saison ; **« Cocher la saison »** / **« Décocher la saison »** coche ou décoche tous les épisodes de la saison choisie (ou tout si « Toutes les saisons »).  
    - « Télécharger sélection » / « Télécharger tout » : récupère les pages HTML et extrait le texte brut.  
    - « Normaliser sélection » / « Normaliser tout » : applique le profil de normalisation (RAW → CLEAN).  
    - « Indexer DB » : indexe le texte normalisé dans SQLite/FTS pour la recherche.  

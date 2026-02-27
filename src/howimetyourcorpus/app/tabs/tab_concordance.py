@@ -415,7 +415,12 @@ class ConcordanceTabWidget(QWidget):
             QMessageBox.information(self, "Export", f"Résultats exportés : {len(hits)} occurrence(s).")
         except Exception as e:
             logger.exception("Export KWIC")
-            QMessageBox.critical(self, "Erreur", str(e))
+            QMessageBox.critical(
+                self,
+                "Export Concordance",
+                f"L'export des résultats KWIC a échoué : {e}\n\n"
+                "Vérifiez les droits d'écriture sur le fichier cible et l'encodage (UTF-8).",
+            )
 
     def _on_double_click(self, index: QModelIndex) -> None:
         hit = self.kwic_model.get_hit_at(index.row())

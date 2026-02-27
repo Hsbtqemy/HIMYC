@@ -11,6 +11,7 @@ from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -24,13 +25,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
+from howimetyourcorpus.core.normalize.profiles import (
+    get_all_profile_ids,
+    get_profile,
+    format_profile_rules_summary,
+)
 from howimetyourcorpus.core.pipeline.tasks import NormalizeEpisodeStep, SegmentEpisodeStep
 from howimetyourcorpus.core.export_utils import (
     export_segments_txt,
     export_segments_csv,
     export_segments_tsv,
     export_segments_docx,
+    export_segments_srt_like,
 )
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
@@ -79,15 +85,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_kind_combo.setToolTip("Filtre la liste segments par type (phrases/tours de parole)")
         self.inspect_kind_combo.currentIndexChanged.connect(self._on_kind_filter_changed)
         row.addWidget(self.inspect_kind_combo)
-        row.addWidget(QLabel("Profil:"))
-        self.inspect_profile_combo = QComboBox()
-        self.inspect_profile_combo.addItems(list(PROFILES.keys()))
-        self.inspect_profile_combo.setToolTip(
-            "Profil pour « Normaliser cet épisode ». Priorité : préféré épisode > défaut source (Profils) > config projet."
-        )
-        row.addWidget(self.inspect_profile_combo)
-        
-        # Moyenne Priorité #3 : Navigation segments (Aller au segment #N)
+        # §15.5 — Navigation segments (Aller au segment #N)
         row.addWidget(QLabel("Aller à:"))
         self.segment_goto_edit = QLineEdit()
         self.segment_goto_edit.setPlaceholderText("#N")
@@ -100,26 +98,61 @@ class InspectorTabWidget(QWidget):
         self.segment_goto_btn.setToolTip("Aller au segment #N")
         self.segment_goto_btn.clicked.connect(self._goto_segment)
         row.addWidget(self.segment_goto_btn)
-        
+        self.inspect_segment_btn = QPushButton("Segmente l'épisode")
+        self.inspect_segment_btn.clicked.connect(self._run_segment)
+        row.addWidget(self.inspect_segment_btn)
+        self.inspect_export_segments_btn = QPushButton("Exporter les segments")
+        self.inspect_export_segments_btn.setToolTip(
+            "Exporte les segments de l'épisode affiché : TXT (une ligne par segment), CSV/TSV (colonnes détaillées), "
+            "SRT-like (blocs numérotés), Word (.docx)."
+        )
+        self.inspect_export_segments_btn.clicked.connect(self._export_segments)
+        row.addWidget(self.inspect_export_segments_btn)
+        layout.addLayout(row)
+
+        # §15.5 — Normalisation (transcript) : regrouper profil + actions + lien Gérer les profils + aperçu des règles
+        norm_group = QGroupBox("Normalisation (transcript)")
+        norm_group.setToolTip(
+            "Profil appliqué à RAW → CLEAN. Priorité : préféré épisode > défaut source (Profils) > config projet."
+        )
+        norm_layout = QVBoxLayout(norm_group)
+        norm_row = QHBoxLayout()
+        norm_row.addWidget(QLabel("Profil:"))
+        self.inspect_profile_combo = QComboBox()
+        self.inspect_profile_combo.addItems(list(PROFILES.keys()))
+        self.inspect_profile_combo.setToolTip(
+            "Profil pour « Normaliser cet épisode ». Priorité : préféré épisode > défaut source (Profils) > config projet."
+        )
+        self.inspect_profile_combo.currentTextChanged.connect(self._update_profile_rules_preview)
+        norm_row.addWidget(self.inspect_profile_combo)
         self.inspect_norm_btn = QPushButton("Normaliser cet épisode")
         self.inspect_norm_btn.setToolTip(
             "Applique la normalisation (RAW → CLEAN) à l'épisode affiché, avec le profil choisi."
         )
         self.inspect_norm_btn.clicked.connect(self._run_normalize)
-        row.addWidget(self.inspect_norm_btn)
+        norm_row.addWidget(self.inspect_norm_btn)
         self.inspect_set_preferred_profile_btn = QPushButton("Définir comme préféré pour cet épisode")
         self.inspect_set_preferred_profile_btn.setToolTip(
             "Mémorise ce profil pour cet épisode. Utilisé en priorité lors du batch (Corpus) et ici."
         )
         self.inspect_set_preferred_profile_btn.clicked.connect(self._set_episode_preferred_profile)
-        row.addWidget(self.inspect_set_preferred_profile_btn)
-        self.inspect_segment_btn = QPushButton("Segmente l'épisode")
-        self.inspect_segment_btn.clicked.connect(self._run_segment)
-        row.addWidget(self.inspect_segment_btn)
-        self.inspect_export_segments_btn = QPushButton("Exporter les segments")
-        self.inspect_export_segments_btn.clicked.connect(self._export_segments)
-        row.addWidget(self.inspect_export_segments_btn)
-        layout.addLayout(row)
+        norm_row.addWidget(self.inspect_set_preferred_profile_btn)
+        self.inspect_manage_profiles_btn = QPushButton("Gérer les profils…")
+        self.inspect_manage_profiles_btn.setToolTip(
+            "Ouvre le dialogue de gestion des profils : créer, modifier, supprimer les profils personnalisés (profiles.json)."
+        )
+        self.inspect_manage_profiles_btn.clicked.connect(self._open_profiles_dialog)
+        norm_row.addWidget(self.inspect_manage_profiles_btn)
+        norm_layout.addLayout(norm_row)
+        norm_layout.addWidget(QLabel("Aperçu des règles du profil :"))
+        self.inspect_profile_rules_preview = QPlainTextEdit()
+        self.inspect_profile_rules_preview.setReadOnly(True)
+        self.inspect_profile_rules_preview.setMaximumHeight(140)
+        self.inspect_profile_rules_preview.setPlaceholderText("Sélectionnez un profil…")
+        self.inspect_profile_rules_preview.setToolTip("Résumé des options du profil sélectionné (lecture seule).")
+        norm_layout.addWidget(self.inspect_profile_rules_preview)
+        layout.addWidget(norm_group)
+        self._update_profile_rules_preview()
 
         self.inspect_main_split = QSplitter(Qt.Orientation.Horizontal)
         self.raw_edit = QPlainTextEdit()
@@ -134,6 +167,8 @@ class InspectorTabWidget(QWidget):
         self.inspect_right_split.addWidget(self.raw_edit)
         self.inspect_right_split.addWidget(self.clean_edit)
         self.inspect_main_split.addWidget(self.inspect_right_split)
+        self.raw_edit.setMinimumHeight(60)
+        self.clean_edit.setMinimumHeight(60)
         layout.addWidget(self.inspect_main_split)
         self._restore_splitter_sizes()
 
@@ -284,7 +319,8 @@ class InspectorTabWidget(QWidget):
             or (source_defaults.get(ref.source_id or "") if ref else None)
             or (config.normalize_profile if config else "default_en_v1")
         )
-        if profile and profile in get_all_profile_ids():
+        all_ids = get_all_profile_ids(store.load_custom_profiles() if store else None)
+        if profile and profile in all_ids:
             self.inspect_profile_combo.setCurrentText(profile)
         self._fill_segments(eid)
 
@@ -399,6 +435,35 @@ class InspectorTabWidget(QWidget):
         store.save_episode_preferred_profiles(preferred)
         self._show_status(f"Profil « {profile} » défini comme préféré pour {eid}.", 3000)
 
+    def _update_profile_rules_preview(self) -> None:
+        """§15.5 — Met à jour la zone « Aperçu des règles du profil » selon le profil sélectionné."""
+        profile_id = (self.inspect_profile_combo.currentText() or "").strip()
+        if not profile_id:
+            self.inspect_profile_rules_preview.clear()
+            return
+        store = self._get_store()
+        custom = store.load_custom_profiles() if store else None
+        profile = get_profile(profile_id, custom)
+        if profile:
+            self.inspect_profile_rules_preview.setPlainText(format_profile_rules_summary(profile))
+        else:
+            self.inspect_profile_rules_preview.setPlainText(f"Profil « {profile_id} » non trouvé.")
+
+    @require_project
+    def _open_profiles_dialog(self) -> None:
+        """§15.5 — Ouvre le dialogue de gestion des profils de normalisation."""
+        store = self._get_store()
+        assert store is not None  # garanti par @require_project
+        from howimetyourcorpus.app.dialogs import ProfilesDialog
+        dlg = ProfilesDialog(self, store)
+        dlg.exec()
+        custom = store.load_custom_profiles()
+        self.refresh_profile_combo(
+            get_all_profile_ids(custom),
+            self.inspect_profile_combo.currentText(),
+        )
+        self._update_profile_rules_preview()
+
     @require_project_and_db
     def _run_segment(self) -> None:
         eid = self.inspect_episode_combo.currentData()
@@ -431,18 +496,22 @@ class InspectorTabWidget(QWidget):
             self,
             "Exporter les segments",
             "",
-            "TXT — un segment par ligne (*.txt);;CSV (*.csv);;TSV (*.tsv);;Word (*.docx)",
+            "TXT — un segment par ligne (*.txt);;CSV (*.csv);;TSV (*.tsv);;SRT-like (*.srt);;Word (*.docx)",
         )
         if not path:
             return
         path = Path(path)
         if path.suffix.lower() != ".docx" and "Word" in (selected_filter or ""):
             path = path.with_suffix(".docx")
+        if path.suffix.lower() != ".srt" and "SRT" in (selected_filter or ""):
+            path = path.with_suffix(".srt")
         try:
             if path.suffix.lower() == ".txt" or "TXT" in (selected_filter or ""):
                 export_segments_txt(segments, path)
             elif path.suffix.lower() == ".tsv" or "TSV" in (selected_filter or ""):
                 export_segments_tsv(segments, path)
+            elif path.suffix.lower() == ".srt" or "SRT" in (selected_filter or ""):
+                export_segments_srt_like(segments, path)
             elif path.suffix.lower() == ".docx" or "Word" in (selected_filter or ""):
                 export_segments_docx(segments, path)
             else:

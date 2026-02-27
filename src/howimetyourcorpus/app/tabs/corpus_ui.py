@@ -46,10 +46,17 @@ class CorpusUiBuilder:
         filter_row.addWidget(tab.season_filter_combo)
         tab.check_season_btn = QPushButton("Cocher la saison")
         tab.check_season_btn.setToolTip(
-            "Coche tous les épisodes de la saison choisie dans le filtre (ou tout si « Toutes les saisons »)."
+            "Coche tous les épisodes de la saison choisie dans le filtre (ou tout si « Toutes les saisons »). "
+            "Pratique pour un batch par saison : choisir Saison N → Cocher la saison → lancer Normaliser / Segmenter."
         )
         tab.check_season_btn.clicked.connect(tab._on_check_season_clicked)  # noqa: SLF001
         filter_row.addWidget(tab.check_season_btn)
+        tab.uncheck_season_btn = QPushButton("Décocher la saison")
+        tab.uncheck_season_btn.setToolTip(
+            "Décoche tous les épisodes de la saison choisie (ou tout si « Toutes les saisons »)."
+        )
+        tab.uncheck_season_btn.clicked.connect(tab._on_uncheck_season_clicked)  # noqa: SLF001
+        filter_row.addWidget(tab.uncheck_season_btn)
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
@@ -80,7 +87,10 @@ class CorpusUiBuilder:
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         tab.episodes_tree.setColumnWidth(0, 32)
-        tab.episodes_tree.setToolTip("Double-clic sur un épisode : ouvrir dans l'Inspecteur (raw/clean, segments).")
+        tab.episodes_tree.setToolTip(
+            "Colonne ☑ : cocher pour inclure l'épisode dans les actions (Télécharger, Normaliser, etc.). "
+            "Double-clic : ouvrir dans l'Inspecteur (raw/clean, segments)."
+        )
         tab.episodes_tree.doubleClicked.connect(tab._on_episode_double_clicked)  # noqa: SLF001
         layout.addWidget(tab.episodes_tree)
 
@@ -113,13 +123,28 @@ class CorpusUiBuilder:
 
         global_btn_row = QHBoxLayout()
         tab.check_all_btn = QPushButton("Tout cocher")
+        tab.check_all_btn.setToolTip(
+            "Coche tous les épisodes du corpus. Les actions (Télécharger, Normaliser, etc.) s'appliquent aux épisodes cochés."
+        )
         tab.check_all_btn.clicked.connect(lambda: tab.episodes_tree_model.set_all_checked(True))
         tab.uncheck_all_btn = QPushButton("Tout décocher")
+        tab.uncheck_all_btn.setToolTip(
+            "Décoche tous les épisodes. Utilisez ensuite les cases de la table ou « Cocher la saison » pour cibler une sélection."
+        )
         tab.uncheck_all_btn.clicked.connect(lambda: tab.episodes_tree_model.set_all_checked(False))
         global_btn_row.addWidget(tab.check_all_btn)
         global_btn_row.addWidget(tab.uncheck_all_btn)
         global_btn_row.addStretch()
         sources_main_layout.addLayout(global_btn_row)
+        selection_help = QLabel(
+            "📌 <b>Sélection pour les actions :</b> "
+            "Les boutons Télécharger, Normaliser, Segmenter, etc. s'appliquent aux épisodes <b>cochés</b> "
+            "(ou aux lignes sélectionnées au clavier si aucun n'est coché). "
+            "Pour un <b>batch par saison</b> : choisir une saison dans le filtre puis « Cocher la saison »."
+        )
+        selection_help.setWordWrap(True)
+        selection_help.setStyleSheet("color: #555; font-size: 0.95em;")
+        sources_main_layout.addWidget(selection_help)
 
         # Passer par les wrappers du tab pour préserver la compatibilité des patchs/tests.
         two_columns_layout = QHBoxLayout()
@@ -248,8 +273,9 @@ class CorpusUiBuilder:
         tab.norm_batch_profile_combo = QComboBox()
         tab.norm_batch_profile_combo.addItems(list(PROFILES.keys()))
         tab.norm_batch_profile_combo.setToolTip(
-            "Profil par défaut pour « Normaliser sélection » et « Normaliser tout ». "
-            "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce profil."
+            "Profil pour ce batch : utilisé par « Normaliser sélection » et « Normaliser tout ». "
+            "Priorité par épisode : 1) profil préféré (Inspecteur) 2) défaut de la source (Profils) 3) ce choix. "
+            "Ce choix ne modifie pas le profil enregistré dans la config du projet (onglet Projet)."
         )
         btn_row2.addWidget(tab.norm_batch_profile_combo)
 
@@ -263,25 +289,29 @@ class CorpusUiBuilder:
 
         tab.norm_sel_btn = QPushButton("Normaliser\nsélection")
         tab.norm_sel_btn.setToolTip(
-            "Bloc 2 — Normalise les épisodes cochés (ou les lignes sélectionnées). Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
+            "Bloc 2 — Normalise les épisodes cochés (ou lignes sélectionnées). "
+            "Périmètre : sélection uniquement. Prérequis : épisodes téléchargés (RAW)."
         )
         tab.norm_sel_btn.clicked.connect(lambda: tab._normalize_episodes(selection_only=True))  # noqa: SLF001
         tab.norm_all_btn = QPushButton("Normaliser tout")
         tab.norm_all_btn.setToolTip(
-            "Bloc 2 — Normalise tout le corpus. Prérequis : épisodes déjà téléchargés (RAW, Bloc 1)."
+            "Bloc 2 — Normalise tout le corpus. Périmètre : tous les épisodes. Prérequis : téléchargés (RAW)."
         )
         tab.norm_all_btn.clicked.connect(lambda: tab._normalize_episodes(selection_only=False))  # noqa: SLF001
         tab.segment_sel_btn = QPushButton("Segmenter\nsélection")
         tab.segment_sel_btn.setToolTip(
-            "Bloc 2 — Segmente les épisodes cochés (ou sélectionnés) ayant un fichier CLEAN."
+            "Bloc 2 — Segmente les épisodes cochés (ou sélectionnés) ayant CLEAN. Périmètre : sélection uniquement."
         )
         tab.segment_sel_btn.clicked.connect(lambda: tab._segment_episodes(selection_only=True))  # noqa: SLF001
         tab.segment_all_btn = QPushButton("Segmenter tout")
-        tab.segment_all_btn.setToolTip("Bloc 2 — Segmente tout le corpus (épisodes ayant CLEAN).")
+        tab.segment_all_btn.setToolTip(
+            "Bloc 2 — Segmente tout le corpus (épisodes ayant CLEAN). Périmètre : tous les épisodes."
+        )
         tab.segment_all_btn.clicked.connect(lambda: tab._segment_episodes(selection_only=False))  # noqa: SLF001
         tab.all_in_one_btn = QPushButton("Tout faire\n(sélection)")
         tab.all_in_one_btn.setToolTip(
-            "§5 — Enchaînement pour les épisodes cochés : Télécharger → Normaliser → Segmenter → Indexer DB."
+            "Enchaînement pour les épisodes cochés uniquement : Télécharger → Normaliser → Segmenter → Indexer DB. "
+            "Périmètre : sélection (cochez les épisodes cibles)."
         )
         tab.all_in_one_btn.clicked.connect(tab._run_all_for_selection)  # noqa: SLF001
         tab.index_btn = QPushButton("Indexer DB")
@@ -329,11 +359,20 @@ class CorpusUiBuilder:
             "Bloc 2 = Normalisés (CLEAN) → Segmentés (DB). Bloc 3 = Alignés (onglets Alignement, Concordance, Personnages)."
         )
         ribbon_layout.addWidget(tab.corpus_status_label)
+        tab.workflow_next_step_label = QLabel("")
+        tab.workflow_next_step_label.setToolTip(
+            "Recommandation selon l'état actuel du corpus. Cochez des épisodes pour cibler la sélection."
+        )
+        tab.workflow_next_step_label.setStyleSheet("font-weight: bold; color: #0066aa;")
+        tab.workflow_next_step_label.setWordWrap(True)
+        ribbon_layout.addWidget(tab.workflow_next_step_label)
         scope_label = QLabel(
-            "§14 — Bloc 1 (Import) : découverte, téléchargement, SRT (onglet Sous-titres). "
-            "Bloc 2 (Normalisation / segmentation) : profil batch, Normaliser, Indexer DB. "
-            "Périmètre : « sélection » = épisodes cochés ou lignes sélectionnées ; « tout » = tout le corpus."
+            "Périmètre : « sélection » = épisodes cochés (ou lignes sélectionnées) ; « tout » = tout le corpus."
         )
         scope_label.setStyleSheet("color: gray; font-size: 0.9em;")
         scope_label.setWordWrap(True)
+        scope_label.setToolTip(
+            "Bloc 1 : Découvrir, Télécharger, SRT (onglet Sous-titres). "
+            "Bloc 2 : Normaliser, Segmenter, Indexer DB. Bloc 3 : Alignement, Concordance, Personnages."
+        )
         ribbon_layout.addWidget(scope_label)

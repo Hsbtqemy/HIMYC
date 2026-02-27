@@ -9,7 +9,7 @@ from typing import Any
 
 
 def normalize_character_entry(raw: dict[str, Any]) -> dict[str, Any] | None:
-    """Normalise une entrée personnage (id/canonical/names_by_lang) ou None si vide."""
+    """Normalise une entrée personnage (id/canonical/names_by_lang/aliases) ou None si vide. §8 : aliases = variantes pour assignation semi-auto."""
     if not isinstance(raw, dict):
         return None
     character_id = (str(raw.get("id") or "")).strip()
@@ -28,10 +28,24 @@ def normalize_character_entry(raw: dict[str, Any]) -> dict[str, Any] | None:
             if lang_key and label:
                 names_by_lang[lang_key] = label
 
+    aliases: list[str] = []
+    raw_aliases = raw.get("aliases")
+    if isinstance(raw_aliases, list):
+        for a in raw_aliases:
+            s = (str(a).strip() if a is not None else "").strip()
+            if s and s not in aliases:
+                aliases.append(s)
+    elif isinstance(raw_aliases, str):
+        for s in raw_aliases.replace(",", "\n").splitlines():
+            s = s.strip()
+            if s and s not in aliases:
+                aliases.append(s)
+
     return {
         "id": character_id,
         "canonical": canonical,
         "names_by_lang": names_by_lang,
+        "aliases": aliases,
     }
 
 
@@ -63,6 +77,7 @@ def validate_character_catalog(characters: list[dict[str, Any]]) -> list[dict[st
 
         tokens = {character_id, entry.get("canonical") or ""}
         tokens.update((entry.get("names_by_lang") or {}).values())
+        tokens.update(entry.get("aliases") or [])
         for token in tokens:
             token_raw = (token or "").strip()
             if not token_raw:

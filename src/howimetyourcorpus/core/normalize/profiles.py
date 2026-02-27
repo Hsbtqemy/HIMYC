@@ -411,3 +411,50 @@ def get_all_profile_ids(
             if pid not in ids:
                 ids.append(pid)
     return ids
+
+
+# Libellés courts pour l'aperçu des règles (UI)
+_PROFILE_RULE_LABELS = {
+    "merge_subtitle_breaks": "Fusion césures (retours à la ligne milieu de phrase)",
+    "max_merge_examples_in_debug": "Max exemples de fusions en debug",
+    "fix_double_spaces": "Doubles espaces → un seul",
+    "fix_french_punctuation": "Espace avant ; : ! ? (typographie française)",
+    "normalize_apostrophes": "Normalisation apostrophes",
+    "normalize_quotes": "Guillemets « » (français)",
+    "strip_line_spaces": "Supprimer espaces début/fin de ligne",
+    "case_transform": "Casse",
+}
+_CASE_LABELS = {
+    "none": "aucune",
+    "lowercase": "minuscules",
+    "UPPERCASE": "MAJUSCULES",
+    "Title Case": "Title Case",
+    "Sentence case": "Sentence case",
+}
+
+
+def format_profile_rules_summary(profile: NormalizationProfile) -> str:
+    """Retourne un résumé lisible des règles du profil (pour aperçu dans l'UI)."""
+    lines: list[str] = []
+    lines.append(f"Profil : {profile.id}")
+    lines.append("")
+    lines.append("Règles :")
+    lines.append(f"  • {_PROFILE_RULE_LABELS['merge_subtitle_breaks']} : {'oui' if profile.merge_subtitle_breaks else 'non'}")
+    lines.append(f"  • {_PROFILE_RULE_LABELS['max_merge_examples_in_debug']} : {profile.max_merge_examples_in_debug}")
+    lines.append(f"  • {_PROFILE_RULE_LABELS['fix_double_spaces']} : {'oui' if profile.fix_double_spaces else 'non'}")
+    lines.append(f"  • {_PROFILE_RULE_LABELS['fix_french_punctuation']} : {'oui' if profile.fix_french_punctuation else 'non'}")
+    lines.append(f"  • {_PROFILE_RULE_LABELS['normalize_apostrophes']} : {'oui' if profile.normalize_apostrophes else 'non'}")
+    lines.append(f"  • {_PROFILE_RULE_LABELS['normalize_quotes']} : {'oui' if profile.normalize_quotes else 'non'}")
+    lines.append(f"  • {_PROFILE_RULE_LABELS['strip_line_spaces']} : {'oui' if profile.strip_line_spaces else 'non'}")
+    case_label = _CASE_LABELS.get(profile.case_transform, profile.case_transform)
+    lines.append(f"  • {_PROFILE_RULE_LABELS['case_transform']} : {case_label}")
+    if profile.custom_regex_rules:
+        lines.append("")
+        lines.append("Règles regex personnalisées :")
+        for i, (pattern, replacement) in enumerate(profile.custom_regex_rules[:10], 1):
+            pat_short = pattern[:50] + "…" if len(pattern) > 50 else pattern
+            rep_short = replacement[:30] + "…" if len(replacement) > 30 else replacement
+            lines.append(f"  {i}. « {pat_short} » → « {rep_short} »")
+        if len(profile.custom_regex_rules) > 10:
+            lines.append(f"  … et {len(profile.custom_regex_rules) - 10} autre(s)")
+    return "\n".join(lines)

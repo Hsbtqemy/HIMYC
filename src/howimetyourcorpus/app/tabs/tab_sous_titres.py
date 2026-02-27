@@ -34,15 +34,35 @@ from howimetyourcorpus.app.undo_commands import DeleteSubtitleTrackCommand
 logger = logging.getLogger(__name__)
 
 
+def _normalize_episode_id(s: str) -> str | None:
+    """Normalise S01E01 ou 1x01 -> S01E01 (2 chiffres)."""
+    if not s:
+        return None
+    m = re.match(r"(?i)S(\d+)E(\d+)$", s.strip())
+    if m:
+        return f"S{int(m.group(1)):02d}E{int(m.group(2)):02d}"
+    m = re.match(r"(?i)(\d+)x(\d+)$", s.strip())
+    if m:
+        return f"S{int(m.group(1)):02d}E{int(m.group(2)):02d}"
+    return None
+
+
 def _parse_subtitle_filename(path: Path) -> tuple[str | None, str | None]:
-    """Extrait (episode_id, lang) du nom de fichier. Ex. S01E01_en.srt -> (S01E01, en)."""
+    """Extrait (episode_id, lang) du nom de fichier.
+    Ex. S01E01_en.srt -> (S01E01, en) ; Show - 1x01 - Title.en.srt -> (S01E01, en).
+    """
     name = path.name
+    # S01E01 ou s01e01 + _/-/. + 2 lettres + .srt/.vtt
     m = re.match(r"(?i)(S\d+E\d+)[_\-\.]?(\w{2})\.(srt|vtt)$", name)
-    if not m:
-        return (None, None)
-    ep = m.group(1).upper()
-    lang = m.group(2).lower()
-    return (ep, lang)
+    if m:
+        return (m.group(1).upper(), m.group(2).lower())
+    # 1x01 ou 101 style + optionnel _lang + .srt/.vtt
+    m = re.match(r"(?i).*?(\d+)x(\d+).*?[_\-\.]?(\w{2})?\.(srt|vtt)$", name)
+    if m:
+        ep = f"S{int(m.group(1)):02d}E{int(m.group(2)):02d}"
+        lang = m.group(3).lower() if m.group(3) else None
+        return (ep, lang)
+    return (None, None)
 
 
 class SubtitleTabWidget(QWidget):
@@ -81,9 +101,16 @@ class SubtitleTabWidget(QWidget):
         self.subs_import_btn = QPushButton("Importer SRT/VTT...")
         self.subs_import_btn.clicked.connect(self._import_file)
         row.addWidget(self.subs_import_btn)
+        self.subs_apply_profile_on_import_cb = QCheckBox("Appliquer le profil à l'import")
+        self.subs_apply_profile_on_import_cb.setToolTip(
+            "§11 — Si coché, le profil sélectionné ci-dessous (Profil piste) est appliqué aux sous-titres juste après l'import (text_clean en base)."
+        )
+        self.subs_apply_profile_on_import_cb.setChecked(False)
+        row.addWidget(self.subs_apply_profile_on_import_cb)
         self.subs_import_batch_btn = QPushButton("Importer SRT en masse...")
         self.subs_import_batch_btn.setToolTip(
-            "Choisir un dossier. Épisode et langue sont devinés d'après le nom (ex. S01E01_fr.srt → S01E01, fr). "
+            "Choisir un dossier (racine et sous-dossiers). "
+            "Épisode et langue sont devinés : S01E01_fr.srt, 1x01.en.srt, ou S01E01/fr.srt. "
             "Vérifiez ou corrigez dans le tableau avant d'importer."
         )
         self.subs_import_batch_btn.clicked.connect(self._import_batch)
@@ -352,7 +379,12 @@ class SubtitleTabWidget(QWidget):
             self._show_status(f"SRT final exporté : {path.name}", 4000)
         except Exception as e:
             logger.exception("Export SRT final")
-            QMessageBox.critical(self, "Erreur", str(e))
+            QMessageBox.critical(
+                self,
+                "Export SRT",
+                f"L'export SRT final a échoué : {e}\n\n"
+                "Vérifiez les droits d'écriture et que le fichier n'est pas ouvert ailleurs.",
+            )
 
     @require_project_and_db
     def _import_file(self) -> None:
@@ -369,7 +401,8 @@ class SubtitleTabWidget(QWidget):
         if not path:
             return
         lang = self.subs_lang_combo.currentText() or "en"
-        self._run_job([ImportSubtitlesStep(eid, lang, path)])
+        profile_id = (self.subs_norm_profile_combo.currentText() or "").strip() if self.subs_apply_profile_on_import_cb.isChecked() else None
+        self._run_job([ImportSubtitlesStep(eid, lang, path, profile_id=profile_id)])
         self.refresh()
 
     @require_project_and_db
@@ -384,21 +417,39 @@ class SubtitleTabWidget(QWidget):
             return
         folder_path = Path(folder)
         rows: list[tuple[str, str | None, str | None]] = []
-        for p in folder_path.glob("*.srt"):
+        seen: set[str] = set()
+        for p in sorted(folder_path.rglob("*.srt")) + sorted(folder_path.rglob("*.vtt")):
+            if not p.is_file():
+                continue
+            key = str(p.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
             ep, lang = _parse_subtitle_filename(p)
-            rows.append((str(p.resolve()), ep, lang))
-        for p in folder_path.glob("*.vtt"):
-            ep, lang = _parse_subtitle_filename(p)
-            rows.append((str(p.resolve()), ep, lang))
+            if (ep, lang) == (None, None) and p.parent != folder_path:
+                parent_ep = _normalize_episode_id(p.parent.name)
+                if parent_ep:
+                    ep = parent_ep
+                    if not lang:
+                        mm = re.search(r"(?i)(?:^|[_\-\.])(\w{2})\.(srt|vtt)$", p.name)
+                        if mm:
+                            lang = mm.group(1).lower()
+            rows.append((key, ep, lang))
         if not rows:
-            QMessageBox.information(self, "Import", "Aucun fichier .srt ou .vtt trouvé dans ce dossier.")
+            QMessageBox.information(
+                self,
+                "Import",
+                "Aucun fichier .srt ou .vtt trouvé dans ce dossier (racine et sous-dossiers).",
+            )
             return
         episode_ids = [e.episode_id for e in index.episodes]
         langs = store.load_project_languages() if store else None
-        dlg = SubtitleBatchImportDialog(self, episode_ids, rows, languages=langs)
+        profile_ids = get_all_profile_ids(store.load_custom_profiles()) if store else []
+        dlg = SubtitleBatchImportDialog(self, episode_ids, rows, languages=langs, profile_ids=profile_ids)
         if dlg.exec() != QDialog.DialogCode.Accepted or not dlg.result:
             return
-        steps = [ImportSubtitlesStep(ep, lang, path) for path, ep, lang in dlg.result]
+        profile_id = dlg.profile_id_for_import
+        steps = [ImportSubtitlesStep(ep, lang, path, profile_id=profile_id) for path, ep, lang in dlg.result]
         self._run_job(steps)
         self.refresh()
         self._refresh_episodes()
@@ -455,8 +506,13 @@ class SubtitleTabWidget(QWidget):
             path = store.save_episode_subtitle_content(
                 eid, self._editing_lang, content, self._editing_fmt
             )
-            self._run_job([ImportSubtitlesStep(eid, self._editing_lang, str(path))])
+            self._run_job([ImportSubtitlesStep(eid, self._editing_lang, str(path), profile_id=None)])
             self.refresh()
         except Exception as e:
             logger.exception("Sauvegarde SRT/VTT")
-            QMessageBox.critical(self, "Erreur", str(e))
+            QMessageBox.critical(
+                self,
+                "Sous-titres",
+                f"La sauvegarde des sous-titres a échoué : {e}\n\n"
+                "Vérifiez les droits d'écriture sur le projet et que le fichier n'est pas ouvert ailleurs.",
+            )

@@ -6,7 +6,7 @@ Stratégie heuristique : similarité textuelle (segment↔EN), recouvrement temp
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from howimetyourcorpus.core.align.similarity import text_similarity
 
@@ -44,7 +44,7 @@ def align_segments_to_cues(
     cues_en: list[dict],
     max_cues_per_segment: int = 5,
     min_confidence: float = 0.3,
-    on_progress: callable | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
     monotonic: bool = True,
 ) -> list[AlignLink]:
     """

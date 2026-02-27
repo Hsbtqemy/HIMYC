@@ -18,15 +18,26 @@ Lors de chaque intervention sur le code, analyser systématiquement :
 ## 📋 Architecture du Projet
 
 ### Structure des Onglets
-L'application HIMYC comporte **7 onglets principaux** :
+L'application HIMYC comporte **8 onglets** :
 
 1. **Projet (TAB_PROJET=0)** : Configuration du projet, source, URL série, profils
 2. **Corpus (TAB_CORPUS=1)** : Import, normalisation, segmentation, découverte d'épisodes
 3. **Inspecteur (TAB_INSPECTEUR=2)** : Vue détaillée épisode (transcript RAW/CLEAN + sous-titres)
-4. **Alignement (TAB_ALIGNEMENT=3)** : Alignement transcript↔sous-titres, liens
-5. **Concordance (TAB_CONCORDANCE=4)** : Concordancier parallèle multilingue, recherche KWIC
-6. **Personnages (TAB_PERSONNAGES=5)** : Assignation segment/cue→personnage
-7. **Logs (TAB_LOGS=6)** : Journalisation des opérations
+4. **Préparer (TAB_PREPARER=3)** : Édition d'un fichier (transcript ou piste SRT), tours, timecodes, sauvegarde avant alignement
+5. **Alignement (TAB_ALIGNEMENT=4)** : Alignement transcript↔sous-titres, liens
+6. **Concordance (TAB_CONCORDANCE=5)** : Concordancier parallèle multilingue, recherche KWIC
+7. **Personnages (TAB_PERSONNAGES=6)** : Assignation segment/cue→personnage
+8. **Logs (TAB_LOGS=7)** : Journalisation des opérations
+
+### Phases et statut du projet
+**Référence unique** : **`STATUT_PHASES.md`** (à la racine du projet).
+
+- **Phases livrées** : 1–7 + HP + MP (MVP, segments, sous-titres, alignement, concordancier, DB, refacto UI, barre progression, stats, bulk, etc.).
+- **Onglet Préparer** : livré (P0, Phase 1, 2, 3.1, 3.3, refacto P3) ; Phase 3.2 (statut par ligne) non engagée.
+- **En cours** : aucune phase de dev formellement « en cours » ; suite = `DOC_BACKLOG.md`.
+- **Validation workflow** : `CHECKLIST_WORKFLOW_E2E.md` (scénarios E2E à valider, pas une phase de dev).
+
+Consulter `STATUT_PHASES.md` pour l’état à jour des phases engagées (livrées / en cours / planifiées).
 
 ### Composants Clés
 - `MainWindow` : Fenêtre principale orchestrant les onglets
@@ -321,6 +332,17 @@ def normalize_text_bad(self, text: str) -> str:
 - Navigation fluide entre épisodes (combo ou flèches précédent/suivant)
 - Indicateur visuel si modifications non sauvegardées
 
+### Onglet **Préparer**
+**Fonction** : Édition d'un fichier (transcript ou piste SRT) avant alignement — tours, timecodes, validation stricte.
+
+**À vérifier** :
+- ✅ Pas de perte silencieuse : prompt à la navigation si dirty
+- ✅ Écriture atomique (transaction DB)
+- ✅ Undo/Redo sur actions éditoriales
+- ✅ Handoff explicite vers Alignement (épisode + segment_kind)
+
+**Référence** : `PLAN_IMPLEMENTATION_ONGLET_PREPARER.md`, `STATUT_PHASES.md`.
+
 ### Onglet **Alignement**
 **Fonction** : Aligner transcript ↔ sous-titres, gérer liens
 
@@ -394,7 +416,7 @@ Lors d'une modification, **toujours expliquer** :
 ### 📍 Localisation
 Fichier : `chemin/vers/fichier.py`
 Fonction/Classe : `nom_fonction` / `NomClasse`
-Onglet concerné : [Projet / Corpus / Inspecteur / Alignement / Concordance / Personnages / Logs]
+Onglet concerné : [Projet / Corpus / Inspecteur / Préparer / Alignement / Concordance / Personnages / Logs]
 
 ### ❓ Problème Identifié
 [Description concise du problème : doublon, UX, performance, bug]

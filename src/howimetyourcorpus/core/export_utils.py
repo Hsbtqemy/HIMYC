@@ -139,6 +139,18 @@ def export_segments_docx(segments: list[dict], path: Path) -> None:
     return None
 
 
+def export_segments_srt_like(segments: list[dict], path: Path) -> None:
+    """Exporte les segments en format SRT-like : blocs numérotés (timecodes 00:00:00,000 si absents)."""
+    with path.open("w", encoding="utf-8") as f:
+        for i, s in enumerate(segments, start=1):
+            text = (s.get("text") or "").strip().replace("\n", " ")
+            f.write(f"{i}\n")
+            f.write("00:00:00,000 --> 00:00:00,000\n")
+            f.write(text)
+            f.write("\n\n")
+    return None
+
+
 def export_kwic_csv(hits: list[KwicHit], path: Path) -> None:
     """Exporte les résultats KWIC en CSV (inclut segment_id/kind/cue_id/lang/speaker si présents)."""
     with path.open("w", encoding="utf-8", newline="") as f:
@@ -490,7 +502,7 @@ def export_parallel_concordance_txt(rows: list[dict], path: Path) -> None:
     """§15.1 — Exporte la comparaison de traductions en TXT : une ligne par alignement, colonnes séparées par tab (segment | EN | FR | IT)."""
     with path.open("w", encoding="utf-8") as f:
         for r in rows:
-            cells = [_parallel_cell(r, k) for k in PARALLEL_CONCORDANCE_COLUMNS]
+            cells = [str(_parallel_cell(r, k)) for k in PARALLEL_CONCORDANCE_COLUMNS]
             f.write("\t".join(cells).replace("\n", " ").replace("\r", ""))
             f.write("\n")
     return None

@@ -10,6 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
+from howimetyourcorpus.app.tabs.corpus_view import _workflow_next_step_hint
 from howimetyourcorpus.app.tabs.tab_corpus import CorpusTabWidget
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
 
@@ -20,6 +21,37 @@ def qapp():
     if app is None:
         app = QApplication([])
     return app
+
+
+@pytest.mark.parametrize(
+    ("n_total", "n_fetched", "n_norm", "n_indexed", "n_with_srt", "n_aligned", "expected_contains"),
+    [
+        (0, 0, 0, 0, 0, 0, ""),
+        (10, 0, 0, 0, 0, 0, "Télécharger"),
+        (10, 5, 0, 0, 0, 0, "Normalisez"),
+        (10, 10, 5, 0, 0, 0, "Normalisez"),
+        (10, 10, 10, 0, 0, 0, "Segmentez"),
+        (10, 10, 10, 10, 3, 0, "SRT"),
+        (10, 10, 10, 10, 10, 5, "alignez"),
+        (10, 10, 10, 10, 10, 10, "à jour"),
+    ],
+)
+def test_workflow_next_step_hint(
+    n_total: int,
+    n_fetched: int,
+    n_norm: int,
+    n_indexed: int,
+    n_with_srt: int,
+    n_aligned: int,
+    expected_contains: str,
+) -> None:
+    hint = _workflow_next_step_hint(
+        n_total, n_fetched, n_norm, n_indexed, n_with_srt, n_aligned
+    )
+    if expected_contains:
+        assert expected_contains.lower() in hint.lower()
+    else:
+        assert hint == ""
 
 
 def test_corpus_ribbon_is_expanded_by_default_and_toggleable(qapp: QApplication) -> None:

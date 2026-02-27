@@ -272,6 +272,18 @@ class PreparerTabWidget(QWidget):
         )
         self._update_utterance_action_states()
 
+    def set_show_per_line_status(self, show: bool) -> None:
+        """Met à jour l'affichage de la colonne Statut (option menu Affichage)."""
+        self._transcript_widgets.set_show_status_column(show)
+        # Réafficher les tours actuels avec ou sans colonne Statut
+        rows = self._transcript_widgets.export_utterance_rows()
+        if rows:
+            self._transcript_widgets.set_utterances(
+                rows,
+                character_options=self._character_choices(),
+            )
+        self._update_utterance_action_states()
+
     def _set_cues(
         self,
         cues: list[dict[str, Any]],

@@ -8,7 +8,7 @@ from typing import Any
 
 def capture_clean_storage_state(store: Any, episode_id: str) -> dict[str, Any]:
     """Capture l'état disque de clean.txt et transform_meta.json."""
-    ep_dir = store.root_dir / "episodes" / episode_id
+    ep_dir = store._episode_dir(episode_id)  # noqa: SLF001 - sanitation centralisée côté store
     clean_path = ep_dir / "clean.txt"
     meta_path = store.get_episode_transform_meta_path(episode_id)
     return {
@@ -21,7 +21,7 @@ def capture_clean_storage_state(store: Any, episode_id: str) -> dict[str, Any]:
 
 def apply_clean_storage_state(store: Any, episode_id: str, state: dict[str, Any]) -> None:
     """Restaure l'état disque de clean.txt et transform_meta.json."""
-    ep_dir = store.root_dir / "episodes" / episode_id
+    ep_dir = store._episode_dir(episode_id)  # noqa: SLF001 - sanitation centralisée côté store
     ep_dir.mkdir(parents=True, exist_ok=True)
     clean_path = ep_dir / "clean.txt"
     meta_path = store.get_episode_transform_meta_path(episode_id)

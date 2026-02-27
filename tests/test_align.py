@@ -114,3 +114,23 @@ def test_align_link_to_dict():
     assert d["segment_id"] == "s1"
     assert d["cue_id"] == "c1"
     assert d["confidence"] == 0.8
+
+
+def test_align_no_timecodes_order_first_then_similarity():
+    """Backlog §3 : sans timecodes, on utilise l'ordre (cue i ↔ cue i) d'abord, similarité en secours."""
+    cues_en = [
+        {"cue_id": "S01E01:en:0", "text_clean": "First.", "start_ms": 0, "end_ms": 0},
+        {"cue_id": "S01E01:en:1", "text_clean": "Second.", "start_ms": 0, "end_ms": 0},
+    ]
+    cues_fr = [
+        {"cue_id": "S01E01:fr:0", "text_clean": "Premier.", "lang": "fr", "start_ms": 0, "end_ms": 0},
+        {"cue_id": "S01E01:fr:1", "text_clean": "Deuxième.", "lang": "fr", "start_ms": 0, "end_ms": 0},
+    ]
+    assert cues_have_timecodes(cues_en) is False
+    assert cues_have_timecodes(cues_fr) is False
+    # Politique pipeline : ordre d'abord quand les deux n'ont pas de timecodes
+    links_order = align_cues_by_order(cues_en, cues_fr)
+    assert len(links_order) == 2
+    assert links_order[0].cue_id == "S01E01:en:0" and links_order[0].cue_id_target == "S01E01:fr:0"
+    assert links_order[1].cue_id == "S01E01:en:1" and links_order[1].cue_id_target == "S01E01:fr:1"
+    assert all(l.meta.get("align") == "by_order" for l in links_order)

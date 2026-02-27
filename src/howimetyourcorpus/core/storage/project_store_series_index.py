@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
+
+logger = logging.getLogger(__name__)
 
 
 def save_series_index(store: Any, series_index: SeriesIndex) -> None:
@@ -35,16 +38,35 @@ def load_series_index(store: Any) -> SeriesIndex | None:
     path = Path(store.root_dir) / "series_index.json"
     if not path.exists():
         return None
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        logger.warning("Impossible de charger %s: %s", path, exc)
+        return None
+    if not isinstance(payload, dict):
+        logger.warning("Impossible de charger %s: structure inattendue (%s)", path, type(payload).__name__)
+        return None
     episodes: list[EpisodeRef] = []
-    for row in payload.get("episodes", []):
+    raw_episodes = payload.get("episodes", [])
+    if not isinstance(raw_episodes, list):
+        logger.warning("Impossible de charger %s: clé 'episodes' invalide", path)
+        return None
+    for row in raw_episodes:
         if not isinstance(row, dict):
+            continue
+        episode_id = str(row.get("episode_id", "") or "").strip()
+        if not episode_id:
+            continue
+        try:
+            season = int(row.get("season", 0))
+            episode_num = int(row.get("episode", 0))
+        except (TypeError, ValueError):
             continue
         episodes.append(
             EpisodeRef(
-                episode_id=row.get("episode_id", ""),
-                season=int(row.get("season", 0)),
-                episode=int(row.get("episode", 0)),
+                episode_id=episode_id,
+                season=season,
+                episode=episode_num,
                 title=row.get("title", "") or "",
                 url=row.get("url", "") or "",
                 source_id=row.get("source_id"),

@@ -62,16 +62,17 @@ class TranscriptWidgets:
         edit_role: int,
         on_text_changed: Callable[[], None],
         on_table_item_changed: Callable[[QTableWidgetItem], None],
+        show_status_column: bool = False,
     ) -> None:
         self._edit_role = edit_role
         self._character_options: list[str] = []
+        self._show_status_column = show_status_column
         self.text_editor = QPlainTextEdit()
         self.text_editor.setPlaceholderText("Transcript (clean ou raw fallback)")
         self.text_editor.textChanged.connect(on_text_changed)
 
         self.utterance_table = QTableWidget()
-        self.utterance_table.setColumnCount(3)
-        self.utterance_table.setHorizontalHeaderLabels(["#", "Personnage", "Texte"])
+        self._update_utterance_columns()
         self.utterance_table.setItemDelegateForColumn(
             1,
             CharacterComboDelegate(
@@ -80,6 +81,22 @@ class TranscriptWidgets:
             ),
         )
         self.utterance_table.itemChanged.connect(on_table_item_changed)
+
+    def _update_utterance_columns(self) -> None:
+        """Met à jour le nombre de colonnes et les en-têtes selon l'option statut par ligne."""
+        if self._show_status_column:
+            self.utterance_table.setColumnCount(4)
+            self.utterance_table.setHorizontalHeaderLabels(["#", "Personnage", "Texte", "Statut"])
+        else:
+            self.utterance_table.setColumnCount(3)
+            self.utterance_table.setHorizontalHeaderLabels(["#", "Personnage", "Texte"])
+
+    def set_show_status_column(self, show: bool) -> None:
+        """Active ou désactive la colonne Statut (option Phase 3.2)."""
+        if self._show_status_column == show:
+            return
+        self._show_status_column = show
+        self._update_utterance_columns()
 
     def set_text(self, text: str) -> None:
         self.text_editor.blockSignals(True)
@@ -96,6 +113,7 @@ class TranscriptWidgets:
         if character_options is not None:
             self._character_options = list(character_options)
         self.utterance_table.blockSignals(True)
+        self._update_utterance_columns()
         self.utterance_table.setRowCount(0)
         for seg in utterances:
             row = self.utterance_table.rowCount()
@@ -110,6 +128,10 @@ class TranscriptWidgets:
             text_item = QTableWidgetItem(seg.get("text") or "")
             text_item.setData(self._edit_role, text_item.text())
             self.utterance_table.setItem(row, 2, text_item)
+            if self._show_status_column:
+                status_item = QTableWidgetItem(seg.get("status", "—"))
+                status_item.setFlags(status_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.utterance_table.setItem(row, 3, status_item)
         self.utterance_table.blockSignals(False)
 
     def export_utterance_rows(self) -> list[dict[str, Any]]:
@@ -118,14 +140,16 @@ class TranscriptWidgets:
             n_item = self.utterance_table.item(row, 0)
             speaker_item = self.utterance_table.item(row, 1)
             text_item = self.utterance_table.item(row, 2)
-            rows.append(
-                {
-                    "segment_id": (n_item.data(Qt.ItemDataRole.UserRole) if n_item else "") or "",
-                    "n": int((n_item.text() if n_item else row) or row),
-                    "speaker_explicit": (speaker_item.text() if speaker_item else "") or "",
-                    "text": (text_item.text() if text_item else "") or "",
-                }
-            )
+            out = {
+                "segment_id": (n_item.data(Qt.ItemDataRole.UserRole) if n_item else "") or "",
+                "n": int((n_item.text() if n_item else row) or row),
+                "speaker_explicit": (speaker_item.text() if speaker_item else "") or "",
+                "text": (text_item.text() if text_item else "") or "",
+            }
+            if self._show_status_column:
+                status_item = self.utterance_table.item(row, 3)
+                out["status"] = (status_item.text() if status_item else "") or "—"
+            rows.append(out)
         return rows
 
 

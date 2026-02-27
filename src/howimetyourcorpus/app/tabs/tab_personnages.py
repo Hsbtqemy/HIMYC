@@ -54,13 +54,14 @@ class PersonnagesTabWidget(QWidget):
 
         layout.addWidget(QLabel("1. Liste des personnages"))
         self.personnages_table = QTableWidget()
-        self.personnages_table.setColumnCount(4)
-        self.personnages_table.setHorizontalHeaderLabels(["Id", "Canonique", "EN", "FR"])
+        self.personnages_table.setColumnCount(5)
+        self.personnages_table.setHorizontalHeaderLabels(["Id", "Canonique", "EN", "FR", "Alias"])
         self.personnages_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.personnages_table.setToolTip("§8 — Alias : variantes (TED, Marshall:, etc.) pour la suggestion d'assignation. Séparez par des virgules.")
         layout.addWidget(self.personnages_table)
         btn_row = QHBoxLayout()
         self.personnages_add_btn = QPushButton("Nouveau")
-        self.personnages_add_btn.setToolTip("Ajoute une ligne vide pour créer un personnage (Id, Canonique, noms par langue).")
+        self.personnages_add_btn.setToolTip("Ajoute une ligne vide pour créer un personnage (Id, Canonique, noms par langue, alias).")
         self.personnages_add_btn.clicked.connect(self._add_row)
         self.personnages_remove_btn = QPushButton("Supprimer")
         self.personnages_remove_btn.setToolTip("Supprime le personnage de la ligne sélectionnée.")
@@ -104,6 +105,12 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_load_assign_btn.setToolTip("Charge la liste des segments ou cues de l’épisode pour assigner un personnage à chaque ligne.")
         self.personnages_load_assign_btn.clicked.connect(self._load_assignments)
         assign_row.addWidget(self.personnages_load_assign_btn)
+        self.personnages_suggest_alias_btn = QPushButton("Suggérer par alias")
+        self.personnages_suggest_alias_btn.setToolTip(
+            "§8 — Remplit la colonne Personnage lorsque le début du texte correspond à un alias (ex. TED:, Marshall:)."
+        )
+        self.personnages_suggest_alias_btn.clicked.connect(self._suggest_by_alias)
+        assign_row.addWidget(self.personnages_suggest_alias_btn)
         layout.addLayout(assign_row)
         self.personnages_assign_table = QTableWidget()
         self.personnages_assign_table.setColumnCount(3)
@@ -147,9 +154,9 @@ class PersonnagesTabWidget(QWidget):
         if not store:
             return
         langs = store.load_project_languages()
-        self.personnages_table.setColumnCount(2 + len(langs))
+        self.personnages_table.setColumnCount(2 + len(langs) + 1)
         self.personnages_table.setHorizontalHeaderLabels(
-            ["Id", "Canonique"] + [lang.upper() for lang in langs]
+            ["Id", "Canonique"] + [lang.upper() for lang in langs] + ["Alias"]
         )
         self.personnages_source_combo.clear()
         self.personnages_source_combo.addItem("Segments (phrases)", "segments")
@@ -167,6 +174,8 @@ class PersonnagesTabWidget(QWidget):
                 self.personnages_table.setItem(
                     row, 2 + i, QTableWidgetItem(names.get(lang, ""))
                 )
+            aliases = ch.get("aliases") or []
+            self.personnages_table.setItem(row, 2 + len(langs), QTableWidgetItem(", ".join(aliases)))
         index = store.load_series_index()
         if index and index.episodes:
             for e in index.episodes:
@@ -319,10 +328,18 @@ class PersonnagesTabWidget(QWidget):
                     item = self.personnages_table.item(row, 2 + i)
                     if item and (item.text() or "").strip():
                         names_by_lang[lang] = (item.text() or "").strip()
+            aliases_raw = ""
+            alias_col = 2 + len(langs)
+            if alias_col < self.personnages_table.columnCount():
+                alias_item = self.personnages_table.item(row, alias_col)
+                if alias_item:
+                    aliases_raw = (alias_item.text() or "").strip()
+            aliases = [s.strip() for s in aliases_raw.replace(",", "\n").splitlines() if s.strip()]
             characters.append({
                 "id": cid or canon.lower().replace(" ", "_"),
                 "canonical": canon or cid,
                 "names_by_lang": names_by_lang,
+                "aliases": aliases,
             })
         try:
             store.save_character_names(characters)
@@ -412,6 +429,55 @@ class PersonnagesTabWidget(QWidget):
                     combo.setCurrentIndex(idx)
                 self.personnages_assign_table.setCellWidget(row, 2, combo)
         self._on_assign_source_changed()
+
+    @require_project
+    def _suggest_by_alias(self) -> None:
+        """§8 — Remplit la colonne Personnage lorsque le début du texte correspond à un alias."""
+        store = self._get_store()
+        if not store:
+            return
+        characters = store.load_character_names()
+        # (character_id, aliases) avec aliases triés par longueur décroissante (match le plus long d'abord)
+        char_aliases: list[tuple[str, list[str]]] = []
+        for ch in characters:
+            cid = (ch.get("id") or ch.get("canonical") or "").strip()
+            if not cid:
+                continue
+            aliases = ch.get("aliases") or []
+            if not aliases:
+                continue
+            char_aliases.append((cid, sorted(aliases, key=len, reverse=True)))
+        if not char_aliases:
+            QMessageBox.information(
+                self,
+                "Suggérer par alias",
+                "Aucun personnage avec alias. Ajoutez des alias dans la colonne « Alias » (ex. TED, Marshall:) et enregistrez.",
+            )
+            return
+        filled = 0
+        for row in range(self.personnages_assign_table.rowCount()):
+            text_item = self.personnages_assign_table.item(row, 1)
+            text = (text_item.text() or "").strip() if text_item else ""
+            if not text:
+                continue
+            text_lower = text.lower()
+            combo = self.personnages_assign_table.cellWidget(row, 2)
+            if not isinstance(combo, QComboBox):
+                continue
+            for cid, aliases in char_aliases:
+                for alias in aliases:
+                    alias_lower = alias.lower()
+                    if (
+                        text_lower.startswith(alias_lower)
+                        or text_lower.startswith(alias_lower + ":")
+                        or text_lower.startswith(alias_lower + " ")
+                    ):
+                        idx = combo.findData(cid)
+                        if idx >= 0:
+                            combo.setCurrentIndex(idx)
+                            filled += 1
+                        break
+        self._show_status(f"Suggestion par alias : {filled} ligne(s) renseignée(s).", 4000)
 
     @require_project
     def _save_assignments(self) -> None:

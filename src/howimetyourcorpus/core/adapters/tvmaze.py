@@ -135,11 +135,19 @@ class TvmazeAdapter:
             episodes=episode_refs,
         )
 
-    def fetch_episode_html(self, episode_url: str) -> str:
+    def fetch_episode_html(
+        self,
+        episode_url: str,
+        *,
+        user_agent: str | None = None,
+        rate_limit_s: float | None = None,
+        cache_dir: Path | None = None,
+    ) -> str:
         """
         TVMaze ne fournit pas de transcripts. Cette méthode n'est pas utilisée.
         Les transcripts doivent provenir d'une autre source (ex: subslikescript).
         """
+        _ = (episode_url, user_agent, rate_limit_s, cache_dir)
         raise NotImplementedError(
             "TVMaze ne fournit pas de transcripts. "
             "Utilisez TVMaze pour découvrir les épisodes, "

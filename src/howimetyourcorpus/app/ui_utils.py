@@ -10,6 +10,26 @@ from PySide6.QtWidgets import QMessageBox, QWidget
 T = TypeVar("T")
 
 
+def _message_title_for_context(class_name: str, method_name: str) -> str:
+    """Retourne le titre de message (onglet) selon le contexte classe:méthode."""
+    context = f"{class_name}:{method_name}".lower()
+    if "subtitle" in context or "srt" in context:
+        return "Sous-titres"
+    if "profile" in context:
+        return "Profils"
+    if "character" in context or "personnage" in context:
+        return "Personnages"
+    if "lang" in context:
+        return "Langues"
+    if "preparer" in context or "préparer" in context:
+        return "Préparer"
+    if "concord" in context:
+        return "Concordance"
+    if "align" in context:
+        return "Alignement"
+    return "Corpus"
+
+
 def require_project(method: Callable[..., T]) -> Callable[..., T | None]:
     """Décorateur vérifiant qu'un projet est ouvert avant d'exécuter la méthode.
     
@@ -32,25 +52,9 @@ def require_project(method: Callable[..., T]) -> Callable[..., T | None]:
         
         store = self._get_store()
         if not store:
-            # Déterminer le titre du message selon le contexte méthode + classe
-            method_name = method.__name__.lower()
-            class_name = self.__class__.__name__.lower()
-            context = f"{class_name}:{method_name}"
-            if "subtitle" in context or "srt" in context:
-                title = "Sous-titres"
-            elif "profile" in context:
-                title = "Profils"
-            elif "character" in context or "personnage" in context:
-                title = "Personnages"
-            elif "lang" in context:
-                title = "Langues"
-            elif "preparer" in context or "préparer" in context:
-                title = "Préparer"
-            elif "concord" in context:
-                title = "Concordance"
-            else:
-                title = "Corpus"
-            
+            title = _message_title_for_context(
+                self.__class__.__name__, method.__name__
+            )
             QMessageBox.warning(
                 self,
                 title,
@@ -79,19 +83,9 @@ def require_db(method: Callable[..., T]) -> Callable[..., T | None]:
 
         db = self._get_db()
         if not db:
-            method_name = method.__name__.lower()
-            class_name = self.__class__.__name__.lower()
-            context = f"{class_name}:{method_name}"
-            if "concord" in context:
-                title = "Concordance"
-            elif "align" in context:
-                title = "Alignement"
-            elif "character" in context or "personnage" in context:
-                title = "Personnages"
-            elif "subtitle" in context or "srt" in context:
-                title = "Sous-titres"
-            else:
-                title = "Corpus"
+            title = _message_title_for_context(
+                self.__class__.__name__, method.__name__
+            )
             QMessageBox.warning(
                 self,
                 title,
@@ -128,22 +122,9 @@ def require_project_and_db(method: Callable[..., T]) -> Callable[..., T | None]:
         db = self._get_db()
         
         if not store or not db:
-            method_name = method.__name__.lower()
-            class_name = self.__class__.__name__.lower()
-            context = f"{class_name}:{method_name}"
-            if "subtitle" in context or "srt" in context:
-                title = "Sous-titres"
-            elif "align" in context:
-                title = "Alignement"
-            elif "character" in context or "personnage" in context:
-                title = "Personnages"
-            elif "preparer" in context or "préparer" in context:
-                title = "Préparer"
-            elif "concord" in context:
-                title = "Concordance"
-            else:
-                title = "Corpus"
-            
+            title = _message_title_for_context(
+                self.__class__.__name__, method.__name__
+            )
             QMessageBox.warning(
                 self,
                 title,

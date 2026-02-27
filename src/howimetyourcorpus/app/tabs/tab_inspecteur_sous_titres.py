@@ -81,6 +81,9 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         self._main_split.addWidget(self._wrap_label(self.subtitles_tab, "Sous-titres SRT (pistes, import, normaliser)"))
         self._main_split.setStretchFactor(0, 1)
         self._main_split.setStretchFactor(1, 1)
+        self._main_split.setMinimumWidth(400)
+        for i in range(self._main_split.count()):
+            self._main_split.widget(i).setMinimumWidth(180)
         layout.addWidget(self._main_split)
         self._restore_combined_splitter()
 

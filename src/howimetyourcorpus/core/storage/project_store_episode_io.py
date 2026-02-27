@@ -9,6 +9,8 @@ from typing import Any
 
 from howimetyourcorpus.core.models import TransformStats
 
+logger = logging.getLogger(__name__)
+
 
 def episode_dir(store: Any, episode_id: str) -> Path:
     r"""Répertoire d'un épisode avec assainissement de l'ID (anti path traversal)."""
@@ -126,7 +128,12 @@ def load_episode_transform_meta(store: Any, episode_id: str) -> dict[str, Any] |
     path = get_episode_transform_meta_path(store, episode_id)
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        logger.warning("Impossible de charger %s: %s", path, exc)
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def load_episode_notes(store: Any, episode_id: str) -> str:

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
 from PySide6.QtWidgets import QPlainTextEdit, QWidget
+
+from howimetyourcorpus.core.utils.text import extract_episode_id_from_message
 
 
 class MainWindowJobsController:
@@ -81,9 +82,9 @@ class MainWindowJobsController:
                     message = (getattr(result, "message", None) or str(result)) or ""
                     if not first_fail_msg:
                         first_fail_msg = message[:80] + ("…" if len(message) > 80 else "")
-                    ep_match = re.search(r"S\d+E\d+", message, re.IGNORECASE)
-                    if ep_match:
-                        failed_episode_ids.add(ep_match.group(0).upper())
+                    ep_id = extract_episode_id_from_message(message)
+                    if ep_id:
+                        failed_episode_ids.add(ep_id)
             if failed_episode_ids:
                 msg += f" Échec(s) : {', '.join(sorted(failed_episode_ids))}."
             elif first_fail_msg:

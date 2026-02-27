@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QMessageBox,
 )
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import QSettings, QTimer, QUrl
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QUndoStack
 from PySide6.QtWidgets import QMenuBar
 from PySide6.QtGui import QDesktopServices
@@ -141,6 +141,21 @@ class MainWindow(QMainWindow):
         clear_history_act.triggered.connect(self._clear_undo_history)
         edit_menu.addAction(clear_history_act)
 
+        # Menu Affichage (options d'affichage par onglet)
+        view_menu = menu_bar.addMenu("Af&fichage")
+        self.prep_show_per_line_status_act = QAction("Statut par ligne (onglet Préparer)", self)
+        self.prep_show_per_line_status_act.setCheckable(True)
+        self.prep_show_per_line_status_act.setToolTip(
+            "Affiche une colonne « Statut » par ligne (tours/cues) dans l'onglet Préparer. "
+            "Désactivé par défaut ; à activer si vous souhaitez suivre le statut de chaque ligne."
+        )
+        settings = QSettings("HIMYC", "MainWindow")
+        self.prep_show_per_line_status_act.setChecked(
+            settings.value("Preparer/ShowPerLineStatus", False, type=bool)
+        )
+        self.prep_show_per_line_status_act.triggered.connect(self._on_prep_show_per_line_status_toggled)
+        view_menu.addAction(self.prep_show_per_line_status_act)
+
         # Menu Aide
         aide = menu_bar.addMenu("&Aide")
         about_act = QAction("À propos", self)
@@ -183,6 +198,18 @@ class MainWindow(QMainWindow):
     def _open_releases_page(self) -> None:
         """Ouvre la page des releases GitHub (mise à jour optionnelle Phase 6)."""
         QDesktopServices.openUrl(QUrl("https://github.com/Hsbtqemy/HIMYC/releases"))
+
+    def _on_prep_show_per_line_status_toggled(self) -> None:
+        """Persiste l'option « Statut par ligne » et met à jour l'onglet Préparer."""
+        checked = bool(self.prep_show_per_line_status_act.isChecked())
+        settings = QSettings("HIMYC", "MainWindow")
+        settings.setValue("Preparer/ShowPerLineStatus", checked)
+        if hasattr(self, "preparer_tab") and self.preparer_tab:
+            self.preparer_tab.set_show_per_line_status(checked)
+        self.statusBar().showMessage(
+            "Statut par ligne (Préparer) " + ("activé" if checked else "désactivé") + ".",
+            2500,
+        )
 
     def _build_tab_projet(self) -> None:
         self._tabs_controller.build_tab_projet()
@@ -291,6 +318,9 @@ class MainWindow(QMainWindow):
                     self.tabs.setCurrentIndex(TAB_PREPARER)
                     self._reverting_tab_change = False
                     return
+        if previous == TAB_INSPECTEUR and index != TAB_INSPECTEUR:
+            if hasattr(self, "inspector_tab") and self.inspector_tab:
+                self.inspector_tab.save_state()
         self._previous_tab_index = index
         if index == TAB_CORPUS and self._store is not None:
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
