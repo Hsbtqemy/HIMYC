@@ -1,0 +1,4 @@
+﻿199:    def _replace_utterance_rows_exact(
+538:    def renumber_utterances(self) -> None:
+556:            tab._show_status("Renumérotation déjà à jour.", 2500)
+569:        tab._show_status("Renumérotation appliquée.", 3000)

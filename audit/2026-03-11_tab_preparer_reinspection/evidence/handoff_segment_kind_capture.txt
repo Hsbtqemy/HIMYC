@@ -1,0 +1,7 @@
+﻿78:            if tab.stack.currentWidget() == tab.utterance_table and tab.utterance_table.rowCount() > 0:
+167:    def go_to_alignement(self) -> None:
+175:        segment_kind = self._infer_segment_kind_for_handoff(str(episode_id))
+176:        tab._on_go_alignement(episode_id, segment_kind)
+178:    def _infer_segment_kind_for_handoff(self, episode_id: str) -> str:
+181:            return "utterance" if tab.utterance_table.rowCount() > 0 else "sentence"
+187:            utterances = db.get_segments_for_episode(episode_id, kind="utterance")

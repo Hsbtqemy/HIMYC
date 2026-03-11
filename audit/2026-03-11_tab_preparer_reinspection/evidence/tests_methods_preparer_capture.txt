@@ -1,0 +1,70 @@
+﻿tests\test_preparer_actions.py:189:    def _search_replace_table(
+tests\test_preparer_actions.py:314:def test_normalize_transcript_requires_episode(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:323:def test_normalize_transcript_requires_transcript_source(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:332:def test_normalize_transcript_returns_when_dialog_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:342:def test_normalize_transcript_warns_when_service_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:353:def test_normalize_transcript_success_uses_preferred_profile_and_updates_tab(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:377:def test_normalize_transcript_handles_service_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:390:def test_search_replace_returns_when_dialog_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:400:def test_search_replace_warns_when_needle_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:411:def test_search_replace_uses_utterance_table_branch(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:425:def test_search_replace_uses_cue_table_branch_and_informs_when_no_match(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:440:def test_search_replace_text_branch_pushes_undo_command(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:459:def test_search_replace_text_branch_without_undo_applies_directly(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:472:def test_search_replace_warns_on_invalid_regex(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:511:def test_open_segmentation_options_requires_episode(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:516:    controller.open_segmentation_options()
+tests\test_preparer_actions.py:520:def test_open_segmentation_options_requires_transcript_source(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:525:    controller.open_segmentation_options()
+tests\test_preparer_actions.py:529:def test_open_segmentation_options_returns_when_dialog_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:534:    controller.open_segmentation_options()
+tests\test_preparer_actions.py:538:def test_open_segmentation_options_reports_save_error(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:547:    controller.open_segmentation_options()
+tests\test_preparer_actions.py:552:def test_open_segmentation_options_saves_normalized_options(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:560:    controller.open_segmentation_options()
+tests\test_preparer_actions.py:567:def test_go_to_alignement_requires_episode(monkeypatch: pytest.MonkeyPatch) -> None:
+tests\test_preparer_actions.py:577:def test_go_to_alignement_stops_when_dirty_prompt_cancelled() -> None:
+tests\test_preparer_actions.py:586:def test_go_to_alignement_transcript_uses_utterance_or_sentence() -> None:
+tests\test_ui_dialogs.py:56:def test_search_replace_dialog_get_params_defaults(
+tests\test_ui_dialogs.py:63:def test_search_replace_dialog_get_params_with_values(
+tests\test_ui_guards.py:136:    tab._normalize_transcript()
+tests\test_ui_preparer_navigation.py:104:def test_preparer_go_to_alignement_uses_utterance_when_transcript_rows_present(
+tests\test_ui_preparer_navigation.py:126:    win.preparer_tab._go_to_alignement()
+tests\test_ui_preparer_navigation.py:130:def test_preparer_go_to_alignement_prefers_existing_utterances_from_srt_source(
+tests\test_ui_preparer_navigation.py:173:    win.preparer_tab._go_to_alignement()
+tests\test_ui_preparer_navigation.py:233:    win.preparer_tab.prep_edit_timecodes_cb.setChecked(True)
+tests\test_ui_preparer_navigation.py:241:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:354:    win.preparer_tab.prep_edit_timecodes_cb.setChecked(True)
+tests\test_ui_preparer_navigation.py:364:    assert win.preparer_tab.prep_edit_timecodes_cb.isChecked()
+tests\test_ui_preparer_navigation.py:365:    assert win.preparer_tab.prep_edit_timecodes_cb.isEnabled()
+tests\test_ui_preparer_navigation.py:415:    win.preparer_tab.prep_edit_timecodes_cb.setChecked(True)
+tests\test_ui_preparer_navigation.py:421:    assert win.preparer_tab.save_current() is False
+tests\test_ui_preparer_navigation.py:461:    win.preparer_tab.prep_edit_timecodes_cb.setChecked(True)
+tests\test_ui_preparer_navigation.py:468:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:511:    win.preparer_tab.prep_edit_timecodes_cb.setChecked(True)
+tests\test_ui_preparer_navigation.py:519:    assert win.preparer_tab.save_current() is False
+tests\test_ui_preparer_navigation.py:562:    assert win.preparer_tab.save_current() is False
+tests\test_ui_preparer_navigation.py:610:    assert win.preparer_tab.save_current() is False
+tests\test_ui_preparer_navigation.py:663:    win.preparer_tab._segment_to_utterances()
+tests\test_ui_preparer_navigation.py:770:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:846:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:908:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:1032:    win.preparer_tab._segment_to_utterances()
+tests\test_ui_preparer_navigation.py:1045:    win.preparer_tab._segment_to_utterances()
+tests\test_ui_preparer_navigation.py:1059:def test_preparer_merge_selected_utterances_with_user_separator(
+tests\test_ui_preparer_navigation.py:1101:    win.preparer_tab._merge_selected_utterances()
+tests\test_ui_preparer_navigation.py:1144:    win.preparer_tab._split_selected_utterance_at_cursor()
+tests\test_ui_preparer_navigation.py:1155:def test_preparer_group_utterances_by_assignments_tolerant_mode(main_window_with_project: MainWindow) -> None:
+tests\test_ui_preparer_navigation.py:1212:    win.preparer_tab._group_utterances_by_assignments()
+tests\test_ui_preparer_navigation.py:1294:    win.preparer_tab._group_utterances_by_assignments()
+tests\test_ui_preparer_navigation.py:1373:    win.preparer_tab._delete_selected_utterance_rows()
+tests\test_ui_preparer_navigation.py:1375:    win.preparer_tab._add_utterance_row_below()
+tests\test_ui_preparer_navigation.py:1380:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:1450:    win.preparer_tab._delete_selected_utterance_rows()
+tests\test_ui_preparer_navigation.py:1468:    assert win.preparer_tab.save_current() is False
+tests\test_ui_preparer_navigation.py:1526:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:1559:    win.preparer_tab._delete_selected_utterance_rows()
+tests\test_ui_preparer_navigation.py:1563:    assert win.preparer_tab.save_current() is True
+tests\test_ui_preparer_navigation.py:1568:def test_preparer_reset_utterances_to_text_and_save_clears_segments(main_window_with_project: MainWindow) -> None:
+tests\test_ui_preparer_navigation.py:1592:    win.preparer_tab._reset_utterances_to_text()
+tests\test_ui_preparer_navigation.py:1596:    assert win.preparer_tab.save_current() is True

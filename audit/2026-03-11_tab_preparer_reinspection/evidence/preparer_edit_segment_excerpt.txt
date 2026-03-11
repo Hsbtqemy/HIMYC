@@ -1,0 +1,70 @@
+﻿ 226:     def segment_to_utterances(self) -> None:
+ 227:         tab = self._tab
+ 228:         episode_id = tab.prep_episode_combo.currentData()
+ 229:         if not episode_id:
+ 230:             QMessageBox.warning(tab, "PrÃ©parer", "SÃ©lectionnez un Ã©pisode.")
+ 231:             return
+ 232:         if tab._current_source_key != "transcript":
+ 233:             QMessageBox.information(tab, "PrÃ©parer", "MVP: segmentation disponible sur Transcript.")
+ 234:             return
+ 235: 
+ 236:         existing = tab.utterance_table.rowCount() > 0
+ 237:         if existing:
+ 238:             reply = QMessageBox.question(
+ 239:                 tab,
+ 240:                 "PrÃ©parer",
+ 241:                 "Des tours existent dÃ©jÃ  pour cet Ã©pisode.\n\n"
+ 242:                 "Re-segmenter Ã©crasera le dÃ©coupage prÃ©cÃ©dent. Continuer ?",
+ 243:                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+ 244:                 QMessageBox.StandardButton.No,
+ 245:             )
+ 246:             if reply != QMessageBox.StandardButton.Yes:
+ 247:                 return
+ 248: 
+ 249:         clean_text = tab.text_editor.toPlainText().strip()
+ 250:         if not clean_text:
+ 251:             QMessageBox.warning(tab, "PrÃ©parer", "Aucun transcript Ã  segmenter.")
+ 252:             return
+ 253:         options = tab._load_segmentation_options(episode_id, tab._current_source_key)
+ 254:         try:
+ 255:             rows = segment_text_to_utterance_rows(clean_text, options)
+ 256:         except ValueError as exc:
+ 257:             QMessageBox.warning(tab, "PrÃ©parer", str(exc))
+ 258:             return
+ 259:         prev_rows = tab._export_utterance_rows()
+ 260:         prev_widget_is_utterance = tab.stack.currentWidget() == tab.utterance_table
+ 261: 
+ 262:         def _redo() -> None:
+ 263:             tab._updating_ui = True
+ 264:             try:
+ 265:                 tab._set_utterances(self._normalize_utterance_rows(rows))
+ 266:                 tab.stack.setCurrentWidget(tab.utterance_table)
+ 267:                 tab._update_utterance_action_states()
+ 268:             finally:
+ 269:                 tab._updating_ui = False
+ 270:             tab._set_dirty(True)
+ 271: 
+ 272:         def _undo() -> None:
+ 273:             tab._updating_ui = True
+ 274:             try:
+ 275:                 tab._set_utterances(prev_rows)
+ 276:                 if prev_widget_is_utterance:
+ 277:                     tab.stack.setCurrentWidget(tab.utterance_table)
+ 278:                 else:
+ 279:                     tab.stack.setCurrentWidget(tab.text_editor)
+ 280:                 tab._update_utterance_action_states()
+ 281:             finally:
+ 282:                 tab._updating_ui = False
+ 283:             tab._set_dirty(True)
+ 284: 
+ 285:         if tab.undo_stack:
+ 286:             cmd = CallbackUndoCommand(
+ 287:                 f"Segmenter en tours ({len(rows)})",
+ 288:                 redo_callback=_redo,
+ 289:                 undo_callback=_undo,
+ 290:             )
+ 291:             tab.undo_stack.push(cmd)
+ 292:         else:
+ 293:             _redo()
+ 294:         tab._show_status(f"{len(rows)} tour(s) gÃ©nÃ©rÃ©(s).", 4000)
+ 295: 

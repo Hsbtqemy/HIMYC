@@ -1,0 +1,115 @@
+﻿  74: def segment_text_to_utterance_rows(text: str, options: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+  75:     """
+  76:     Segmente un transcript en lignes utterance selon options paramÃ©trables.
+  77: 
+  78:     Retourne des lignes prÃªtes pour la table PrÃ©parer:
+  79:     [{"segment_id": "", "n": 0, "speaker_explicit": "...", "text": "..."}, ...]
+  80:     """
+  81:     normalized = normalize_segmentation_options(options)
+  82:     validate_segmentation_options(normalized)
+  83: 
+  84:     speaker_re = re.compile(normalized["speaker_regex"])
+  85:     dash_re = re.compile(normalized["dash_regex"]) if normalized["enable_dash_rule"] else None
+  86:     markers = normalized["continuation_markers"]
+  87:     merge_if_marker = normalized["merge_if_prev_ends_with_marker"]
+  88:     attach_unmarked = normalized["attach_unmarked_to_previous"]
+  89: 
+  90:     rows: list[dict[str, Any]] = []
+  91:     for raw_line in text.splitlines():
+  92:         s = raw_line.strip()
+  93:         if not s:
+  94:             continue
+  95: 
+  96:         speaker = ""
+  97:         payload = s
+  98:         is_marked = False
+  99: 
+ 100:         m = speaker_re.match(s)
+ 101:         if m and m.lastindex and m.lastindex >= 2:
+ 102:             speaker = (m.group(1) or "").strip()
+ 103:             payload = (m.group(2) or "").strip() or s
+ 104:             is_marked = True
+ 105:         elif dash_re is not None:
+ 106:             dm = dash_re.match(s)
+ 107:             if dm:
+ 108:                 payload = (dm.group(1) or "").strip() or s
+ 109:                 is_marked = True
+ 110: 
+ 111:         if not is_marked and rows:
+ 112:             if merge_if_marker and _ends_with_any_marker(rows[-1]["text"], markers):
+ 113:                 rows[-1]["text"] = (rows[-1]["text"].rstrip() + "\n" + payload).strip()
+ 114:                 continue
+ 115:             if attach_unmarked:
+ 116:                 rows[-1]["text"] = (rows[-1]["text"].rstrip() + "\n" + payload).strip()
+ 117:                 continue
+ 118: 
+ 119:         rows.append(
+ 120:             {
+ 121:                 "segment_id": "",
+ 122:                 "n": len(rows),
+ 123:                 "speaker_explicit": speaker,
+ 124:                 "text": payload,
+ 125:             }
+ 126:         )
+ 127:     return rows
+ 128: 
+ 129: 
+ 130: def regroup_utterance_rows_by_character(
+ 131:     rows: list[dict[str, Any]],
+ 132:     *,
+ 133:     character_lookup: dict[str, str],
+ 134:     assignment_by_segment_id: dict[str, str] | None = None,
+ 135:     tolerant: bool = True,
+ 136: ) -> list[dict[str, Any]]:
+ 137:     """
+ 138:     Regroupe des lignes consÃ©cutives en utterances selon changement de personnage assignÃ©.
+ 139: 
+ 140:     `character_lookup` : mapping label lower-case -> character_id.
+ 141:     """
+ 142:     grouped: list[dict[str, Any]] = []
+ 143:     active_character_id: str | None = None
+ 144:     assignment_map = assignment_by_segment_id or {}
+ 145: 
+ 146:     for row in rows or []:
+ 147:         segment_id = (row.get("segment_id") or "").strip()
+ 148:         speaker = (row.get("speaker_explicit") or "").strip()
+ 149:         text = (row.get("text") or "").strip()
+ 150:         if not text:
+ 151:             continue
+ 152:         assigned_id = assignment_map.get(segment_id, "") if segment_id else ""
+ 153:         explicit_id = character_lookup.get(speaker.lower(), "") if speaker else ""
+ 154:         if assigned_id:
+ 155:             current_id = assigned_id
+ 156:         elif explicit_id:
+ 157:             current_id = explicit_id
+ 158:         elif speaker:
+ 159:             # Fallback : Ã©viter une fusion globale quand le label n'est pas mappÃ©.
+ 160:             current_id = f"speaker:{speaker.lower()}"
+ 161:         else:
+ 162:             current_id = None
+ 163: 
+ 164:         if grouped:
+ 165:             if current_id is not None:
+ 166:                 if active_character_id == current_id:
+ 167:                     grouped[-1]["text"] = (grouped[-1]["text"].rstrip() + "\n" + text).strip()
+ 168:                     if not grouped[-1]["speaker_explicit"] and speaker:
+ 169:                         grouped[-1]["speaker_explicit"] = speaker
+ 170:                     continue
+ 171:             else:
+ 172:                 if tolerant and active_character_id is not None:
+ 173:                     grouped[-1]["text"] = (grouped[-1]["text"].rstrip() + "\n" + text).strip()
+ 174:                     continue
+ 175: 
+ 176:         grouped.append(
+ 177:             {
+ 178:                 "segment_id": "",
+ 179:                 "n": len(grouped),
+ 180:                 "speaker_explicit": speaker,
+ 181:                 "text": text,
+ 182:             }
+ 183:         )
+ 184:         active_character_id = current_id
+ 185: 
+ 186:     for idx, row in enumerate(grouped):
+ 187:         row["n"] = idx
+ 188:         row["segment_id"] = ""

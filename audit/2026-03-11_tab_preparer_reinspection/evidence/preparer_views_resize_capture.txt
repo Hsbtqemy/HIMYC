@@ -1,0 +1,31 @@
+﻿76:        self._configure_utterance_table()
+86:        self.utterance_table.itemChanged.connect(self._on_utterance_item_changed)
+88:    def _configure_utterance_table(self) -> None:
+90:        table.setWordWrap(True)
+91:        table.setTextElideMode(Qt.TextElideMode.ElideNone)
+94:        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+97:    def _apply_utterance_header_modes(self) -> None:
+100:        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+101:        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+102:        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+104:            header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+114:        self._apply_utterance_header_modes()
+158:        self._refresh_utterance_layout()
+160:    def _refresh_utterance_layout(self) -> None:
+167:    def _on_utterance_item_changed(self, item: QTableWidgetItem) -> None:
+206:        self._configure_cue_table()
+209:        self._apply_cue_header_modes()
+218:        self.cue_table.itemChanged.connect(self._on_cue_item_changed)
+220:    def _configure_cue_table(self) -> None:
+222:        table.setWordWrap(True)
+223:        table.setTextElideMode(Qt.TextElideMode.ElideNone)
+226:        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+229:    def _apply_cue_header_modes(self) -> None:
+232:        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+233:        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+234:        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+235:        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+236:        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+275:        self._refresh_cue_layout()
+277:    def _refresh_cue_layout(self) -> None:
+282:    def _on_cue_item_changed(self, item: QTableWidgetItem) -> None:

@@ -1,0 +1,15 @@
+﻿338:    def _normalize_transcript(self) -> None:
+341:    def _search_replace(self) -> None:
+344:    def _search_replace_table(
+380:    def _open_segmentation_options(self) -> None:
+383:    def _segment_to_utterances(self) -> None:
+386:    def _add_utterance_row_below(self) -> None:
+389:    def _delete_selected_utterance_rows(self) -> None:
+392:    def _merge_selected_utterances(self) -> None:
+395:    def _split_selected_utterance_at_cursor(self) -> None:
+398:    def _group_utterances_by_assignments(self) -> None:
+401:    def _renumber_utterances(self) -> None:
+404:    def _reset_utterances_to_text(self) -> None:
+407:    def _update_utterance_action_states(self) -> None:
+436:    def save_current(self) -> bool:
+439:    def _go_to_alignement(self) -> None:

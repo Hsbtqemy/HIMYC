@@ -1,0 +1,33 @@
+﻿ 160:             store.set_episode_segmentation_options(episode_id, tab._current_source_key, options)
+ 161:         except Exception as exc:
+ 162:             self._logger.exception("Save segmentation options")
+ 163:             QMessageBox.critical(tab, "PrÃ©parer", f"Impossible d'enregistrer les paramÃ¨tres: {exc}")
+ 164:             return
+ 165:         tab._show_status("ParamÃ¨tres segmentation enregistrÃ©s.", 3000)
+ 166: 
+ 167:     def go_to_alignement(self) -> None:
+ 168:         tab = self._tab
+ 169:         episode_id = tab.prep_episode_combo.currentData()
+ 170:         if not episode_id:
+ 171:             QMessageBox.warning(tab, "PrÃ©parer", "SÃ©lectionnez un Ã©pisode.")
+ 172:             return
+ 173:         if tab._dirty and not tab.prompt_save_if_dirty():
+ 174:             return
+ 175:         segment_kind = self._infer_segment_kind_for_handoff(str(episode_id))
+ 176:         tab._on_go_alignement(episode_id, segment_kind)
+ 177: 
+ 178:     def _infer_segment_kind_for_handoff(self, episode_id: str) -> str:
+ 179:         tab = self._tab
+ 180:         if tab._current_source_key == "transcript":
+ 181:             return "utterance" if tab.utterance_table.rowCount() > 0 else "sentence"
+ 182: 
+ 183:         db = tab._get_db()
+ 184:         if not db:
+ 185:             return "sentence"
+ 186:         try:
+ 187:             utterances = db.get_segments_for_episode(episode_id, kind="utterance")
+ 188:             if utterances:
+ 189:                 return "utterance"
+ 190:         except Exception:
+ 191:             self._logger.exception("Infer segment kind for handoff")
+ 192:         return "sentence"

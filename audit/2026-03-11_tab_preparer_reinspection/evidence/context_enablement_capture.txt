@@ -1,0 +1,14 @@
+﻿147:        tab.prep_normalize_btn.setEnabled(False)
+148:        tab.prep_segment_btn.setEnabled(False)
+149:        tab.prep_edit_timecodes_cb.setEnabled(False)
+150:        tab.prep_strict_timecodes_cb.setEnabled(False)
+167:        if not force and episode_id == tab._current_episode_id and source_key == tab._current_source_key:
+179:            if source_key == "transcript":
+186:                tab.prep_normalize_btn.setEnabled(True)
+187:                tab.prep_segment_btn.setEnabled(True)
+188:                tab.prep_edit_timecodes_cb.setEnabled(False)
+189:                tab.prep_strict_timecodes_cb.setEnabled(False)
+197:                tab.prep_normalize_btn.setEnabled(False)
+198:                tab.prep_segment_btn.setEnabled(False)
+199:                tab.prep_edit_timecodes_cb.setEnabled(True)
+201:                tab.prep_strict_timecodes_cb.setEnabled(tab.prep_edit_timecodes_cb.isChecked())

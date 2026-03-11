@@ -7,6 +7,7 @@ from typing import Any, Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QHeaderView,
     QPlainTextEdit,
     QStyledItemDelegate,
     QTableWidget,
@@ -72,6 +73,7 @@ class TranscriptWidgets:
         self.text_editor.textChanged.connect(on_text_changed)
 
         self.utterance_table = QTableWidget()
+        self._configure_utterance_table()
         self._update_utterance_columns()
         self.utterance_table.setItemDelegateForColumn(
             1,
@@ -81,6 +83,25 @@ class TranscriptWidgets:
             ),
         )
         self.utterance_table.itemChanged.connect(on_table_item_changed)
+        self.utterance_table.itemChanged.connect(self._on_utterance_item_changed)
+
+    def _configure_utterance_table(self) -> None:
+        table = self.utterance_table
+        table.setWordWrap(True)
+        table.setTextElideMode(Qt.TextElideMode.ElideNone)
+        table.verticalHeader().setDefaultSectionSize(24)
+        table.verticalHeader().setMinimumSectionSize(22)
+        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().sectionResized.connect(lambda *_: table.resizeRowsToContents())
+
+    def _apply_utterance_header_modes(self) -> None:
+        header = self.utterance_table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        if self._show_status_column:
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
 
     def _update_utterance_columns(self) -> None:
         """Met à jour le nombre de colonnes et les en-têtes selon l'option statut par ligne."""
@@ -90,6 +111,7 @@ class TranscriptWidgets:
         else:
             self.utterance_table.setColumnCount(3)
             self.utterance_table.setHorizontalHeaderLabels(["#", "Personnage", "Texte"])
+        self._apply_utterance_header_modes()
 
     def set_show_status_column(self, show: bool) -> None:
         """Active ou désactive la colonne Statut (option Phase 3.2)."""
@@ -133,6 +155,22 @@ class TranscriptWidgets:
                 status_item.setFlags(status_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.utterance_table.setItem(row, 3, status_item)
         self.utterance_table.blockSignals(False)
+        self._refresh_utterance_layout()
+
+    def _refresh_utterance_layout(self) -> None:
+        self.utterance_table.resizeColumnToContents(0)
+        self.utterance_table.resizeColumnToContents(1)
+        if self._show_status_column:
+            self.utterance_table.resizeColumnToContents(3)
+        self.utterance_table.resizeRowsToContents()
+
+    def _on_utterance_item_changed(self, item: QTableWidgetItem) -> None:
+        if item is None:
+            return
+        row = item.row()
+        self.utterance_table.resizeRowToContents(row)
+        if item.column() in {0, 1, 3}:
+            self.utterance_table.resizeColumnToContents(item.column())
 
     def export_utterance_rows(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
@@ -165,8 +203,10 @@ class CueWidgets:
         self._edit_role = edit_role
         self._character_options: list[str] = []
         self.cue_table = QTableWidget()
+        self._configure_cue_table()
         self.cue_table.setColumnCount(5)
         self.cue_table.setHorizontalHeaderLabels(["#", "Début", "Fin", "Personnage", "Texte"])
+        self._apply_cue_header_modes()
         self.cue_table.setItemDelegateForColumn(
             3,
             CharacterComboDelegate(
@@ -175,6 +215,25 @@ class CueWidgets:
             ),
         )
         self.cue_table.itemChanged.connect(on_table_item_changed)
+        self.cue_table.itemChanged.connect(self._on_cue_item_changed)
+
+    def _configure_cue_table(self) -> None:
+        table = self.cue_table
+        table.setWordWrap(True)
+        table.setTextElideMode(Qt.TextElideMode.ElideNone)
+        table.verticalHeader().setDefaultSectionSize(24)
+        table.verticalHeader().setMinimumSectionSize(22)
+        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        table.horizontalHeader().sectionResized.connect(lambda *_: table.resizeRowsToContents())
+
+    def _apply_cue_header_modes(self) -> None:
+        header = self.cue_table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
 
     def set_cues(
         self,
@@ -213,6 +272,20 @@ class CueWidgets:
             text_item.setData(self._edit_role, text_item.text())
             self.cue_table.setItem(row, 4, text_item)
         self.cue_table.blockSignals(False)
+        self._refresh_cue_layout()
+
+    def _refresh_cue_layout(self) -> None:
+        for col in (0, 1, 2, 3):
+            self.cue_table.resizeColumnToContents(col)
+        self.cue_table.resizeRowsToContents()
+
+    def _on_cue_item_changed(self, item: QTableWidgetItem) -> None:
+        if item is None:
+            return
+        row = item.row()
+        self.cue_table.resizeRowToContents(row)
+        if item.column() in {0, 1, 2, 3}:
+            self.cue_table.resizeColumnToContents(item.column())
 
     def apply_timecode_editability(self, editable: bool) -> None:
         self.cue_table.blockSignals(True)

@@ -1,0 +1,80 @@
+﻿ 179:         strict: bool,
+ 180:     ) -> bool:
+ 181:         self._last_abort_reason = None
+ 182:         service = self._build_service()
+ 183:         if service is None:
+ 184:             return False
+ 185: 
+ 186:         rows: list[dict[str, Any]] = []
+ 187:         character_map = self.build_character_lookup()
+ 188:         unknown_speakers: list[tuple[int, str]] = []
+ 189:         parsed_spans: list[tuple[int, int, int]] = []
+ 190:         for row in range(cue_table.rowCount()):
+ 191:             n_item = cue_table.item(row, 0)
+ 192:             start_item = cue_table.item(row, 1)
+ 193:             end_item = cue_table.item(row, 2)
+ 194:             speaker_item = cue_table.item(row, 3)
+ 195:             text_item = cue_table.item(row, 4)
+ 196:             cue_id = (n_item.data(Qt.ItemDataRole.UserRole) if n_item else "") or ""
+ 197:             start_str = (start_item.text() if start_item else "").strip()
+ 198:             end_str = (end_item.text() if end_item else "").strip()
+ 199:             try:
+ 200:                 start_ms = parse_srt_time_to_ms(start_str)
+ 201:                 end_ms = parse_srt_time_to_ms(end_str)
+ 202:             except ValueError as exc:
+ 203:                 QMessageBox.warning(
+ 204:                     owner,
+ 205:                     "PrÃ©parer",
+ 206:                     f"Ligne {row + 1}: {exc}\nFormat attendu: HH:MM:SS,mmm",
+ 207:                 )
+ 208:                 return False
+ 209: 
+ 210:             if start_ms < 0 or end_ms < 0 or start_ms >= end_ms:
+ 211:                 QMessageBox.warning(
+ 212:                     owner,
+ 213:                     "PrÃ©parer",
+ 214:                     f"Ligne {row + 1}: timecodes invalides (dÃ©but={start_str}, fin={end_str}).",
+ 215:                 )
+ 216:                 return False
+ 217: 
+ 218:             speaker = (speaker_item.text() if speaker_item else "").strip()
+ 219:             text = (text_item.text() if text_item else "").strip()
+ 220:             character_id = self.speaker_to_character_id(speaker, character_map)
+ 221:             if speaker and not character_id:
+ 222:                 unknown_speakers.append((row + 1, speaker))
+ 223:             n = int((n_item.text() if n_item else row) or row)
+ 224:             parsed_spans.append((n, start_ms, end_ms))
+ 225:             rows.append(
+ 226:                 {
+ 227:                     "cue_id": cue_id,
+ 228:                     "text_clean": text,
+ 229:                     "character_id": character_id,
+ 230:                     "start_ms": start_ms,
+ 231:                     "end_ms": end_ms,
+ 232:                 }
+ 233:             )
+ 234: 
+ 235:         if self._warn_unknown_characters(owner=owner, unknowns=unknown_speakers, source_label=f"les cues {lang.upper()}"):
+ 236:             return False
+ 237: 
+ 238:         if strict:
+ 239:             previous_end = -1
+ 240:             for n, start_ms, end_ms in sorted(parsed_spans, key=lambda x: x[0]):
+ 241:                 if previous_end > start_ms:
+ 242:                     QMessageBox.warning(
+ 243:                         owner,
+ 244:                         "PrÃ©parer",
+ 245:                         f"Chevauchement dÃ©tectÃ© autour de la cue #{n}. "
+ 246:                         "DÃ©sactivez Â« Validation stricte Â» ou corrigez les timecodes.",
+ 247:                     )
+ 248:                     return False
+ 249:                 previous_end = end_ms
+ 250: 
+ 251:         service.save_cue_edits(
+ 252:             episode_id,
+ 253:             lang,
+ 254:             rows,
+ 255:             rewrite_subtitle_file=True,
+ 256:         )
+ 257:         self._normalize_cue_timecodes_display()
+ 258:         return True

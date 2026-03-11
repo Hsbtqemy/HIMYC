@@ -1,0 +1,11 @@
+﻿169:                item.setEnabled(False)
+312:        self.prep_strict_timecodes_cb.setEnabled(bool(checked) and self.prep_edit_timecodes_cb.isEnabled())
+407:    def _update_utterance_action_states(self) -> None:
+412:        self.prep_segment_options_btn.setEnabled(is_transcript and has_episode)
+413:        self.prep_add_utt_btn.setEnabled(is_transcript and has_episode)
+414:        self.prep_delete_utt_btn.setEnabled(is_transcript and has_rows)
+415:        self.prep_merge_utt_btn.setEnabled(is_transcript and self.utterance_table.rowCount() >= 2)
+416:        self.prep_split_utt_btn.setEnabled(is_transcript and has_rows)
+417:        self.prep_group_utt_btn.setEnabled(is_transcript and has_rows)
+418:        self.prep_renumber_utt_btn.setEnabled(is_transcript and has_rows)
+419:        self.prep_reset_utt_btn.setEnabled(is_transcript and has_rows)

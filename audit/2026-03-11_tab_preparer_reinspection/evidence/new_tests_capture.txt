@@ -1,0 +1,3 @@
+﻿208:def test_preparer_tab_switch_keeps_current_episode_and_source(main_window_with_project: MainWindow) -> None:
+258:def test_preparer_tables_resize_with_multiline_content(main_window_with_project: MainWindow) -> None:
+1270:def test_preparer_renumber_utterances_updates_number_column_and_supports_undo(

@@ -1,0 +1,71 @@
+﻿  55:         tab = self._tab
+  56:         return tab._save_controller.save_transcript_rows(
+  57:             owner=tab,
+  58:             episode_id=episode_id,
+  59:             utterance_table=tab.utterance_table,
+  60:             text_value=tab.text_editor.toPlainText(),
+  61:         )
+  62: 
+  63:     def _save_cue_rows(self, episode_id: str, lang: str) -> bool:
+  64:         tab = self._tab
+  65:         strict = tab.prep_edit_timecodes_cb.isChecked() and tab.prep_strict_timecodes_cb.isChecked()
+  66:         return tab._save_controller.save_cue_rows(
+  67:             owner=tab,
+  68:             episode_id=episode_id,
+  69:             lang=lang,
+  70:             cue_table=tab.cue_table,
+  71:             strict=strict,
+  72:         )
+  73: 
+  74:     def _auto_update_status_after_save(self) -> None:
+  75:         tab = self._tab
+  76:         current = (tab.prep_status_combo.currentData() or "raw").strip().lower()
+  77:         if current in ("raw", "normalized"):
+  78:             tab._apply_status_value("edited", persist=True, mark_dirty=False)
+  79: 
+  80:     def _run_save_with_snapshot_undo(
+  81:         self,
+  82:         *,
+  83:         capture_before: Callable[[], dict[str, Any]],
+  84:         save_action: Callable[[], bool],
+  85:         capture_after: Callable[[], dict[str, Any]],
+  86:         undo_title: str,
+  87:         redo_callback: Callable[[dict[str, Any]], None],
+  88:         undo_callback: Callable[[dict[str, Any]], None],
+  89:         success_status: str,
+  90:     ) -> bool:
+  91:         tab = self._tab
+  92:         before_state = capture_before() if tab.undo_stack else {}
+  93:         ok = save_action()
+  94:         if not ok:
+  95:             return False
+  96:         self._auto_update_status_after_save()
+  97:         if tab.undo_stack:
+  98:             after_state = capture_after()
+  99:             tab._save_controller.push_snapshot_undo(
+ 100:                 title=undo_title,
+ 101:                 redo_callback=lambda st=after_state: redo_callback(st),
+ 102:                 undo_callback=lambda st=before_state: undo_callback(st),
+ 103:             )
+ 104:         tab._show_status(success_status, 3000)
+ 105:         return True
+ 106: 
+ 107:     def save_current(self) -> bool:
+ 108:         tab = self._tab
+ 109:         episode_id = tab.prep_episode_combo.currentData()
+ 110:         if not episode_id:
+ 111:             return True
+ 112:         try:
+ 113:             if tab._current_source_key.startswith("srt_"):
+ 114:                 lang = tab._current_source_key.replace("srt_", "", 1)
+ 115:                 ok = self._run_save_with_snapshot_undo(
+ 116:                     capture_before=lambda ep=episode_id, ln=lang: tab._state_controller.capture_cue_persistence_state(
+ 117:                         ep, ln, tab._current_source_key
+ 118:                     ),
+ 119:                     save_action=lambda ep=episode_id, ln=lang: self._save_cue_rows(ep, ln),
+ 120:                     capture_after=lambda ep=episode_id, ln=lang: tab._state_controller.capture_cue_persistence_state(
+ 121:                         ep, ln, tab._current_source_key
+ 122:                     ),
+ 123:                     undo_title=f"Enregistrer cues {lang.upper()}",
+ 124:                     redo_callback=lambda st, ep=episode_id, ln=lang: tab._state_controller.apply_cue_persistence_state(
+ 125:                         ep, ln, st, mark_dirty=False

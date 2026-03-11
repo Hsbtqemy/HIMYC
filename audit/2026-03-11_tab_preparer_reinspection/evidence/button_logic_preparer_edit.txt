@@ -1,0 +1,8 @@
+﻿226:    def segment_to_utterances(self) -> None:
+296:    def add_utterance_row_below(self) -> None:
+330:    def delete_selected_utterance_rows(self) -> None:
+366:    def merge_selected_utterances(self) -> None:
+420:    def split_selected_utterance_at_cursor(self) -> None:
+491:    def group_utterances_by_assignments(self, *, tolerant: bool = True) -> None:
+521:    def renumber_utterances(self) -> None:
+538:    def reset_utterances_to_text(self) -> None:

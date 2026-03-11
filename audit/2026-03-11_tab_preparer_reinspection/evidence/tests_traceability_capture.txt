@@ -1,0 +1,14 @@
+﻿tests/test_preparer_actions.py:586:def test_go_to_alignement_transcript_uses_utterance_or_sentence() -> None:
+tests/test_preparer_actions.py:607:def test_infer_segment_kind_non_transcript_reads_db_utterances() -> None:
+tests/test_preparer_segmentation.py:14:def test_segment_text_to_utterance_rows_merges_continuation_marker() -> None:
+tests/test_preparer_segmentation.py:50:def test_regroup_prefers_assignments_when_present() -> None:
+tests/test_preparer_segmentation.py:71:def test_regroup_tolerant_merges_unmarked_rows_after_character() -> None:
+tests/test_ui_preparer_navigation.py:104:def test_preparer_go_to_alignement_uses_utterance_when_transcript_rows_present(
+tests/test_ui_preparer_navigation.py:130:def test_preparer_go_to_alignement_prefers_existing_utterances_from_srt_source(
+tests/test_ui_preparer_navigation.py:1015:def test_preparer_segment_uses_saved_segmentation_options(main_window_with_project: MainWindow) -> None:
+tests/test_ui_preparer_navigation.py:1059:def test_preparer_merge_selected_utterances_with_user_separator(
+tests/test_ui_preparer_navigation.py:1110:def test_preparer_split_selected_utterance_uses_cursor_position(
+tests/test_ui_preparer_navigation.py:1155:def test_preparer_group_utterances_by_assignments_tolerant_mode(main_window_with_project: MainWindow) -> None:
+tests/test_ui_preparer_navigation.py:1222:def test_preparer_group_utterances_uses_segment_assignments_when_labels_do_not_match(
+tests/test_ui_preparer_navigation.py:1304:def test_preparer_save_transcript_structural_edits_replace_segments(
+tests/test_ui_preparer_navigation.py:1568:def test_preparer_reset_utterances_to_text_and_save_clears_segments(main_window_with_project: MainWindow) -> None:

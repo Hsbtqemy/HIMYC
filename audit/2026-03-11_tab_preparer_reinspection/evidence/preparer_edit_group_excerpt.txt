@@ -1,0 +1,30 @@
+﻿ 491:     def group_utterances_by_assignments(self, *, tolerant: bool = True) -> None:
+ 492:         tab = self._tab
+ 493:         if tab._current_source_key != "transcript":
+ 494:             return
+ 495:         before_rows = tab._export_utterance_rows()
+ 496:         if not before_rows:
+ 497:             QMessageBox.information(tab, "PrÃ©parer", "Aucune ligne Ã  regrouper.")
+ 498:             return
+ 499:         character_lookup = tab._save_controller.build_character_lookup()
+ 500:         episode_id = (tab.prep_episode_combo.currentData() or tab._current_episode_id or "").strip()
+ 501:         assignment_map: dict[str, str] = {}
+ 502:         if episode_id:
+ 503:             assignment_map = tab._load_assignment_map(
+ 504:                 source_type="segment",
+ 505:                 episode_id=episode_id,
+ 506:                 prefix=f"{episode_id}:utterance:",
+ 507:             )
+ 508:         after_rows = regroup_utterance_rows_by_character(
+ 509:             before_rows,
+ 510:             character_lookup=character_lookup,
+ 511:             assignment_by_segment_id=assignment_map,
+ 512:             tolerant=tolerant,
+ 513:         )
+ 514:         self._apply_utterance_rows_with_undo(
+ 515:             title="Regrouper par assignations",
+ 516:             before_rows=before_rows,
+ 517:             after_rows=after_rows,
+ 518:             status_message=f"Tours regroupÃ©s: {len(before_rows)} â†’ {len(after_rows)}.",
+ 519:         )
+ 520: 

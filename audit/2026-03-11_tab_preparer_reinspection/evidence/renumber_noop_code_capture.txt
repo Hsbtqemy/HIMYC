@@ -1,0 +1,72 @@
+﻿ 169:     def _normalize_utterance_rows(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+ 170:         """Construit des lignes table utterance stables, renumÃ©rotÃ©es."""
+ 171:         out: list[dict[str, Any]] = []
+ 172:         for idx, row in enumerate(rows or []):
+ 173:             out.append(
+ 174:                 {
+ 175:                     "segment_id": (row.get("segment_id") or "").strip(),
+ 176:                     "n": idx,
+ 177:                     "speaker_explicit": (row.get("speaker_explicit") or "").strip(),
+ 178:                     "text": (row.get("text") or "").strip(),
+ 179:                 }
+ 180:             )
+ 181:         return out
+ 182: 
+ 183:     def _replace_utterance_rows(
+ 184:         self,
+ 185:         rows: list[dict[str, Any]],
+ 186:         *,
+ 187:         mark_dirty: bool,
+ 188:     ) -> None:
+ 189:         tab = self._tab
+ 190:         tab._updating_ui = True
+ 191:         try:
+ 192:             tab._set_utterances(self._normalize_utterance_rows(rows))
+ 193:             tab.stack.setCurrentWidget(tab.utterance_table)
+ 194:             tab._update_utterance_action_states()
+ 195:         finally:
+ 196:             tab._updating_ui = False
+ 197:         tab._set_dirty(mark_dirty)
+ 198: 
+ 199:     def _apply_utterance_rows_with_undo(
+ 200:         self,
+ 201:         *,
+ 202:         title: str,
+ 203:         before_rows: list[dict[str, Any]],
+ 204:         after_rows: list[dict[str, Any]],
+ 205:         status_message: str,
+ 206:     ) -> None:
+ 207:         tab = self._tab
+ 208:         normalized_before = self._normalize_utterance_rows(before_rows)
+ 209:         normalized_after = self._normalize_utterance_rows(after_rows)
+ 210: 
+ 211:         if normalized_before == normalized_after:
+ 212:             return
+ 213: 
+ 214:         if tab.undo_stack:
+ 215:             tab.undo_stack.push(
+ 216:                 CallbackUndoCommand(
+ 217:                     title,
+ 218:                     redo_callback=lambda rows=normalized_after: self._replace_utterance_rows(rows, mark_dirty=True),
+ 219:                     undo_callback=lambda rows=normalized_before: self._replace_utterance_rows(rows, mark_dirty=True),
+ 220:                 )
+ 221:             )
+ 222:         else:
+ 223:             self._replace_utterance_rows(normalized_after, mark_dirty=True)
+
+ 521:     def renumber_utterances(self) -> None:
+ 522:         tab = self._tab
+ 523:         if tab._current_source_key != "transcript":
+ 524:             return
+ 525:         before_rows = tab._export_utterance_rows()
+ 526:         after_rows = []
+ 527:         for idx, row in enumerate(before_rows):
+ 528:             updated = dict(row)
+ 529:             updated["n"] = idx
+ 530:             after_rows.append(updated)
+ 531:         self._apply_utterance_rows_with_undo(
+ 532:             title="RenumÃ©roter tours",
+ 533:             before_rows=before_rows,
+ 534:             after_rows=after_rows,
+ 535:             status_message="RenumÃ©rotation appliquÃ©e.",
+ 536:         )

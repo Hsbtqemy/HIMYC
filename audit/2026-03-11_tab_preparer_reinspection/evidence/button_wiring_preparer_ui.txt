@@ -1,0 +1,48 @@
+﻿58:        tab.prep_normalize_btn = QPushButton("Nettoyer")
+59:        tab.prep_normalize_btn.clicked.connect(tab._normalize_transcript)  # noqa: SLF001
+60:        actions.addWidget(tab.prep_normalize_btn)
+62:        tab.prep_search_replace_btn = QPushButton("Rechercher / Remplacer")
+63:        tab.prep_search_replace_btn.clicked.connect(tab._search_replace)  # noqa: SLF001
+64:        actions.addWidget(tab.prep_search_replace_btn)
+66:        tab.prep_segment_btn = QPushButton("Segmenter en tours")
+67:        tab.prep_segment_btn.clicked.connect(tab._segment_to_utterances)  # noqa: SLF001
+68:        actions.addWidget(tab.prep_segment_btn)
+70:        tab.prep_segment_options_btn = QPushButton("Paramètres segmentation")
+71:        tab.prep_segment_options_btn.clicked.connect(tab._open_segmentation_options)  # noqa: SLF001
+72:        actions.addWidget(tab.prep_segment_options_btn)
+74:        tab.prep_edit_timecodes_cb = QCheckBox("Éditer timecodes")
+75:        tab.prep_edit_timecodes_cb.setToolTip(
+78:        tab.prep_edit_timecodes_cb.toggled.connect(tab._on_edit_timecodes_toggled)  # noqa: SLF001
+79:        tab.prep_edit_timecodes_cb.setEnabled(False)
+80:        actions.addWidget(tab.prep_edit_timecodes_cb)
+82:        tab.prep_strict_timecodes_cb = QCheckBox("Validation stricte")
+83:        tab.prep_strict_timecodes_cb.setToolTip(
+86:        tab.prep_strict_timecodes_cb.setEnabled(False)
+87:        actions.addWidget(tab.prep_strict_timecodes_cb)
+89:        tab.prep_save_btn = QPushButton("Enregistrer")
+90:        tab.prep_save_btn.clicked.connect(tab.save_current)
+91:        actions.addWidget(tab.prep_save_btn)
+93:        tab.prep_go_align_btn = QPushButton("Aller à l'alignement")
+94:        tab.prep_go_align_btn.clicked.connect(tab._go_to_alignement)  # noqa: SLF001
+95:        actions.addWidget(tab.prep_go_align_btn)
+102:        tab.prep_add_utt_btn = QPushButton("Ajouter ligne")
+103:        tab.prep_add_utt_btn.clicked.connect(tab._add_utterance_row_below)  # noqa: SLF001
+104:        utterance_actions.addWidget(tab.prep_add_utt_btn)
+106:        tab.prep_delete_utt_btn = QPushButton("Supprimer ligne")
+107:        tab.prep_delete_utt_btn.clicked.connect(tab._delete_selected_utterance_rows)  # noqa: SLF001
+108:        utterance_actions.addWidget(tab.prep_delete_utt_btn)
+110:        tab.prep_merge_utt_btn = QPushButton("Fusionner")
+111:        tab.prep_merge_utt_btn.clicked.connect(tab._merge_selected_utterances)  # noqa: SLF001
+112:        utterance_actions.addWidget(tab.prep_merge_utt_btn)
+114:        tab.prep_split_utt_btn = QPushButton("Scinder au curseur")
+115:        tab.prep_split_utt_btn.clicked.connect(tab._split_selected_utterance_at_cursor)  # noqa: SLF001
+116:        utterance_actions.addWidget(tab.prep_split_utt_btn)
+118:        tab.prep_group_utt_btn = QPushButton("Regrouper par assignations")
+119:        tab.prep_group_utt_btn.clicked.connect(tab._group_utterances_by_assignments)  # noqa: SLF001
+120:        utterance_actions.addWidget(tab.prep_group_utt_btn)
+122:        tab.prep_renumber_utt_btn = QPushButton("Renuméroter")
+123:        tab.prep_renumber_utt_btn.clicked.connect(tab._renumber_utterances)  # noqa: SLF001
+124:        utterance_actions.addWidget(tab.prep_renumber_utt_btn)
+126:        tab.prep_reset_utt_btn = QPushButton("Revenir au texte")
+127:        tab.prep_reset_utt_btn.clicked.connect(tab._reset_utterances_to_text)  # noqa: SLF001
+128:        utterance_actions.addWidget(tab.prep_reset_utt_btn)

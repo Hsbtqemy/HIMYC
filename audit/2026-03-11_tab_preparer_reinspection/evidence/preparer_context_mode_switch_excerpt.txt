@@ -1,0 +1,27 @@
+﻿ 177:         tab._updating_ui = True
+ 178:         try:
+ 179:             if source_key == "transcript":
+ 180:                 text = data.get("text") or ""
+ 181:                 utterances = data.get("utterances") or []
+ 182:                 tab._set_text(text)
+ 183:                 tab._set_utterances(utterances)
+ 184:                 tab._set_cues([])
+ 185:                 tab.stack.setCurrentWidget(tab.utterance_table if utterances else tab.text_editor)
+ 186:                 tab.prep_normalize_btn.setEnabled(True)
+ 187:                 tab.prep_segment_btn.setEnabled(True)
+ 188:                 tab.prep_edit_timecodes_cb.setEnabled(False)
+ 189:                 tab.prep_strict_timecodes_cb.setEnabled(False)
+ 190:             else:
+ 191:                 cues = data.get("cues") or []
+ 192:                 lang = data.get("lang") or source_key.replace("srt_", "", 1)
+ 193:                 tab._set_text("")
+ 194:                 tab._set_utterances([])
+ 195:                 tab._set_cues(cues, episode_id=episode_id, lang=lang)
+ 196:                 tab.stack.setCurrentWidget(tab.cue_table)
+ 197:                 tab.prep_normalize_btn.setEnabled(False)
+ 198:                 tab.prep_segment_btn.setEnabled(False)
+ 199:                 tab.prep_edit_timecodes_cb.setEnabled(True)
+ 200:                 tab._apply_cue_timecode_editability()
+ 201:                 tab.prep_strict_timecodes_cb.setEnabled(tab.prep_edit_timecodes_cb.isChecked())
+ 202:         finally:
+ 203:             tab._updating_ui = False

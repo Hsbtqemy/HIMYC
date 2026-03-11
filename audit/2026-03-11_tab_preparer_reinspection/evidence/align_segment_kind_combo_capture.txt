@@ -1,0 +1,12 @@
+﻿70:        self.align_segment_kind_combo = QComboBox()
+71:        self.align_segment_kind_combo.addItem("Phrases", "sentence")
+72:        self.align_segment_kind_combo.addItem("Tours", "utterance")
+73:        self.align_segment_kind_combo.setToolTip(
+76:        row.addWidget(self.align_segment_kind_combo)
+216:                self.align_episode_combo.addItem(f"{e.episode_id} - {e.title}", e.episode_id)
+227:        idx_sk = self.align_segment_kind_combo.findData(sk)
+229:            self.align_segment_kind_combo.setCurrentIndex(idx_sk)
+270:            self.align_pivot_lang_combo.addItem(lang.upper(), lang)
+287:        self.align_target_lang_combo.addItem("Aucune", "")
+289:            self.align_target_lang_combo.addItem(lang.upper(), lang)
+325:            self.align_run_combo.addItem(f"{run_id}{segment_kind_label} ({created})", run_id)

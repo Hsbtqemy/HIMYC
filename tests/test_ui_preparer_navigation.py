@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QHeaderView,
     QLineEdit,
     QMessageBox,
     QStyleOptionViewItem,
@@ -101,6 +102,80 @@ def test_navigation_handoff_episode_and_segment_kind(main_window_with_project: M
     assert win.alignment_tab.align_segment_kind_combo.currentData() == "utterance"
 
 
+def test_preparer_go_to_alignement_uses_utterance_when_transcript_rows_present(
+    main_window_with_project: MainWindow,
+) -> None:
+    win = main_window_with_project
+    win.open_preparer_for_episode("S01E01", source="transcript")
+    win.preparer_tab._set_utterances(  # noqa: SLF001 - test ciblé handoff
+        [
+            {
+                "episode_id": "S01E01",
+                "kind": "utterance",
+                "n": 0,
+                "text": "Hi",
+                "speaker_explicit": "TED",
+            }
+        ]
+    )
+
+    called: dict[str, str] = {}
+    win.preparer_tab._on_go_alignement = lambda episode_id, segment_kind: called.update(  # noqa: SLF001
+        {"episode_id": episode_id, "segment_kind": segment_kind}
+    )
+
+    win.preparer_tab._go_to_alignement()
+    assert called == {"episode_id": "S01E01", "segment_kind": "utterance"}
+
+
+def test_preparer_go_to_alignement_prefers_existing_utterances_from_srt_source(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    win = main_window_with_project
+    db = win._db
+    assert db is not None
+
+    db.add_track("S01E01:en", "S01E01", "en", "srt")
+    db.upsert_cues(
+        "S01E01:en",
+        "S01E01",
+        "en",
+        [
+            Cue(
+                episode_id="S01E01",
+                lang="en",
+                n=0,
+                start_ms=1000,
+                end_ms=1800,
+                text_raw="Hi",
+                text_clean="Hi",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        db,
+        "get_segments_for_episode",
+        lambda episode_id, kind=None: (
+            [{"episode_id": episode_id, "kind": "utterance", "text": "Hi"}]
+            if episode_id == "S01E01" and kind == "utterance"
+            else []
+        ),
+    )
+
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="srt_en")
+    assert win.preparer_tab.prep_source_combo.currentData() == "srt_en"
+
+    called: dict[str, str] = {}
+    win.preparer_tab._on_go_alignement = lambda episode_id, segment_kind: called.update(  # noqa: SLF001
+        {"episode_id": episode_id, "segment_kind": segment_kind}
+    )
+    win.preparer_tab._go_to_alignement()
+
+    assert called == {"episode_id": "S01E01", "segment_kind": "utterance"}
+
+
 def test_preparer_can_open_srt_source_when_track_exists(main_window_with_project: MainWindow) -> None:
     win = main_window_with_project
     db = win._db
@@ -128,6 +203,120 @@ def test_preparer_can_open_srt_source_when_track_exists(main_window_with_project
     assert win.tabs.currentIndex() == TAB_PREPARER
     assert win.preparer_tab.prep_source_combo.currentData() == "srt_en"
     assert win.preparer_tab.cue_table.rowCount() == 1
+
+
+def test_preparer_tab_switch_keeps_current_episode_and_source(main_window_with_project: MainWindow) -> None:
+    win = main_window_with_project
+    db = win._db
+    assert db is not None
+    db.add_track("S01E01:en", "S01E01", "en", "srt")
+    db.upsert_cues(
+        "S01E01:en",
+        "S01E01",
+        "en",
+        [
+            Cue(
+                episode_id="S01E01",
+                lang="en",
+                n=0,
+                start_ms=1000,
+                end_ms=1800,
+                text_raw="Hi",
+                text_clean="Hi",
+            )
+        ],
+    )
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="srt_en")
+    assert win.tabs.currentIndex() == TAB_PREPARER
+    assert win.preparer_tab.prep_episode_combo.currentData() == "S01E01"
+    assert win.preparer_tab.prep_source_combo.currentData() == "srt_en"
+    assert win.preparer_tab.cue_table.rowCount() == 1
+
+    win.tabs.setCurrentIndex(TAB_INSPECTEUR)
+    assert win.tabs.currentIndex() == TAB_INSPECTEUR
+    win.tabs.setCurrentIndex(TAB_PREPARER)
+
+    assert win.tabs.currentIndex() == TAB_PREPARER
+    assert win.preparer_tab.prep_episode_combo.currentData() == "S01E01"
+    assert win.preparer_tab.prep_source_combo.currentData() == "srt_en"
+    assert win.preparer_tab.cue_table.rowCount() == 1
+    text_item = win.preparer_tab.cue_table.item(0, 4)
+    assert text_item is not None
+    assert text_item.text() == "Hi"
+
+    win.tabs.setCurrentIndex(TAB_ALIGNEMENT)
+    assert win.tabs.currentIndex() == TAB_ALIGNEMENT
+    win.tabs.setCurrentIndex(TAB_PREPARER)
+
+    assert win.tabs.currentIndex() == TAB_PREPARER
+    assert win.preparer_tab.prep_episode_combo.currentData() == "S01E01"
+    assert win.preparer_tab.prep_source_combo.currentData() == "srt_en"
+    assert win.preparer_tab.cue_table.rowCount() == 1
+
+
+def test_preparer_tables_resize_with_multiline_content(main_window_with_project: MainWindow) -> None:
+    win = main_window_with_project
+    db = win._db
+    assert db is not None
+    db.upsert_segments(
+        "S01E01",
+        "utterance",
+        [
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=0,
+                start_char=0,
+                end_char=5,
+                text="Hello",
+                speaker_explicit="TED",
+            )
+        ],
+    )
+    db.add_track("S01E01:en", "S01E01", "en", "srt")
+    db.upsert_cues(
+        "S01E01:en",
+        "S01E01",
+        "en",
+        [
+            Cue(
+                episode_id="S01E01",
+                lang="en",
+                n=0,
+                start_ms=1000,
+                end_ms=1800,
+                text_raw="Hi",
+                text_clean="Hi",
+            )
+        ],
+    )
+
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="transcript")
+    utter_table = win.preparer_tab.utterance_table
+
+    assert utter_table.horizontalHeader().sectionResizeMode(2) == QHeaderView.ResizeMode.Stretch
+    assert utter_table.verticalHeader().sectionResizeMode(0) == QHeaderView.ResizeMode.ResizeToContents
+
+    utter_initial = utter_table.rowHeight(0)
+    win.preparer_tab._apply_table_cell_value(utter_table, 0, 2, "Hello\nthere")
+    QApplication.processEvents()
+    utter_after = utter_table.rowHeight(0)
+    assert utter_after > utter_initial
+
+    win.preparer_tab._set_dirty(False)
+    win.open_preparer_for_episode("S01E01", source="srt_en")
+    cue_table = win.preparer_tab.cue_table
+    assert cue_table.horizontalHeader().sectionResizeMode(4) == QHeaderView.ResizeMode.Stretch
+    assert cue_table.verticalHeader().sectionResizeMode(0) == QHeaderView.ResizeMode.ResizeToContents
+
+    cue_initial = cue_table.rowHeight(0)
+    win.preparer_tab._apply_table_cell_value(cue_table, 0, 4, "Line 1\nLine 2")
+    QApplication.processEvents()
+    cue_after = cue_table.rowHeight(0)
+    assert cue_after > cue_initial
+    win.preparer_tab._set_dirty(False)
 
 
 def test_preparer_srt_timecode_edit_persists_to_db(main_window_with_project: MainWindow) -> None:
@@ -1078,6 +1267,71 @@ def test_preparer_split_selected_utterance_uses_cursor_position(
     win.preparer_tab._set_dirty(False)
 
 
+def test_preparer_renumber_utterances_updates_number_column_and_supports_undo(
+    main_window_with_project: MainWindow,
+) -> None:
+    win = main_window_with_project
+    db = win._db
+    assert db is not None
+    db.upsert_segments(
+        "S01E01",
+        "utterance",
+        [
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=7,
+                start_char=0,
+                end_char=2,
+                text="A",
+                speaker_explicit="TED",
+            ),
+            Segment(
+                episode_id="S01E01",
+                kind="utterance",
+                n=9,
+                start_char=3,
+                end_char=5,
+                text="B",
+                speaker_explicit="ROBIN",
+            ),
+        ],
+    )
+    win._refresh_preparer(force=True)
+    win.open_preparer_for_episode("S01E01", source="transcript")
+
+    table = win.preparer_tab.utterance_table
+    first_before = table.item(0, 0)
+    second_before = table.item(1, 0)
+    assert first_before is not None and second_before is not None
+    assert first_before.text() == "7"
+    assert second_before.text() == "9"
+
+    win.preparer_tab._renumber_utterances()
+    first_after = table.item(0, 0)
+    second_after = table.item(1, 0)
+    assert first_after is not None and second_after is not None
+    assert first_after.text() == "0"
+    assert second_after.text() == "1"
+    assert win.preparer_tab.has_unsaved_changes()
+
+    assert win.undo_stack is not None
+    win.undo_stack.undo()
+    first_undo = table.item(0, 0)
+    second_undo = table.item(1, 0)
+    assert first_undo is not None and second_undo is not None
+    assert first_undo.text() == "7"
+    assert second_undo.text() == "9"
+
+    win.undo_stack.redo()
+    first_redo = table.item(0, 0)
+    second_redo = table.item(1, 0)
+    assert first_redo is not None and second_redo is not None
+    assert first_redo.text() == "0"
+    assert second_redo.text() == "1"
+    win.preparer_tab._set_dirty(False)
+
+
 def test_preparer_group_utterances_by_assignments_tolerant_mode(main_window_with_project: MainWindow) -> None:
     win = main_window_with_project
     store = win._store
@@ -1640,3 +1894,36 @@ def test_preparer_source_combo_includes_project_languages(main_window_with_proje
     win.open_preparer_for_episode("S01E01", source="srt_es")
     assert win.preparer_tab.prep_source_combo.currentData() == "srt_es"
     assert win.preparer_tab.cue_table.rowCount() == 1
+
+
+def test_refresh_language_combos_updates_multilang_tabs(main_window_with_project: MainWindow) -> None:
+    win = main_window_with_project
+    store = win._store
+    assert store is not None
+
+    store.save_project_languages(["en", "fr", "es"])
+    win._refresh_language_combos()
+
+    subs_langs = {
+        win.inspector_tab.subtitles_tab.subs_lang_combo.itemText(i)
+        for i in range(win.inspector_tab.subtitles_tab.subs_lang_combo.count())
+    }
+    assert "es" in subs_langs
+
+    prep_source_keys = {
+        win.preparer_tab.prep_source_combo.itemData(i)
+        for i in range(win.preparer_tab.prep_source_combo.count())
+    }
+    assert "srt_es" in prep_source_keys
+
+    personnages_source_keys = {
+        win.personnages_tab.personnages_source_combo.itemData(i)
+        for i in range(win.personnages_tab.personnages_source_combo.count())
+    }
+    assert "cues_es" in personnages_source_keys
+
+    align_pivot_langs = {
+        win.alignment_tab.align_pivot_lang_combo.itemData(i)
+        for i in range(win.alignment_tab.align_pivot_lang_combo.count())
+    }
+    assert "es" in align_pivot_langs

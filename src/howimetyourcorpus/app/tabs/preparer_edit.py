@@ -196,6 +196,23 @@ class PreparerEditController:
             tab._updating_ui = False
         tab._set_dirty(mark_dirty)
 
+    def _replace_utterance_rows_exact(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        mark_dirty: bool,
+    ) -> None:
+        """Applique les lignes telles quelles (dont la colonne n), sans renumérotation implicite."""
+        tab = self._tab
+        tab._updating_ui = True
+        try:
+            tab._set_utterances(rows)
+            tab.stack.setCurrentWidget(tab.utterance_table)
+            tab._update_utterance_action_states()
+        finally:
+            tab._updating_ui = False
+        tab._set_dirty(mark_dirty)
+
     def _apply_utterance_rows_with_undo(
         self,
         *,
@@ -524,16 +541,32 @@ class PreparerEditController:
             return
         before_rows = tab._export_utterance_rows()
         after_rows = []
+        changed = False
         for idx, row in enumerate(before_rows):
             updated = dict(row)
+            try:
+                previous_n = int(updated.get("n", idx))
+            except (TypeError, ValueError):
+                previous_n = idx
+            if previous_n != idx:
+                changed = True
             updated["n"] = idx
             after_rows.append(updated)
-        self._apply_utterance_rows_with_undo(
-            title="Renuméroter tours",
-            before_rows=before_rows,
-            after_rows=after_rows,
-            status_message="Renumérotation appliquée.",
-        )
+        if not changed:
+            tab._show_status("Renumérotation déjà à jour.", 2500)
+            return
+
+        if tab.undo_stack:
+            tab.undo_stack.push(
+                CallbackUndoCommand(
+                    "Renuméroter tours",
+                    redo_callback=lambda rows=after_rows: self._replace_utterance_rows_exact(rows, mark_dirty=True),
+                    undo_callback=lambda rows=before_rows: self._replace_utterance_rows_exact(rows, mark_dirty=True),
+                )
+            )
+        else:
+            self._replace_utterance_rows_exact(after_rows, mark_dirty=True)
+        tab._show_status("Renumérotation appliquée.", 3000)
 
     def reset_utterances_to_text(self) -> None:
         tab = self._tab

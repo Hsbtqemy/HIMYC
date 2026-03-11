@@ -1,0 +1,19 @@
+﻿13:    "merge_if_prev_ends_with_marker": True,
+14:    "attach_unmarked_to_previous": False,
+42:        "merge_if_prev_ends_with_marker": bool(
+44:                "merge_if_prev_ends_with_marker",
+45:                DEFAULT_SEGMENTATION_OPTIONS["merge_if_prev_ends_with_marker"],
+48:        "attach_unmarked_to_previous": bool(
+49:            source.get("attach_unmarked_to_previous", DEFAULT_SEGMENTATION_OPTIONS["attach_unmarked_to_previous"])
+74:def segment_text_to_utterance_rows(text: str, options: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+87:    merge_if_marker = normalized["merge_if_prev_ends_with_marker"]
+88:    attach_unmarked = normalized["attach_unmarked_to_previous"]
+130:def regroup_utterance_rows_by_character(
+135:    tolerant: bool = True,
+152:        assigned_id = assignment_map.get(segment_id, "") if segment_id else ""
+153:        explicit_id = character_lookup.get(speaker.lower(), "") if speaker else ""
+154:        if assigned_id:
+155:            current_id = assigned_id
+156:        elif explicit_id:
+157:            current_id = explicit_id
+172:                if tolerant and active_character_id is not None:
