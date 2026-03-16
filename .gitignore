@@ -38,3 +38,7 @@ Essai/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Audit binary artifacts (release downloads)
+audit/**/artifacts/*.exe
+audit/**/artifacts/*.app.zip
