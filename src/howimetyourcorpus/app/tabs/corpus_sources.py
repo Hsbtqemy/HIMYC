@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
-from howimetyourcorpus.core.pipeline.tasks import FetchAndMergeSeriesIndexStep
+from howimetyourcorpus.core.pipeline.tasks import FetchAndMergeSeriesIndexStep, ImportSubtitlesStep
 
 
 class CorpusSourcesController:
@@ -158,15 +158,28 @@ class CorpusSourcesController:
             tab._on_open_inspector(sorted(ids)[0])
 
     @staticmethod
-    def _detect_srt_files(folder_path: Path) -> list[tuple[str, Path]]:
-        detected: list[tuple[str, Path]] = []
-        srt_files = list(folder_path.glob("*.srt")) + list(folder_path.glob("**/*.srt"))
-        for srt_file in srt_files:
+    def _detect_lang_from_stem(stem: str) -> str | None:
+        """Detect a trailing language code in filename stem (e.g. _fr, .en)."""
+        mm = re.search(r"(?i)(?:^|[_\-.])([a-z]{2})$", stem.strip())
+        if not mm:
+            return None
+        return mm.group(1).lower()
+
+    @classmethod
+    def _detect_srt_files(cls, folder_path: Path) -> list[tuple[str, str | None, Path]]:
+        detected: list[tuple[str, str | None, Path]] = []
+        seen: set[str] = set()
+        for srt_file in sorted(folder_path.rglob("*.srt")):
+            key = str(srt_file.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
             match = re.search(r"S(\d+)E(\d+)", srt_file.stem, re.IGNORECASE)
             if not match:
                 continue
             episode_id = f"S{int(match.group(1)):02d}E{int(match.group(2)):02d}"
-            detected.append((episode_id, srt_file))
+            lang = cls._detect_lang_from_stem(srt_file.stem)
+            detected.append((episode_id, lang, srt_file))
         return detected
 
     def import_srt_batch(self) -> None:
@@ -191,7 +204,12 @@ class CorpusSourcesController:
             )
             return
 
-        recap = "\n".join([f"• {episode_id} ← {path.name}" for episode_id, path in detected[:10]])
+        recap = "\n".join(
+            [
+                f"• {episode_id} [{(lang or '?').upper()}] ← {path.name}"
+                for episode_id, lang, path in detected[:10]
+            ]
+        )
         if len(detected) > 10:
             recap += f"\n... et {len(detected) - 10} autres"
         reply = QMessageBox.question(
@@ -205,11 +223,48 @@ class CorpusSourcesController:
         if reply != QMessageBox.StandardButton.Yes:
             return
 
+        langs_raw = store.load_project_languages() if hasattr(store, "load_project_languages") else ["en", "fr"]
+        langs: list[str] = []
+        for value in langs_raw or []:
+            normalized = str(value or "").strip().lower()
+            if normalized and normalized not in langs:
+                langs.append(normalized)
+        if not langs:
+            langs = ["en", "fr"]
+        default_lang = "en" if "en" in langs else langs[0]
+
+        missing_lang_count = sum(1 for _episode_id, lang, _path in detected if not lang)
+        if missing_lang_count:
+            answer = QMessageBox.question(
+                tab,
+                "Import batch",
+                f"{missing_lang_count} fichier(s) sans langue detectee.\n"
+                f"Ils seront importes avec la langue par defaut: {default_lang.upper()}.\n\n"
+                "Continuer ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
+        import_by_pair: dict[tuple[str, str], Path] = {}
+        for episode_id, lang, path in detected:
+            resolved_lang = (lang or default_lang).lower()
+            import_by_pair[(episode_id, resolved_lang)] = path
+
+        steps = [
+            ImportSubtitlesStep(episode_id, lang, str(path))
+            for (episode_id, lang), path in sorted(import_by_pair.items())
+        ]
+        if not steps:
+            QMessageBox.information(tab, "Import batch", "Aucun fichier valide a importer.")
+            return
+
         index = store.load_series_index()
         existing_ids = {episode.episode_id for episode in (index.episodes or [])} if index else set()
         episodes = list(index.episodes or []) if index else []
         new_episodes: list[str] = []
-        for episode_id, _ in detected:
+        for episode_id, _lang in import_by_pair:
             if episode_id in existing_ids:
                 continue
             match = re.match(r"S(\d+)E(\d+)", episode_id)
@@ -226,7 +281,6 @@ class CorpusSourcesController:
             )
             existing_ids.add(episode_id)
             new_episodes.append(episode_id)
-
         if new_episodes:
             store.save_series_index(
                 SeriesIndex(
@@ -236,15 +290,16 @@ class CorpusSourcesController:
                 )
             )
 
+        tab._run_job(steps)
+        tab._show_status(f"Import batch lance : {len(steps)} fichier(s).", 5000)
         QMessageBox.information(
             tab,
             "Import batch",
-            f"✅ Détection terminée !\n\n"
-            f"• {len(detected)} fichier(s) .srt détecté(s)\n"
-            f"• {len(new_episodes)} nouvel(aux) épisode(s) créé(s)\n\n"
-            "Pour terminer l'import, accédez à l'onglet Inspecteur pour chaque épisode "
-            "et importez manuellement les pistes de sous-titres.\n\n"
-            "💡 Une fonctionnalité d'import automatique complet sera ajoutée prochainement.",
+            f"✅ Import lance !\n\n"
+            f"• {len(detected)} fichier(s) .srt detecte(s)\n"
+            f"• {len(steps)} import(s) effectif(s) (episode+langue)\n"
+            f"• {len(new_episodes)} nouvel(aux) episode(s) cree(s)\n\n"
+            "Les pistes sont importees en base via le pipeline (jobs asynchrones).",
         )
         tab.refresh()
         tab._refresh_after_episodes_added()
