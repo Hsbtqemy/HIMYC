@@ -1,0 +1,7 @@
+﻿build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3938300Z   files: dist/HowIMetYourCorpus.app
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.7698470Z 🤔 Pattern 'dist/HowIMetYourCorpus.app' does not match any files.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:47.2203090Z 🤔 dist/HowIMetYourCorpus.app does not include a valid file.
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.0431443Z 107793 INFO: Copying bootloader EXE to D:\a\HIMYC\HIMYC\dist\HowIMetYourCorpus.exe
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.6939042Z   files: dist/HowIMetYourCorpus.exe
+build-windows	UNKNOWN STEP	2026-03-11T17:20:41.6455818Z ⬆️ Uploading HowIMetYourCorpus.exe...
+build-windows	UNKNOWN STEP	2026-03-11T17:20:45.6496690Z ✅ Uploaded HowIMetYourCorpus.exe

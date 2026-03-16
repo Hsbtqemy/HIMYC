@@ -36,6 +36,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/HowIMetYourCorpus.exe
+          fail_on_unmatched_files: true
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,11 +66,29 @@ jobs:
         run: |
           pyinstaller --noconfirm HowIMetYourCorpus.spec
 
-      - name: Upload .app to Release
+      - name: Package .app
+        run: |
+          set -euo pipefail
+          app_path="$(find dist -maxdepth 1 -type d -name '*.app' | head -n 1 || true)"
+          if [ -z "$app_path" ]; then
+            app_path="$(find dist -maxdepth 1 -type d -name 'HowIMetYourCorpus*' | head -n 1 || true)"
+          fi
+          if [ -z "$app_path" ]; then
+            echo "No app bundle found in dist/"
+            ls -la dist || true
+            exit 1
+          fi
+          zip_path="dist/HowIMetYourCorpus-macos.app.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "$zip_path"
+          echo "APP_PATH=$app_path" >> "$GITHUB_ENV"
+          echo "ZIP_PATH=$zip_path" >> "$GITHUB_ENV"
+
+      - name: Upload .app zip to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: dist/HowIMetYourCorpus.app
+          files: ${{ env.ZIP_PATH }}
+          fail_on_unmatched_files: true
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

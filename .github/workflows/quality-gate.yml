@@ -1,0 +1,44 @@
+name: Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  quality-gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[align]"
+          pip install pytest pytest-cov
+
+      - name: Run quality gate (pytest + coverage)
+        shell: pwsh
+        run: |
+          python scripts/quality_gate.py --coverage-min 70 --output-dir doc/audit/latest_quality_gate
+
+      - name: Run checklist E2E assist (targeted)
+        shell: pwsh
+        run: |
+          python scripts/e2e_checklist_assist.py --skip-precheck --output-dir doc/audit/latest_checklist_e2e_assist
+
+      - name: Upload quality-gate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-gate-artifacts
+          path: |
+            doc/audit/latest_quality_gate/**
+            doc/audit/latest_checklist_e2e_assist/**

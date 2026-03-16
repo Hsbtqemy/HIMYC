@@ -1,0 +1,528 @@
+﻿build-macos	UNKNOWN STEP	﻿2026-03-11T17:17:33.3592190Z Current runner version: '2.332.0'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3607430Z ##[group]Runner Image Provisioner
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3607930Z Hosted Compute Agent
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3608280Z Version: 20260213.493
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3608650Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3609090Z Build Date: 2026-02-13T00:28:41Z
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3609500Z Worker ID: {871cf954-b19c-4f13-ab5a-a6da74492d96}
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3609930Z Azure Region: westus
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3610260Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3611080Z ##[group]Operating System
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3611430Z macOS
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3611740Z 15.7.4
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3612020Z 24G517
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3612310Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3612600Z ##[group]Runner Image
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3612930Z Image: macos-15-arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3613250Z Version: 20260303.0188.2
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3614020Z Included Software: https://github.com/actions/runner-images/blob/macos-15-arm64/20260303.0188/images/macos/macos-15-arm64-Readme.md
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3614980Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15-arm64%2F20260303.0188
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3615570Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3616270Z ##[group]GITHUB_TOKEN Permissions
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3617270Z Contents: write
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3617580Z Metadata: read
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3619100Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3620530Z Secret source: Actions
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3621010Z Prepare workflow directory
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3948460Z Prepare all required actions
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.3976060Z Getting action download info
+build-macos	UNKNOWN STEP	2026-03-11T17:17:33.7704350Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:34.0093190Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:34.1513990Z Download action repository 'softprops/action-gh-release@v2' (SHA:a06a81a03ee405af7f2048a818ed3f03bbf83c7b)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.6576670Z Complete job name: build-macos
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7025660Z ##[group]Run actions/checkout@v4
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7026220Z with:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7026530Z   repository: Hsbtqemy/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7027100Z   token: ***
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7027390Z   ssh-strict: true
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7027690Z   ssh-user: git
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7028000Z   persist-credentials: true
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7028500Z   clean: true
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7028810Z   sparse-checkout-cone-mode: true
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7029180Z   fetch-depth: 1
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7029470Z   fetch-tags: false
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7029780Z   show-progress: true
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7030100Z   lfs: false
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7030400Z   submodules: false
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7030830Z   set-safe-directory: true
+build-macos	UNKNOWN STEP	2026-03-11T17:17:35.7031290Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0091920Z Syncing repository: Hsbtqemy/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0093350Z ##[group]Getting Git version info
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0093800Z Working directory is '/Users/runner/work/HIMYC/HIMYC'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0094690Z [command]/opt/homebrew/bin/git version
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0528420Z git version 2.53.0
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0585520Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0595720Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/b3ace9c4-7b75-4ed3-b637-acef88cf9f46/.gitconfig'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0598990Z Temporarily overriding HOME='/Users/runner/work/_temp/b3ace9c4-7b75-4ed3-b637-acef88cf9f46' before making global git config changes
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0606440Z Adding repository directory to the temporary git global config as a safe directory
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0652150Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/HIMYC/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0761140Z Deleting the contents of '/Users/runner/work/HIMYC/HIMYC'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0768410Z ##[group]Initializing the repository
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.0777900Z [command]/opt/homebrew/bin/git init /Users/runner/work/HIMYC/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1091210Z hint: Using 'master' as the name for the initial branch. This default branch name
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1099430Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1101740Z hint: to use in all of your new repositories, which will suppress this warning,
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1103470Z hint: call:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1104450Z hint:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1105690Z hint: 	git config --global init.defaultBranch <name>
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1108090Z hint:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1109470Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1111970Z hint: 'development'. The just-created branch can be renamed via this command:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1113600Z hint:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1114650Z hint: 	git branch -m <name>
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1115650Z hint:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1117560Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1119820Z Initialized empty Git repository in /Users/runner/work/HIMYC/HIMYC/.git/
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1140500Z [command]/opt/homebrew/bin/git remote add origin https://github.com/Hsbtqemy/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1219470Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1222210Z ##[group]Disabling automatic garbage collection
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1224150Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1277210Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1279000Z ##[group]Setting up auth
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1281240Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.1354080Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.2946160Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.2981120Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.3930990Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.3940650Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.5314430Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.5492160Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.5493510Z ##[group]Fetching the repository
+build-macos	UNKNOWN STEP	2026-03-11T17:17:36.5500140Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e64a3ce3cdcfd8b2c440d1accf92512f522ad001:refs/tags/v0.6.7
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.2938290Z From https://github.com/Hsbtqemy/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.2939640Z  * [new ref]         e64a3ce3cdcfd8b2c440d1accf92512f522ad001 -> v0.6.7
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.3043000Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.3044720Z ##[group]Determining the checkout info
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.3046010Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.3047000Z [command]/opt/homebrew/bin/git sparse-checkout disable
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.3201800Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.3300540Z ##[group]Checking out the ref
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.3308040Z [command]/opt/homebrew/bin/git checkout --progress --force refs/tags/v0.6.7
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.4953880Z HEAD is now at e64a3ce preparer: fix renumbering and auto-resize tables with audit evidence
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.4961150Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5057960Z [command]/opt/homebrew/bin/git log -1 --format=%H
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5129340Z e64a3ce3cdcfd8b2c440d1accf92512f522ad001
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5384830Z ##[group]Run actions/setup-python@v5
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5385300Z with:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5385510Z   python-version: 3.12
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5385720Z   check-latest: false
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5386570Z   token: ***
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5386780Z   update-environment: true
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5387000Z   allow-prereleases: false
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5387200Z   freethreaded: false
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.5387380Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7216150Z ##[group]Installed versions
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7309080Z Successfully set up CPython (3.12.10)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7319460Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7396620Z ##[group]Run chmod +x scripts/macos/make_icns.sh
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7397040Z [36;1mchmod +x scripts/macos/make_icns.sh[0m
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7397320Z [36;1m./scripts/macos/make_icns.sh[0m
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7473190Z shell: /bin/bash -e {0}
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7473850Z env:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7474620Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7475780Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/arm64/lib/pkgconfig
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7476940Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7478070Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7479280Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.7480120Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.8712760Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.8718050Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_16x16.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.9110710Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.9118220Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_16x16@2x.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.9607270Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.9611760Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_32x32.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.9923330Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:39.9925520Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_32x32@2x.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.0194530Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.0209470Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_64x64.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.0593200Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.0695440Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_64x64@2x.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.0978290Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.0981130Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_128x128.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.1416570Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.1425540Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_128x128@2x.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.1827580Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.1833580Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_256x256.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.2067510Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.2069730Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_256x256@2x.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.2266130Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.2276220Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_512x512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.2878890Z /Users/runner/work/HIMYC/HIMYC/resources/icons/icon_512.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.2882380Z   /Users/runner/work/HIMYC/HIMYC/resources/icons/HowIMetYourCorpus.iconset/icon_512x512@2x.png
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4381540Z OK: /Users/runner/work/HIMYC/HIMYC/resources/icons/icon.icns
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4469080Z ##[group]Run python -m pip install --upgrade pip
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4469430Z [36;1mpython -m pip install --upgrade pip[0m
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4469680Z [36;1mpip install -e ".[align]"[0m
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4470150Z [36;1mpip install pyinstaller[0m
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4531260Z shell: /bin/bash -e {0}
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4531780Z env:
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4532380Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4547630Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/arm64/lib/pkgconfig
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4549950Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4550950Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4552850Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:17:40.4553590Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:17:41.9707360Z Requirement already satisfied: pip in /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages (26.0.1)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:42.4953070Z Obtaining file:///Users/runner/work/HIMYC/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:17:42.4986710Z   Installing build dependencies: started
+build-macos	UNKNOWN STEP	2026-03-11T17:17:43.3686790Z   Installing build dependencies: finished with status 'done'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:43.3696900Z   Checking if build backend supports build_editable: started
+build-macos	UNKNOWN STEP	2026-03-11T17:17:43.6143090Z   Checking if build backend supports build_editable: finished with status 'done'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:43.6153900Z   Getting requirements to build editable: started
+build-macos	UNKNOWN STEP	2026-03-11T17:17:43.9257400Z   Getting requirements to build editable: finished with status 'done'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:43.9268210Z   Preparing editable metadata (pyproject.toml): started
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.1386030Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.2180780Z Collecting PySide6>=6.5 (from HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.2538610Z   Downloading pyside6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl.metadata (5.3 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.2749400Z Collecting httpx>=0.24 (from HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.2809100Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.3392840Z Collecting beautifulsoup4>=4.12 (from HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.3440390Z   Downloading beautifulsoup4-4.14.3-py3-none-any.whl.metadata (3.8 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.4916920Z Collecting lxml>=4.9 (from HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.5033750Z   Downloading lxml-6.0.2-cp312-cp312-macosx_10_13_universal2.whl.metadata (3.6 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.5452560Z Collecting python-docx>=1.0 (from HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.5578050Z   Downloading python_docx-1.2.0-py3-none-any.whl.metadata (2.0 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.6441700Z Collecting matplotlib>=3.5 (from HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:44.6525650Z   Downloading matplotlib-3.10.8-cp312-cp312-macosx_11_0_arm64.whl.metadata (52 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.0625140Z Collecting rapidfuzz>=3.0 (from HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.0690650Z   Downloading rapidfuzz-3.14.3-cp312-cp312-macosx_11_0_arm64.whl.metadata (12 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.0961610Z Collecting soupsieve>=1.6.1 (from beautifulsoup4>=4.12->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1021700Z   Downloading soupsieve-2.8.3-py3-none-any.whl.metadata (4.6 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1239900Z Collecting typing-extensions>=4.0.0 (from beautifulsoup4>=4.12->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1279780Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1515560Z Collecting anyio (from httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1580090Z   Downloading anyio-4.12.1-py3-none-any.whl.metadata (4.3 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1665700Z Requirement already satisfied: certifi in /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages (from httpx>=0.24->HowIMetYourCorpus==0.6.4) (2026.2.25)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1794300Z Collecting httpcore==1.* (from httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.1838270Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.2103920Z Collecting idna (from httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.2154060Z   Downloading idna-3.11-py3-none-any.whl.metadata (8.4 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.2390770Z Collecting h11>=0.16 (from httpcore==1.*->httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.2436070Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.2940550Z Collecting contourpy>=1.0.1 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.2985060Z   Downloading contourpy-1.3.3-cp312-cp312-macosx_11_0_arm64.whl.metadata (5.5 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.3141130Z Collecting cycler>=0.10 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.3189560Z   Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.4077240Z Collecting fonttools>=4.22.0 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.4143340Z   Downloading fonttools-4.62.0-cp312-cp312-macosx_10_13_universal2.whl.metadata (117 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.4705820Z Collecting kiwisolver>=1.3.1 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.4770870Z   Downloading kiwisolver-1.5.0-cp312-cp312-macosx_11_0_arm64.whl.metadata (5.1 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.5959160Z Collecting numpy>=1.23 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.6003550Z   Downloading numpy-2.4.3-cp312-cp312-macosx_14_0_arm64.whl.metadata (6.6 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.6167610Z Collecting packaging>=20.0 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.6194270Z   Using cached packaging-26.0-py3-none-any.whl.metadata (3.3 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.8768590Z Collecting pillow>=8 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.8824870Z   Downloading pillow-12.1.1-cp312-cp312-macosx_11_0_arm64.whl.metadata (8.8 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.9136190Z Collecting pyparsing>=3 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.9186100Z   Downloading pyparsing-3.3.2-py3-none-any.whl.metadata (5.8 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.9340300Z Collecting python-dateutil>=2.7 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.9379320Z   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.9739520Z Collecting shiboken6==6.10.2 (from PySide6>=6.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:45.9829480Z   Downloading shiboken6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl.metadata (2.5 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.0238940Z Collecting PySide6_Essentials==6.10.2 (from PySide6>=6.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.0301020Z   Downloading pyside6_essentials-6.10.2-cp39-abi3-macosx_13_0_universal2.whl.metadata (3.7 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.0554380Z Collecting PySide6_Addons==6.10.2 (from PySide6>=6.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.0610650Z   Downloading pyside6_addons-6.10.2-cp39-abi3-macosx_13_0_universal2.whl.metadata (4.0 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.0818870Z Collecting six>=1.5 (from python-dateutil>=2.7->matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.0868420Z   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.1019690Z Downloading beautifulsoup4-4.14.3-py3-none-any.whl (107 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.1102760Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.1168360Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.1235600Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.1356830Z Downloading lxml-6.0.2-cp312-cp312-macosx_10_13_universal2.whl (8.7 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.2282690Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.7/8.7 MB 98.8 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.2530800Z Downloading matplotlib-3.10.8-cp312-cp312-macosx_11_0_arm64.whl (8.1 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.3590870Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.1/8.1 MB 76.9 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.3685530Z Downloading contourpy-1.3.3-cp312-cp312-macosx_11_0_arm64.whl (273 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.3824390Z Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.3935200Z Downloading fonttools-4.62.0-cp312-cp312-macosx_10_13_universal2.whl (2.9 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.4190580Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.9/2.9 MB 118.6 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.4275430Z Downloading kiwisolver-1.5.0-cp312-cp312-macosx_11_0_arm64.whl (64 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.4401090Z Downloading numpy-2.4.3-cp312-cp312-macosx_14_0_arm64.whl (5.2 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.4948340Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 96.9 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.4988280Z Using cached packaging-26.0-py3-none-any.whl (74 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.5087020Z Downloading pillow-12.1.1-cp312-cp312-macosx_11_0_arm64.whl (4.7 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.5504380Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 114.3 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.5559050Z Downloading pyparsing-3.3.2-py3-none-any.whl (122 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.5811880Z Downloading pyside6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl (563 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.5995330Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 563.2/563.2 kB 17.5 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:46.6056200Z Downloading pyside6_addons-6.10.2-cp39-abi3-macosx_13_0_universal2.whl (322.7 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:49.4575390Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 322.7/322.7 MB 108.4 MB/s  0:00:02
+build-macos	UNKNOWN STEP	2026-03-11T17:17:49.4678530Z Downloading pyside6_essentials-6.10.2-cp39-abi3-macosx_13_0_universal2.whl (105.9 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.1579630Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 105.9/105.9 MB 154.0 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.1851440Z Downloading shiboken6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl (479 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.2352500Z Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.2746710Z Downloading python_docx-1.2.0-py3-none-any.whl (252 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.2997940Z Downloading rapidfuzz-3.14.3-cp312-cp312-macosx_11_0_arm64.whl (1.4 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.3106750Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 120.4 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.3164880Z Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.3283790Z Downloading soupsieve-2.8.3-py3-none-any.whl (37 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.3381000Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.3485070Z Downloading anyio-4.12.1-py3-none-any.whl (113 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.3577700Z Downloading idna-3.11-py3-none-any.whl (71 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.8697950Z Building wheels for collected packages: HowIMetYourCorpus
+build-macos	UNKNOWN STEP	2026-03-11T17:17:50.8730320Z   Building editable for HowIMetYourCorpus (pyproject.toml): started
+build-macos	UNKNOWN STEP	2026-03-11T17:17:51.2169170Z   Building editable for HowIMetYourCorpus (pyproject.toml): finished with status 'done'
+build-macos	UNKNOWN STEP	2026-03-11T17:17:51.2188120Z   Created wheel for HowIMetYourCorpus: filename=howimetyourcorpus-0.6.4-0.editable-py3-none-any.whl size=6397 sha256=ce62ee1281b34aae20f4b9d426132a3f1da1b0f323b54f039a9f293afa48bd03
+build-macos	UNKNOWN STEP	2026-03-11T17:17:51.2191480Z   Stored in directory: /private/var/folders/t5/f77_gwnj6p95qxy9py3fckx00000gn/T/pip-ephem-wheel-cache-jm1llmzx/wheels/85/ad/0e/7df29010610a9d94a4a5d6547aad2123eaf98561b9c1c7a910
+build-macos	UNKNOWN STEP	2026-03-11T17:17:51.2211410Z Successfully built HowIMetYourCorpus
+build-macos	UNKNOWN STEP	2026-03-11T17:17:51.3020020Z Installing collected packages: typing-extensions, soupsieve, six, shiboken6, rapidfuzz, pyparsing, pillow, packaging, numpy, lxml, kiwisolver, idna, h11, fonttools, cycler, python-docx, python-dateutil, PySide6_Essentials, httpcore, contourpy, beautifulsoup4, anyio, PySide6_Addons, matplotlib, httpx, PySide6, HowIMetYourCorpus
+build-macos	UNKNOWN STEP	2026-03-11T17:18:02.4670650Z 
+build-macos	UNKNOWN STEP	2026-03-11T17:18:02.4703560Z Successfully installed HowIMetYourCorpus-0.6.4 PySide6-6.10.2 PySide6_Addons-6.10.2 PySide6_Essentials-6.10.2 anyio-4.12.1 beautifulsoup4-4.14.3 contourpy-1.3.3 cycler-0.12.1 fonttools-4.62.0 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.11 kiwisolver-1.5.0 lxml-6.0.2 matplotlib-3.10.8 numpy-2.4.3 packaging-26.0 pillow-12.1.1 pyparsing-3.3.2 python-dateutil-2.9.0.post0 python-docx-1.2.0 rapidfuzz-3.14.3 shiboken6-6.10.2 six-1.17.0 soupsieve-2.8.3 typing-extensions-4.15.0
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.5953480Z Collecting pyinstaller
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6250830Z   Downloading pyinstaller-6.19.0-py3-none-macosx_10_13_universal2.whl.metadata (8.5 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6432500Z Collecting altgraph (from pyinstaller)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6481550Z   Downloading altgraph-0.17.5-py2.py3-none-any.whl.metadata (7.5 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6620780Z Collecting macholib>=1.8 (from pyinstaller)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6664290Z   Downloading macholib-1.16.4-py2.py3-none-any.whl.metadata (12 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6729240Z Requirement already satisfied: packaging>=22.0 in /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages (from pyinstaller) (26.0)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6868340Z Collecting pyinstaller-hooks-contrib>=2026.0 (from pyinstaller)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.6901970Z   Downloading pyinstaller_hooks_contrib-2026.3-py3-none-any.whl.metadata (16 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.7605880Z Collecting setuptools>=42.0.0 (from pyinstaller)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.7618560Z   Using cached setuptools-82.0.1-py3-none-any.whl.metadata (6.5 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.7765070Z Downloading pyinstaller-6.19.0-py3-none-macosx_10_13_universal2.whl (1.0 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.8050720Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.0/1.0 MB 68.1 MB/s  0:00:00
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.8095970Z Downloading macholib-1.16.4-py2.py3-none-any.whl (38 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.8188920Z Downloading altgraph-0.17.5-py2.py3-none-any.whl (21 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.8292280Z Downloading pyinstaller_hooks_contrib-2026.3-py3-none-any.whl (454 kB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.8389190Z Using cached setuptools-82.0.1-py3-none-any.whl (1.0 MB)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:03.8814410Z Installing collected packages: altgraph, setuptools, macholib, pyinstaller-hooks-contrib, pyinstaller
+build-macos	UNKNOWN STEP	2026-03-11T17:18:04.9707900Z 
+build-macos	UNKNOWN STEP	2026-03-11T17:18:04.9726500Z Successfully installed altgraph-0.17.5 macholib-1.16.4 pyinstaller-6.19.0 pyinstaller-hooks-contrib-2026.3 setuptools-82.0.1
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0341420Z ##[group]Run pyinstaller --noconfirm HowIMetYourCorpus.spec
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0341870Z [36;1mpyinstaller --noconfirm HowIMetYourCorpus.spec[0m
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0720230Z shell: /bin/bash -e {0}
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0720490Z env:
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0720880Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0721500Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/arm64/lib/pkgconfig
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0721960Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0722420Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0722970Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.0723460Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.2869220Z 43 INFO: PyInstaller: 6.19.0, contrib hooks: 2026.3
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.2870470Z 43 INFO: Python: 3.12.10
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3277630Z 84 INFO: Platform: macOS-15.7.4-arm64-arm-64bit
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3278690Z 84 INFO: Python environment: /Library/Frameworks/Python.framework/Versions/3.12
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3354990Z 92 INFO: Module search paths (PYTHONPATH):
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3356180Z ['/Library/Frameworks/Python.framework/Versions/3.12/lib/python312.zip',
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3357480Z  '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12',
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3358710Z  '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/lib-dynload',
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3365700Z  '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages',
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3366250Z  '/Users/runner/work/HIMYC/HIMYC/src',
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3366510Z  '/Users/runner/work/HIMYC/HIMYC',
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.3366730Z  '/Users/runner/work/HIMYC/HIMYC/src']
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6331710Z 389 INFO: Appending 'datas' from .spec
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6336770Z 390 INFO: checking Analysis
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6338400Z 390 INFO: Building Analysis because Analysis-00.toc is non existent
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6339300Z 390 INFO: Looking for Python shared library...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6382240Z 394 INFO: Using Python shared library: /Library/Frameworks/Python.framework/Versions/3.12/Python
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6383630Z 394 INFO: Running Analysis Analysis-00.toc
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6383990Z 394 INFO: Target bytecode optimization level: 0
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6384560Z 395 INFO: Initializing module dependency graph...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6397580Z 396 INFO: Initializing module graph hook caches...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:05.6466930Z 403 INFO: Analyzing modules for base_library.zip ...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:06.0604690Z 816 INFO: Processing standard module hook 'hook-encodings.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:07.6369920Z 2393 INFO: Processing standard module hook 'hook-pickle.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:08.4016250Z 3157 INFO: Processing standard module hook 'hook-heapq.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:09.0055070Z 3762 INFO: Caching module dependency graph...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:09.0394500Z 3796 INFO: Analyzing /Users/runner/work/HIMYC/HIMYC/launch_himyc.py
+build-macos	UNKNOWN STEP	2026-03-11T17:18:09.0471740Z 3803 INFO: Processing standard module hook 'hook-PySide6.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:09.2935210Z 4050 INFO: Processing standard module hook 'hook-shiboken6.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:09.4417390Z 4198 INFO: Processing standard module hook 'hook-PySide6.QtNetwork.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:10.2011400Z 4957 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:10.9973290Z 5754 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:11.6571290Z 6413 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:12.0424920Z 6799 INFO: Processing standard module hook 'hook-sqlite3.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:12.3178740Z 7074 INFO: Processing standard module hook 'hook-numpy.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:12.6128010Z 7369 INFO: Processing standard module hook 'hook-difflib.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:12.8437070Z 7600 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:12.9516940Z 7708 INFO: Processing standard module hook 'hook-xml.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:13.1008300Z 7857 INFO: Processing standard module hook 'hook-_ctypes.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:13.6948400Z 8451 INFO: Processing standard module hook 'hook-sysconfig.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:13.7038840Z 8460 INFO: Processing standard module hook 'hook-_osx_support.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:13.7591640Z 8515 INFO: Processing standard module hook 'hook-platform.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:14.4698500Z 9226 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:14.4701730Z 9227 INFO: SetuptoolsInfo: initializing cached setuptools info...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3231910Z 10079 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3234690Z 10080 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3267540Z 10083 INFO: Processing standard module hook 'hook-setuptools.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3349370Z 10091 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3512420Z 10107 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3515560Z 10108 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3576890Z 10114 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.3580850Z 10114 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.4956230Z 10252 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.5858470Z 10342 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.5863890Z 10343 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.5927030Z 10348 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.5929630Z 10348 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.7004650Z 10457 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.7008120Z 10457 INFO: Setuptools: 'importlib_metadata' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.importlib_metadata'!
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.7173790Z 10473 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.7506270Z 10506 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:15.7507670Z 10506 INFO: Setuptools: 'zipp' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.zipp'!
+build-macos	UNKNOWN STEP	2026-03-11T17:18:16.1828680Z 10939 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:16.1844710Z 10939 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+build-macos	UNKNOWN STEP	2026-03-11T17:18:16.5374380Z 11294 INFO: Processing standard module hook 'hook-lxml.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:16.6947160Z 11451 INFO: Processing standard module hook 'hook-lxml.etree.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:16.9832450Z 11740 INFO: Processing standard module hook 'hook-certifi.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:17.0488340Z 11805 INFO: Processing standard module hook 'hook-anyio.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:17.7118510Z 12468 INFO: Processing standard module hook 'hook-docx.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:18.0746810Z 12831 INFO: Processing standard module hook 'hook-matplotlib.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:18.3627250Z 13119 INFO: Processing pre-safe-import-module hook 'hook-gi.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:18.5126380Z 13269 INFO: Processing standard module hook 'hook-matplotlib.backend_bases.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:18.5979260Z 13354 INFO: Processing standard module hook 'hook-PIL.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:18.6565060Z 13413 INFO: Processing standard module hook 'hook-PIL.Image.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:18.8981410Z 13654 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:19.0035130Z 13760 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:19.4872560Z 14244 INFO: Processing standard module hook 'hook-matplotlib.backends.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:19.5532310Z 14308 INFO: Processing standard module hook 'hook-matplotlib.pyplot.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:20.1581870Z 14914 INFO: Processing standard module hook 'hook-dateutil.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:20.2067520Z 14963 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_safe_import_module'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:21.3637860Z 16120 INFO: Processing module hooks (post-graph stage)...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:21.6505220Z 16407 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0010410Z 16757 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0312120Z 16788 INFO: Processing standard module hook 'hook-matplotlib.backends.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0313320Z 16788 INFO: Matplotlib backend selection method: automatic discovery of used backends
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0470270Z 16803 INFO: Discovered Matplotlib backend(s) via `matplotlib.use()` call in module 'howimetyourcorpus.app.tabs.tab_concordance': ['QtAgg']
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0473940Z 16803 INFO: The following Matplotlib backends were discovered by scanning for `matplotlib.use()` calls: ['QtAgg']. If your backend of choice is not in this list, either add a `matplotlib.use()` call to your code, or configure the backend collection via hook options (see: https://pyinstaller.org/en/stable/hooks-config.html#matplotlib-hooks).
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0476100Z 16803 INFO: Selected matplotlib backends: ['QtAgg']
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0503010Z 16806 INFO: Processing standard module hook 'hook-matplotlib.backends.backend_qtagg.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.0537770Z 16809 INFO: Processing standard module hook 'hook-matplotlib.backends.qt_compat.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.1398890Z 16810 INFO: hook-matplotlib.backends.qt_compat: selected 'PySide6' as Qt bindings because hook for 'PySide6' has been run before.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.1401180Z 16896 INFO: Processing standard module hook 'hook-PySide6.QtDBus.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.2572350Z 17013 INFO: Processing standard module hook 'hook-lxml.objectify.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.2678820Z 17024 INFO: Performing binary vs. data reclassification (369 entries)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.3960790Z 17152 INFO: Looking for ctypes DLLs
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4097800Z 17166 WARNING: Library user32 required via ctypes not found
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4269960Z 17183 INFO: Analyzing run-time hooks ...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4324940Z 17189 INFO: Including run-time hook 'pyi_rth_inspect.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/rthooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4343080Z 17191 INFO: Including run-time hook 'pyi_rth_setuptools.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/rthooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4347810Z 17191 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/rthooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4358640Z 17192 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/rthooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4370890Z 17193 INFO: Including run-time hook 'pyi_rth_pyside6.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/rthooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4382850Z 17195 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/pre_find_module_path'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4389030Z 17195 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4415310Z 17198 INFO: Including run-time hook 'pyi_rth_mplconfig.py' from '/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/hooks/rthooks'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4631440Z 17219 INFO: Creating base_library.zip...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:22.4779360Z 17234 INFO: Looking for dynamic libraries
+build-macos	UNKNOWN STEP	2026-03-11T17:18:23.5710350Z 18327 INFO: Warnings written to /Users/runner/work/HIMYC/HIMYC/build/HowIMetYourCorpus/warn-HowIMetYourCorpus.txt
+build-macos	UNKNOWN STEP	2026-03-11T17:18:23.6125820Z 18369 INFO: Graph cross-reference written to /Users/runner/work/HIMYC/HIMYC/build/HowIMetYourCorpus/xref-HowIMetYourCorpus.html
+build-macos	UNKNOWN STEP	2026-03-11T17:18:23.8932290Z 18650 INFO: checking PYZ
+build-macos	UNKNOWN STEP	2026-03-11T17:18:23.8933050Z 18650 INFO: Building PYZ because PYZ-00.toc is non existent
+build-macos	UNKNOWN STEP	2026-03-11T17:18:23.8933730Z 18650 INFO: Building PYZ (ZlibArchive) /Users/runner/work/HIMYC/HIMYC/build/HowIMetYourCorpus/PYZ-00.pyz
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0184950Z 19775 INFO: Building PYZ (ZlibArchive) /Users/runner/work/HIMYC/HIMYC/build/HowIMetYourCorpus/PYZ-00.pyz completed successfully.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0502800Z 19807 INFO: EXE target arch: arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0503880Z 19807 INFO: Code signing identity: None
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0572510Z 19814 INFO: checking PKG
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0573020Z 19814 INFO: Building PKG because PKG-00.toc is non existent
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0573510Z 19814 INFO: Building PKG (CArchive) HowIMetYourCorpus.pkg
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0926420Z 19848 INFO: Building PKG (CArchive) HowIMetYourCorpus.pkg completed successfully.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0929390Z 19849 INFO: Bootloader /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/PyInstaller/bootloader/Darwin-64bit/runw
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0930130Z 19849 INFO: checking EXE
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0930470Z 19850 INFO: Building EXE because EXE-00.toc is non existent
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0930910Z 19850 INFO: Building EXE from EXE-00.toc
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0931510Z 19850 INFO: Copying bootloader EXE to /Users/runner/work/HIMYC/HIMYC/build/HowIMetYourCorpus/HowIMetYourCorpus
+build-macos	UNKNOWN STEP	2026-03-11T17:18:25.0938670Z 19850 INFO: Converting EXE to target arch (arm64)
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.0118750Z 22768 INFO: Removing signature(s) from EXE
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.0328950Z 22789 INFO: Modifying Mach-O image UUID(s) in EXE
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.0411570Z 22797 INFO: Appending PKG archive to EXE
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.0452840Z 22802 INFO: Fixing EXE headers for code signing
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.0575310Z 22814 INFO: Rewriting the executable's macOS SDK version (15.5.0) to match the SDK version of the Python library (12.1.0) in order to avoid inconsistent behavior and potential UI issues in the frozen application.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.0614080Z 22815 INFO: Re-signing the EXE
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.1031490Z 22859 INFO: Building EXE from EXE-00.toc completed successfully.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.1097500Z 22866 INFO: checking COLLECT
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.1098600Z 22866 INFO: Building COLLECT because COLLECT-00.toc is non existent
+build-macos	UNKNOWN STEP	2026-03-11T17:18:28.1100190Z 22866 INFO: Building COLLECT COLLECT-00.toc
+build-macos	UNKNOWN STEP	2026-03-11T17:18:39.2447880Z 34001 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:39.2566540Z 34013 INFO: checking BUNDLE
+build-macos	UNKNOWN STEP	2026-03-11T17:18:39.2567040Z 34013 INFO: Building BUNDLE because BUNDLE-00.toc is non existent
+build-macos	UNKNOWN STEP	2026-03-11T17:18:39.2567750Z 34013 INFO: Building BUNDLE BUNDLE-00.toc
+build-macos	UNKNOWN STEP	2026-03-11T17:18:44.7826180Z 39539 INFO: Signing the BUNDLE...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.1969140Z 39953 INFO: Building BUNDLE BUNDLE-00.toc completed successfully.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.2042650Z 39961 INFO: Build complete! The results are available in: /Users/runner/work/HIMYC/HIMYC/dist
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3937470Z ##[group]Run softprops/action-gh-release@v2
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3937910Z with:
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3938090Z   tag_name: v0.6.7
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3938300Z   files: dist/HowIMetYourCorpus.app
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3938480Z   generate_release_notes: false
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3938700Z   overwrite_files: true
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3939010Z   token: ***
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3939130Z env:
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3939390Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3939780Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/arm64/lib/pkgconfig
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3940250Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3947010Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3947470Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/arm64
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3947880Z   GITHUB_TOKEN: ***
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.3948070Z ##[endgroup]
+build-macos	UNKNOWN STEP	2026-03-11T17:18:45.7698470Z 🤔 Pattern 'dist/HowIMetYourCorpus.app' does not match any files.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:46.4184710Z 👩‍🏭 Creating new GitHub release for tag v0.6.7...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:47.2203090Z 🤔 dist/HowIMetYourCorpus.app does not include a valid file.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:47.2217280Z Finalizing release...
+build-macos	UNKNOWN STEP	2026-03-11T17:18:47.9182430Z 🎉 Release ready at https://github.com/Hsbtqemy/HIMYC/releases/tag/v0.6.7
+build-macos	UNKNOWN STEP	2026-03-11T17:18:47.9513330Z Post job cleanup.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.1094800Z Post job cleanup.
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.2399170Z [command]/opt/homebrew/bin/git version
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.2837780Z git version 2.53.0
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.2875180Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/460f59e7-ecdf-433c-85a3-0d8ad6059e00/.gitconfig'
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.2897820Z Temporarily overriding HOME='/Users/runner/work/_temp/460f59e7-ecdf-433c-85a3-0d8ad6059e00' before making global git config changes
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.2900730Z Adding repository directory to the temporary git global config as a safe directory
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.2903250Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/HIMYC/HIMYC
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.3035250Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.3103330Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.4094130Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.4159500Z http.https://github.com/.extraheader
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.4169350Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.4410190Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.5207390Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.5268150Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.6016710Z Cleaning up orphan processes
+build-macos	UNKNOWN STEP	2026-03-11T17:18:48.6979100Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-python@v5, softprops/action-gh-release@v2. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build-windows	UNKNOWN STEP	2026-03-11T17:17:37.0816486Z ##[group]Disabling automatic garbage collection
+build-windows	UNKNOWN STEP	2026-03-11T17:18:05.0008704Z Collecting PySide6>=6.5 (from HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:05.3135184Z Collecting httpx>=0.24 (from HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:05.4376871Z Collecting beautifulsoup4>=4.12 (from HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:05.7698952Z Collecting lxml>=4.9 (from HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:05.8777690Z Collecting python-docx>=1.0 (from HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:06.1165774Z Collecting matplotlib>=3.5 (from HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:06.8081252Z Collecting rapidfuzz>=3.0 (from HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:06.9397894Z Collecting soupsieve>=1.6.1 (from beautifulsoup4>=4.12->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:07.0908648Z Collecting typing-extensions>=4.0.0 (from beautifulsoup4>=4.12->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:07.2153941Z Collecting anyio (from httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:07.3469063Z Collecting certifi (from httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:07.4865819Z Collecting httpcore==1.* (from httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:07.6389637Z Collecting idna (from httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:07.7465393Z Collecting h11>=0.16 (from httpcore==1.*->httpx>=0.24->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:07.9252505Z Collecting contourpy>=1.0.1 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:08.0559354Z Collecting cycler>=0.10 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:08.3042826Z Collecting fonttools>=4.22.0 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:08.4898241Z Collecting kiwisolver>=1.3.1 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:08.7389556Z Collecting numpy>=1.23 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:09.0357847Z Collecting pillow>=8 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:09.1562810Z Collecting pyparsing>=3 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:09.2832454Z Collecting python-dateutil>=2.7 (from matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:09.4076572Z Collecting shiboken6==6.10.2 (from PySide6>=6.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:09.5255442Z Collecting PySide6_Essentials==6.10.2 (from PySide6>=6.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:09.6407532Z Collecting PySide6_Addons==6.10.2 (from PySide6>=6.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:09.7628668Z Collecting six>=1.5 (from python-dateutil>=2.7->matplotlib>=3.5->HowIMetYourCorpus==0.6.4)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:16.2444847Z Building wheels for collected packages: HowIMetYourCorpus
+build-windows	UNKNOWN STEP	2026-03-11T17:18:16.7629503Z Installing collected packages: typing-extensions, soupsieve, six, shiboken6, rapidfuzz, pyparsing, pillow, numpy, lxml, kiwisolver, idna, h11, fonttools, cycler, certifi, python-docx, python-dateutil, PySide6_Essentials, httpcore, contourpy, beautifulsoup4, anyio, PySide6_Addons, matplotlib, httpx, PySide6, HowIMetYourCorpus
+build-windows	UNKNOWN STEP	2026-03-11T17:18:43.9841548Z Collecting pyinstaller
+build-windows	UNKNOWN STEP	2026-03-11T17:18:44.3357682Z Collecting altgraph (from pyinstaller)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:44.4329379Z Collecting pefile>=2022.5.30 (from pyinstaller)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:44.5329386Z Collecting pyinstaller-hooks-contrib>=2026.0 (from pyinstaller)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:44.6584284Z Collecting pywin32-ctypes>=0.2.1 (from pyinstaller)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:44.8234398Z Collecting setuptools>=42.0.0 (from pyinstaller)
+build-windows	UNKNOWN STEP	2026-03-11T17:18:45.3297659Z Installing collected packages: altgraph, setuptools, pywin32-ctypes, pefile, pyinstaller-hooks-contrib, pyinstaller
+build-windows	UNKNOWN STEP	2026-03-11T17:18:51.8000578Z ##[group]Run pyinstaller --noconfirm HowIMetYourCorpus.spec
+build-windows	UNKNOWN STEP	2026-03-11T17:18:51.8001043Z [36;1mpyinstaller --noconfirm HowIMetYourCorpus.spec[0m
+build-windows	UNKNOWN STEP	2026-03-11T17:20:04.9166022Z 72667 INFO: The following Matplotlib backends were discovered by scanning for `matplotlib.use()` calls: ['QtAgg']. If your backend of choice is not in this list, either add a `matplotlib.use()` call to your code, or configure the backend collection via hook options (see: https://pyinstaller.org/en/stable/hooks-config.html#matplotlib-hooks).
+build-windows	UNKNOWN STEP	2026-03-11T17:20:13.8582232Z 81609 INFO: Building PKG because PKG-00.toc is non existent
+build-windows	UNKNOWN STEP	2026-03-11T17:20:13.8583068Z 81609 INFO: Building PKG (CArchive) HowIMetYourCorpus.pkg
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.0306209Z 107782 INFO: Building PKG (CArchive) HowIMetYourCorpus.pkg completed successfully.
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.0428821Z 107793 INFO: Building EXE because EXE-00.toc is non existent
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.0429358Z 107793 INFO: Building EXE from EXE-00.toc
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.4581827Z 108209 INFO: Building EXE from EXE-00.toc completed successfully.
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.4702047Z 108221 INFO: Build complete! The results are available in: D:\a\HIMYC\HIMYC\dist
+build-windows	UNKNOWN STEP	2026-03-11T17:20:40.6939042Z   files: dist/HowIMetYourCorpus.exe
