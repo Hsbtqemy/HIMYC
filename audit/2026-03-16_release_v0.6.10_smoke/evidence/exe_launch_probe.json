@@ -1,0 +1,28 @@
+﻿{
+    "timestamp_utc":  "2026-03-16T17:09:58.0499276Z",
+    "exe":  "C:\\Dev\\HIMYC-3\\audit\\2026-03-16_release_v0.6.10_smoke\\artifacts\\HowIMetYourCorpus.exe",
+    "launch_ok":  true,
+    "launcher_pid":  27772,
+    "observed_new_processes":  [
+                                   {
+                                       "id":  27772,
+                                       "start_time":  "2026-03-16T17:09:58.0802256Z",
+                                       "responding":  true
+                                   },
+                                   {
+                                       "id":  31008,
+                                       "start_time":  "2026-03-16T17:10:00.2474754Z",
+                                       "responding":  true
+                                   }
+                               ],
+    "observed_window_titles":  [
+                                   "",
+                                   "HowIMetYourCorpus"
+                               ],
+    "observed_after_10s":  true,
+    "forced_terminated":  [
+                              27772,
+                              31008
+                          ],
+    "error":  null
+}

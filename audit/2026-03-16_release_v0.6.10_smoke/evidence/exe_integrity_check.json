@@ -1,0 +1,10 @@
+﻿{
+    "timestamp_utc":  "2026-03-16T17:10:34.3722809Z",
+    "tag":  "v0.6.10",
+    "release_url":  "https://github.com/Hsbtqemy/HIMYC/releases/tag/v0.6.10",
+    "asset_name":  "HowIMetYourCorpus.exe",
+    "asset_size_bytes":  85347356,
+    "asset_digest_sha256":  "289bcee05fcdd13462cb13500b8cc2a738b5d7286b4bfffbd3599c1db6b3b41f",
+    "local_sha256":  "289bcee05fcdd13462cb13500b8cc2a738b5d7286b4bfffbd3599c1db6b3b41f",
+    "digest_match":  true
+}
