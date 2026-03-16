@@ -38,6 +38,9 @@ Validation:
 - simulation CI worktree propre:
   - quality gate PASS `251 passed`, couverture `62.83%` (`ci_fix_probe2/summary.json`)
   - checklist E2E PASS (`ci_fix_probe2/report.json`)
+- GitHub rerun quality gate PASS:
+  - run `23139288639` success (`gh_quality_run_23139288639.json`)
+  - log detail (`gh_quality_run_23139288639.log`)
 - workspace courant:
   - quality gate PASS (`quality_gate_postfix2/summary.json`)
   - checklist E2E PASS (`e2e_checklist_assist_postfix2/report.json`)

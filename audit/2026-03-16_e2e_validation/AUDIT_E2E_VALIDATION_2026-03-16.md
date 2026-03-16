@@ -86,6 +86,11 @@ Classification initiale:
   - checklist assistee reference des node ids absents dans la base versionnee (observe en simulation propre).
 
 ### 5.2 Verification post-correctifs
+- GitHub Quality Gate rerun `23139288639`: **SUCCESS**.
+  - `Run quality gate`: PASS (`251 passed`, couverture `62.83% >= 62`)
+  - `Run checklist E2E assist`: PASS (A=7, B=5, C=1, continuite=7)
+  - preuves: `gh_quality_run_23139288639.json`, `gh_quality_run_23139288639.log`
+
 - Worktree propre (simulation CI):
   - quality gate: PASS, `251 passed`, couverture `62.83% >= 62` (`ci_fix_probe2/summary.json`)
   - checklist assistee: PASS scenarios A/B/C + continuite (`ci_fix_probe2/report.json`)
