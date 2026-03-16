@@ -1,52 +1,57 @@
 ﻿# Plan d'action P0 / P1 / P2 - Stabilisation 2026-03-16
 
 ## P0 - Corriger immediatement
-Etat: **aucun P0 ouvert**.
+Etat courant: **0 P0 ouvert**.
 
-Preuves:
-- `audit/2026-03-16_e2e_validation/evidence/e2e_checklist_assist_postfix/report.json`
-- `audit/2026-03-16_e2e_validation/evidence/quality_gate_postfix/summary.json`
+Validation:
+- `audit/2026-03-16_e2e_validation/evidence/quality_gate_postfix2/summary.json`
+- `audit/2026-03-16_e2e_validation/evidence/e2e_checklist_assist_postfix2/report.json`
 
 ## P1 - Completer / fiabiliser
 
 ### P1.1 Packaging release macOS (clos)
 Constat initial:
-- Upload release pointe `dist/HowIMetYourCorpus.app` et ne trouve pas de fichier valide.
-- Preuve: `audit/2026-03-16_e2e_validation/evidence/release_run_macos_build_extract.txt`
+- upload `dist/HowIMetYourCorpus.app` invalide sur `v0.6.7`.
+- preuve: `release_run_macos_build_extract.txt`
 
-Action realisee:
-- `.github/workflows/release.yml`:
-  - packaging `.app` en `HowIMetYourCorpus-macos.app.zip`
-  - upload sur `${{ env.ZIP_PATH }}`
-  - `fail_on_unmatched_files: true`
+Action:
+- release workflow bascule vers zip `.app` + `fail_on_unmatched_files: true`.
 
 Validation:
-- `tests/test_ci_workflows.py` -> `2 passed`
-- Preuve: `audit/2026-03-16_e2e_validation/evidence/pytest_ci_workflows_postfix.log`
+- run release `23138615250` success (`gh_release_run_23138615250.json`).
 
-### P1.2 Gate CI minimal workflow (clos)
-Action realisee:
-- Ajout `.github/workflows/quality-gate.yml` pour executer:
-  - `scripts/quality_gate.py` (seuil 70)
-  - `scripts/e2e_checklist_assist.py --skip-precheck`
-
-Validation:
-- Quality gate post-correctifs: PASS, `713 passed`, couverture `81.09%`.
-- Checklist E2E post-correctifs: PASS A/B/C + continuite.
-- Preuves:
-  - `audit/2026-03-16_e2e_validation/evidence/quality_gate_postfix/summary.json`
-  - `audit/2026-03-16_e2e_validation/evidence/e2e_checklist_assist_postfix/report.json`
-
-## P2 - Polish / maintenance
-
-### P2.1 Anticiper la transition Node 24 sur GitHub Actions
+### P1.2 Gate CI pragmatique base versionnee (clos)
 Constat:
-- Warning de deprecation Node 20 visible dans logs release.
-- Preuve: `audit/2026-03-16_e2e_validation/evidence/release_run_macos_build_extract.txt`
+- premier run quality gate `23138611304` en echec (tests Preparer + seuil couverture inadapté + node ids checklist manquants).
+- preuve: `gh_quality_run_23138611304.log`
 
-Proposition:
-- Verifier et, si necessaire, mettre a jour versions d'actions avant la date de bascule runner.
+Actions:
+- Correctifs Preparer/Alignement/langues:
+  - `src/howimetyourcorpus/app/tabs/preparer_actions.py`
+  - `src/howimetyourcorpus/app/mainwindow_project.py`
+  - `src/howimetyourcorpus/app/tabs/tab_alignement.py`
+- durcissement scripts/gate:
+  - `scripts/e2e_checklist_assist.py` (filtrage node ids + fallback)
+  - `.github/workflows/quality-gate.yml` seuil couverture `62`
 
-## Decision de sortie de cycle
-- Conditions de sortie stabilisation respectees sur ce perimetre.
-- Patch release `v0.6.8` recommandee.
+Validation:
+- simulation CI worktree propre:
+  - quality gate PASS `251 passed`, couverture `62.83%` (`ci_fix_probe2/summary.json`)
+  - checklist E2E PASS (`ci_fix_probe2/report.json`)
+- workspace courant:
+  - quality gate PASS (`quality_gate_postfix2/summary.json`)
+  - checklist E2E PASS (`e2e_checklist_assist_postfix2/report.json`)
+
+## P2 - Polish
+
+### P2.1 Node 24 readiness GitHub Actions
+Constat:
+- warning deprecation Node 20 dans logs de run.
+- preuve: `gh_quality_run_23138611304.log` et `release_run_macos_build_extract.txt`.
+
+Action recommandee:
+- planifier une passe dediee MAJ actions pour avant bascule Node 24.
+
+## Decision de sortie
+- Criteria de stabilisation satisfaits sur perimetre controle.
+- `v0.6.8` maintenu avec remediations CI appliquees.

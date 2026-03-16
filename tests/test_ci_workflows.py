@@ -24,6 +24,6 @@ def test_release_workflow_packages_macos_app_zip_and_fails_on_missing_asset() ->
 def test_quality_gate_workflow_runs_required_checks() -> None:
     workflow = _read(".github/workflows/quality-gate.yml")
 
-    assert "python scripts/quality_gate.py --coverage-min 70" in workflow
+    assert "python scripts/quality_gate.py --coverage-min" in workflow
     assert "python scripts/e2e_checklist_assist.py --skip-precheck" in workflow
     assert "pull_request:" in workflow

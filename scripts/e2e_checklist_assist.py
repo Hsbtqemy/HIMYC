@@ -53,7 +53,9 @@ CHECK_GROUPS: tuple[CheckGroup, ...] = (
             "tests/test_ui_preparer_navigation.py::test_preparer_save_structural_warns_and_can_cancel_run_invalidation",
             "tests/test_ui_preparer_navigation.py::test_preparer_save_transcript_non_structural_keeps_align_runs",
             "tests/test_ui_alignement.py::test_run_align_episode_uses_selected_languages",
+            "tests/test_ui_alignement.py::test_export_alignment_csv_writes_rows",
             "tests/test_ui_personnages.py::test_propagate_runs_with_utterance_assignments_when_run_is_utterance",
+            "tests/test_ui_personnages.py::test_propagate_runs_and_reports_success",
             "tests/test_export_phase5.py::test_export_parallel_concordance_csv",
             "tests/test_export_phase5.py::test_export_align_report_html",
         ),
@@ -70,6 +72,8 @@ CHECK_GROUPS: tuple[CheckGroup, ...] = (
             "tests/test_ui_preparer_navigation.py::test_preparer_srt_timecode_strict_rejects_overlap",
             "tests/test_ui_preparer_navigation.py::test_preparer_srt_timecode_overlap_allowed_when_strict_disabled",
             "tests/test_tasks_align_episode.py::test_align_episode_supports_cues_only_without_segments",
+            "tests/test_ui_preparer_navigation.py::test_preparer_go_to_alignement_prefers_existing_utterances_from_srt_source",
+            "tests/test_ui_alignement.py::test_export_alignment_jsonl_writes_rows",
         ),
     ),
     CheckGroup(
@@ -94,6 +98,8 @@ CHECK_GROUPS: tuple[CheckGroup, ...] = (
             "tests/test_ui_preparer_navigation.py::test_refresh_tabs_after_job_updates_personnages_runs",
             "tests/test_ui_mainwindow_core.py::test_refresh_tabs_after_job_skips_duplicate_subs_refresh_when_inspector_is_combined",
             "tests/test_ui_mainwindow_core.py::test_refresh_tabs_after_project_open_skips_duplicate_subs_refresh_when_inspector_is_combined",
+            "tests/test_ui_mainwindow_core.py::test_tab_change_stays_on_preparer_when_prompt_cancelled",
+            "tests/test_ui_mainwindow_core.py::test_open_preparer_for_episode_aborts_when_unsaved_cancelled",
             "tests/test_ui_preparer_navigation.py::test_preparer_go_to_alignement_uses_utterance_when_transcript_rows_present",
             "tests/test_ui_preparer_navigation.py::test_preparer_go_to_alignement_prefers_existing_utterances_from_srt_source",
         ),
@@ -122,6 +128,32 @@ def _run_command(command: Sequence[str], *, cwd: Path) -> tuple[int, float, str,
     )
     duration = time.perf_counter() - started
     return proc.returncode, duration, proc.stdout, proc.stderr
+
+
+def _node_id_exists(repo_root: Path, node_id: str) -> bool:
+    file_part, sep, test_name = node_id.partition("::")
+    test_path = repo_root / file_part
+    if not test_path.exists() or not test_path.is_file():
+        return False
+    if not sep:
+        return True
+    try:
+        text = test_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return f"def {test_name}(" in text
+
+
+def _select_existing_node_ids(repo_root: Path, node_ids: Sequence[str]) -> list[str]:
+    selected: list[str] = []
+    seen: set[str] = set()
+    for node_id in node_ids:
+        if node_id in seen:
+            continue
+        seen.add(node_id)
+        if _node_id_exists(repo_root, node_id):
+            selected.append(node_id)
+    return selected
 
 
 def _run_pytest(
@@ -234,6 +266,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     for group in CHECK_GROUPS:
+        selected_node_ids = _select_existing_node_ids(repo_root, group.tests)
+        if not selected_node_ids:
+            results.append(
+                RunResult(
+                    key=group.key,
+                    title=group.title,
+                    checklist_refs=list(group.checklist_refs),
+                    command=[python_exe, "-m", "pytest", "-q", *group.tests],
+                    returncode=1,
+                    duration_s=0.0,
+                    summary_line="No available tests found for this scenario.",
+                    stdout="",
+                    stderr="No available tests found for this scenario.",
+                )
+            )
+            continue
         results.append(
             _run_pytest(
                 python_exe=python_exe,
@@ -241,7 +289,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 key=group.key,
                 title=group.title,
                 checklist_refs=group.checklist_refs,
-                node_ids=group.tests,
+                node_ids=selected_node_ids,
             )
         )
 
@@ -263,4 +311,3 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -172,8 +172,21 @@ class PreparerActionsController:
             return
         if tab._dirty and not tab.prompt_save_if_dirty():
             return
-        if tab._current_source_key == "transcript":
-            segment_kind = "utterance" if tab.utterance_table.rowCount() > 0 else "sentence"
-        else:
-            segment_kind = "sentence"
+        segment_kind = self._infer_segment_kind_for_handoff(str(episode_id))
         tab._on_go_alignement(episode_id, segment_kind)
+
+    def _infer_segment_kind_for_handoff(self, episode_id: str) -> str:
+        tab = self._tab
+        if tab._current_source_key == "transcript":
+            return "utterance" if tab.utterance_table.rowCount() > 0 else "sentence"
+
+        db = tab._get_db()
+        if not db:
+            return "sentence"
+        try:
+            utterances = db.get_segments_for_episode(episode_id, kind="utterance")
+            if utterances:
+                return "utterance"
+        except Exception:
+            self._logger.exception("Infer segment kind for handoff")
+        return "sentence"

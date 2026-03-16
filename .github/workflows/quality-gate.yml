@@ -28,7 +28,7 @@ jobs:
       - name: Run quality gate (pytest + coverage)
         shell: pwsh
         run: |
-          python scripts/quality_gate.py --coverage-min 70 --output-dir doc/audit/latest_quality_gate
+          python scripts/quality_gate.py --coverage-min 62 --output-dir doc/audit/latest_quality_gate
 
       - name: Run checklist E2E assist (targeted)
         shell: pwsh

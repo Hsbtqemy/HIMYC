@@ -21,7 +21,7 @@ class MainWindowProjectController:
         self._logger = logger_obj
 
     def refresh_language_combos(self) -> None:
-        """Met à jour les listes de langues (Sous-titres, Concordance, Personnages)."""
+        """Met à jour les listes de langues (Sous-titres, Concordance, Préparer, Alignement, Personnages)."""
         win = self._window
         langs = win._store.load_project_languages() if win._store else ["en", "fr", "it"]  # noqa: SLF001
         if hasattr(win, "inspector_tab") and win.inspector_tab and hasattr(win.inspector_tab, "subtitles_tab"):
@@ -29,6 +29,12 @@ class MainWindowProjectController:
         if hasattr(win, "concordance_tab") and hasattr(win.concordance_tab, "set_languages"):
             win.concordance_tab.set_languages(langs)
             win.concordance_tab.refresh_speakers()
+        if hasattr(win, "preparer_tab") and win.preparer_tab:
+            current_episode = win.preparer_tab.current_episode_id()  # noqa: SLF001
+            win.preparer_tab._refresh_source_combo_items()  # noqa: SLF001
+            win.preparer_tab._refresh_source_availability(current_episode)  # noqa: SLF001
+        if hasattr(win, "alignment_tab") and win.alignment_tab and hasattr(win.alignment_tab, "_refresh_language_combos"):
+            win.alignment_tab._refresh_language_combos()  # noqa: SLF001
         if hasattr(win, "personnages_tab") and win.personnages_tab:
             win.personnages_tab.refresh()
 
@@ -104,11 +110,17 @@ class MainWindowProjectController:
     def _refresh_tabs_after_project_open(self, *, deferred: bool, timer: Any) -> None:
         """Rafraîchit les onglets dépendants après ouverture/initialisation projet."""
         win = self._window
+        has_combined_inspector = bool(
+            hasattr(win, "inspector_tab")
+            and win.inspector_tab
+            and hasattr(win.inspector_tab, "subtitles_tab")
+        )
 
         def _refresh() -> None:
             win._refresh_inspecteur_episodes()  # noqa: SLF001
             win._refresh_preparer()  # noqa: SLF001
-            win._refresh_subs_tracks()  # noqa: SLF001
+            if not has_combined_inspector:
+                win._refresh_subs_tracks()  # noqa: SLF001
             win._refresh_align_runs()  # noqa: SLF001
             win._refresh_personnages()  # noqa: SLF001
 

@@ -1,0 +1,14 @@
+{
+  "timestamp_utc": "2026-03-16T10:26:14.295261Z",
+  "command": "C:\\Program Files\\Python312\\python.exe -m pytest tests --cov=src/howimetyourcorpus --cov-report=json:C:\\Dev\\HIMYC-3-cifix\\audit\\ci_fix_probe2\\quality_gate\\coverage.json --cov-report=term",
+  "pytest_exit_code": 0,
+  "duration_seconds": 86.668,
+  "coverage_min": 62.0,
+  "total_coverage": 62.82571912013536,
+  "coverage_ok": true,
+  "pass": true,
+  "artifacts": {
+    "pytest_log": "audit\\ci_fix_probe2\\quality_gate\\pytest_cov.log",
+    "coverage_json": "audit\\ci_fix_probe2\\quality_gate\\coverage.json"
+  }
+}

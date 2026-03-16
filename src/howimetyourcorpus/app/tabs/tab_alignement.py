@@ -74,6 +74,19 @@ class AlignmentTabWidget(QWidget):
             "Type de segments transcript à aligner avec les cues (phrases ou tours)."
         )
         row.addWidget(self.align_segment_kind_combo)
+        row.addWidget(QLabel("Pivot:"))
+        self.align_pivot_lang_combo = QComboBox()
+        self.align_pivot_lang_combo.setToolTip(
+            "Langue des cues pivot utilisées pour l'alignement segment↔cue."
+        )
+        self.align_pivot_lang_combo.currentIndexChanged.connect(self._on_pivot_lang_changed)
+        row.addWidget(self.align_pivot_lang_combo)
+        row.addWidget(QLabel("Cible:"))
+        self.align_target_lang_combo = QComboBox()
+        self.align_target_lang_combo.setToolTip(
+            "Langue cible à aligner depuis le pivot (cue pivot ↔ cue cible)."
+        )
+        row.addWidget(self.align_target_lang_combo)
         self.align_run_btn = QPushButton("Lancer alignement")
         self.align_run_btn.clicked.connect(self._run_align_episode)
         row.addWidget(self.align_run_btn)
@@ -115,9 +128,9 @@ class AlignmentTabWidget(QWidget):
         row.addWidget(self.align_accepted_only_cb)
         layout.addLayout(row)
         help_label = QLabel(
-            "Flux : 1) Onglet Sous-titres : importer SRT EN (pivot) et FR (cible). "
-            "2) Inspecteur : segmenter l'épisode (transcript → segments phrases et/ou tours). "
-            "3) Ici : choisir Segment (Phrases ou Tours), puis « Lancer alignement » crée un run (segment↔cue pivot, puis cue pivot↔cue cible). "
+            "Flux : 1) Onglet Sous-titres : importer au moins une piste pivot/cible. "
+            "2) Option A : segmenter l'épisode (transcript → segments phrases/tours) ; Option B : mode SRT-only (pas de segments, alignement cue↔cue pivot/cible). "
+            "3) Ici : choisir Segment (Phrases ou Tours), puis « Lancer alignement » crée un run (segment↔cue pivot si segments disponibles, puis cue pivot↔cue cible). "
             "Un run = un calcul d'alignement ; vous pouvez en relancer un autre ou supprimer un run. "
             "Clic droit sur une ligne : Accepter, Rejeter, Modifier la cible."
         )
@@ -172,6 +185,7 @@ class AlignmentTabWidget(QWidget):
         
         layout.addWidget(self.main_splitter, 1)
         self._restore_align_splitter()
+        self._refresh_language_combos()
 
     def _restore_align_splitter(self) -> None:
         """Restaure les proportions du splitter table | stats depuis QSettings."""
@@ -192,6 +206,7 @@ class AlignmentTabWidget(QWidget):
         """Recharge la liste des épisodes et des runs (préserve la sélection d'épisode si possible)."""
         current_episode_id = self.align_episode_combo.currentData()
         self.align_episode_combo.clear()
+        self._refresh_language_combos()
         store = self._get_store()
         if not store:
             return
@@ -217,6 +232,74 @@ class AlignmentTabWidget(QWidget):
                 self.align_episode_combo.setCurrentIndex(i)
                 break
         self._on_episode_changed()
+
+    def _load_project_languages(self) -> list[str]:
+        store = self._get_store()
+        raw = (
+            store.load_project_languages()
+            if store and hasattr(store, "load_project_languages")
+            else ["en", "fr"]
+        )
+        out: list[str] = []
+        seen: set[str] = set()
+        for lang in raw or []:
+            key = str(lang or "").strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(key)
+        if not out:
+            out = ["en", "fr"]
+        return out
+
+    def _refresh_language_combos(self) -> None:
+        current_pivot = (
+            self.align_pivot_lang_combo.currentData()
+            or self.align_pivot_lang_combo.currentText()
+            or "en"
+        )
+        current_target = (
+            self.align_target_lang_combo.currentData()
+            or self.align_target_lang_combo.currentText()
+            or ""
+        )
+        langs = self._load_project_languages()
+        self.align_pivot_lang_combo.blockSignals(True)
+        self.align_pivot_lang_combo.clear()
+        for lang in langs:
+            self.align_pivot_lang_combo.addItem(lang.upper(), lang)
+        idx = self.align_pivot_lang_combo.findData(current_pivot)
+        if idx < 0:
+            idx = self.align_pivot_lang_combo.findData("en")
+        self.align_pivot_lang_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.align_pivot_lang_combo.blockSignals(False)
+        self._refresh_target_lang_combo(preferred=str(current_target or ""))
+
+    def _refresh_target_lang_combo(self, preferred: str = "") -> None:
+        pivot_lang = (
+            self.align_pivot_lang_combo.currentData()
+            or self.align_pivot_lang_combo.currentText()
+            or "en"
+        )
+        candidates = [lang for lang in self._load_project_languages() if lang != pivot_lang]
+        self.align_target_lang_combo.blockSignals(True)
+        self.align_target_lang_combo.clear()
+        self.align_target_lang_combo.addItem("Aucune", "")
+        for lang in candidates:
+            self.align_target_lang_combo.addItem(lang.upper(), lang)
+        idx = self.align_target_lang_combo.findData(preferred)
+        if idx < 0 and "fr" in candidates:
+            idx = self.align_target_lang_combo.findData("fr")
+        self.align_target_lang_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.align_target_lang_combo.blockSignals(False)
+
+    def _on_pivot_lang_changed(self) -> None:
+        current_target = (
+            self.align_target_lang_combo.currentData()
+            or self.align_target_lang_combo.currentText()
+            or ""
+        )
+        self._refresh_target_lang_combo(preferred=str(current_target or ""))
 
     def _on_episode_changed(self) -> None:
         self.align_run_combo.clear()
