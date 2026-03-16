@@ -33,12 +33,18 @@ class _FakeStore:
 
 
 class _FakeDB:
-    def __init__(self, run: dict[str, Any] | None, links: list[dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self,
+        run: dict[str, Any] | None,
+        links: list[dict[str, Any]] | None = None,
+        runs: list[dict[str, Any]] | None = None,
+    ) -> None:
         self._run = run
         self._links = links or []
+        self._runs = runs or [{"align_run_id": "run1", "summary_json": ""}]
 
     def get_align_runs_for_episode(self, episode_id: str) -> list[dict[str, Any]]:  # noqa: ARG002
-        return [{"align_run_id": "run1", "summary_json": ""}]
+        return list(self._runs)
 
     def get_align_run(self, run_id: str) -> dict[str, Any] | None:  # noqa: ARG002
         return self._run
@@ -186,3 +192,98 @@ def test_propagate_runs_and_reports_success(
     assert store.propagate_calls == [("S01E01", "run1", {"en"})]
     assert any(msg.startswith("Propagation : 3 segment(s), 4 cue(s)") for msg in statuses)
     assert infos and infos[0][0] == "Propagation terminée"
+
+
+def test_fill_propagate_run_combo_displays_segment_kind_and_total_links(
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    statuses: list[str] = []
+    store = _FakeStore(assignments=[])
+    db = _FakeDB(
+        run={"align_run_id": "run1", "pivot_lang": "en", "params_json": '{"segment_kind":"utterance"}'},
+        runs=[
+            {
+                "align_run_id": "run1",
+                "summary_json": '{"total_links": 12}',
+                "params_json": '{"segment_kind":"utterance"}',
+            }
+        ],
+    )
+    tab = _build_tab(store=store, db=db, statuses=statuses)
+
+    assert tab.personnages_run_combo.count() == 1
+    text = tab.personnages_run_combo.itemText(0)
+    assert "run1" in text
+    assert "(tours)" in text
+    assert "(12 liens)" in text
+
+
+def test_propagate_runs_with_utterance_assignments_when_run_is_utterance(
+    qapp: QApplication,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statuses: list[str] = []
+    store = _FakeStore(
+        assignments=[
+            {
+                "episode_id": "S01E01",
+                "source_type": "segment",
+                "source_id": "S01E01:utterance:0",
+                "character_id": "ted",
+            }
+        ]
+    )
+    db = _FakeDB(run={"align_run_id": "run1", "pivot_lang": "en", "params_json": '{"segment_kind":"utterance"}'})
+    tab = _build_tab(store=store, db=db, statuses=statuses)
+    tab._ask_languages_to_rewrite = lambda _langs: {"en"}
+    infos: list[tuple[str, str]] = []
+    questions: list[tuple[str, str]] = []
+
+    def _info(_parent, title: str, message: str):
+        infos.append((title, message))
+        return QMessageBox.StandardButton.Ok
+
+    def _question(_parent, title: str, message: str, *_args, **_kwargs):
+        questions.append((title, message))
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_personnages.QMessageBox.information", _info)
+    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_personnages.QMessageBox.question", _question)
+    tab._propagate()
+
+    assert questions == []
+    assert store.propagate_calls == [("S01E01", "run1", {"en"})]
+    assert any(msg.startswith("Propagation : 3 segment(s), 4 cue(s)") for msg in statuses)
+    assert infos and infos[0][0] == "Propagation terminée"
+
+
+def test_propagate_sentence_run_with_utterance_only_assignments_can_be_cancelled(
+    qapp: QApplication,  # noqa: ARG001
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statuses: list[str] = []
+    store = _FakeStore(
+        assignments=[
+            {
+                "episode_id": "S01E01",
+                "source_type": "segment",
+                "source_id": "S01E01:utterance:0",
+                "character_id": "ted",
+            }
+        ]
+    )
+    db = _FakeDB(run={"align_run_id": "run1", "pivot_lang": "en", "params_json": '{"segment_kind":"sentence"}'})
+    tab = _build_tab(store=store, db=db, statuses=statuses)
+    questions: list[tuple[str, str]] = []
+
+    def _question(_parent, title: str, message: str, *_args, **_kwargs):
+        questions.append((title, message))
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_personnages.QMessageBox.question", _question)
+    tab._propagate()
+
+    assert questions
+    assert "Aucune assignation sur les phrases" in questions[0][1]
+    assert store.propagate_calls == []
+    assert statuses == []

@@ -148,3 +148,40 @@ def test_refresh_tabs_after_job_calls_concordance_refresh_speakers(
     monkeypatch.setattr(win.concordance_tab, "refresh_speakers", lambda: called.__setitem__("count", called["count"] + 1))
     win._refresh_tabs_after_job()
     assert called["count"] == 1
+
+
+def test_refresh_tabs_after_job_skips_duplicate_subs_refresh_when_inspector_is_combined(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    win = main_window_with_project
+    called = {"subs": 0}
+    monkeypatch.setattr(win, "_refresh_episodes_from_store", lambda: None)
+    monkeypatch.setattr(win, "_refresh_inspecteur_episodes", lambda: None)
+    monkeypatch.setattr(win, "_refresh_preparer", lambda: None)
+    monkeypatch.setattr(win, "_refresh_subs_tracks", lambda: called.__setitem__("subs", called["subs"] + 1))
+    monkeypatch.setattr(win, "_refresh_align_runs", lambda: None)
+    monkeypatch.setattr(win, "_refresh_concordance", lambda: None)
+    monkeypatch.setattr(win, "_refresh_personnages", lambda: None)
+
+    win._refresh_tabs_after_job()
+    assert called["subs"] == 0
+
+
+def test_refresh_tabs_after_project_open_skips_duplicate_subs_refresh_when_inspector_is_combined(
+    main_window_with_project: MainWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    win = main_window_with_project
+    called = {"subs": 0}
+    monkeypatch.setattr(win, "_refresh_inspecteur_episodes", lambda: None)
+    monkeypatch.setattr(win, "_refresh_preparer", lambda: None)
+    monkeypatch.setattr(win, "_refresh_subs_tracks", lambda: called.__setitem__("subs", called["subs"] + 1))
+    monkeypatch.setattr(win, "_refresh_align_runs", lambda: None)
+    monkeypatch.setattr(win, "_refresh_personnages", lambda: None)
+
+    win._project_controller._refresh_tabs_after_project_open(
+        deferred=False,
+        timer=SimpleNamespace(singleShot=lambda *_a, **_k: None),
+    )
+    assert called["subs"] == 0

@@ -602,7 +602,7 @@ class AlignEpisodeStep(Step):
     ) -> None:
         self.episode_id = episode_id
         self.pivot_lang = pivot_lang
-        self.target_langs = target_langs or ["fr"]
+        self.target_langs = list(target_langs) if target_langs is not None else ["fr"]
         self.min_confidence = min_confidence
         self.use_similarity_for_cues = use_similarity_for_cues
         self.segment_kind = segment_kind if segment_kind in ("sentence", "utterance") else "sentence"
@@ -631,12 +631,16 @@ class AlignEpisodeStep(Step):
         if on_progress:
             on_progress(self.name, 0.0, f"Loading segments and cues for {self.episode_id}...")
         segments = db.get_segments_for_episode(self.episode_id, kind=self.segment_kind)
+        has_segments = bool(segments)
         cues_en = db.get_cues_for_episode_lang(self.episode_id, self.pivot_lang)
-        if not segments:
-            return StepResult(False, f"No segments ({self.segment_kind}) for {self.episode_id}. Run segmentation first.")
+        if not has_segments and not self.target_langs:
+            return StepResult(
+                False,
+                f"No segments ({self.segment_kind}) and no target language for {self.episode_id}.",
+            )
         # Pivot optionnel : si pas de piste pivot (ex. EN), utiliser la première langue cible qui a des cues (ex. FR)
         effective_pivot_lang = self.pivot_lang
-        if not cues_en and self.target_langs:
+        if not cues_en and self.target_langs and has_segments:
             for tl in self.target_langs:
                 cues_t = db.get_cues_for_episode_lang(self.episode_id, tl)
                 if cues_t:
@@ -644,29 +648,49 @@ class AlignEpisodeStep(Step):
                     cues_en = cues_t
                     break
         if not cues_en:
+            if has_segments:
+                return StepResult(
+                    False,
+                    f"Pour cet épisode, aucune piste de sous-titres (pivot {self.pivot_lang.upper()} ni cibles {', '.join(self.target_langs).upper()}). "
+                    f"Importez au moins une piste SRT dans l'onglet Inspecteur (ex. FR pour comparer transcript EN ↔ sous-titres FR)."
+                )
             return StepResult(
                 False,
-                f"Pour cet épisode, aucune piste de sous-titres (pivot {self.pivot_lang.upper()} ni cibles {', '.join(self.target_langs).upper()}). "
-                f"Importez au moins une piste SRT dans l'onglet Inspecteur (ex. FR pour comparer transcript EN ↔ sous-titres FR)."
+                f"Alignement cues↔cues impossible : piste pivot {self.pivot_lang.upper()} absente pour {self.episode_id}.",
             )
         
-        # Callback de progression granulaire pour l'alignement
-        def on_align_progress(current: int, total: int) -> None:
+        pivot_links: list[AlignLink] = []
+        all_links: list[AlignLink] = []
+        if has_segments:
+            # Callback de progression granulaire pour l'alignement segment↔cue pivot
+            def on_align_progress(current: int, total: int) -> None:
+                if on_progress:
+                    progress = 0.1 + 0.3 * (current / total)  # 10% → 40%
+                    on_progress(self.name, progress, f"Aligning segments {current}/{total}...")
+
+            pivot_links = align_segments_to_cues(
+                segments,
+                cues_en,
+                min_confidence=self.min_confidence,
+                on_progress=on_align_progress,
+            )
+            all_links = list(pivot_links)
+            # Mettre à jour la langue des liens pivot si pivot effectif != EN (ex. segment↔FR direct)
+            if effective_pivot_lang != self.pivot_lang:
+                for link in all_links:
+                    if link.role == "pivot":
+                        link.lang = effective_pivot_lang
             if on_progress:
-                progress = 0.1 + 0.3 * (current / total)  # 10% → 40%
-                on_progress(self.name, progress, f"Aligning segments {current}/{total}...")
-        
-        pivot_links = align_segments_to_cues(segments, cues_en, min_confidence=self.min_confidence, on_progress=on_align_progress)
-        all_links: list[AlignLink] = list(pivot_links)
-        # Mettre à jour la langue des liens pivot si pivot effectif != EN (ex. segment↔FR direct)
-        if effective_pivot_lang != self.pivot_lang:
-            for link in all_links:
-                if link.role == "pivot":
-                    link.lang = effective_pivot_lang
-        if on_progress:
-            on_progress(self.name, 0.4, f"Aligned {len(pivot_links)} segment↔cue links; aligning target langs...")
+                on_progress(self.name, 0.4, f"Aligned {len(pivot_links)} segment↔cue links; aligning target langs...")
+        elif on_progress:
+            on_progress(self.name, 0.4, "No transcript segments: cue↔cue alignment only.")
         # Liens cible (cue pivot ↔ cue autre langue) uniquement si pivot classique et autres langues ont des cues
         remaining_targets = [tl for tl in self.target_langs if tl != effective_pivot_lang]
+        if not has_segments and not remaining_targets:
+            return StepResult(
+                False,
+                "Alignement cues↔cues impossible : choisissez au moins une langue cible différente du pivot.",
+            )
         for tl in remaining_targets:
             cues_target = db.get_cues_for_episode_lang(self.episode_id, tl)
             if cues_target:
@@ -695,6 +719,11 @@ class AlignEpisodeStep(Step):
                         if not target_links and cues_target:
                             target_links = align_cues_by_order(cues_en, cues_target)
                 all_links.extend(target_links)
+        if not has_segments and not all_links:
+            return StepResult(
+                False,
+                "Aucun lien cue↔cue généré pour cet épisode (vérifiez langues et contenu des pistes).",
+            )
         run_id = f"{self.episode_id}:align:{datetime.datetime.now(datetime.UTC).strftime('%Y%m%dT%H%M%SZ')}"
         created_at = datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00", "Z")
         params = {

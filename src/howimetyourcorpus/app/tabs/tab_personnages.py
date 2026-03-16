@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Callable
 
@@ -22,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
-from howimetyourcorpus.core.align import parse_run_segment_kind
+from howimetyourcorpus.core.align import format_segment_kind_label, parse_run_segment_kind
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,8 @@ class PersonnagesTabWidget(QWidget):
         self.personnages_propagate_btn = QPushButton("Propager")
         self.personnages_propagate_btn.setToolTip(
             "Suit les liens du run : assignations sur les phrases ou sur les cues pivot → préfixe « Nom : » sur les cues alignées et réécriture des SRT. "
-            "Les assignations sur les tours de parole ne sont pas propagées vers les SRT (seules phrases et cues le sont). Prérequis : assignations enregistrées, run sélectionné."
+            "Les assignations sur les tours sont propagées quand le run sélectionné est basé sur les tours. "
+            "Prérequis : assignations enregistrées, run sélectionné."
         )
         self.personnages_propagate_btn.clicked.connect(self._propagate)
         prop_row.addWidget(self.personnages_propagate_btn)
@@ -234,13 +236,21 @@ class PersonnagesTabWidget(QWidget):
         for r in runs:
             run_id = r.get("align_run_id") or ""
             summary = r.get("summary_json") or ""
-            label = run_id
+            segment_kind, _ = parse_run_segment_kind(
+                r.get("params_json"),
+                run_id=run_id,
+                logger_obj=logger,
+            )
+            label = f"{run_id}{format_segment_kind_label(segment_kind)}"
             if summary:
                 try:
-                    import json
                     s = json.loads(summary)
-                    if isinstance(s, dict) and s.get("nb_links") is not None:
-                        label = f"{run_id} ({s.get('nb_links', 0)} liens)"
+                    if isinstance(s, dict):
+                        links_count = s.get("nb_links")
+                        if links_count is None:
+                            links_count = s.get("total_links")
+                        if links_count is not None:
+                            label = f"{label} ({links_count} liens)"
                 except (TypeError, ValueError) as e:
                     logger.debug("Could not parse align run summary_json for %s: %s", run_id, e)
             self.personnages_run_combo.addItem(label, run_id)
@@ -559,17 +569,19 @@ class PersonnagesTabWidget(QWidget):
             run_id=run_id,
             logger_obj=logger,
         )
-        has_phrase_or_cue = any(
-            (a.get("source_type") == "segment" and ":sentence:" in (a.get("source_id") or ""))
-            or (a.get("source_type") == "cue")
-            or (run_segment_kind == "utterance" and a.get("source_type") == "segment" and ":utterance:" in (a.get("source_id") or ""))
+        expected_segment_marker = ":utterance:" if run_segment_kind == "utterance" else ":sentence:"
+        expected_segment_label = "tours" if run_segment_kind == "utterance" else "phrases"
+        has_expected_segment_assignments = any(
+            a.get("source_type") == "segment" and expected_segment_marker in (a.get("source_id") or "")
             for a in episode_assignments
         )
-        if not has_phrase_or_cue:
+        has_cue_assignments = any(a.get("source_type") == "cue" for a in episode_assignments)
+        if not (has_expected_segment_assignments or has_cue_assignments):
             if QMessageBox.question(
                 self,
                 "Propagation",
-                "Aucune assignation sur les phrases ni sur les cues. La propagation ne mettra à jour que les segments (speaker_explicit) ; "
+                f"Aucune assignation sur les {expected_segment_label} ni sur les cues. "
+                "La propagation ne mettra à jour que les segments (speaker_explicit) ; "
                 "les fichiers SRT ne seront pas modifiés.\n\nContinuer quand même ?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,

@@ -94,15 +94,21 @@ class MainWindowJobsController:
     def refresh_tabs_after_job(self, *, message_box: Any) -> None:
         """Rafraîchit les onglets dépendants après exécution d'un job."""
         win = self._window
+        has_combined_inspector = bool(
+            hasattr(win, "inspector_tab")
+            and win.inspector_tab
+            and hasattr(win.inspector_tab, "subtitles_tab")
+        )
         refreshers: list[tuple[str, Any, bool]] = [
             ("_refresh_episodes_from_store", win._refresh_episodes_from_store, True),  # noqa: SLF001
             ("_refresh_inspecteur_episodes", win._refresh_inspecteur_episodes, False),  # noqa: SLF001
             ("_refresh_preparer", win._refresh_preparer, False),  # noqa: SLF001
-            ("_refresh_subs_tracks", win._refresh_subs_tracks, False),  # noqa: SLF001
             ("_refresh_align_runs", win._refresh_align_runs, False),  # noqa: SLF001
             ("_refresh_concordance", win._refresh_concordance, False),  # noqa: SLF001
             ("_refresh_personnages", win._refresh_personnages, False),  # noqa: SLF001
         ]
+        if not has_combined_inspector:
+            refreshers.insert(3, ("_refresh_subs_tracks", win._refresh_subs_tracks, False))  # noqa: SLF001
         for name, refresh_fn, show_warning in refreshers:
             try:
                 refresh_fn()

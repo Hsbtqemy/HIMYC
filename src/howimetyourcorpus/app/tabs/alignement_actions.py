@@ -32,6 +32,16 @@ class AlignmentActionsController:
         self._tab = tab
         self._logger = logger_obj
 
+    @staticmethod
+    def _combo_lang_value(combo: Any, fallback: str = "") -> str:
+        if combo is None:
+            return fallback
+        value = combo.currentData() if hasattr(combo, "currentData") else None
+        if value is None:
+            value = combo.currentText() if hasattr(combo, "currentText") else ""
+        normalized = str(value or "").strip().lower()
+        return normalized if normalized else fallback
+
     def delete_current_run(
         self,
         *,
@@ -287,14 +297,80 @@ class AlignmentActionsController:
         if not eid:
             message_box.warning(tab, "Alignement", "Sélectionnez un épisode.")
             return
+        db = tab._get_db()
+        if not db:
+            return
         use_similarity = tab.align_by_similarity_cb.isChecked()
         segment_kind = tab.align_segment_kind_combo.currentData() or "sentence"
+        pivot_lang = self._combo_lang_value(getattr(tab, "align_pivot_lang_combo", None), fallback="en")
+        target_lang = self._combo_lang_value(getattr(tab, "align_target_lang_combo", None), fallback="")
+        target_langs = [target_lang] if target_lang else []
+
+        if target_lang and target_lang == pivot_lang:
+            message_box.warning(
+                tab,
+                "Alignement",
+                "La langue cible doit être différente de la langue pivot.",
+            )
+            return
+
+        segments = db.get_segments_for_episode(eid, kind=segment_kind)
+        has_segments = bool(segments)
+        if not has_segments and not target_langs:
+            message_box.warning(
+                tab,
+                "Alignement",
+                "Aucun segment disponible pour cet épisode et aucune langue cible sélectionnée.\n"
+                "Segmentez d'abord l'épisode dans l'onglet Inspecteur, ou choisissez une langue cible pour un alignement cues↔cues.",
+            )
+            return
+
+        pivot_cues = db.get_cues_for_episode_lang(eid, pivot_lang)
+        target_cues = {lang: db.get_cues_for_episode_lang(eid, lang) for lang in target_langs}
+        has_any_target_cues = any(target_cues.values())
+        if not has_segments and not pivot_cues:
+            message_box.warning(
+                tab,
+                "Alignement",
+                "Alignement cues↔cues impossible : piste pivot manquante.\n"
+                f"Importez la piste {pivot_lang.upper()} dans l'onglet Sous-titres.",
+            )
+            return
+        if not has_segments and not has_any_target_cues:
+            message_box.warning(
+                tab,
+                "Alignement",
+                "Alignement cues↔cues impossible : aucune piste cible disponible.\n"
+                "Importez une piste cible ou choisissez un autre épisode.",
+            )
+            return
+        if has_segments and not pivot_cues and not has_any_target_cues:
+            selected = ", ".join([pivot_lang.upper()] + [lang.upper() for lang in target_langs if lang])
+            message_box.warning(
+                tab,
+                "Alignement",
+                f"Aucune piste de sous-titres trouvée pour {selected}.\n"
+                "Importez au moins une piste dans l'onglet Sous-titres.",
+            )
+            return
+        if target_langs:
+            missing_targets = [lang for lang, cues in target_cues.items() if not cues]
+            if missing_targets:
+                message_box.warning(
+                    tab,
+                    "Alignement",
+                    "Piste cible manquante pour: "
+                    + ", ".join(lang.upper() for lang in missing_targets)
+                    + ".\nImportez la piste cible ou choisissez « Aucune ».",
+                )
+                return
+
         tab._run_job(  # noqa: SLF001 - API interne widget
             [
                 AlignEpisodeStep(
                     eid,
-                    pivot_lang="en",
-                    target_langs=["fr"],
+                    pivot_lang=pivot_lang,
+                    target_langs=target_langs,
                     use_similarity_for_cues=use_similarity,
                     segment_kind=segment_kind,
                 )

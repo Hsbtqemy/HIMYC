@@ -12,6 +12,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from howimetyourcorpus.app.dialogs.normalize_options import NormalizeOptionsDialog
 from howimetyourcorpus.app.dialogs.opensubtitles_download import OpenSubtitlesDownloadDialog
+from howimetyourcorpus.app.dialogs.search_replace import SearchReplaceDialog
 from howimetyourcorpus.app.dialogs.segmentation_options import SegmentationOptionsDialog
 from howimetyourcorpus.app.dialogs.subtitle_batch_import import SubtitleBatchImportDialog
 
@@ -50,6 +51,25 @@ def test_normalize_options_dialog_returns_selected_values(
     assert got["strip_line_spaces"] is True
     assert got["max_merge_examples_in_debug"] == 17
     assert got["case_transform"] == "lowercase"
+
+
+def test_search_replace_dialog_get_params_defaults(
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    dialog = SearchReplaceDialog()
+    assert dialog.get_params() == ("", "", False, False)
+
+
+def test_search_replace_dialog_get_params_with_values(
+    qapp: QApplication,  # noqa: ARG001
+) -> None:
+    dialog = SearchReplaceDialog()
+    dialog.find_edit.setText("hello")
+    dialog.replace_edit.setText("world")
+    dialog.case_sensitive_cb.setChecked(True)
+    dialog.regex_cb.setChecked(True)
+
+    assert dialog.get_params() == ("hello", "world", True, True)
 
 
 def test_segmentation_options_dialog_warns_on_invalid_regex(

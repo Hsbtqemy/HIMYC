@@ -396,18 +396,21 @@ class ConcordanceTabWidget(QWidget):
         if not path:
             return
         path = Path(path)
-        if path.suffix.lower() != ".docx" and "Word" in (selected_filter or ""):
+        selected_filter_upper = (selected_filter or "").upper()
+        suffix = path.suffix.lower()
+        if suffix != ".docx" and "WORD" in selected_filter_upper:
             path = path.with_suffix(".docx")
+            suffix = path.suffix.lower()
         try:
-            if path.suffix.lower() == ".csv" or "CSV" in (selected_filter or ""):
+            if suffix == ".csv" or "CSV" in selected_filter_upper:
                 export_kwic_csv(hits, path)
-            elif path.suffix.lower() == ".tsv" or "TSV" in (selected_filter or ""):
+            elif suffix == ".tsv" or "TSV" in selected_filter_upper:
                 export_kwic_tsv(hits, path)
-            elif path.suffix.lower() == ".json" or "JSON" in (selected_filter or ""):
-                export_kwic_json(hits, path)
-            elif path.suffix.lower() == ".jsonl" or "JSONL" in (selected_filter or ""):
+            elif suffix == ".jsonl" or "JSONL" in selected_filter_upper:
                 export_kwic_jsonl(hits, path)
-            elif path.suffix.lower() == ".docx" or "Word" in (selected_filter or ""):
+            elif suffix == ".json" or ("JSON" in selected_filter_upper and "JSONL" not in selected_filter_upper):
+                export_kwic_json(hits, path)
+            elif suffix == ".docx" or "WORD" in selected_filter_upper:
                 export_kwic_docx(hits, path)
             else:
                 QMessageBox.warning(self, "Export", "Format non reconnu. Utilisez .csv, .tsv, .json, .jsonl ou .docx")
