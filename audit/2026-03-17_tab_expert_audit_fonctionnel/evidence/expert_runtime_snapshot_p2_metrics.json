@@ -1,0 +1,14 @@
+{
+  "auto_refresh_timer_active_before": false,
+  "auto_refresh_timer_active_after_on": true,
+  "auto_refresh_timer_active_after_off": false,
+  "auto_refresh_interval_ms": 2000,
+  "kpi_project_text": "Project loaded: yes",
+  "kpi_context_text": "Context consistent: yes",
+  "kpi_episode_text": "Episode focus: S01E01",
+  "kpi_project_tooltip_non_empty": true,
+  "kpi_context_tooltip_non_empty": true,
+  "kpi_episode_tooltip_non_empty": true,
+  "legend_present_in_snapshot": true,
+  "context_complete_present": true
+}
