@@ -1,0 +1,102 @@
+{
+  "scope": "vues_transverses_expertise",
+  "date": "2026-03-17",
+  "views": [
+    {
+      "view_id": "EV1",
+      "title": "Handoff episode/segment_kind inter-onglets",
+      "status": "OPERATIONNEL",
+      "code_evidence": [
+        "evidence/cross_tab_handoff_refs.txt"
+      ],
+      "test_evidence": [
+        "tests/test_ui_preparer_navigation.py::test_navigation_handoff_episode_and_segment_kind",
+        "tests/test_ui_preparer_navigation.py::test_preparer_go_to_alignement_uses_utterance_when_transcript_rows_present",
+        "tests/test_ui_alignement.py::test_set_episode_and_segment_kind_selects_matching_items"
+      ],
+      "logs": [
+        "evidence/pytest_vues_transverses_focus.log",
+        "evidence/pytest_vues_transverses_segment_kind.log"
+      ]
+    },
+    {
+      "view_id": "EV2",
+      "title": "Persistance contexte local (episode/source/splitter/notes)",
+      "status": "OPERATIONNEL",
+      "code_evidence": [
+        "evidence/context_persistence_refs.txt"
+      ],
+      "test_evidence": [
+        "tests/test_ui_preparer_navigation.py::test_preparer_tab_switch_keeps_current_episode_and_source",
+        "tests/test_ui_preparer_navigation.py::test_refresh_tabs_after_job_preserves_preparer_dirty_draft"
+      ],
+      "logs": [
+        "evidence/pytest_vues_transverses_focus.log"
+      ]
+    },
+    {
+      "view_id": "EV3",
+      "title": "Tracabilite segment_kind (run alignement -> vues expertes)",
+      "status": "OPERATIONNEL",
+      "code_evidence": [
+        "evidence/propagation_refs.txt"
+      ],
+      "test_evidence": [
+        "tests/test_align_run_metadata.py::test_parse_run_segment_kind_valid_payload",
+        "tests/test_ui_alignement.py::test_on_episode_changed_formats_segment_kind_labels_when_payload_is_valid",
+        "tests/test_ui_personnages.py::test_fill_propagate_run_combo_displays_segment_kind_and_total_links"
+      ],
+      "logs": [
+        "evidence/pytest_vues_transverses_focus.log",
+        "evidence/pytest_vues_transverses_segment_kind.log"
+      ]
+    },
+    {
+      "view_id": "EV4",
+      "title": "Propagation des assignations segment/cue vers DB+fichiers",
+      "status": "OPERATIONNEL",
+      "code_evidence": [
+        "evidence/propagation_refs.txt"
+      ],
+      "test_evidence": [
+        "tests/test_project_store_propagation.py::test_propagation_rewrites_only_selected_languages_and_caches_cues",
+        "tests/test_project_store_propagation.py::test_propagation_rewrites_all_updated_languages_by_default",
+        "tests/test_ui_personnages.py::test_propagate_runs_with_utterance_assignments_when_run_is_utterance"
+      ],
+      "logs": [
+        "evidence/pytest_vues_transverses_focus.log"
+      ]
+    },
+    {
+      "view_id": "EV5",
+      "title": "Undo/Redo transversal (sous-titres, preparer, alignement)",
+      "status": "OPERATIONNEL",
+      "code_evidence": [
+        "evidence/undo_redo_refs.txt"
+      ],
+      "test_evidence": [
+        "tests/test_undo_commands.py::test_delete_subtitle_track_command_redo_undo_restores_db_files_and_alignment",
+        "tests/test_ui_preparer_navigation.py::test_preparer_group_utterances_uses_segment_assignments_when_labels_do_not_match"
+      ],
+      "logs": [
+        "evidence/pytest_vues_transverses_focus.log"
+      ]
+    },
+    {
+      "view_id": "EV6",
+      "title": "Orchestration refresh transverse (post-job, post-open projet)",
+      "status": "OPERATIONNEL",
+      "code_evidence": [
+        "evidence/cross_tab_handoff_refs.txt"
+      ],
+      "test_evidence": [
+        "tests/test_ui_mainwindow_core.py::test_refresh_tabs_after_job_skips_duplicate_subs_refresh_when_inspector_is_combined",
+        "tests/test_ui_mainwindow_core.py::test_refresh_tabs_after_project_open_skips_duplicate_subs_refresh_when_inspector_is_combined",
+        "tests/test_ui_preparer_navigation.py::test_refresh_tabs_after_job_updates_personnages_runs"
+      ],
+      "logs": [
+        "evidence/pytest_vues_transverses_focus.log"
+      ]
+    }
+  ]
+}

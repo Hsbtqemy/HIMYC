@@ -1,0 +1,154 @@
+{
+  "counts": {
+    "total_controls": 14,
+    "branche_direct": 9,
+    "branche_indirect": 5,
+    "non_branche": 0
+  },
+  "rows": [
+    {
+      "control": "subs_episode_combo",
+      "type": "QComboBox",
+      "defined_line": 91,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_episode_changed"
+      ]
+    },
+    {
+      "control": "subs_lang_combo",
+      "type": "QComboBox",
+      "defined_line": 95,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "subs_import_btn",
+      "type": "QPushButton",
+      "defined_line": 101,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_import_file"
+      ]
+    },
+    {
+      "control": "subs_apply_profile_on_import_cb",
+      "type": "QCheckBox",
+      "defined_line": 104,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "subs_import_batch_btn",
+      "type": "QPushButton",
+      "defined_line": 110,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_import_batch"
+      ]
+    },
+    {
+      "control": "subs_opensubtitles_btn",
+      "type": "QPushButton",
+      "defined_line": 118,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_import_opensubtitles"
+      ]
+    },
+    {
+      "control": "subs_export_final_btn",
+      "type": "QPushButton",
+      "defined_line": 134,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_srt_final"
+      ]
+    },
+    {
+      "control": "subs_delete_track_btn",
+      "type": "QPushButton",
+      "defined_line": 141,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_delete_selected_track"
+      ]
+    },
+    {
+      "control": "subs_norm_profile_combo",
+      "type": "QComboBox",
+      "defined_line": 150,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "subs_norm_btn",
+      "type": "QPushButton",
+      "defined_line": 155,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_normalize_track"
+      ]
+    },
+    {
+      "control": "subs_rewrite_srt_check",
+      "type": "QCheckBox",
+      "defined_line": 162,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "subs_tracks_list",
+      "type": "QListWidget",
+      "defined_line": 170,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentItemChanged->_on_track_selected"
+      ]
+    },
+    {
+      "control": "subs_content_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 174,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "subs_save_btn",
+      "type": "QPushButton",
+      "defined_line": 180,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_save_content"
+      ]
+    }
+  ]
+}

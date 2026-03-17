@@ -1,0 +1,19 @@
+﻿11:    QPlainTextEdit,
+12:    QPushButton,
+48:        self.refresh_btn = QPushButton("Rafraichir")
+49:        self.refresh_btn.clicked.connect(self.refresh)
+53:        self.summary_edit = QPlainTextEdit()
+54:        self.summary_edit.setReadOnly(True)
+70:    def _safe_call(fn: Callable[[], object] | None) -> object | None:
+79:        inspector_tab = self._safe_call(self._get_inspector_tab)
+80:        preparer_tab = self._safe_call(self._get_preparer_tab)
+81:        alignment_tab = self._safe_call(self._get_alignment_tab)
+82:        personnages_tab = self._safe_call(self._get_personnages_tab)
+118:        db = self._safe_call(self._get_db)
+119:        alignment_tab = self._safe_call(self._get_alignment_tab)
+163:        store = self._safe_call(self._get_store)
+185:        stack = self._safe_call(self._get_undo_stack)
+196:        preparer_tab = self._safe_call(self._get_preparer_tab)
+205:        store = self._safe_call(self._get_store)
+206:        db = self._safe_call(self._get_db)
+277:        self.summary_edit.setPlainText(self._render_snapshot(snapshot))

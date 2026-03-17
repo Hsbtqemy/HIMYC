@@ -1,0 +1,85 @@
+﻿src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:8:from PySide6.QtCore import Qt, QSettings
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:109:        current_episode_id = self.episode_combo.currentData()
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:118:                if current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:120:                        if self.episode_combo.itemData(i) == current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:121:                            self.episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:127:        if current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:128:            self.set_episode_and_load(current_episode_id)
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:131:        settings = QSettings()
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:139:    def save_state(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:141:        settings = QSettings()
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:143:        self.inspector_tab.save_state()
+src/howimetyourcorpus/app/tabs/tab_inspecteur_sous_titres.py:153:                self.episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:152:        current_episode_id = self.personnages_episode_combo.currentData()
+src/howimetyourcorpus/app/tabs/tab_personnages.py:187:            if current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_personnages.py:189:                    if self.personnages_episode_combo.itemData(i) == current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_personnages.py:190:                        self.personnages_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:400:                    combo.setCurrentIndex(idx)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:419:                    combo.setCurrentIndex(idx)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:439:                    combo.setCurrentIndex(idx)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:487:                            combo.setCurrentIndex(idx)
+src/howimetyourcorpus/app/tabs/preparer_context.py:36:        current_episode_id = tab._current_episode_id or tab.prep_episode_combo.currentData()
+src/howimetyourcorpus/app/tabs/preparer_context.py:45:        if current_episode_id:
+src/howimetyourcorpus/app/tabs/preparer_context.py:47:                if tab.prep_episode_combo.itemData(i) == current_episode_id:
+src/howimetyourcorpus/app/tabs/preparer_context.py:48:                    tab.prep_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/preparer_context.py:51:        self.refresh_source_availability(current_episode_id)
+src/howimetyourcorpus/app/tabs/preparer_context.py:61:                    tab.prep_source_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/preparer_context.py:69:                tab.prep_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/preparer_context.py:95:        if not tab._current_episode_id:
+src/howimetyourcorpus/app/tabs/preparer_context.py:99:            if tab.prep_episode_combo.itemData(i) == tab._current_episode_id:
+src/howimetyourcorpus/app/tabs/preparer_context.py:100:                tab.prep_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/preparer_context.py:109:                tab.prep_source_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/preparer_context.py:135:                tab.prep_source_combo.setCurrentIndex(0)
+src/howimetyourcorpus/app/tabs/preparer_context.py:140:        tab._current_episode_id = None
+src/howimetyourcorpus/app/tabs/preparer_context.py:167:        if not force and episode_id == tab._current_episode_id and source_key == tab._current_source_key:
+src/howimetyourcorpus/app/tabs/preparer_context.py:205:        tab._current_episode_id = episode_id
+src/howimetyourcorpus/app/tabs/tab_preparer.py:68:        self._current_episode_id: str | None = None
+src/howimetyourcorpus/app/tabs/tab_preparer.py:128:    def current_episode_id(self) -> str | None:
+src/howimetyourcorpus/app/tabs/tab_preparer.py:129:        return self._current_episode_id
+src/howimetyourcorpus/app/tabs/tab_preparer.py:163:        self.prep_source_combo.setCurrentIndex(idx if idx >= 0 else 0)
+src/howimetyourcorpus/app/tabs/tab_preparer.py:175:    def save_state(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_preparer.py:226:        self.prep_status_combo.setCurrentIndex(idx)
+src/howimetyourcorpus/app/tabs/tab_preparer.py:231:            if store and self._current_episode_id and self._current_source_key:
+src/howimetyourcorpus/app/tabs/tab_preparer.py:232:                store.set_episode_prep_status(self._current_episode_id, self._current_source_key, st)
+src/howimetyourcorpus/app/tabs/tab_preparer.py:294:        episode_for_assign = episode_id or self._current_episode_id
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:9:from PySide6.QtCore import Qt, QSettings
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:65:        self._current_episode_id: str | None = None
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:208:        settings = QSettings()
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:216:    def save_state(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:218:        settings = QSettings()
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:222:        if self._current_episode_id and store:
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:223:            store.save_episode_notes(
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:224:                self._current_episode_id,
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:230:        current_episode_id = self.inspect_episode_combo.currentData()
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:240:            if current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:242:                    if self.inspect_episode_combo.itemData(i) == current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:243:                        self.inspect_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:266:                self.inspect_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:274:            self._current_episode_id = None
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:282:        if self._current_episode_id and self._current_episode_id != eid:
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:283:            store.save_episode_notes(
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:284:                self._current_episode_id,
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:287:        self._current_episode_id = eid
+src/howimetyourcorpus/app/tabs/tab_inspecteur.py:288:        self.inspect_notes_edit.setPlainText(store.load_episode_notes(eid))
+src/howimetyourcorpus/app/tabs/tab_alignement.py:8:from PySide6.QtCore import QPoint, Qt, QSettings
+src/howimetyourcorpus/app/tabs/tab_alignement.py:191:        """Restaure les proportions du splitter table | stats depuis QSettings."""
+src/howimetyourcorpus/app/tabs/tab_alignement.py:192:        settings = QSettings("HIMYC", "AlignmentTab")
+src/howimetyourcorpus/app/tabs/tab_alignement.py:200:    def save_state(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_alignement.py:202:        settings = QSettings("HIMYC", "AlignmentTab")
+src/howimetyourcorpus/app/tabs/tab_alignement.py:207:        current_episode_id = self.align_episode_combo.currentData()
+src/howimetyourcorpus/app/tabs/tab_alignement.py:217:            if current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_alignement.py:219:                    if self.align_episode_combo.itemData(i) == current_episode_id:
+src/howimetyourcorpus/app/tabs/tab_alignement.py:220:                        self.align_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:229:            self.align_segment_kind_combo.setCurrentIndex(idx_sk)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:232:                self.align_episode_combo.setCurrentIndex(i)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:274:        self.align_pivot_lang_combo.setCurrentIndex(idx if idx >= 0 else 0)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:293:        self.align_target_lang_combo.setCurrentIndex(idx if idx >= 0 else 0)
+src/howimetyourcorpus/app/ui_mainwindow.py:17:from PySide6.QtCore import QSettings, QTimer, QUrl
+src/howimetyourcorpus/app/ui_mainwindow.py:105:        self.tabs.setCurrentIndex(TAB_PROJET)
+src/howimetyourcorpus/app/ui_mainwindow.py:152:        settings = QSettings("HIMYC", "MainWindow")
+src/howimetyourcorpus/app/ui_mainwindow.py:205:        settings = QSettings("HIMYC", "MainWindow")
+src/howimetyourcorpus/app/ui_mainwindow.py:318:                    self.tabs.setCurrentIndex(TAB_PREPARER)
+src/howimetyourcorpus/app/ui_mainwindow.py:323:                self.inspector_tab.save_state()
+src/howimetyourcorpus/app/ui_mainwindow.py:347:            self.preparer_tab.save_state()
+src/howimetyourcorpus/app/ui_mainwindow.py:349:            self.inspector_tab.save_state()
+src/howimetyourcorpus/app/ui_mainwindow.py:351:            self.alignment_tab.save_state()

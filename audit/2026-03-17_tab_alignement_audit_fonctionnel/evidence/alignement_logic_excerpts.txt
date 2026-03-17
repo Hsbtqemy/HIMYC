@@ -1,0 +1,165 @@
+=== tab_alignement.py delegated slots ===
+352:     @require_project_and_db
+353:     def _delete_current_run(self) -> None:
+354:         self._actions_controller.delete_current_run(
+355:             message_box=QMessageBox,
+356:             confirm_action_fn=confirm_action,
+357:         )
+358:     
+359:     @require_project_and_db
+360:     def _bulk_accept(self) -> None:
+361:         """Moyenne Priorité #4 : Accepte tous les liens avec confidence > seuil + Undo/Redo (BP3)."""
+362:         self._actions_controller.bulk_accept(
+363:             message_box=QMessageBox,
+364:             confirm_action_fn=confirm_action,
+365:         )
+366:     
+367:     @require_project_and_db
+368:     def _bulk_reject(self) -> None:
+369:         """Moyenne Priorité #4 : Rejette tous les liens avec confidence < seuil + Undo/Redo (BP3)."""
+370:         self._actions_controller.bulk_reject(
+371:             message_box=QMessageBox,
+372:             confirm_action_fn=confirm_action,
+373:         )
+374: 
+375:     def _fill_links(self) -> None:
+376:         eid = self.align_episode_combo.currentData()
+377:         run_id = self.align_run_combo.currentData()
+378:         model = AlignLinksTableModel()
+379:         db = self._get_db()
+380:         if not db or not eid:
+381:             self.align_table.setModel(model)
+382:             return
+383:         links = db.query_alignment_for_episode(eid, run_id=run_id)
+384:         model.set_links(links, db, episode_id=eid)
+385:         self.align_table.setModel(model)
+386: 
+387:     def _table_context_menu(self, pos: QPoint) -> None:
+388:         self._actions_controller.table_context_menu(
+389:             pos,
+390:             menu_cls=QMenu,
+391:             edit_dialog_cls=EditAlignLinkDialog,
+392:         )
+393: 
+394:     @require_project_and_db
+395:     def _run_align_episode(self) -> None:
+396:         self._actions_controller.run_align_episode(message_box=QMessageBox)
+397: 
+398:     @require_project_and_db
+399:     def _generate_alignment_groups(self) -> None:
+400:         self._actions_controller.generate_alignment_groups(message_box=QMessageBox)
+401: 
+402:     @require_project_and_db
+403:     def _export_grouped_alignment(self) -> None:
+404:         self._actions_controller.export_grouped_alignment(
+405:             file_dialog=QFileDialog,
+406:             message_box=QMessageBox,
+407:         )
+408: 
+409:     @require_project_and_db
+410:     def _export_alignment(self) -> None:
+411:         self._actions_controller.export_alignment(
+412:             file_dialog=QFileDialog,
+413:             message_box=QMessageBox,
+414:         )
+415: 
+416:     @require_project_and_db
+417:     def _export_parallel_concordance(self) -> None:
+418:         self._actions_controller.export_parallel_concordance(
+419:             file_dialog=QFileDialog,
+420:             message_box=QMessageBox,
+421:         )
+422: 
+423:     @require_project_and_db
+424:     def _export_align_report(self) -> None:
+425:         self._actions_controller.export_align_report(
+426:             file_dialog=QFileDialog,
+427:             message_box=QMessageBox,
+428:         )
+
+=== alignement_actions.py run_align_episode ===
+294:     def run_align_episode(self, *, message_box: Any) -> None:
+295:         tab = self._tab
+296:         eid = tab.align_episode_combo.currentData()
+297:         if not eid:
+298:             message_box.warning(tab, "Alignement", "Sélectionnez un épisode.")
+299:             return
+300:         db = tab._get_db()
+301:         if not db:
+302:             return
+303:         use_similarity = tab.align_by_similarity_cb.isChecked()
+304:         segment_kind = tab.align_segment_kind_combo.currentData() or "sentence"
+305:         pivot_lang = self._combo_lang_value(getattr(tab, "align_pivot_lang_combo", None), fallback="en")
+306:         target_lang = self._combo_lang_value(getattr(tab, "align_target_lang_combo", None), fallback="")
+307:         target_langs = [target_lang] if target_lang else []
+308: 
+309:         if target_lang and target_lang == pivot_lang:
+310:             message_box.warning(
+311:                 tab,
+312:                 "Alignement",
+313:                 "La langue cible doit être différente de la langue pivot.",
+314:             )
+315:             return
+316: 
+317:         segments = db.get_segments_for_episode(eid, kind=segment_kind)
+318:         has_segments = bool(segments)
+319:         if not has_segments and not target_langs:
+320:             message_box.warning(
+321:                 tab,
+322:                 "Alignement",
+323:                 "Aucun segment disponible pour cet épisode et aucune langue cible sélectionnée.\n"
+324:                 "Segmentez d'abord l'épisode dans l'onglet Inspecteur, ou choisissez une langue cible pour un alignement cues↔cues.",
+325:             )
+326:             return
+327: 
+328:         pivot_cues = db.get_cues_for_episode_lang(eid, pivot_lang)
+329:         target_cues = {lang: db.get_cues_for_episode_lang(eid, lang) for lang in target_langs}
+330:         has_any_target_cues = any(target_cues.values())
+331:         if not has_segments and not pivot_cues:
+332:             message_box.warning(
+333:                 tab,
+334:                 "Alignement",
+335:                 "Alignement cues↔cues impossible : piste pivot manquante.\n"
+336:                 f"Importez la piste {pivot_lang.upper()} dans l'onglet Sous-titres.",
+337:             )
+338:             return
+339:         if not has_segments and not has_any_target_cues:
+340:             message_box.warning(
+341:                 tab,
+342:                 "Alignement",
+343:                 "Alignement cues↔cues impossible : aucune piste cible disponible.\n"
+344:                 "Importez une piste cible ou choisissez un autre épisode.",
+345:             )
+346:             return
+347:         if has_segments and not pivot_cues and not has_any_target_cues:
+348:             selected = ", ".join([pivot_lang.upper()] + [lang.upper() for lang in target_langs if lang])
+349:             message_box.warning(
+350:                 tab,
+351:                 "Alignement",
+352:                 f"Aucune piste de sous-titres trouvée pour {selected}.\n"
+353:                 "Importez au moins une piste dans l'onglet Sous-titres.",
+354:             )
+355:             return
+356:         if target_langs:
+357:             missing_targets = [lang for lang, cues in target_cues.items() if not cues]
+358:             if missing_targets:
+359:                 message_box.warning(
+360:                     tab,
+361:                     "Alignement",
+362:                     "Piste cible manquante pour: "
+363:                     + ", ".join(lang.upper() for lang in missing_targets)
+364:                     + ".\nImportez la piste cible ou choisissez « Aucune ».",
+365:                 )
+366:                 return
+367: 
+368:         tab._run_job(  # noqa: SLF001 - API interne widget
+369:             [
+370:                 AlignEpisodeStep(
+371:                     eid,
+372:                     pivot_lang=pivot_lang,
+373:                     target_langs=target_langs,
+374:                     use_similarity_for_cues=use_similarity,
+375:                     segment_kind=segment_kind,
+376:                 )
+377:             ]
+378:         )

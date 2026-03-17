@@ -1,0 +1,19 @@
+control,type,defined_line,connection_count,used_outside_init,used_in_actions_controller,verdict_effective,signals,external_usage_methods
+align_episode_combo,QComboBox,62,1,True,True,BRANCHE_DIRECT,currentIndexChanged->_on_episode_changed,bulk_accept | bulk_reject | delete_current_run | export_align_report | export_alignment | export_grouped_alignment | export_parallel_concordance | generate_alignment_groups | run_align_episode | table_context_menu
+align_run_combo,QComboBox,66,1,True,True,BRANCHE_DIRECT,currentIndexChanged->_on_run_changed,bulk_accept | bulk_reject | delete_current_run | export_align_report | export_alignment | export_grouped_alignment | export_parallel_concordance | generate_alignment_groups
+align_segment_kind_combo,QComboBox,70,0,True,True,BRANCHE_INDIRECT,,run_align_episode
+align_pivot_lang_combo,QComboBox,78,1,True,False,BRANCHE_DIRECT,currentIndexChanged->_on_pivot_lang_changed,
+align_target_lang_combo,QComboBox,85,0,True,False,BRANCHE_INDIRECT,,
+align_run_btn,QPushButton,90,1,False,False,BRANCHE_DIRECT,clicked->_run_align_episode,
+align_delete_run_btn,QPushButton,93,1,True,False,BRANCHE_DIRECT,clicked->_delete_current_run,
+align_by_similarity_cb,QCheckBox,97,0,False,True,BRANCHE_INDIRECT,,run_align_episode
+export_align_btn,QPushButton,102,1,False,False,BRANCHE_DIRECT,clicked->_export_alignment,
+export_parallel_btn,QPushButton,105,1,False,False,BRANCHE_DIRECT,clicked->_export_parallel_concordance,
+align_group_btn,QPushButton,108,1,False,False,BRANCHE_DIRECT,clicked->_generate_alignment_groups,
+export_grouped_btn,QPushButton,114,1,False,False,BRANCHE_DIRECT,clicked->_export_grouped_alignment,
+align_report_btn,QPushButton,120,1,False,False,BRANCHE_DIRECT,clicked->_export_align_report,
+align_accepted_only_cb,QCheckBox,124,0,True,True,BRANCHE_INDIRECT,,export_align_report | export_parallel_concordance
+bulk_accept_btn,QPushButton,148,1,False,False,BRANCHE_DIRECT,clicked->_bulk_accept,
+bulk_reject_btn,QPushButton,153,1,False,False,BRANCHE_DIRECT,clicked->_bulk_reject,
+bulk_threshold_spin,QSpinBox,159,0,False,True,BRANCHE_INDIRECT,,bulk_accept | bulk_reject
+align_table,QTableView,171,1,True,True,BRANCHE_DIRECT,customContextMenuRequested->_table_context_menu,table_context_menu

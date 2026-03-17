@@ -1,0 +1,12 @@
+﻿19:from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget
+53:        self.episode_combo.currentIndexChanged.connect(self._on_episode_changed)
+58:        self.inspector_tab = InspectorTabWidget(
+76:        self.inspector_tab.set_episode_selector_visible(False)
+77:        self.subtitles_tab.set_episode_selector_visible(False)
+100:    def _on_episode_changed(self) -> None:
+104:        self.inspector_tab.set_episode_and_load(eid)
+105:        self.subtitles_tab.set_episode_and_load(eid)
+128:            self.set_episode_and_load(current_episode_id)
+149:    def set_episode_and_load(self, episode_id: str) -> None:
+155:        self.inspector_tab.set_episode_and_load(episode_id)
+156:        self.subtitles_tab.set_episode_and_load(episode_id)

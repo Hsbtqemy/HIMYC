@@ -1,0 +1,198 @@
+{
+  "counts": {
+    "total_controls": 18,
+    "branche_direct": 13,
+    "branche_indirect": 3,
+    "non_branche": 2
+  },
+  "rows": [
+    {
+      "control": "align_episode_combo",
+      "type": "QComboBox",
+      "defined_line": 62,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_episode_changed"
+      ]
+    },
+    {
+      "control": "align_run_combo",
+      "type": "QComboBox",
+      "defined_line": 66,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_run_changed"
+      ]
+    },
+    {
+      "control": "align_segment_kind_combo",
+      "type": "QComboBox",
+      "defined_line": 70,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "align_pivot_lang_combo",
+      "type": "QComboBox",
+      "defined_line": 78,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_pivot_lang_changed"
+      ]
+    },
+    {
+      "control": "align_target_lang_combo",
+      "type": "QComboBox",
+      "defined_line": 85,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "align_run_btn",
+      "type": "QPushButton",
+      "defined_line": 90,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_run_align_episode"
+      ]
+    },
+    {
+      "control": "align_delete_run_btn",
+      "type": "QPushButton",
+      "defined_line": 93,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_delete_current_run"
+      ]
+    },
+    {
+      "control": "align_by_similarity_cb",
+      "type": "QCheckBox",
+      "defined_line": 97,
+      "connection_count": 0,
+      "used_outside_init": false,
+      "verdict": "NON_BRANCHE",
+      "signals": []
+    },
+    {
+      "control": "export_align_btn",
+      "type": "QPushButton",
+      "defined_line": 102,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_alignment"
+      ]
+    },
+    {
+      "control": "export_parallel_btn",
+      "type": "QPushButton",
+      "defined_line": 105,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_parallel_concordance"
+      ]
+    },
+    {
+      "control": "align_group_btn",
+      "type": "QPushButton",
+      "defined_line": 108,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_generate_alignment_groups"
+      ]
+    },
+    {
+      "control": "export_grouped_btn",
+      "type": "QPushButton",
+      "defined_line": 114,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_grouped_alignment"
+      ]
+    },
+    {
+      "control": "align_report_btn",
+      "type": "QPushButton",
+      "defined_line": 120,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_align_report"
+      ]
+    },
+    {
+      "control": "align_accepted_only_cb",
+      "type": "QCheckBox",
+      "defined_line": 124,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "bulk_accept_btn",
+      "type": "QPushButton",
+      "defined_line": 148,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_bulk_accept"
+      ]
+    },
+    {
+      "control": "bulk_reject_btn",
+      "type": "QPushButton",
+      "defined_line": 153,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_bulk_reject"
+      ]
+    },
+    {
+      "control": "bulk_threshold_spin",
+      "type": "QSpinBox",
+      "defined_line": 159,
+      "connection_count": 0,
+      "used_outside_init": false,
+      "verdict": "NON_BRANCHE",
+      "signals": []
+    },
+    {
+      "control": "align_table",
+      "type": "QTableView",
+      "defined_line": 171,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "customContextMenuRequested->_table_context_menu"
+      ]
+    }
+  ]
+}

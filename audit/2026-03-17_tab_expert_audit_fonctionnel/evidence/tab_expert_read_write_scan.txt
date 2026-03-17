@@ -1,0 +1,4 @@
+﻿134:        if episode_id and hasattr(db, "get_align_runs_for_episode"):
+136:                runs = db.get_align_runs_for_episode(episode_id) or []
+164:        if store is None or not hasattr(store, "load_character_assignments"):
+173:            assignments = list(store.load_character_assignments() or [])

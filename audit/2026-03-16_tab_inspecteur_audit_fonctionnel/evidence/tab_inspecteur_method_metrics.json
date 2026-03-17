@@ -1,0 +1,186 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_inspecteur.py",
+  "methods": [
+    {
+      "method": "_export_segments",
+      "line_start": 481,
+      "line_end": 529,
+      "loc": 49,
+      "decision_complexity": 24,
+      "call_count": 24,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_load_episode",
+      "line_start": 270,
+      "line_end": 325,
+      "loc": 56,
+      "decision_complexity": 15,
+      "call_count": 40,
+      "decorators": []
+    },
+    {
+      "method": "_restore_splitter_sizes",
+      "line_start": 192,
+      "line_end": 214,
+      "loc": 23,
+      "decision_complexity": 12,
+      "call_count": 15,
+      "decorators": []
+    },
+    {
+      "method": "_fill_segments",
+      "line_start": 371,
+      "line_end": 393,
+      "loc": 23,
+      "decision_complexity": 11,
+      "call_count": 14,
+      "decorators": []
+    },
+    {
+      "method": "_goto_segment",
+      "line_start": 341,
+      "line_end": 369,
+      "loc": 29,
+      "decision_complexity": 8,
+      "call_count": 14,
+      "decorators": []
+    },
+    {
+      "method": "refresh",
+      "line_start": 228,
+      "line_end": 245,
+      "loc": 18,
+      "decision_complexity": 8,
+      "call_count": 10,
+      "decorators": []
+    },
+    {
+      "method": "_update_profile_rules_preview",
+      "line_start": 438,
+      "line_end": 450,
+      "loc": 13,
+      "decision_complexity": 5,
+      "call_count": 9,
+      "decorators": []
+    },
+    {
+      "method": "refresh_profile_combo",
+      "line_start": 247,
+      "line_end": 255,
+      "loc": 9,
+      "decision_complexity": 5,
+      "call_count": 5,
+      "decorators": []
+    },
+    {
+      "method": "_run_normalize",
+      "line_start": 411,
+      "line_end": 422,
+      "loc": 12,
+      "decision_complexity": 4,
+      "call_count": 8,
+      "decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "method": "_on_segment_selected",
+      "line_start": 395,
+      "line_end": 408,
+      "loc": 14,
+      "decision_complexity": 3,
+      "call_count": 13,
+      "decorators": []
+    },
+    {
+      "method": "_set_episode_preferred_profile",
+      "line_start": 425,
+      "line_end": 436,
+      "loc": 12,
+      "decision_complexity": 3,
+      "call_count": 7,
+      "decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "method": "_run_segment",
+      "line_start": 468,
+      "line_end": 478,
+      "loc": 11,
+      "decision_complexity": 3,
+      "call_count": 7,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "save_state",
+      "line_start": 216,
+      "line_end": 226,
+      "loc": 11,
+      "decision_complexity": 3,
+      "call_count": 8,
+      "decorators": []
+    },
+    {
+      "method": "set_episode_and_load",
+      "line_start": 262,
+      "line_end": 268,
+      "loc": 7,
+      "decision_complexity": 3,
+      "call_count": 5,
+      "decorators": []
+    },
+    {
+      "method": "_switch_view",
+      "line_start": 327,
+      "line_end": 333,
+      "loc": 7,
+      "decision_complexity": 2,
+      "call_count": 5,
+      "decorators": []
+    },
+    {
+      "method": "_on_kind_filter_changed",
+      "line_start": 335,
+      "line_end": 339,
+      "loc": 5,
+      "decision_complexity": 2,
+      "call_count": 2,
+      "decorators": []
+    },
+    {
+      "method": "__init__",
+      "line_start": 50,
+      "line_end": 190,
+      "loc": 141,
+      "decision_complexity": 1,
+      "call_count": 115,
+      "decorators": []
+    },
+    {
+      "method": "_open_profiles_dialog",
+      "line_start": 453,
+      "line_end": 465,
+      "loc": 13,
+      "decision_complexity": 1,
+      "call_count": 8,
+      "decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "method": "set_episode_selector_visible",
+      "line_start": 257,
+      "line_end": 260,
+      "loc": 4,
+      "decision_complexity": 1,
+      "call_count": 2,
+      "decorators": []
+    }
+  ]
+}

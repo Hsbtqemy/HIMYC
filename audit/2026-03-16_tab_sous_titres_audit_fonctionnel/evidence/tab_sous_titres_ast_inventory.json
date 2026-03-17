@@ -1,0 +1,286 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_sous_titres.py",
+  "total_lines": 518,
+  "helpers": [
+    {
+      "name": "_normalize_episode_id",
+      "line": 37
+    },
+    {
+      "name": "_parse_subtitle_filename",
+      "line": 50
+    }
+  ],
+  "widgets_count": 15,
+  "connections_count": 9,
+  "methods_count": 14,
+  "widgets": [
+    {
+      "name": "_subs_episode_label",
+      "widget_ctor": "QLabel",
+      "line": 89
+    },
+    {
+      "name": "subs_episode_combo",
+      "widget_ctor": "QComboBox",
+      "line": 91
+    },
+    {
+      "name": "subs_lang_combo",
+      "widget_ctor": "QComboBox",
+      "line": 95
+    },
+    {
+      "name": "subs_import_btn",
+      "widget_ctor": "QPushButton",
+      "line": 101
+    },
+    {
+      "name": "subs_apply_profile_on_import_cb",
+      "widget_ctor": "QCheckBox",
+      "line": 104
+    },
+    {
+      "name": "subs_import_batch_btn",
+      "widget_ctor": "QPushButton",
+      "line": 110
+    },
+    {
+      "name": "subs_opensubtitles_btn",
+      "widget_ctor": "QPushButton",
+      "line": 118
+    },
+    {
+      "name": "subs_export_final_btn",
+      "widget_ctor": "QPushButton",
+      "line": 134
+    },
+    {
+      "name": "subs_delete_track_btn",
+      "widget_ctor": "QPushButton",
+      "line": 141
+    },
+    {
+      "name": "subs_norm_profile_combo",
+      "widget_ctor": "QComboBox",
+      "line": 150
+    },
+    {
+      "name": "subs_norm_btn",
+      "widget_ctor": "QPushButton",
+      "line": 155
+    },
+    {
+      "name": "subs_rewrite_srt_check",
+      "widget_ctor": "QCheckBox",
+      "line": 162
+    },
+    {
+      "name": "subs_tracks_list",
+      "widget_ctor": "QListWidget",
+      "line": 170
+    },
+    {
+      "name": "subs_content_edit",
+      "widget_ctor": "QPlainTextEdit",
+      "line": 174
+    },
+    {
+      "name": "subs_save_btn",
+      "widget_ctor": "QPushButton",
+      "line": 180
+    }
+  ],
+  "connections": [
+    {
+      "widget": "subs_episode_combo",
+      "signal": "currentIndexChanged",
+      "slot": "_on_episode_changed",
+      "line": 92,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 222,
+      "slot_decorators": []
+    },
+    {
+      "widget": "subs_import_btn",
+      "signal": "clicked",
+      "slot": "_import_file",
+      "line": 102,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 390,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "subs_import_batch_btn",
+      "signal": "clicked",
+      "slot": "_import_batch",
+      "line": 116,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 409,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "subs_opensubtitles_btn",
+      "signal": "clicked",
+      "slot": "_import_opensubtitles",
+      "line": 122,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 459,
+      "slot_decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "widget": "subs_export_final_btn",
+      "signal": "clicked",
+      "slot": "_export_srt_final",
+      "line": 138,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 350,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "subs_delete_track_btn",
+      "signal": "clicked",
+      "slot": "_delete_selected_track",
+      "line": 143,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 282,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "subs_norm_btn",
+      "signal": "clicked",
+      "slot": "_normalize_track",
+      "line": 159,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 322,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "subs_tracks_list",
+      "signal": "currentItemChanged",
+      "slot": "_on_track_selected",
+      "line": 171,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 252,
+      "slot_decorators": []
+    },
+    {
+      "widget": "subs_save_btn",
+      "signal": "clicked",
+      "slot": "_save_content",
+      "line": 181,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 495,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "line": 71,
+      "decorators": []
+    },
+    {
+      "name": "set_languages",
+      "line": 187,
+      "decorators": []
+    },
+    {
+      "name": "set_episode_selector_visible",
+      "line": 192,
+      "decorators": []
+    },
+    {
+      "name": "set_episode_and_load",
+      "line": 197,
+      "decorators": []
+    },
+    {
+      "name": "refresh",
+      "line": 204,
+      "decorators": []
+    },
+    {
+      "name": "_on_episode_changed",
+      "line": 222,
+      "decorators": []
+    },
+    {
+      "name": "_on_track_selected",
+      "line": 252,
+      "decorators": []
+    },
+    {
+      "name": "_delete_selected_track",
+      "line": 282,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_normalize_track",
+      "line": 322,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_export_srt_final",
+      "line": 350,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_import_file",
+      "line": 390,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_import_batch",
+      "line": 409,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_import_opensubtitles",
+      "line": 459,
+      "decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "name": "_save_content",
+      "line": 495,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    }
+  ]
+}

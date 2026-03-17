@@ -1,0 +1,21 @@
+﻿src/howimetyourcorpus/app/mainwindow_jobs.py:109:            ("_refresh_expert", win._refresh_expert, False),  # noqa: SLF001
+src/howimetyourcorpus/app/ui_mainwindow.py:105:        self._build_tab_expert()
+src/howimetyourcorpus/app/ui_mainwindow.py:329:        if hasattr(self, "expert_tab") and self.expert_tab and index == self.tabs.indexOf(self.expert_tab):
+src/howimetyourcorpus/app/ui_mainwindow.py:330:            self.expert_tab.refresh()
+src/howimetyourcorpus/app/ui_mainwindow.py:385:    def _refresh_expert(self) -> None:
+src/howimetyourcorpus/app/ui_mainwindow.py:386:        self._tabs_controller.refresh_expert()
+src/howimetyourcorpus/app/ui_mainwindow.py:403:    def _build_tab_expert(self) -> None:
+src/howimetyourcorpus/app/ui_mainwindow.py:404:        self._tabs_controller.build_tab_expert()
+src/howimetyourcorpus/app/mainwindow_project.py:40:        if hasattr(win, "expert_tab") and win.expert_tab:
+src/howimetyourcorpus/app/mainwindow_project.py:41:            win.expert_tab.refresh()
+src/howimetyourcorpus/app/mainwindow_project.py:128:            win._refresh_expert()  # noqa: SLF001
+src/howimetyourcorpus/app/mainwindow_tabs.py:12:    ExpertTransverseTabWidget,
+src/howimetyourcorpus/app/mainwindow_tabs.py:163:    def build_tab_expert(self) -> None:
+src/howimetyourcorpus/app/mainwindow_tabs.py:165:        win.expert_tab = ExpertTransverseTabWidget(
+src/howimetyourcorpus/app/mainwindow_tabs.py:174:        win.tabs.addTab(win.expert_tab, "Expert")
+src/howimetyourcorpus/app/mainwindow_tabs.py:176:            win.tabs.indexOf(win.expert_tab),
+src/howimetyourcorpus/app/mainwindow_tabs.py:223:    def refresh_expert(self) -> None:
+src/howimetyourcorpus/app/mainwindow_tabs.py:225:        if hasattr(win, "expert_tab") and win.expert_tab:
+src/howimetyourcorpus/app/mainwindow_tabs.py:226:            win.expert_tab.refresh()
+src/howimetyourcorpus/app/tabs/__init__.py:6:from howimetyourcorpus.app.tabs.tab_expert import ExpertTransverseTabWidget
+src/howimetyourcorpus/app/tabs/__init__.py:19:    "ExpertTransverseTabWidget",

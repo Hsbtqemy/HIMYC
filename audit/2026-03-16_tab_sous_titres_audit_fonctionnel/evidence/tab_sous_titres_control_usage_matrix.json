@@ -1,0 +1,394 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_sous_titres.py",
+  "controls_count": 14,
+  "controls": [
+    {
+      "name": "subs_episode_combo",
+      "type": "QComboBox",
+      "defined_line": 91,
+      "connected_signals": [
+        {
+          "signal": "currentIndexChanged",
+          "line": 92,
+          "slot_expr": "self._on_episode_changed"
+        }
+      ],
+      "used_lines": [
+        91,
+        92,
+        93,
+        195,
+        199,
+        200,
+        201,
+        206,
+        207,
+        214,
+        216,
+        217,
+        218,
+        239,
+        265,
+        288,
+        329,
+        357,
+        391,
+        496
+      ],
+      "used_methods": [
+        "__init__",
+        "_delete_selected_track",
+        "_export_srt_final",
+        "_import_file",
+        "_normalize_track",
+        "_on_episode_changed",
+        "_on_track_selected",
+        "_save_content",
+        "refresh",
+        "set_episode_and_load",
+        "set_episode_selector_visible"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 20
+    },
+    {
+      "name": "subs_lang_combo",
+      "type": "QComboBox",
+      "defined_line": 95,
+      "connected_signals": [],
+      "used_lines": [
+        95,
+        96,
+        97,
+        100,
+        189,
+        190,
+        403
+      ],
+      "used_methods": [
+        "__init__",
+        "_import_file",
+        "set_languages"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 7
+    },
+    {
+      "name": "subs_import_btn",
+      "type": "QPushButton",
+      "defined_line": 101,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 102,
+          "slot_expr": "self._import_file"
+        }
+      ],
+      "used_lines": [
+        101,
+        102,
+        103
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 3
+    },
+    {
+      "name": "subs_apply_profile_on_import_cb",
+      "type": "QCheckBox",
+      "defined_line": 104,
+      "connected_signals": [],
+      "used_lines": [
+        104,
+        105,
+        108,
+        109,
+        404
+      ],
+      "used_methods": [
+        "__init__",
+        "_import_file"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 5
+    },
+    {
+      "name": "subs_import_batch_btn",
+      "type": "QPushButton",
+      "defined_line": 110,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 116,
+          "slot_expr": "self._import_batch"
+        }
+      ],
+      "used_lines": [
+        110,
+        111,
+        116,
+        117
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 4
+    },
+    {
+      "name": "subs_opensubtitles_btn",
+      "type": "QPushButton",
+      "defined_line": 118,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 122,
+          "slot_expr": "self._import_opensubtitles"
+        }
+      ],
+      "used_lines": [
+        118,
+        119,
+        122,
+        123
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 4
+    },
+    {
+      "name": "subs_export_final_btn",
+      "type": "QPushButton",
+      "defined_line": 134,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 138,
+          "slot_expr": "self._export_srt_final"
+        }
+      ],
+      "used_lines": [
+        134,
+        135,
+        138,
+        139,
+        140,
+        227,
+        256
+      ],
+      "used_methods": [
+        "__init__",
+        "_on_episode_changed",
+        "_on_track_selected"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 7
+    },
+    {
+      "name": "subs_delete_track_btn",
+      "type": "QPushButton",
+      "defined_line": 141,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 143,
+          "slot_expr": "self._delete_selected_track"
+        }
+      ],
+      "used_lines": [
+        141,
+        142,
+        143,
+        144,
+        146,
+        226,
+        255
+      ],
+      "used_methods": [
+        "__init__",
+        "_on_episode_changed",
+        "_on_track_selected"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 7
+    },
+    {
+      "name": "subs_norm_profile_combo",
+      "type": "QComboBox",
+      "defined_line": 150,
+      "connected_signals": [],
+      "used_lines": [
+        150,
+        151,
+        154,
+        234,
+        235,
+        236,
+        238,
+        336,
+        404
+      ],
+      "used_methods": [
+        "__init__",
+        "_import_file",
+        "_normalize_track",
+        "_on_episode_changed"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 9
+    },
+    {
+      "name": "subs_norm_btn",
+      "type": "QPushButton",
+      "defined_line": 155,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 159,
+          "slot_expr": "self._normalize_track"
+        }
+      ],
+      "used_lines": [
+        155,
+        156,
+        159,
+        160,
+        161,
+        228,
+        257
+      ],
+      "used_methods": [
+        "__init__",
+        "_on_episode_changed",
+        "_on_track_selected"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 7
+    },
+    {
+      "name": "subs_rewrite_srt_check",
+      "type": "QCheckBox",
+      "defined_line": 162,
+      "connected_signals": [],
+      "used_lines": [
+        162,
+        163,
+        166,
+        167,
+        337
+      ],
+      "used_methods": [
+        "__init__",
+        "_normalize_track"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 5
+    },
+    {
+      "name": "subs_tracks_list",
+      "type": "QListWidget",
+      "defined_line": 170,
+      "connected_signals": [
+        {
+          "signal": "currentItemChanged",
+          "line": 171,
+          "slot_expr": "self._on_track_selected"
+        }
+      ],
+      "used_lines": [
+        170,
+        171,
+        172,
+        223,
+        250,
+        283,
+        324,
+        352
+      ],
+      "used_methods": [
+        "__init__",
+        "_delete_selected_track",
+        "_export_srt_final",
+        "_normalize_track",
+        "_on_episode_changed"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 8
+    },
+    {
+      "name": "subs_content_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 174,
+      "connected_signals": [],
+      "used_lines": [
+        174,
+        175,
+        178,
+        179,
+        224,
+        253,
+        278,
+        504
+      ],
+      "used_methods": [
+        "__init__",
+        "_on_episode_changed",
+        "_on_track_selected",
+        "_save_content"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 8
+    },
+    {
+      "name": "subs_save_btn",
+      "type": "QPushButton",
+      "defined_line": 180,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 181,
+          "slot_expr": "self._save_content"
+        }
+      ],
+      "used_lines": [
+        180,
+        181,
+        182,
+        183,
+        225,
+        254,
+        279
+      ],
+      "used_methods": [
+        "__init__",
+        "_on_episode_changed",
+        "_on_track_selected"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 7
+    }
+  ],
+  "metrics": {
+    "with_signal_connection": 9,
+    "used_outside_init": 11,
+    "potentially_unwired": []
+  }
+}

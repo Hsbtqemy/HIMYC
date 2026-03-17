@@ -1,0 +1,30 @@
+﻿37:TAB_PROJET = 0
+38:TAB_CORPUS = 1
+39:TAB_INSPECTEUR = 2
+40:TAB_PREPARER = 3
+41:TAB_ALIGNEMENT = 4
+42:TAB_CONCORDANCE = 5
+43:TAB_PERSONNAGES = 6
+44:TAB_LOGS = 7
+77:            tab_projet=TAB_PROJET,
+78:            tab_corpus=TAB_CORPUS,
+79:            tab_inspecteur=TAB_INSPECTEUR,
+80:            tab_preparer=TAB_PREPARER,
+81:            tab_alignement=TAB_ALIGNEMENT,
+82:            tab_concordance=TAB_CONCORDANCE,
+83:            tab_personnages=TAB_PERSONNAGES,
+104:        self._build_tab_logs()
+105:        self._build_tab_expert()
+106:        self.tabs.setCurrentIndex(TAB_PROJET)
+107:        self._previous_tab_index = TAB_PROJET
+254:        self._project_controller.setup_logging_for_project(tab_logs_index=TAB_LOGS)
+280:        self._jobs_controller.on_job_log(level, message, tab_logs_index=TAB_LOGS)
+284:        self._jobs_controller.append_job_summary_to_log(summary, tab_logs_index=TAB_LOGS)
+298:            tab_logs_index=TAB_LOGS,
+314:        previous = getattr(self, "_previous_tab_index", TAB_PROJET)
+315:        if previous == TAB_PREPARER and index != TAB_PREPARER:
+319:                    self.tabs.setCurrentIndex(TAB_PREPARER)
+322:        if previous == TAB_INSPECTEUR and index != TAB_INSPECTEUR:
+326:        if index == TAB_CORPUS and self._store is not None:
+400:    def _build_tab_logs(self) -> None:
+403:    def _build_tab_expert(self) -> None:

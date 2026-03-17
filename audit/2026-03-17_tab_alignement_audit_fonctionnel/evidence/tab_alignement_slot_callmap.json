@@ -1,0 +1,344 @@
+{
+  "_bulk_accept": {
+    "line": 360,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.bulk_accept",
+        "line": 362
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 362
+      }
+    ]
+  },
+  "_bulk_reject": {
+    "line": 368,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.bulk_reject",
+        "line": 370
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 370
+      }
+    ]
+  },
+  "_delete_current_run": {
+    "line": 353,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.delete_current_run",
+        "line": 354
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 354
+      }
+    ]
+  },
+  "_export_align_report": {
+    "line": 424,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.export_align_report",
+        "line": 425
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 425
+      }
+    ]
+  },
+  "_export_alignment": {
+    "line": 410,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.export_alignment",
+        "line": 411
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 411
+      }
+    ]
+  },
+  "_export_grouped_alignment": {
+    "line": 403,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.export_grouped_alignment",
+        "line": 404
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 404
+      }
+    ]
+  },
+  "_export_parallel_concordance": {
+    "line": 417,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.export_parallel_concordance",
+        "line": 418
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 418
+      }
+    ]
+  },
+  "_generate_alignment_groups": {
+    "line": 399,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.generate_alignment_groups",
+        "line": 400
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 400
+      }
+    ]
+  },
+  "_on_episode_changed": {
+    "line": 304,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.align_run_combo.clear",
+        "line": 305
+      },
+      {
+        "name": "self.align_episode_combo.currentData",
+        "line": 306
+      },
+      {
+        "name": "self._get_db",
+        "line": 307
+      },
+      {
+        "name": "db.get_align_runs_for_episode",
+        "line": 311
+      },
+      {
+        "name": "self._on_run_changed",
+        "line": 326
+      },
+      {
+        "name": "self._fill_links",
+        "line": 309
+      },
+      {
+        "name": "r.get",
+        "line": 313
+      },
+      {
+        "name": "r.get",
+        "line": 315
+      },
+      {
+        "name": "self.align_run_combo.addItem",
+        "line": 325
+      },
+      {
+        "name": "r.get",
+        "line": 314
+      },
+      {
+        "name": "parse_run_segment_kind",
+        "line": 318
+      },
+      {
+        "name": "r.get",
+        "line": 314
+      },
+      {
+        "name": "format_segment_kind_label",
+        "line": 324
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_db",
+        "line": 307
+      },
+      {
+        "name": "_on_run_changed",
+        "line": 326
+      },
+      {
+        "name": "align_run_combo",
+        "line": 305
+      },
+      {
+        "name": "align_episode_combo",
+        "line": 306
+      },
+      {
+        "name": "_fill_links",
+        "line": 309
+      },
+      {
+        "name": "align_run_combo",
+        "line": 325
+      }
+    ]
+  },
+  "_on_pivot_lang_changed": {
+    "line": 296,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self._refresh_target_lang_combo",
+        "line": 302
+      },
+      {
+        "name": "self.align_target_lang_combo.currentData",
+        "line": 298
+      },
+      {
+        "name": "self.align_target_lang_combo.currentText",
+        "line": 299
+      },
+      {
+        "name": "str",
+        "line": 302
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_refresh_target_lang_combo",
+        "line": 302
+      },
+      {
+        "name": "align_target_lang_combo",
+        "line": 298
+      },
+      {
+        "name": "align_target_lang_combo",
+        "line": 299
+      }
+    ]
+  },
+  "_on_run_changed": {
+    "line": 328,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.align_run_combo.currentData",
+        "line": 329
+      },
+      {
+        "name": "self.align_delete_run_btn.setEnabled",
+        "line": 330
+      },
+      {
+        "name": "self._fill_links",
+        "line": 331
+      },
+      {
+        "name": "self._update_stats",
+        "line": 332
+      },
+      {
+        "name": "bool",
+        "line": 330
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_fill_links",
+        "line": 331
+      },
+      {
+        "name": "_update_stats",
+        "line": 332
+      },
+      {
+        "name": "align_run_combo",
+        "line": 329
+      },
+      {
+        "name": "align_delete_run_btn",
+        "line": 330
+      }
+    ]
+  },
+  "_run_align_episode": {
+    "line": 395,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._actions_controller.run_align_episode",
+        "line": 396
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 396
+      }
+    ]
+  },
+  "_table_context_menu": {
+    "line": 387,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self._actions_controller.table_context_menu",
+        "line": 388
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_actions_controller",
+        "line": 388
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+﻿{
+    "audited_on":  "2026-03-17",
+    "scope":  "Nouvelle vue Expert transverse",
+    "controls_audited":  11,
+    "controls_branche_effectif":  11,
+    "controls_branche_partiel":  0,
+    "controls_non_branche":  0,
+    "pytest_targeted_passed":  "6/6",
+    "pytest_widget_passed":  "3/3",
+    "pytest_global_passed":  "312/312",
+    "runtime_probe_consistent_yes":  true,
+    "runtime_probe_mismatch_detected":  true
+}

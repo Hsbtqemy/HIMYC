@@ -1,0 +1,50 @@
+{
+  "buttons_total": 6,
+  "buttons_runtime_verified": 6,
+  "rows": [
+    {
+      "control": "segment_goto_btn",
+      "runtime_probe_verified": true,
+      "proof": [
+        "goto_selected_segment_n == 2"
+      ]
+    },
+    {
+      "control": "inspect_segment_btn",
+      "runtime_probe_verified": true,
+      "proof": [
+        "run_jobs includes SegmentEpisodeStep",
+        "warning includes clean.txt guard"
+      ]
+    },
+    {
+      "control": "inspect_export_segments_btn",
+      "runtime_probe_verified": true,
+      "proof": [
+        "export_file.exists == true",
+        "infos contains title=Export"
+      ]
+    },
+    {
+      "control": "inspect_norm_btn",
+      "runtime_probe_verified": true,
+      "proof": [
+        "run_jobs includes NormalizeEpisodeStep"
+      ]
+    },
+    {
+      "control": "inspect_set_preferred_profile_btn",
+      "runtime_probe_verified": true,
+      "proof": [
+        "preferred_profile_saved[S01E01] == default_en_v1"
+      ]
+    },
+    {
+      "control": "inspect_manage_profiles_btn",
+      "runtime_probe_verified": true,
+      "proof": [
+        "profiles_dialog_exec_called == true"
+      ]
+    }
+  ]
+}

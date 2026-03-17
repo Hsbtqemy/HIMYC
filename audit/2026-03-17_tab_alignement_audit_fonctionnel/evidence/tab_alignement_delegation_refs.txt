@@ -1,0 +1,33 @@
+﻿src/howimetyourcorpus/app/tabs/alignement_actions.py:13:    export_alignment_links,
+src/howimetyourcorpus/app/tabs/alignement_actions.py:28:class AlignmentActionsController:
+src/howimetyourcorpus/app/tabs/alignement_actions.py:105:    def bulk_accept(
+src/howimetyourcorpus/app/tabs/alignement_actions.py:159:    def bulk_reject(
+src/howimetyourcorpus/app/tabs/alignement_actions.py:294:    def run_align_episode(self, *, message_box: Any) -> None:
+src/howimetyourcorpus/app/tabs/alignement_actions.py:436:    def export_alignment(self, *, file_dialog: Any, message_box: Any) -> None:
+src/howimetyourcorpus/app/tabs/alignement_actions.py:452:            export_alignment_links(output_path, links)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:29:from howimetyourcorpus.app.tabs.alignement_actions import AlignmentActionsController
+src/howimetyourcorpus/app/tabs/tab_alignement.py:57:        self._actions_controller = AlignmentActionsController(self, logger)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:91:        self.align_run_btn.clicked.connect(self._run_align_episode)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:103:        self.export_align_btn.clicked.connect(self._export_alignment)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:148:        self.bulk_accept_btn = QPushButton("Accepter tous > seuil")
+src/howimetyourcorpus/app/tabs/tab_alignement.py:149:        self.bulk_accept_btn.setToolTip("Accepte automatiquement tous les liens avec confidence > seuil")
+src/howimetyourcorpus/app/tabs/tab_alignement.py:150:        self.bulk_accept_btn.clicked.connect(self._bulk_accept)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:151:        bulk_row.addWidget(self.bulk_accept_btn)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:153:        self.bulk_reject_btn = QPushButton("Rejeter tous < seuil")
+src/howimetyourcorpus/app/tabs/tab_alignement.py:154:        self.bulk_reject_btn.setToolTip("Rejette automatiquement tous les liens avec confidence < seuil")
+src/howimetyourcorpus/app/tabs/tab_alignement.py:155:        self.bulk_reject_btn.clicked.connect(self._bulk_reject)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:156:        bulk_row.addWidget(self.bulk_reject_btn)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:354:        self._actions_controller.delete_current_run(
+src/howimetyourcorpus/app/tabs/tab_alignement.py:360:    def _bulk_accept(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_alignement.py:362:        self._actions_controller.bulk_accept(
+src/howimetyourcorpus/app/tabs/tab_alignement.py:368:    def _bulk_reject(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_alignement.py:370:        self._actions_controller.bulk_reject(
+src/howimetyourcorpus/app/tabs/tab_alignement.py:388:        self._actions_controller.table_context_menu(
+src/howimetyourcorpus/app/tabs/tab_alignement.py:395:    def _run_align_episode(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_alignement.py:396:        self._actions_controller.run_align_episode(message_box=QMessageBox)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:400:        self._actions_controller.generate_alignment_groups(message_box=QMessageBox)
+src/howimetyourcorpus/app/tabs/tab_alignement.py:404:        self._actions_controller.export_grouped_alignment(
+src/howimetyourcorpus/app/tabs/tab_alignement.py:410:    def _export_alignment(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_alignement.py:411:        self._actions_controller.export_alignment(
+src/howimetyourcorpus/app/tabs/tab_alignement.py:418:        self._actions_controller.export_parallel_concordance(
+src/howimetyourcorpus/app/tabs/tab_alignement.py:425:        self._actions_controller.export_align_report(

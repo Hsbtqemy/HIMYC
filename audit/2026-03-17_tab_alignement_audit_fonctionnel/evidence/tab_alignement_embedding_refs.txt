@@ -1,0 +1,12 @@
+﻿src/howimetyourcorpus/app/ui_mainwindow.py:81:            tab_alignement=TAB_ALIGNEMENT,
+src/howimetyourcorpus/app/ui_mainwindow.py:101:        self._build_tab_alignement()
+src/howimetyourcorpus/app/ui_mainwindow.py:364:    def _build_tab_alignement(self) -> None:
+src/howimetyourcorpus/app/ui_mainwindow.py:365:        self._tabs_controller.build_tab_alignement()
+src/howimetyourcorpus/app/mainwindow_tabs.py:9:    AlignmentTabWidget,
+src/howimetyourcorpus/app/mainwindow_tabs.py:32:        tab_alignement: int,
+src/howimetyourcorpus/app/mainwindow_tabs.py:42:        self._tab_alignement = tab_alignement
+src/howimetyourcorpus/app/mainwindow_tabs.py:118:    def build_tab_alignement(self) -> None:
+src/howimetyourcorpus/app/mainwindow_tabs.py:120:        win.alignment_tab = AlignmentTabWidget(
+src/howimetyourcorpus/app/mainwindow_tabs.py:126:        win.tabs.addTab(win.alignment_tab, "Alignement")
+src/howimetyourcorpus/app/mainwindow_tabs.py:128:            self._tab_alignement,
+src/howimetyourcorpus/app/mainwindow_tabs.py:225:        win.tabs.setCurrentIndex(self._tab_alignement)

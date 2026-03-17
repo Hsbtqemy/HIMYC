@@ -1,0 +1,101 @@
+[
+  {
+    "element_id": "refresh_btn",
+    "element_type": "QPushButton",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "tab_expert_controls_and_wiring_refs.txt:48-49",
+    "runtime_evidence": "expert_runtime_snapshot.txt + pytest_expert_integration.log",
+    "assertion": "Le clic sur Rafraichir appelle refresh() et reconstruit le snapshot."
+  },
+  {
+    "element_id": "summary_edit",
+    "element_type": "QPlainTextEdit(read-only)",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "tab_expert_controls_and_wiring_refs.txt:53-54,277",
+    "runtime_evidence": "expert_runtime_snapshot.txt / expert_runtime_metrics.json",
+    "assertion": "La zone affiche la synthese calculee via setPlainText()."
+  },
+  {
+    "element_id": "tab_mount",
+    "element_type": "MainWindow tab insertion",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "branchage_refs.txt:mainwindow_tabs.py:163-177 + ui_mainwindow.py:105",
+    "runtime_evidence": "test_ui_expert_tab.py::test_expert_tab_reports_core_cross_context",
+    "assertion": "L onglet Expert est instancie et ajoute au QTabWidget."
+  },
+  {
+    "element_id": "tab_refresh_on_activation",
+    "element_type": "tab-change hook",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "branchage_refs.txt:ui_mainwindow.py:329-330",
+    "runtime_evidence": "expert_runtime_snapshot.txt (generated_at mis a jour)",
+    "assertion": "Passer sur l onglet Expert declenche refresh()."
+  },
+  {
+    "element_id": "job_refresh_chain",
+    "element_type": "post-job refresh hook",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "branchage_refs.txt:mainwindow_jobs.py:109",
+    "runtime_evidence": "pytest_expert_integration.log::test_refresh_tabs_after_job_triggers_expert_refresh",
+    "assertion": "Apres job, _refresh_expert est appele via la chaine centrale."
+  },
+  {
+    "element_id": "project_open_refresh_chain",
+    "element_type": "project open refresh hook",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "branchage_refs.txt:mainwindow_project.py:128",
+    "runtime_evidence": "pytest_expert_integration.log + expert_runtime_snapshot.txt",
+    "assertion": "Ouverture projet et refresh global incluent l onglet Expert."
+  },
+  {
+    "element_id": "project_loaded_flag",
+    "element_type": "derived status",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "tab_expert_source_linenum.txt:_build_snapshot project_loaded",
+    "runtime_evidence": "expert_runtime_metrics.json has_project_loaded_yes=true",
+    "assertion": "Le flag depend de store+db non nuls."
+  },
+  {
+    "element_id": "context_consistency_flag",
+    "element_type": "derived status",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "tab_expert_source_linenum.txt:_get_context_episode_map + _build_snapshot",
+    "runtime_evidence": "pytest_expert_integration.log::test_expert_tab_detects_context_mismatch",
+    "assertion": "Le flag passe a no quand les episodes de contexte divergent."
+  },
+  {
+    "element_id": "alignment_segment_filter",
+    "element_type": "derived status",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "tab_expert_source_linenum.txt:_alignment_snapshot",
+    "runtime_evidence": "expert_runtime_metrics.json has_segment_filter_utterance=true",
+    "assertion": "Le filtre segment affiche la valeur du combo alignement."
+  },
+  {
+    "element_id": "propagation_counters",
+    "element_type": "derived status",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "tab_expert_read_write_scan.txt:164,173",
+    "runtime_evidence": "expert_runtime_snapshot.txt section Propagation state",
+    "assertion": "Compteurs derives de load_character_assignments()."
+  },
+  {
+    "element_id": "undo_redo_counters",
+    "element_type": "derived status",
+    "ui_presence": "present",
+    "branching_status": "branche_effectif",
+    "source_evidence": "tab_expert_source_linenum.txt:_undo_snapshot + _render_snapshot",
+    "runtime_evidence": "expert_runtime_metrics.json undo_line=- Undo actions: 0",
+    "assertion": "Compteurs derives de QUndoStack (count/index/canUndo/canRedo)."
+  }
+]

@@ -1,0 +1,74 @@
+{
+  "initial_episode": "S01E01",
+  "initial_raw_preview": "TED: Hello\nROBIN: Hi",
+  "refresh_kept_episode": true,
+  "selected_after_refresh": "S01E02",
+  "view_mode": "segments",
+  "segments_hidden_after_switch": false,
+  "kind_filter_hidden_after_switch": false,
+  "segments_counts": {
+    "all": 2,
+    "utterance": 1,
+    "sentence": 1
+  },
+  "goto_selected_segment_n": 2,
+  "run_jobs": [
+    {
+      "class": "NormalizeEpisodeStep",
+      "episode_id": "S01E01",
+      "profile": null,
+      "profile_id": "default_en_v1",
+      "lang_hint": null
+    },
+    {
+      "class": "SegmentEpisodeStep",
+      "episode_id": "S01E01",
+      "profile": null,
+      "profile_id": null,
+      "lang_hint": "en"
+    }
+  ],
+  "statuses": [
+    {
+      "msg": "Profil « default_en_v1 » défini comme préféré pour S01E01.",
+      "ms": 3000
+    }
+  ],
+  "preferred_profile_saved": {
+    "S01E01": "default_en_v1"
+  },
+  "warnings": [
+    {
+      "title": "Segmentation",
+      "text": "L'épisode doit d'abord être normalisé (clean.txt)."
+    }
+  ],
+  "infos": [
+    {
+      "title": "Export",
+      "text": "Segments exportés : 2 segment(s)."
+    }
+  ],
+  "criticals": [],
+  "profiles_dialog_exec_called": true,
+  "export_file": {
+    "path": "C:\\Users\\hsemil01\\AppData\\Local\\Temp\\tmpxzl9qeva\\segments_export.txt",
+    "exists": true,
+    "size": 26,
+    "preview": "Hello there\nHow are you\n"
+  },
+  "notes_saved_on_episode_switch": [
+    {
+      "episode_id": "S01E01",
+      "text": "Note 1"
+    },
+    {
+      "episode_id": "S01E01",
+      "text": "Note 1"
+    },
+    {
+      "episode_id": "S01E02",
+      "text": "Note 2"
+    }
+  ]
+}

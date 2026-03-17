@@ -1,0 +1,15 @@
+control,type,defined_line,connection_count,used_outside_init,verdict,signals
+subs_episode_combo,QComboBox,91,1,true,BRANCHE_DIRECT,currentIndexChanged->_on_episode_changed
+subs_lang_combo,QComboBox,95,0,true,BRANCHE_INDIRECT,
+subs_import_btn,QPushButton,101,1,false,BRANCHE_DIRECT,clicked->_import_file
+subs_apply_profile_on_import_cb,QCheckBox,104,0,true,BRANCHE_INDIRECT,
+subs_import_batch_btn,QPushButton,110,1,false,BRANCHE_DIRECT,clicked->_import_batch
+subs_opensubtitles_btn,QPushButton,118,1,false,BRANCHE_DIRECT,clicked->_import_opensubtitles
+subs_export_final_btn,QPushButton,134,1,true,BRANCHE_DIRECT,clicked->_export_srt_final
+subs_delete_track_btn,QPushButton,141,1,true,BRANCHE_DIRECT,clicked->_delete_selected_track
+subs_norm_profile_combo,QComboBox,150,0,true,BRANCHE_INDIRECT,
+subs_norm_btn,QPushButton,155,1,true,BRANCHE_DIRECT,clicked->_normalize_track
+subs_rewrite_srt_check,QCheckBox,162,0,true,BRANCHE_INDIRECT,
+subs_tracks_list,QListWidget,170,1,true,BRANCHE_DIRECT,currentItemChanged->_on_track_selected
+subs_content_edit,QPlainTextEdit,174,0,true,BRANCHE_INDIRECT,
+subs_save_btn,QPushButton,180,1,true,BRANCHE_DIRECT,clicked->_save_content

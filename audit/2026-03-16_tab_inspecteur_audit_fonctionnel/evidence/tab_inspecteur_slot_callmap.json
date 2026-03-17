@@ -1,0 +1,904 @@
+{
+  "_export_segments": {
+    "line": 481,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self.inspect_episode_combo.currentData",
+        "line": 482
+      },
+      {
+        "name": "self._get_db",
+        "line": 483
+      },
+      {
+        "name": "db.get_segments_for_episode",
+        "line": 487
+      },
+      {
+        "name": "QFileDialog.getSaveFileName",
+        "line": 495
+      },
+      {
+        "name": "Path",
+        "line": 503
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 485
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 489
+      },
+      {
+        "name": "path.with_suffix",
+        "line": 505
+      },
+      {
+        "name": "path.with_suffix",
+        "line": 507
+      },
+      {
+        "name": "QMessageBox.information",
+        "line": 519
+      },
+      {
+        "name": "path.suffix.lower",
+        "line": 504
+      },
+      {
+        "name": "path.suffix.lower",
+        "line": 506
+      },
+      {
+        "name": "export_segments_txt",
+        "line": 510
+      },
+      {
+        "name": "logger.exception",
+        "line": 523
+      },
+      {
+        "name": "QMessageBox.critical",
+        "line": 524
+      },
+      {
+        "name": "path.suffix.lower",
+        "line": 509
+      },
+      {
+        "name": "export_segments_tsv",
+        "line": 512
+      },
+      {
+        "name": "path.suffix.lower",
+        "line": 511
+      },
+      {
+        "name": "export_segments_srt_like",
+        "line": 514
+      },
+      {
+        "name": "len",
+        "line": 520
+      },
+      {
+        "name": "path.suffix.lower",
+        "line": 513
+      },
+      {
+        "name": "export_segments_docx",
+        "line": 516
+      },
+      {
+        "name": "export_segments_csv",
+        "line": 518
+      },
+      {
+        "name": "path.suffix.lower",
+        "line": 515
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_db",
+        "line": 483
+      },
+      {
+        "name": "inspect_episode_combo",
+        "line": 482
+      }
+    ]
+  },
+  "_goto_segment": {
+    "line": 341,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.segment_goto_edit.text.strip",
+        "line": 343
+      },
+      {
+        "name": "range",
+        "line": 354
+      },
+      {
+        "name": "QMessageBox.information",
+        "line": 364
+      },
+      {
+        "name": "int",
+        "line": 348
+      },
+      {
+        "name": "self.inspect_segments_list.count",
+        "line": 354
+      },
+      {
+        "name": "self.inspect_segments_list.item",
+        "line": 355
+      },
+      {
+        "name": "self.segment_goto_edit.text",
+        "line": 343
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 350
+      },
+      {
+        "name": "item.data",
+        "line": 356
+      },
+      {
+        "name": "self.inspect_segments_list.setCurrentItem",
+        "line": 358
+      },
+      {
+        "name": "self.inspect_segments_list.scrollToItem",
+        "line": 359
+      },
+      {
+        "name": "self._on_segment_selected",
+        "line": 360
+      },
+      {
+        "name": "self.segment_goto_edit.clear",
+        "line": 361
+      },
+      {
+        "name": "seg.get",
+        "line": 357
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "inspect_segments_list",
+        "line": 354
+      },
+      {
+        "name": "inspect_segments_list",
+        "line": 355
+      },
+      {
+        "name": "_on_segment_selected",
+        "line": 360
+      },
+      {
+        "name": "segment_goto_edit",
+        "line": 343
+      },
+      {
+        "name": "inspect_segments_list",
+        "line": 358
+      },
+      {
+        "name": "inspect_segments_list",
+        "line": 359
+      },
+      {
+        "name": "segment_goto_edit",
+        "line": 361
+      }
+    ]
+  },
+  "_load_episode": {
+    "line": 270,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.inspect_episode_combo.currentData",
+        "line": 271
+      },
+      {
+        "name": "self._get_store",
+        "line": 272
+      },
+      {
+        "name": "self.inspect_notes_edit.setPlainText",
+        "line": 288
+      },
+      {
+        "name": "store.load_episode_text",
+        "line": 289
+      },
+      {
+        "name": "store.load_episode_text",
+        "line": 290
+      },
+      {
+        "name": "self.raw_edit.setPlainText",
+        "line": 291
+      },
+      {
+        "name": "self.clean_edit.setPlainText",
+        "line": 292
+      },
+      {
+        "name": "store.load_episode_transform_meta",
+        "line": 293
+      },
+      {
+        "name": "self._get_config",
+        "line": 308
+      },
+      {
+        "name": "store.load_episode_preferred_profiles",
+        "line": 309
+      },
+      {
+        "name": "store.load_source_profile_defaults",
+        "line": 310
+      },
+      {
+        "name": "store.load_series_index",
+        "line": 311
+      },
+      {
+        "name": "get_all_profile_ids",
+        "line": 322
+      },
+      {
+        "name": "self._fill_segments",
+        "line": 325
+      },
+      {
+        "name": "self.raw_edit.clear",
+        "line": 275
+      },
+      {
+        "name": "self.clean_edit.clear",
+        "line": 276
+      },
+      {
+        "name": "self.inspect_stats_label.setText",
+        "line": 277
+      },
+      {
+        "name": "self.merge_examples_edit.clear",
+        "line": 278
+      },
+      {
+        "name": "self.inspect_notes_edit.clear",
+        "line": 279
+      },
+      {
+        "name": "self.inspect_segments_list.clear",
+        "line": 280
+      },
+      {
+        "name": "store.save_episode_notes",
+        "line": 283
+      },
+      {
+        "name": "store.load_episode_notes",
+        "line": 288
+      },
+      {
+        "name": "self.inspect_stats_label.setText",
+        "line": 296
+      },
+      {
+        "name": "meta.get.get",
+        "line": 299
+      },
+      {
+        "name": "self.merge_examples_edit.setPlainText",
+        "line": 300
+      },
+      {
+        "name": "self.inspect_stats_label.setText",
+        "line": 306
+      },
+      {
+        "name": "self.merge_examples_edit.clear",
+        "line": 307
+      },
+      {
+        "name": "next",
+        "line": 313
+      },
+      {
+        "name": "episode_preferred.get",
+        "line": 318
+      },
+      {
+        "name": "self.inspect_profile_combo.setCurrentText",
+        "line": 324
+      },
+      {
+        "name": "self.inspect_notes_edit.toPlainText",
+        "line": 285
+      },
+      {
+        "name": "meta.get",
+        "line": 295
+      },
+      {
+        "name": "meta.get",
+        "line": 295
+      },
+      {
+        "name": "meta.get",
+        "line": 295
+      },
+      {
+        "name": "join",
+        "line": 301
+      },
+      {
+        "name": "source_defaults.get",
+        "line": 319
+      },
+      {
+        "name": "store.load_custom_profiles",
+        "line": 322
+      },
+      {
+        "name": "meta.get",
+        "line": 299
+      },
+      {
+        "name": "x.get",
+        "line": 302
+      },
+      {
+        "name": "x.get",
+        "line": 302
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_current_episode_id",
+        "line": 287
+      },
+      {
+        "name": "_get_store",
+        "line": 272
+      },
+      {
+        "name": "_current_episode_id",
+        "line": 274
+      },
+      {
+        "name": "_current_episode_id",
+        "line": 282
+      },
+      {
+        "name": "_get_config",
+        "line": 308
+      },
+      {
+        "name": "_fill_segments",
+        "line": 325
+      },
+      {
+        "name": "inspect_episode_combo",
+        "line": 271
+      },
+      {
+        "name": "_current_episode_id",
+        "line": 282
+      },
+      {
+        "name": "_current_episode_id",
+        "line": 284
+      },
+      {
+        "name": "inspect_notes_edit",
+        "line": 288
+      },
+      {
+        "name": "raw_edit",
+        "line": 291
+      },
+      {
+        "name": "clean_edit",
+        "line": 292
+      },
+      {
+        "name": "raw_edit",
+        "line": 275
+      },
+      {
+        "name": "clean_edit",
+        "line": 276
+      },
+      {
+        "name": "inspect_stats_label",
+        "line": 277
+      },
+      {
+        "name": "merge_examples_edit",
+        "line": 278
+      },
+      {
+        "name": "inspect_notes_edit",
+        "line": 279
+      },
+      {
+        "name": "inspect_segments_list",
+        "line": 280
+      },
+      {
+        "name": "inspect_stats_label",
+        "line": 296
+      },
+      {
+        "name": "merge_examples_edit",
+        "line": 300
+      },
+      {
+        "name": "inspect_stats_label",
+        "line": 306
+      },
+      {
+        "name": "merge_examples_edit",
+        "line": 307
+      },
+      {
+        "name": "inspect_profile_combo",
+        "line": 324
+      },
+      {
+        "name": "inspect_notes_edit",
+        "line": 285
+      }
+    ]
+  },
+  "_on_kind_filter_changed": {
+    "line": 335,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.inspect_episode_combo.currentData",
+        "line": 337
+      },
+      {
+        "name": "self._fill_segments",
+        "line": 339
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "inspect_episode_combo",
+        "line": 337
+      },
+      {
+        "name": "_fill_segments",
+        "line": 339
+      }
+    ]
+  },
+  "_on_segment_selected": {
+    "line": 395,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "current.data",
+        "line": 398
+      },
+      {
+        "name": "seg.get",
+        "line": 401
+      },
+      {
+        "name": "seg.get",
+        "line": 402
+      },
+      {
+        "name": "self.clean_edit.toPlainText",
+        "line": 403
+      },
+      {
+        "name": "self.clean_edit.textCursor",
+        "line": 404
+      },
+      {
+        "name": "cursor.setPosition",
+        "line": 405
+      },
+      {
+        "name": "cursor.setPosition",
+        "line": 406
+      },
+      {
+        "name": "self.clean_edit.setTextCursor",
+        "line": 407
+      },
+      {
+        "name": "self.clean_edit.ensureCursorVisible",
+        "line": 408
+      },
+      {
+        "name": "min",
+        "line": 405
+      },
+      {
+        "name": "min",
+        "line": 406
+      },
+      {
+        "name": "len",
+        "line": 405
+      },
+      {
+        "name": "len",
+        "line": 406
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "clean_edit",
+        "line": 403
+      },
+      {
+        "name": "clean_edit",
+        "line": 404
+      },
+      {
+        "name": "clean_edit",
+        "line": 407
+      },
+      {
+        "name": "clean_edit",
+        "line": 408
+      }
+    ]
+  },
+  "_open_profiles_dialog": {
+    "line": 453,
+    "decorators": [
+      "require_project"
+    ],
+    "calls": [
+      {
+        "name": "self._get_store",
+        "line": 455
+      },
+      {
+        "name": "ProfilesDialog",
+        "line": 458
+      },
+      {
+        "name": "dlg.exec",
+        "line": 459
+      },
+      {
+        "name": "store.load_custom_profiles",
+        "line": 460
+      },
+      {
+        "name": "self.refresh_profile_combo",
+        "line": 461
+      },
+      {
+        "name": "self._update_profile_rules_preview",
+        "line": 465
+      },
+      {
+        "name": "get_all_profile_ids",
+        "line": 462
+      },
+      {
+        "name": "self.inspect_profile_combo.currentText",
+        "line": 463
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_store",
+        "line": 455
+      },
+      {
+        "name": "refresh_profile_combo",
+        "line": 461
+      },
+      {
+        "name": "_update_profile_rules_preview",
+        "line": 465
+      },
+      {
+        "name": "inspect_profile_combo",
+        "line": 463
+      }
+    ]
+  },
+  "_run_normalize": {
+    "line": 411,
+    "decorators": [
+      "require_project"
+    ],
+    "calls": [
+      {
+        "name": "self.inspect_episode_combo.currentData",
+        "line": 412
+      },
+      {
+        "name": "self._get_store",
+        "line": 413
+      },
+      {
+        "name": "self._run_job",
+        "line": 422
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 416
+      },
+      {
+        "name": "store.has_episode_raw",
+        "line": 418
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 419
+      },
+      {
+        "name": "self.inspect_profile_combo.currentText",
+        "line": 421
+      },
+      {
+        "name": "NormalizeEpisodeStep",
+        "line": 422
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_store",
+        "line": 413
+      },
+      {
+        "name": "_run_job",
+        "line": 422
+      },
+      {
+        "name": "inspect_episode_combo",
+        "line": 412
+      },
+      {
+        "name": "inspect_profile_combo",
+        "line": 421
+      }
+    ]
+  },
+  "_run_segment": {
+    "line": 468,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self.inspect_episode_combo.currentData",
+        "line": 469
+      },
+      {
+        "name": "self._get_store",
+        "line": 470
+      },
+      {
+        "name": "self._run_job",
+        "line": 478
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 473
+      },
+      {
+        "name": "store.has_episode_clean",
+        "line": 475
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 476
+      },
+      {
+        "name": "SegmentEpisodeStep",
+        "line": 478
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_store",
+        "line": 470
+      },
+      {
+        "name": "_run_job",
+        "line": 478
+      },
+      {
+        "name": "inspect_episode_combo",
+        "line": 469
+      }
+    ]
+  },
+  "_set_episode_preferred_profile": {
+    "line": 425,
+    "decorators": [
+      "require_project"
+    ],
+    "calls": [
+      {
+        "name": "self.inspect_episode_combo.currentData",
+        "line": 426
+      },
+      {
+        "name": "self._get_store",
+        "line": 427
+      },
+      {
+        "name": "store.load_episode_preferred_profiles",
+        "line": 433
+      },
+      {
+        "name": "store.save_episode_preferred_profiles",
+        "line": 435
+      },
+      {
+        "name": "self._show_status",
+        "line": 436
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 430
+      },
+      {
+        "name": "self.inspect_profile_combo.currentText",
+        "line": 432
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_store",
+        "line": 427
+      },
+      {
+        "name": "_show_status",
+        "line": 436
+      },
+      {
+        "name": "inspect_episode_combo",
+        "line": 426
+      },
+      {
+        "name": "inspect_profile_combo",
+        "line": 432
+      }
+    ]
+  },
+  "_switch_view": {
+    "line": 327,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.inspect_segments_list.setVisible",
+        "line": 329
+      },
+      {
+        "name": "self.inspect_kind_combo.setVisible",
+        "line": 330
+      },
+      {
+        "name": "self.inspect_episode_combo.currentData",
+        "line": 331
+      },
+      {
+        "name": "self.inspect_view_combo.currentData",
+        "line": 328
+      },
+      {
+        "name": "self._fill_segments",
+        "line": 333
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "inspect_segments_list",
+        "line": 329
+      },
+      {
+        "name": "inspect_kind_combo",
+        "line": 330
+      },
+      {
+        "name": "inspect_episode_combo",
+        "line": 331
+      },
+      {
+        "name": "_fill_segments",
+        "line": 333
+      },
+      {
+        "name": "inspect_view_combo",
+        "line": 328
+      }
+    ]
+  },
+  "_update_profile_rules_preview": {
+    "line": 438,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "strip",
+        "line": 440
+      },
+      {
+        "name": "self._get_store",
+        "line": 444
+      },
+      {
+        "name": "get_profile",
+        "line": 446
+      },
+      {
+        "name": "self.inspect_profile_rules_preview.clear",
+        "line": 442
+      },
+      {
+        "name": "store.load_custom_profiles",
+        "line": 445
+      },
+      {
+        "name": "self.inspect_profile_rules_preview.setPlainText",
+        "line": 448
+      },
+      {
+        "name": "self.inspect_profile_rules_preview.setPlainText",
+        "line": 450
+      },
+      {
+        "name": "format_profile_rules_summary",
+        "line": 448
+      },
+      {
+        "name": "self.inspect_profile_combo.currentText",
+        "line": 440
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_store",
+        "line": 444
+      },
+      {
+        "name": "inspect_profile_rules_preview",
+        "line": 442
+      },
+      {
+        "name": "inspect_profile_rules_preview",
+        "line": 448
+      },
+      {
+        "name": "inspect_profile_rules_preview",
+        "line": 450
+      },
+      {
+        "name": "inspect_profile_combo",
+        "line": 440
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "src\\howimetyourcorpus\\app\\tabs\\tab_alignement.py": {
+    "covered_lines": 257,
+    "num_statements": 277,
+    "percent_covered": 92.7797833935018,
+    "missing_lines": 20
+  },
+  "src\\howimetyourcorpus\\app\\tabs\\alignement_actions.py": {
+    "covered_lines": 89,
+    "num_statements": 263,
+    "percent_covered": 33.840304182509506,
+    "missing_lines": 174
+  },
+  "src\\howimetyourcorpus\\app\\tabs\\alignement_exporters.py": {
+    "covered_lines": 22,
+    "num_statements": 41,
+    "percent_covered": 53.65853658536585,
+    "missing_lines": 19
+  }
+}

@@ -1,0 +1,7 @@
+view_id,title,status,test_count
+EV1,Handoff episode/segment_kind inter-onglets,OPERATIONNEL,3
+EV2,Persistance contexte local (episode/source/splitter/notes),OPERATIONNEL,2
+EV3,Tra?abilite segment_kind (run alignement -> vues expertes),OPERATIONNEL,3
+EV4,Propagation des assignations segment/cue vers DB+fichiers,OPERATIONNEL,3
+EV5,"Undo/Redo transversal (sous-titres, preparer, alignement)",OPERATIONNEL,2
+EV6,"Orchestration refresh transverse (post-job, post-open projet)",OPERATIONNEL,3

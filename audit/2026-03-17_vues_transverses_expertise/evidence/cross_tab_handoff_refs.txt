@@ -1,0 +1,33 @@
+﻿src/howimetyourcorpus/app\mainwindow_project.py:76:            self._refresh_tabs_after_project_open(deferred=False, timer=timer)
+src/howimetyourcorpus/app\mainwindow_project.py:108:        self._refresh_tabs_after_project_open(deferred=True, timer=timer)
+src/howimetyourcorpus/app\mainwindow_project.py:110:    def _refresh_tabs_after_project_open(self, *, deferred: bool, timer: Any) -> None:
+src/howimetyourcorpus/app\mainwindow_project.py:120:            win._refresh_inspecteur_episodes()  # noqa: SLF001
+src/howimetyourcorpus/app\mainwindow_jobs.py:94:    def refresh_tabs_after_job(self, *, message_box: Any) -> None:
+src/howimetyourcorpus/app\mainwindow_jobs.py:104:            ("_refresh_inspecteur_episodes", win._refresh_inspecteur_episodes, False),  # noqa: SLF001
+src/howimetyourcorpus/app\mainwindow_jobs.py:131:            self.refresh_tabs_after_job(message_box=message_box)
+src/howimetyourcorpus/app\mainwindow_tabs.py:68:                win._refresh_inspecteur_episodes(),  # noqa: SLF001
+src/howimetyourcorpus/app\mainwindow_tabs.py:109:            on_go_alignement=win.open_alignement_for_episode,
+src/howimetyourcorpus/app\mainwindow_tabs.py:211:            win.inspector_tab.set_episode_and_load(episode_id)
+src/howimetyourcorpus/app\mainwindow_tabs.py:213:    def open_preparer_for_episode(self, episode_id: str, source: str | None = None) -> None:
+src/howimetyourcorpus/app\mainwindow_tabs.py:221:            win.preparer_tab.set_episode_and_load(episode_id, source_key=source or "transcript")
+src/howimetyourcorpus/app\mainwindow_tabs.py:223:    def open_alignement_for_episode(self, episode_id: str, segment_kind: str = "sentence") -> None:
+src/howimetyourcorpus/app\mainwindow_tabs.py:228:            win.alignment_tab.set_episode_and_segment_kind(episode_id, segment_kind=segment_kind)
+src/howimetyourcorpus/app\ui_mainwindow.py:289:    def _refresh_tabs_after_job(self) -> None:
+src/howimetyourcorpus/app\ui_mainwindow.py:291:        self._jobs_controller.refresh_tabs_after_job(message_box=QMessageBox)
+src/howimetyourcorpus/app\ui_mainwindow.py:354:    def _refresh_inspecteur_episodes(self) -> None:
+src/howimetyourcorpus/app\ui_mainwindow.py:386:    def open_preparer_for_episode(self, episode_id: str, source: str | None = None) -> None:
+src/howimetyourcorpus/app\ui_mainwindow.py:388:        self._tabs_controller.open_preparer_for_episode(episode_id, source=source)
+src/howimetyourcorpus/app\ui_mainwindow.py:390:    def open_alignement_for_episode(self, episode_id: str, segment_kind: str = "sentence") -> None:
+src/howimetyourcorpus/app\ui_mainwindow.py:392:        self._tabs_controller.open_alignement_for_episode(episode_id, segment_kind=segment_kind)
+src/howimetyourcorpus/app\tabs\tab_alignement.py:224:    def set_episode_and_segment_kind(self, episode_id: str, segment_kind: str = "sentence") -> None:
+src/howimetyourcorpus/app\tabs\preparer_context.py:54:    def set_episode_and_load(self, episode_id: str, source_key: str | None = None) -> None:
+src/howimetyourcorpus/app\tabs\tab_inspecteur.py:262:    def set_episode_and_load(self, episode_id: str) -> None:
+src/howimetyourcorpus/app\tabs\tab_preparer.py:134:    def set_episode_and_load(self, episode_id: str, source_key: str | None = None) -> None:
+src/howimetyourcorpus/app\tabs\tab_preparer.py:135:        self._context_controller.set_episode_and_load(episode_id, source_key)
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:104:        self.inspector_tab.set_episode_and_load(eid)
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:105:        self.subtitles_tab.set_episode_and_load(eid)
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:128:            self.set_episode_and_load(current_episode_id)
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:149:    def set_episode_and_load(self, episode_id: str) -> None:
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:155:        self.inspector_tab.set_episode_and_load(episode_id)
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:156:        self.subtitles_tab.set_episode_and_load(episode_id)
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:197:    def set_episode_and_load(self, episode_id: str) -> None:

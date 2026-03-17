@@ -1,0 +1,22 @@
+{
+  "refs_counts": {
+    "cross_tab_handoff_refs": 33,
+    "undo_redo_refs": 120,
+    "propagation_refs": 44,
+    "context_persistence_refs": 85
+  },
+  "pytest_runs": [
+    {
+      "file": "audit\\2026-03-17_vues_transverses_expertise\\evidence\\pytest_vues_transverses_focus.log",
+      "collected": 14,
+      "passed": 14
+    },
+    {
+      "file": "audit\\2026-03-17_vues_transverses_expertise\\evidence\\pytest_vues_transverses_segment_kind.log",
+      "collected": 9,
+      "passed": 9
+    }
+  ],
+  "pytest_total_passed": 23,
+  "pytest_total_collected": 23
+}

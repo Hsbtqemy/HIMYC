@@ -1,0 +1,133 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_alignement.py",
+  "delegations": [
+    {
+      "tab_method": "_delete_current_run",
+      "line": 353,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "delete_current_run",
+          "line": 354
+        }
+      ]
+    },
+    {
+      "tab_method": "_bulk_accept",
+      "line": 360,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "bulk_accept",
+          "line": 362
+        }
+      ]
+    },
+    {
+      "tab_method": "_bulk_reject",
+      "line": 368,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "bulk_reject",
+          "line": 370
+        }
+      ]
+    },
+    {
+      "tab_method": "_table_context_menu",
+      "line": 387,
+      "decorators": [],
+      "delegated_calls": [
+        {
+          "controller_method": "table_context_menu",
+          "line": 388
+        }
+      ]
+    },
+    {
+      "tab_method": "_run_align_episode",
+      "line": 395,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "run_align_episode",
+          "line": 396
+        }
+      ]
+    },
+    {
+      "tab_method": "_generate_alignment_groups",
+      "line": 399,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "generate_alignment_groups",
+          "line": 400
+        }
+      ]
+    },
+    {
+      "tab_method": "_export_grouped_alignment",
+      "line": 403,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "export_grouped_alignment",
+          "line": 404
+        }
+      ]
+    },
+    {
+      "tab_method": "_export_alignment",
+      "line": 410,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "export_alignment",
+          "line": 411
+        }
+      ]
+    },
+    {
+      "tab_method": "_export_parallel_concordance",
+      "line": 417,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "export_parallel_concordance",
+          "line": 418
+        }
+      ]
+    },
+    {
+      "tab_method": "_export_align_report",
+      "line": 424,
+      "decorators": [
+        "require_project_and_db"
+      ],
+      "delegated_calls": [
+        {
+          "controller_method": "export_align_report",
+          "line": 425
+        }
+      ]
+    }
+  ]
+}

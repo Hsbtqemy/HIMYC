@@ -1,0 +1,336 @@
+{
+  "counts": {
+    "total_controls": 18,
+    "branche_direct": 13,
+    "branche_indirect": 5,
+    "non_branche": 0
+  },
+  "rows": [
+    {
+      "control": "align_episode_combo",
+      "type": "QComboBox",
+      "defined_line": 62,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_episode_changed"
+      ],
+      "used_in_actions_controller": true,
+      "external_usage_lines": [
+        54,
+        113,
+        167,
+        236,
+        296,
+        382,
+        406,
+        438,
+        465,
+        498
+      ],
+      "external_usage_methods": [
+        "bulk_accept",
+        "bulk_reject",
+        "delete_current_run",
+        "export_align_report",
+        "export_alignment",
+        "export_grouped_alignment",
+        "export_parallel_concordance",
+        "generate_alignment_groups",
+        "run_align_episode",
+        "table_context_menu"
+      ],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_run_combo",
+      "type": "QComboBox",
+      "defined_line": 66,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_run_changed"
+      ],
+      "used_in_actions_controller": true,
+      "external_usage_lines": [
+        52,
+        114,
+        168,
+        383,
+        407,
+        439,
+        466,
+        499
+      ],
+      "external_usage_methods": [
+        "bulk_accept",
+        "bulk_reject",
+        "delete_current_run",
+        "export_align_report",
+        "export_alignment",
+        "export_grouped_alignment",
+        "export_parallel_concordance",
+        "generate_alignment_groups"
+      ],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_segment_kind_combo",
+      "type": "QComboBox",
+      "defined_line": 70,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": [],
+      "used_in_actions_controller": true,
+      "external_usage_lines": [
+        304
+      ],
+      "external_usage_methods": [
+        "run_align_episode"
+      ],
+      "verdict_effective": "BRANCHE_INDIRECT"
+    },
+    {
+      "control": "align_pivot_lang_combo",
+      "type": "QComboBox",
+      "defined_line": 78,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_pivot_lang_changed"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_target_lang_combo",
+      "type": "QComboBox",
+      "defined_line": 85,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": [],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_INDIRECT"
+    },
+    {
+      "control": "align_run_btn",
+      "type": "QPushButton",
+      "defined_line": 90,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_run_align_episode"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_delete_run_btn",
+      "type": "QPushButton",
+      "defined_line": 93,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_delete_current_run"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_by_similarity_cb",
+      "type": "QCheckBox",
+      "defined_line": 97,
+      "connection_count": 0,
+      "used_outside_init": false,
+      "verdict": "NON_BRANCHE",
+      "signals": [],
+      "used_in_actions_controller": true,
+      "external_usage_lines": [
+        303
+      ],
+      "external_usage_methods": [
+        "run_align_episode"
+      ],
+      "verdict_effective": "BRANCHE_INDIRECT"
+    },
+    {
+      "control": "export_align_btn",
+      "type": "QPushButton",
+      "defined_line": 102,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_alignment"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "export_parallel_btn",
+      "type": "QPushButton",
+      "defined_line": 105,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_parallel_concordance"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_group_btn",
+      "type": "QPushButton",
+      "defined_line": 108,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_generate_alignment_groups"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "export_grouped_btn",
+      "type": "QPushButton",
+      "defined_line": 114,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_grouped_alignment"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_report_btn",
+      "type": "QPushButton",
+      "defined_line": 120,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_align_report"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "align_accepted_only_cb",
+      "type": "QCheckBox",
+      "defined_line": 124,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": [],
+      "used_in_actions_controller": true,
+      "external_usage_lines": [
+        483,
+        513
+      ],
+      "external_usage_methods": [
+        "export_align_report",
+        "export_parallel_concordance"
+      ],
+      "verdict_effective": "BRANCHE_INDIRECT"
+    },
+    {
+      "control": "bulk_accept_btn",
+      "type": "QPushButton",
+      "defined_line": 148,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_bulk_accept"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "bulk_reject_btn",
+      "type": "QPushButton",
+      "defined_line": 153,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_bulk_reject"
+      ],
+      "used_in_actions_controller": false,
+      "external_usage_lines": [],
+      "external_usage_methods": [],
+      "verdict_effective": "BRANCHE_DIRECT"
+    },
+    {
+      "control": "bulk_threshold_spin",
+      "type": "QSpinBox",
+      "defined_line": 159,
+      "connection_count": 0,
+      "used_outside_init": false,
+      "verdict": "NON_BRANCHE",
+      "signals": [],
+      "used_in_actions_controller": true,
+      "external_usage_lines": [
+        121,
+        175
+      ],
+      "external_usage_methods": [
+        "bulk_accept",
+        "bulk_reject"
+      ],
+      "verdict_effective": "BRANCHE_INDIRECT"
+    },
+    {
+      "control": "align_table",
+      "type": "QTableView",
+      "defined_line": 171,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "customContextMenuRequested->_table_context_menu"
+      ],
+      "used_in_actions_controller": true,
+      "external_usage_lines": [
+        222,
+        228,
+        241
+      ],
+      "external_usage_methods": [
+        "table_context_menu"
+      ],
+      "verdict_effective": "BRANCHE_DIRECT"
+    }
+  ]
+}

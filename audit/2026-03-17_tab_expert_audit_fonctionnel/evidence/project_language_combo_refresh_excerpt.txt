@@ -1,0 +1,31 @@
+﻿20:         self._window = window
+21:         self._logger = logger_obj
+22: 
+23:     def refresh_language_combos(self) -> None:
+24:         """Met Ã  jour les listes de langues (Sous-titres, Concordance, PrÃ©parer, Alignement, Personnages)."""
+25:         win = self._window
+26:         langs = win._store.load_project_languages() if win._store else ["en", "fr", "it"]  # noqa: SLF001
+27:         if hasattr(win, "inspector_tab") and win.inspector_tab and hasattr(win.inspector_tab, "subtitles_tab"):
+28:             win.inspector_tab.subtitles_tab.set_languages(langs)
+29:         if hasattr(win, "concordance_tab") and hasattr(win.concordance_tab, "set_languages"):
+30:             win.concordance_tab.set_languages(langs)
+31:             win.concordance_tab.refresh_speakers()
+32:         if hasattr(win, "preparer_tab") and win.preparer_tab:
+33:             current_episode = win.preparer_tab.current_episode_id()  # noqa: SLF001
+34:             win.preparer_tab._refresh_source_combo_items()  # noqa: SLF001
+35:             win.preparer_tab._refresh_source_availability(current_episode)  # noqa: SLF001
+36:         if hasattr(win, "alignment_tab") and win.alignment_tab and hasattr(win.alignment_tab, "_refresh_language_combos"):
+37:             win.alignment_tab._refresh_language_combos()  # noqa: SLF001
+38:         if hasattr(win, "personnages_tab") and win.personnages_tab:
+39:             win.personnages_tab.refresh()
+40:         if hasattr(win, "expert_tab") and win.expert_tab:
+41:             win.expert_tab.refresh()
+42: 
+43:     def validate_and_init_project_from_tab(self, *, message_box: Any, timer: Any) -> None:
+44:         """Valide le formulaire Projet puis initialise/charge le projet."""
+45:         win = self._window
+46:         data = win.project_tab.get_form_data()
+47:         root = data["root"]
+48:         if not root:
+49:             message_box.warning(win, "Projet", "Indiquez un dossier projet.")
+50:             return

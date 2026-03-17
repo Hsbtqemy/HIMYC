@@ -1,0 +1,35 @@
+Generated at: 2026-03-17 10:36:34
+
+Project loaded: yes
+Context consistent: yes
+Episode focus: S01E01
+
+Episode by view:
+  - Inspecteur: S01E01
+  - Preparer: S01E01
+  - Alignement: S01E01
+  - Personnages: S01E01
+
+Preparer state:
+  - Dirty draft: no
+
+Alignment state:
+  - Episode: S01E01
+  - Runs available: 0
+  - Selected run: -
+  - Run segment_kind: -
+  - Segment filter: utterance
+  - Pivot lang: en
+  - Target lang: fr
+
+Propagation state:
+  - Assignments total: 0
+  - Assignments (episode): 0
+  - Segment assignments (episode): 0
+  - Cue assignments (episode): 0
+
+Undo/Redo state:
+  - Undo actions: 0
+  - Stack index: 0
+  - Can undo: no
+  - Can redo: no

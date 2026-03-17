@@ -1,0 +1,187 @@
+{
+  "counts": {
+    "total_controls": 17,
+    "branche_direct": 12,
+    "branche_indirect": 5,
+    "non_branche": 0
+  },
+  "rows": [
+    {
+      "control": "inspect_episode_combo",
+      "type": "QComboBox",
+      "defined_line": 71,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_load_episode"
+      ]
+    },
+    {
+      "control": "inspect_view_combo",
+      "type": "QComboBox",
+      "defined_line": 75,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_switch_view"
+      ]
+    },
+    {
+      "control": "inspect_kind_combo",
+      "type": "QComboBox",
+      "defined_line": 81,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentIndexChanged->_on_kind_filter_changed"
+      ]
+    },
+    {
+      "control": "segment_goto_edit",
+      "type": "QLineEdit",
+      "defined_line": 90,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "returnPressed->_goto_segment"
+      ]
+    },
+    {
+      "control": "segment_goto_btn",
+      "type": "QPushButton",
+      "defined_line": 96,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_goto_segment"
+      ]
+    },
+    {
+      "control": "inspect_segment_btn",
+      "type": "QPushButton",
+      "defined_line": 101,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_run_segment"
+      ]
+    },
+    {
+      "control": "inspect_export_segments_btn",
+      "type": "QPushButton",
+      "defined_line": 104,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_export_segments"
+      ]
+    },
+    {
+      "control": "inspect_profile_combo",
+      "type": "QComboBox",
+      "defined_line": 121,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentTextChanged->_update_profile_rules_preview"
+      ]
+    },
+    {
+      "control": "inspect_norm_btn",
+      "type": "QPushButton",
+      "defined_line": 128,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_run_normalize"
+      ]
+    },
+    {
+      "control": "inspect_set_preferred_profile_btn",
+      "type": "QPushButton",
+      "defined_line": 134,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_set_episode_preferred_profile"
+      ]
+    },
+    {
+      "control": "inspect_manage_profiles_btn",
+      "type": "QPushButton",
+      "defined_line": 140,
+      "connection_count": 1,
+      "used_outside_init": false,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "clicked->_open_profiles_dialog"
+      ]
+    },
+    {
+      "control": "inspect_profile_rules_preview",
+      "type": "QPlainTextEdit",
+      "defined_line": 148,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "raw_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 158,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "clean_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 160,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "inspect_segments_list",
+      "type": "QListWidget",
+      "defined_line": 162,
+      "connection_count": 1,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_DIRECT",
+      "signals": [
+        "currentItemChanged->_on_segment_selected"
+      ]
+    },
+    {
+      "control": "merge_examples_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 177,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    },
+    {
+      "control": "inspect_notes_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 183,
+      "connection_count": 0,
+      "used_outside_init": true,
+      "verdict": "BRANCHE_INDIRECT",
+      "signals": []
+    }
+  ]
+}

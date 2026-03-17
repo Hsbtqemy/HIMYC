@@ -1,0 +1,24 @@
+{
+  "source_coverage_file": "audit\\2026-03-16_post_corpus_batch\\evidence\\coverage.json",
+  "file_key": "src\\howimetyourcorpus\\app\\tabs\\tab_sous_titres.py",
+  "summary": {
+    "covered_lines": 183,
+    "num_statements": 384,
+    "percent_covered": 47.65625,
+    "percent_covered_display": "48",
+    "missing_lines": 201,
+    "excluded_lines": 0,
+    "percent_statements_covered": 47.65625,
+    "percent_statements_covered_display": "48"
+  },
+  "totals": {
+    "covered_lines": 7758,
+    "num_statements": 11922,
+    "percent_covered": 65.07297433316558,
+    "percent_covered_display": "65",
+    "missing_lines": 4164,
+    "excluded_lines": 18,
+    "percent_statements_covered": 65.07297433316558,
+    "percent_statements_covered_display": "65"
+  }
+}

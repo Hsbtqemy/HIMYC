@@ -1,0 +1,1168 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\alignement_actions.py",
+  "methods": {
+    "__init__": {
+      "line": 31,
+      "decorators": [],
+      "calls": [],
+      "tab_attrs": []
+    },
+    "_combo_lang_value": {
+      "line": 36,
+      "decorators": [
+        "staticmethod"
+      ],
+      "calls": [
+        {
+          "name": "str.strip.lower",
+          "line": 42
+        },
+        {
+          "name": "hasattr",
+          "line": 39
+        },
+        {
+          "name": "combo.currentData",
+          "line": 39
+        },
+        {
+          "name": "hasattr",
+          "line": 41
+        },
+        {
+          "name": "combo.currentText",
+          "line": 41
+        },
+        {
+          "name": "str.strip",
+          "line": 42
+        },
+        {
+          "name": "str",
+          "line": 42
+        }
+      ],
+      "tab_attrs": []
+    },
+    "delete_current_run": {
+      "line": 45,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 52
+        },
+        {
+          "name": "tab._get_db",
+          "line": 53
+        },
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 54
+        },
+        {
+          "name": "db.query_alignment_for_episode",
+          "line": 65
+        },
+        {
+          "name": "len",
+          "line": 66
+        },
+        {
+          "name": "tab.refresh",
+          "line": 102
+        },
+        {
+          "name": "tab._fill_links",
+          "line": 103
+        },
+        {
+          "name": "confirm_action_fn",
+          "line": 67
+        },
+        {
+          "name": "message_box.information",
+          "line": 58
+        },
+        {
+          "name": "DeleteAlignRunCommand",
+          "line": 80
+        },
+        {
+          "name": "tab.undo_stack.push",
+          "line": 81
+        },
+        {
+          "name": "db.delete_align_run",
+          "line": 83
+        },
+        {
+          "name": "self._logger.exception",
+          "line": 85
+        },
+        {
+          "name": "db.delete_align_run",
+          "line": 87
+        },
+        {
+          "name": "message_box.information",
+          "line": 88
+        },
+        {
+          "name": "self._logger.exception",
+          "line": 94
+        },
+        {
+          "name": "message_box.critical",
+          "line": 95
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 53
+        },
+        {
+          "name": "undo_stack",
+          "line": 79
+        },
+        {
+          "name": "refresh",
+          "line": 102
+        },
+        {
+          "name": "_fill_links",
+          "line": 103
+        },
+        {
+          "name": "align_run_combo",
+          "line": 52
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 54
+        },
+        {
+          "name": "undo_stack",
+          "line": 81
+        }
+      ]
+    },
+    "bulk_accept": {
+      "line": 105,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 113
+        },
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 114
+        },
+        {
+          "name": "tab._get_db",
+          "line": 115
+        },
+        {
+          "name": "db.query_alignment_for_episode",
+          "line": 122
+        },
+        {
+          "name": "tab._fill_links",
+          "line": 155
+        },
+        {
+          "name": "tab._update_stats",
+          "line": 156
+        },
+        {
+          "name": "message_box.information",
+          "line": 157
+        },
+        {
+          "name": "message_box.warning",
+          "line": 118
+        },
+        {
+          "name": "tab.bulk_threshold_spin.value",
+          "line": 121
+        },
+        {
+          "name": "message_box.information",
+          "line": 129
+        },
+        {
+          "name": "confirm_action_fn",
+          "line": 135
+        },
+        {
+          "name": "BulkAcceptLinksCommand",
+          "line": 145
+        },
+        {
+          "name": "tab.undo_stack.push",
+          "line": 146
+        },
+        {
+          "name": "len",
+          "line": 145
+        },
+        {
+          "name": "db.connection",
+          "line": 148
+        },
+        {
+          "name": "conn.commit",
+          "line": 153
+        },
+        {
+          "name": "link.get",
+          "line": 144
+        },
+        {
+          "name": "link.get",
+          "line": 150
+        },
+        {
+          "name": "len",
+          "line": 157
+        },
+        {
+          "name": "link.get",
+          "line": 126
+        },
+        {
+          "name": "len",
+          "line": 138
+        },
+        {
+          "name": "conn.execute",
+          "line": 152
+        },
+        {
+          "name": "link.get",
+          "line": 126
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "undo_stack",
+          "line": 143
+        },
+        {
+          "name": "_get_db",
+          "line": 115
+        },
+        {
+          "name": "_fill_links",
+          "line": 155
+        },
+        {
+          "name": "_update_stats",
+          "line": 156
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 113
+        },
+        {
+          "name": "align_run_combo",
+          "line": 114
+        },
+        {
+          "name": "bulk_threshold_spin",
+          "line": 121
+        },
+        {
+          "name": "undo_stack",
+          "line": 146
+        }
+      ]
+    },
+    "bulk_reject": {
+      "line": 159,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 167
+        },
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 168
+        },
+        {
+          "name": "tab._get_db",
+          "line": 169
+        },
+        {
+          "name": "db.query_alignment_for_episode",
+          "line": 176
+        },
+        {
+          "name": "tab._fill_links",
+          "line": 210
+        },
+        {
+          "name": "tab._update_stats",
+          "line": 211
+        },
+        {
+          "name": "message_box.information",
+          "line": 212
+        },
+        {
+          "name": "message_box.warning",
+          "line": 172
+        },
+        {
+          "name": "tab.bulk_threshold_spin.value",
+          "line": 175
+        },
+        {
+          "name": "message_box.information",
+          "line": 183
+        },
+        {
+          "name": "confirm_action_fn",
+          "line": 189
+        },
+        {
+          "name": "BulkRejectLinksCommand",
+          "line": 200
+        },
+        {
+          "name": "tab.undo_stack.push",
+          "line": 201
+        },
+        {
+          "name": "len",
+          "line": 200
+        },
+        {
+          "name": "db.connection",
+          "line": 203
+        },
+        {
+          "name": "conn.commit",
+          "line": 208
+        },
+        {
+          "name": "link.get",
+          "line": 199
+        },
+        {
+          "name": "link.get",
+          "line": 205
+        },
+        {
+          "name": "len",
+          "line": 212
+        },
+        {
+          "name": "link.get",
+          "line": 180
+        },
+        {
+          "name": "len",
+          "line": 192
+        },
+        {
+          "name": "conn.execute",
+          "line": 207
+        },
+        {
+          "name": "link.get",
+          "line": 180
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "undo_stack",
+          "line": 198
+        },
+        {
+          "name": "_get_db",
+          "line": 169
+        },
+        {
+          "name": "_fill_links",
+          "line": 210
+        },
+        {
+          "name": "_update_stats",
+          "line": 211
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 167
+        },
+        {
+          "name": "align_run_combo",
+          "line": 168
+        },
+        {
+          "name": "bulk_threshold_spin",
+          "line": 175
+        },
+        {
+          "name": "undo_stack",
+          "line": 201
+        }
+      ]
+    },
+    "table_context_menu": {
+      "line": 214,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_table.indexAt",
+          "line": 222
+        },
+        {
+          "name": "tab._get_db",
+          "line": 225
+        },
+        {
+          "name": "tab.align_table.model",
+          "line": 228
+        },
+        {
+          "name": "model.get_link_at",
+          "line": 231
+        },
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 236
+        },
+        {
+          "name": "menu_cls",
+          "line": 237
+        },
+        {
+          "name": "menu.addAction",
+          "line": 238
+        },
+        {
+          "name": "menu.addAction",
+          "line": 239
+        },
+        {
+          "name": "menu.addAction",
+          "line": 240
+        },
+        {
+          "name": "menu.exec",
+          "line": 241
+        },
+        {
+          "name": "idx.isValid",
+          "line": 223
+        },
+        {
+          "name": "isinstance",
+          "line": 229
+        },
+        {
+          "name": "idx.row",
+          "line": 231
+        },
+        {
+          "name": "tab.align_table.viewport.mapToGlobal",
+          "line": 241
+        },
+        {
+          "name": "tab._fill_links",
+          "line": 255
+        },
+        {
+          "name": "tab._update_stats",
+          "line": 256
+        },
+        {
+          "name": "tab._fill_links",
+          "line": 271
+        },
+        {
+          "name": "tab._update_stats",
+          "line": 272
+        },
+        {
+          "name": "edit_dialog_cls",
+          "line": 276
+        },
+        {
+          "name": "link.get",
+          "line": 279
+        },
+        {
+          "name": "dlg.selected_cue_id_target",
+          "line": 280
+        },
+        {
+          "name": "tab._fill_links",
+          "line": 291
+        },
+        {
+          "name": "tab._update_stats",
+          "line": 292
+        },
+        {
+          "name": "link.get",
+          "line": 232
+        },
+        {
+          "name": "SetAlignStatusCommand",
+          "line": 245
+        },
+        {
+          "name": "tab.undo_stack.push",
+          "line": 252
+        },
+        {
+          "name": "db.set_align_status",
+          "line": 254
+        },
+        {
+          "name": "SetAlignStatusCommand",
+          "line": 261
+        },
+        {
+          "name": "tab.undo_stack.push",
+          "line": 268
+        },
+        {
+          "name": "db.set_align_status",
+          "line": 270
+        },
+        {
+          "name": "dlg.exec",
+          "line": 277
+        },
+        {
+          "name": "EditAlignLinkCommand",
+          "line": 282
+        },
+        {
+          "name": "tab.undo_stack.push",
+          "line": 290
+        },
+        {
+          "name": "tab.align_table.viewport",
+          "line": 241
+        },
+        {
+          "name": "link.get",
+          "line": 249
+        },
+        {
+          "name": "link.get",
+          "line": 265
+        },
+        {
+          "name": "link.get",
+          "line": 288
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 225
+        },
+        {
+          "name": "undo_stack",
+          "line": 244
+        },
+        {
+          "name": "undo_stack",
+          "line": 260
+        },
+        {
+          "name": "align_table",
+          "line": 222
+        },
+        {
+          "name": "align_table",
+          "line": 228
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 236
+        },
+        {
+          "name": "_fill_links",
+          "line": 255
+        },
+        {
+          "name": "_update_stats",
+          "line": 256
+        },
+        {
+          "name": "_fill_links",
+          "line": 271
+        },
+        {
+          "name": "_update_stats",
+          "line": 272
+        },
+        {
+          "name": "undo_stack",
+          "line": 281
+        },
+        {
+          "name": "_fill_links",
+          "line": 291
+        },
+        {
+          "name": "_update_stats",
+          "line": 292
+        },
+        {
+          "name": "undo_stack",
+          "line": 252
+        },
+        {
+          "name": "undo_stack",
+          "line": 268
+        },
+        {
+          "name": "undo_stack",
+          "line": 290
+        },
+        {
+          "name": "align_table",
+          "line": 241
+        }
+      ]
+    },
+    "run_align_episode": {
+      "line": 294,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 296
+        },
+        {
+          "name": "tab._get_db",
+          "line": 300
+        },
+        {
+          "name": "tab.align_by_similarity_cb.isChecked",
+          "line": 303
+        },
+        {
+          "name": "self._combo_lang_value",
+          "line": 305
+        },
+        {
+          "name": "self._combo_lang_value",
+          "line": 306
+        },
+        {
+          "name": "db.get_segments_for_episode",
+          "line": 317
+        },
+        {
+          "name": "bool",
+          "line": 318
+        },
+        {
+          "name": "db.get_cues_for_episode_lang",
+          "line": 328
+        },
+        {
+          "name": "any",
+          "line": 330
+        },
+        {
+          "name": "tab._run_job",
+          "line": 368
+        },
+        {
+          "name": "message_box.warning",
+          "line": 298
+        },
+        {
+          "name": "tab.align_segment_kind_combo.currentData",
+          "line": 304
+        },
+        {
+          "name": "getattr",
+          "line": 305
+        },
+        {
+          "name": "getattr",
+          "line": 306
+        },
+        {
+          "name": "message_box.warning",
+          "line": 310
+        },
+        {
+          "name": "message_box.warning",
+          "line": 320
+        },
+        {
+          "name": "db.get_cues_for_episode_lang",
+          "line": 329
+        },
+        {
+          "name": "target_cues.values",
+          "line": 330
+        },
+        {
+          "name": "message_box.warning",
+          "line": 332
+        },
+        {
+          "name": "message_box.warning",
+          "line": 340
+        },
+        {
+          "name": "join",
+          "line": 348
+        },
+        {
+          "name": "message_box.warning",
+          "line": 349
+        },
+        {
+          "name": "message_box.warning",
+          "line": 359
+        },
+        {
+          "name": "AlignEpisodeStep",
+          "line": 370
+        },
+        {
+          "name": "target_cues.items",
+          "line": 357
+        },
+        {
+          "name": "pivot_lang.upper",
+          "line": 336
+        },
+        {
+          "name": "pivot_lang.upper",
+          "line": 348
+        },
+        {
+          "name": "lang.upper",
+          "line": 348
+        },
+        {
+          "name": "join",
+          "line": 363
+        },
+        {
+          "name": "lang.upper",
+          "line": 363
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 300
+        },
+        {
+          "name": "_run_job",
+          "line": 368
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 296
+        },
+        {
+          "name": "align_by_similarity_cb",
+          "line": 303
+        },
+        {
+          "name": "align_segment_kind_combo",
+          "line": 304
+        }
+      ]
+    },
+    "generate_alignment_groups": {
+      "line": 380,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 382
+        },
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 383
+        },
+        {
+          "name": "tab._get_db",
+          "line": 384
+        },
+        {
+          "name": "tab._get_store",
+          "line": 385
+        },
+        {
+          "name": "message_box.warning",
+          "line": 387
+        },
+        {
+          "name": "store.generate_align_grouping",
+          "line": 392
+        },
+        {
+          "name": "message_box.information",
+          "line": 394
+        },
+        {
+          "name": "grouping.get",
+          "line": 393
+        },
+        {
+          "name": "self._logger.exception",
+          "line": 401
+        },
+        {
+          "name": "message_box.critical",
+          "line": 402
+        },
+        {
+          "name": "len",
+          "line": 397
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 384
+        },
+        {
+          "name": "_get_store",
+          "line": 385
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 382
+        },
+        {
+          "name": "align_run_combo",
+          "line": 383
+        }
+      ]
+    },
+    "export_grouped_alignment": {
+      "line": 404,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 406
+        },
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 407
+        },
+        {
+          "name": "tab._get_db",
+          "line": 408
+        },
+        {
+          "name": "tab._get_store",
+          "line": 409
+        },
+        {
+          "name": "file_dialog.getSaveFileName",
+          "line": 416
+        },
+        {
+          "name": "normalize_parallel_export_path",
+          "line": 424
+        },
+        {
+          "name": "message_box.warning",
+          "line": 411
+        },
+        {
+          "name": "store.load_align_grouping",
+          "line": 426
+        },
+        {
+          "name": "store.align_grouping_to_parallel_rows",
+          "line": 429
+        },
+        {
+          "name": "export_parallel_rows",
+          "line": 430
+        },
+        {
+          "name": "message_box.information",
+          "line": 431
+        },
+        {
+          "name": "store.generate_align_grouping",
+          "line": 428
+        },
+        {
+          "name": "self._logger.exception",
+          "line": 433
+        },
+        {
+          "name": "message_box.critical",
+          "line": 434
+        },
+        {
+          "name": "len",
+          "line": 431
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 408
+        },
+        {
+          "name": "_get_store",
+          "line": 409
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 406
+        },
+        {
+          "name": "align_run_combo",
+          "line": 407
+        }
+      ]
+    },
+    "export_alignment": {
+      "line": 436,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 438
+        },
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 439
+        },
+        {
+          "name": "tab._get_db",
+          "line": 440
+        },
+        {
+          "name": "file_dialog.getSaveFileName",
+          "line": 445
+        },
+        {
+          "name": "db.query_alignment_for_episode",
+          "line": 449
+        },
+        {
+          "name": "message_box.warning",
+          "line": 442
+        },
+        {
+          "name": "Path",
+          "line": 451
+        },
+        {
+          "name": "export_alignment_links",
+          "line": 452
+        },
+        {
+          "name": "message_box.information",
+          "line": 453
+        },
+        {
+          "name": "self._logger.exception",
+          "line": 455
+        },
+        {
+          "name": "message_box.critical",
+          "line": 456
+        },
+        {
+          "name": "len",
+          "line": 453
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 440
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 438
+        },
+        {
+          "name": "align_run_combo",
+          "line": 439
+        }
+      ]
+    },
+    "export_parallel_concordance": {
+      "line": 463,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 465
+        },
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 466
+        },
+        {
+          "name": "tab._get_db",
+          "line": 467
+        },
+        {
+          "name": "file_dialog.getSaveFileName",
+          "line": 472
+        },
+        {
+          "name": "normalize_parallel_export_path",
+          "line": 481
+        },
+        {
+          "name": "message_box.warning",
+          "line": 469
+        },
+        {
+          "name": "db.get_parallel_concordance",
+          "line": 484
+        },
+        {
+          "name": "export_parallel_rows",
+          "line": 485
+        },
+        {
+          "name": "message_box.information",
+          "line": 486
+        },
+        {
+          "name": "tab.align_accepted_only_cb.isChecked",
+          "line": 483
+        },
+        {
+          "name": "self._logger.exception",
+          "line": 488
+        },
+        {
+          "name": "message_box.critical",
+          "line": 489
+        },
+        {
+          "name": "len",
+          "line": 486
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 467
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 465
+        },
+        {
+          "name": "align_run_combo",
+          "line": 466
+        },
+        {
+          "name": "align_accepted_only_cb",
+          "line": 483
+        }
+      ]
+    },
+    "export_align_report": {
+      "line": 496,
+      "decorators": [],
+      "calls": [
+        {
+          "name": "tab.align_episode_combo.currentData",
+          "line": 498
+        },
+        {
+          "name": "tab.align_run_combo.currentData",
+          "line": 499
+        },
+        {
+          "name": "tab._get_db",
+          "line": 500
+        },
+        {
+          "name": "file_dialog.getSaveFileName",
+          "line": 505
+        },
+        {
+          "name": "Path",
+          "line": 509
+        },
+        {
+          "name": "message_box.warning",
+          "line": 502
+        },
+        {
+          "name": "output_path.suffix.lower",
+          "line": 510
+        },
+        {
+          "name": "output_path.with_suffix",
+          "line": 511
+        },
+        {
+          "name": "db.get_align_stats_for_run",
+          "line": 514
+        },
+        {
+          "name": "db.get_parallel_concordance",
+          "line": 515
+        },
+        {
+          "name": "export_align_report_html",
+          "line": 516
+        },
+        {
+          "name": "message_box.information",
+          "line": 517
+        },
+        {
+          "name": "tab.align_accepted_only_cb.isChecked",
+          "line": 513
+        },
+        {
+          "name": "self._logger.exception",
+          "line": 519
+        },
+        {
+          "name": "message_box.critical",
+          "line": 520
+        }
+      ],
+      "tab_attrs": [
+        {
+          "name": "_get_db",
+          "line": 500
+        },
+        {
+          "name": "align_episode_combo",
+          "line": 498
+        },
+        {
+          "name": "align_run_combo",
+          "line": 499
+        },
+        {
+          "name": "align_accepted_only_cb",
+          "line": 513
+        }
+      ]
+    }
+  }
+}

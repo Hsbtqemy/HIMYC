@@ -1,0 +1,40 @@
+{
+  "case_a_segments_mode": {
+    "warnings": [],
+    "steps": [
+      {
+        "class": "AlignEpisodeStep",
+        "episode_id": "S01E01",
+        "pivot_lang": "en",
+        "target_langs": [
+          "fr"
+        ],
+        "segment_kind": "utterance",
+        "use_similarity_for_cues": false
+      }
+    ]
+  },
+  "case_b_same_pivot_target": {
+    "warning_text": "La langue cible doit être différente de la langue pivot.",
+    "step_count": 0
+  },
+  "case_c_no_segments_no_target": {
+    "warning_text": "Aucun segment disponible pour cet épisode et aucune langue cible sélectionnée.\nSegmentez d'abord l'épisode dans l'onglet Inspecteur, ou choisissez une langue cible pour un alignement cues↔cues.",
+    "step_count": 0
+  },
+  "case_d_cues_only_mode": {
+    "warnings": [],
+    "steps": [
+      {
+        "class": "AlignEpisodeStep",
+        "episode_id": "S01E01",
+        "pivot_lang": "en",
+        "target_langs": [
+          "fr"
+        ],
+        "segment_kind": "utterance",
+        "use_similarity_for_cues": false
+      }
+    ]
+  }
+}

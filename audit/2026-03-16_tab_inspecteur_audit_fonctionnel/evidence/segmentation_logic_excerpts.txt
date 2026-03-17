@@ -1,0 +1,90 @@
+=== tab_inspecteur.py::_run_segment ===
+460:         custom = store.load_custom_profiles()
+461:         self.refresh_profile_combo(
+462:             get_all_profile_ids(custom),
+463:             self.inspect_profile_combo.currentText(),
+464:         )
+465:         self._update_profile_rules_preview()
+466: 
+467:     @require_project_and_db
+468:     def _run_segment(self) -> None:
+469:         eid = self.inspect_episode_combo.currentData()
+470:         store = self._get_store()
+471:         assert store is not None  # garanti par @require_project_and_db
+472:         if not eid:
+473:             QMessageBox.warning(self, "Segmentation", "Sélectionnez un épisode.")
+474:             return
+475:         if not store.has_episode_clean(eid):
+476:             QMessageBox.warning(self, "Segmentation", "L'épisode doit d'abord être normalisé (clean.txt).")
+477:             return
+478:         self._run_job([SegmentEpisodeStep(eid, lang_hint="en")])
+479: 
+480:     @require_project_and_db
+481:     def _export_segments(self) -> None:
+482:         eid = self.inspect_episode_combo.currentData()
+483:         db = self._get_db()
+484:         if not eid:
+485:             QMessageBox.warning(self, "Export segments", "Sélectionnez un épisode.")
+486:             return
+487:         segments = db.get_segments_for_episode(eid)
+488:         if not segments:
+489:             QMessageBox.warning(
+490:                 self,
+
+=== pipeline.tasks::SegmentEpisodeStep ===
+337: class SegmentEpisodeStep(Step):
+338:     """Phase 2 : segmente un épisode (phrases + tours), écrit segments.jsonl, upsert DB."""
+339: 
+340:     name = "segment_episode"
+341: 
+342:     def __init__(self, episode_id: str, lang_hint: str = "en") -> None:
+343:         self.episode_id = episode_id
+344:         self.lang_hint = lang_hint
+345: 
+346:     def run(
+347:         self,
+348:         context: PipelineContext,
+349:         *,
+350:         force: bool = False,
+351:         on_progress: Callable[[str, float, str], None] | None = None,
+352:         on_log: Callable[[str, str], None] | None = None,
+353:     ) -> StepResult:
+354:         store: ProjectStore = context["store"]
+355:         db: CorpusDB | None = context.get("db")
+356:         ep_dir = store._episode_dir(self.episode_id)  # noqa: SLF001 - sanitation centralisée côté store
+357:         segments_path = ep_dir / "segments.jsonl"
+358:         if not force and segments_path.exists():
+359:             if on_progress:
+360:                 on_progress(self.name, 1.0, f"Skip (already segmented): {self.episode_id}")
+361:             return StepResult(True, f"Already segmented: {self.episode_id}")
+362:         clean = store.load_episode_text(self.episode_id, kind="clean")
+363:         if not clean.strip():
+364:             return StepResult(False, f"No clean text: {self.episode_id}")
+365:         if on_progress:
+366:             on_progress(self.name, 0.0, f"Segmenting {self.episode_id}...")
+367:         sentences = segmenter_sentences(clean, self.lang_hint)
+368:         utterances = segmenter_utterances(clean)
+369:         for s in sentences:
+370:             s.episode_id = self.episode_id
+371:         for u in utterances:
+372:             u.episode_id = self.episode_id
+373:         ep_dir.mkdir(parents=True, exist_ok=True)
+374:         with segments_path.open("w", encoding="utf-8") as f:
+375:             for seg in sentences + utterances:
+376:                 obj = {
+377:                     "segment_id": seg.segment_id,
+378:                     "episode_id": seg.episode_id,
+379:                     "kind": seg.kind,
+380:                     "n": seg.n,
+381:                     "start_char": seg.start_char,
+382:                     "end_char": seg.end_char,
+383:                     "text": seg.text,
+384:                     "speaker_explicit": seg.speaker_explicit,
+385:                     "meta": seg.meta,
+386:                 }
+387:                 f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+388:         if db:
+389:             db.upsert_segments(self.episode_id, "sentence", sentences)
+390:             db.upsert_segments(self.episode_id, "utterance", utterances)
+391:             db.delete_align_runs_for_episode(self.episode_id)
+392:         if on_progress:

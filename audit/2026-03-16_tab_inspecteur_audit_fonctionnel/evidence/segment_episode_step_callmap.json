@@ -1,0 +1,123 @@
+{
+  "class_line": 337,
+  "methods": {
+    "__init__": {
+      "line": 342,
+      "decorators": []
+    },
+    "run": {
+      "line": 346,
+      "decorators": []
+    }
+  },
+  "init_assignments": [
+    {
+      "attr": "episode_id",
+      "line": 343,
+      "value": "episode_id"
+    },
+    {
+      "attr": "lang_hint",
+      "line": 344,
+      "value": "lang_hint"
+    }
+  ],
+  "run_calls": [
+    {
+      "name": "context.get",
+      "line": 355
+    },
+    {
+      "name": "store._episode_dir",
+      "line": 356
+    },
+    {
+      "name": "store.load_episode_text",
+      "line": 362
+    },
+    {
+      "name": "segmenter_sentences",
+      "line": 367
+    },
+    {
+      "name": "segmenter_utterances",
+      "line": 368
+    },
+    {
+      "name": "ep_dir.mkdir",
+      "line": 373
+    },
+    {
+      "name": "StepResult",
+      "line": 394
+    },
+    {
+      "name": "segments_path.exists",
+      "line": 358
+    },
+    {
+      "name": "StepResult",
+      "line": 361
+    },
+    {
+      "name": "clean.strip",
+      "line": 363
+    },
+    {
+      "name": "StepResult",
+      "line": 364
+    },
+    {
+      "name": "on_progress",
+      "line": 366
+    },
+    {
+      "name": "segments_path.open",
+      "line": 374
+    },
+    {
+      "name": "db.upsert_segments",
+      "line": 389
+    },
+    {
+      "name": "db.upsert_segments",
+      "line": 390
+    },
+    {
+      "name": "db.delete_align_runs_for_episode",
+      "line": 391
+    },
+    {
+      "name": "on_progress",
+      "line": 393
+    },
+    {
+      "name": "on_progress",
+      "line": 360
+    },
+    {
+      "name": "f.write",
+      "line": 387
+    },
+    {
+      "name": "len",
+      "line": 397
+    },
+    {
+      "name": "len",
+      "line": 397
+    },
+    {
+      "name": "json.dumps",
+      "line": 387
+    },
+    {
+      "name": "len",
+      "line": 393
+    },
+    {
+      "name": "len",
+      "line": 393
+    }
+  ]
+}

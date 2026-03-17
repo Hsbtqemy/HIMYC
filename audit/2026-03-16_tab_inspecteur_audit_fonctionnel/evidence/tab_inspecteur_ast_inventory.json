@@ -1,0 +1,354 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_inspecteur.py",
+  "total_lines": 529,
+  "helpers": [],
+  "widgets_count": 21,
+  "connections_count": 12,
+  "methods_count": 19,
+  "widgets": [
+    {
+      "name": "_inspect_episode_label",
+      "widget_ctor": "QLabel",
+      "line": 69
+    },
+    {
+      "name": "inspect_episode_combo",
+      "widget_ctor": "QComboBox",
+      "line": 71
+    },
+    {
+      "name": "inspect_view_combo",
+      "widget_ctor": "QComboBox",
+      "line": 75
+    },
+    {
+      "name": "inspect_kind_combo",
+      "widget_ctor": "QComboBox",
+      "line": 81
+    },
+    {
+      "name": "segment_goto_edit",
+      "widget_ctor": "QLineEdit",
+      "line": 90
+    },
+    {
+      "name": "segment_goto_btn",
+      "widget_ctor": "QPushButton",
+      "line": 96
+    },
+    {
+      "name": "inspect_segment_btn",
+      "widget_ctor": "QPushButton",
+      "line": 101
+    },
+    {
+      "name": "inspect_export_segments_btn",
+      "widget_ctor": "QPushButton",
+      "line": 104
+    },
+    {
+      "name": "inspect_profile_combo",
+      "widget_ctor": "QComboBox",
+      "line": 121
+    },
+    {
+      "name": "inspect_norm_btn",
+      "widget_ctor": "QPushButton",
+      "line": 128
+    },
+    {
+      "name": "inspect_set_preferred_profile_btn",
+      "widget_ctor": "QPushButton",
+      "line": 134
+    },
+    {
+      "name": "inspect_manage_profiles_btn",
+      "widget_ctor": "QPushButton",
+      "line": 140
+    },
+    {
+      "name": "inspect_profile_rules_preview",
+      "widget_ctor": "QPlainTextEdit",
+      "line": 148
+    },
+    {
+      "name": "inspect_main_split",
+      "widget_ctor": "QSplitter",
+      "line": 157
+    },
+    {
+      "name": "raw_edit",
+      "widget_ctor": "QPlainTextEdit",
+      "line": 158
+    },
+    {
+      "name": "clean_edit",
+      "widget_ctor": "QPlainTextEdit",
+      "line": 160
+    },
+    {
+      "name": "inspect_segments_list",
+      "widget_ctor": "QListWidget",
+      "line": 162
+    },
+    {
+      "name": "inspect_right_split",
+      "widget_ctor": "QSplitter",
+      "line": 166
+    },
+    {
+      "name": "inspect_stats_label",
+      "widget_ctor": "QLabel",
+      "line": 175
+    },
+    {
+      "name": "merge_examples_edit",
+      "widget_ctor": "QPlainTextEdit",
+      "line": 177
+    },
+    {
+      "name": "inspect_notes_edit",
+      "widget_ctor": "QPlainTextEdit",
+      "line": 183
+    }
+  ],
+  "connections": [
+    {
+      "widget": "inspect_episode_combo",
+      "signal": "currentIndexChanged",
+      "slot": "_load_episode",
+      "line": 72,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 270,
+      "slot_decorators": []
+    },
+    {
+      "widget": "inspect_view_combo",
+      "signal": "currentIndexChanged",
+      "slot": "_switch_view",
+      "line": 78,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 327,
+      "slot_decorators": []
+    },
+    {
+      "widget": "inspect_kind_combo",
+      "signal": "currentIndexChanged",
+      "slot": "_on_kind_filter_changed",
+      "line": 86,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 335,
+      "slot_decorators": []
+    },
+    {
+      "widget": "segment_goto_edit",
+      "signal": "returnPressed",
+      "slot": "_goto_segment",
+      "line": 94,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 341,
+      "slot_decorators": []
+    },
+    {
+      "widget": "segment_goto_btn",
+      "signal": "clicked",
+      "slot": "_goto_segment",
+      "line": 99,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 341,
+      "slot_decorators": []
+    },
+    {
+      "widget": "inspect_segment_btn",
+      "signal": "clicked",
+      "slot": "_run_segment",
+      "line": 102,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 468,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "inspect_export_segments_btn",
+      "signal": "clicked",
+      "slot": "_export_segments",
+      "line": 109,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 481,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "inspect_profile_combo",
+      "signal": "currentTextChanged",
+      "slot": "_update_profile_rules_preview",
+      "line": 126,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 438,
+      "slot_decorators": []
+    },
+    {
+      "widget": "inspect_norm_btn",
+      "signal": "clicked",
+      "slot": "_run_normalize",
+      "line": 132,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 411,
+      "slot_decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "widget": "inspect_set_preferred_profile_btn",
+      "signal": "clicked",
+      "slot": "_set_episode_preferred_profile",
+      "line": 138,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 425,
+      "slot_decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "widget": "inspect_manage_profiles_btn",
+      "signal": "clicked",
+      "slot": "_open_profiles_dialog",
+      "line": 144,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 453,
+      "slot_decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "widget": "inspect_segments_list",
+      "signal": "currentItemChanged",
+      "slot": "_on_segment_selected",
+      "line": 164,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 395,
+      "slot_decorators": []
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "line": 50,
+      "decorators": []
+    },
+    {
+      "name": "_restore_splitter_sizes",
+      "line": 192,
+      "decorators": []
+    },
+    {
+      "name": "save_state",
+      "line": 216,
+      "decorators": []
+    },
+    {
+      "name": "refresh",
+      "line": 228,
+      "decorators": []
+    },
+    {
+      "name": "refresh_profile_combo",
+      "line": 247,
+      "decorators": []
+    },
+    {
+      "name": "set_episode_selector_visible",
+      "line": 257,
+      "decorators": []
+    },
+    {
+      "name": "set_episode_and_load",
+      "line": 262,
+      "decorators": []
+    },
+    {
+      "name": "_load_episode",
+      "line": 270,
+      "decorators": []
+    },
+    {
+      "name": "_switch_view",
+      "line": 327,
+      "decorators": []
+    },
+    {
+      "name": "_on_kind_filter_changed",
+      "line": 335,
+      "decorators": []
+    },
+    {
+      "name": "_goto_segment",
+      "line": 341,
+      "decorators": []
+    },
+    {
+      "name": "_fill_segments",
+      "line": 371,
+      "decorators": []
+    },
+    {
+      "name": "_on_segment_selected",
+      "line": 395,
+      "decorators": []
+    },
+    {
+      "name": "_run_normalize",
+      "line": 411,
+      "decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "name": "_set_episode_preferred_profile",
+      "line": 425,
+      "decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "name": "_update_profile_rules_preview",
+      "line": 438,
+      "decorators": []
+    },
+    {
+      "name": "_open_profiles_dialog",
+      "line": 453,
+      "decorators": [
+        "require_project"
+      ]
+    },
+    {
+      "name": "_run_segment",
+      "line": 468,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_export_segments",
+      "line": 481,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    }
+  ]
+}

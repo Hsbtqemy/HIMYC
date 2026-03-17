@@ -1,0 +1,179 @@
+{
+  "controller_file": "src\\howimetyourcorpus\\app\\tabs\\alignement_actions.py",
+  "controls": {
+    "align_episode_combo": {
+      "external_lines_in_actions_controller": [
+        54,
+        113,
+        167,
+        236,
+        296,
+        382,
+        406,
+        438,
+        465,
+        498
+      ],
+      "external_methods_in_actions_controller": [
+        "bulk_accept",
+        "bulk_reject",
+        "delete_current_run",
+        "export_align_report",
+        "export_alignment",
+        "export_grouped_alignment",
+        "export_parallel_concordance",
+        "generate_alignment_groups",
+        "run_align_episode",
+        "table_context_menu"
+      ],
+      "external_usage_count": 10,
+      "used_in_actions_controller": true
+    },
+    "align_run_combo": {
+      "external_lines_in_actions_controller": [
+        52,
+        114,
+        168,
+        383,
+        407,
+        439,
+        466,
+        499
+      ],
+      "external_methods_in_actions_controller": [
+        "bulk_accept",
+        "bulk_reject",
+        "delete_current_run",
+        "export_align_report",
+        "export_alignment",
+        "export_grouped_alignment",
+        "export_parallel_concordance",
+        "generate_alignment_groups"
+      ],
+      "external_usage_count": 8,
+      "used_in_actions_controller": true
+    },
+    "align_segment_kind_combo": {
+      "external_lines_in_actions_controller": [
+        304
+      ],
+      "external_methods_in_actions_controller": [
+        "run_align_episode"
+      ],
+      "external_usage_count": 1,
+      "used_in_actions_controller": true
+    },
+    "align_pivot_lang_combo": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "align_target_lang_combo": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "align_run_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "align_delete_run_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "align_by_similarity_cb": {
+      "external_lines_in_actions_controller": [
+        303
+      ],
+      "external_methods_in_actions_controller": [
+        "run_align_episode"
+      ],
+      "external_usage_count": 1,
+      "used_in_actions_controller": true
+    },
+    "export_align_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "export_parallel_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "align_group_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "export_grouped_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "align_report_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "align_accepted_only_cb": {
+      "external_lines_in_actions_controller": [
+        483,
+        513
+      ],
+      "external_methods_in_actions_controller": [
+        "export_align_report",
+        "export_parallel_concordance"
+      ],
+      "external_usage_count": 2,
+      "used_in_actions_controller": true
+    },
+    "bulk_accept_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "bulk_reject_btn": {
+      "external_lines_in_actions_controller": [],
+      "external_methods_in_actions_controller": [],
+      "external_usage_count": 0,
+      "used_in_actions_controller": false
+    },
+    "bulk_threshold_spin": {
+      "external_lines_in_actions_controller": [
+        121,
+        175
+      ],
+      "external_methods_in_actions_controller": [
+        "bulk_accept",
+        "bulk_reject"
+      ],
+      "external_usage_count": 2,
+      "used_in_actions_controller": true
+    },
+    "align_table": {
+      "external_lines_in_actions_controller": [
+        222,
+        228,
+        241
+      ],
+      "external_methods_in_actions_controller": [
+        "table_context_menu"
+      ],
+      "external_usage_count": 3,
+      "used_in_actions_controller": true
+    }
+  }
+}

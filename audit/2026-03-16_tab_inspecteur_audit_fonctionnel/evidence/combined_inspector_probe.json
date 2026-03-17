@@ -1,0 +1,16 @@
+{
+  "combined_episode_combo_count": 2,
+  "inspector_episode_selector_visible": false,
+  "subtitle_episode_selector_visible": false,
+  "before": {
+    "combined_episode": "S01E01",
+    "inspector_episode": "S01E01",
+    "subtitles_episode": "S01E01"
+  },
+  "after": {
+    "combined_episode": "S01E02",
+    "inspector_episode": "S01E02",
+    "subtitles_episode": "S01E02"
+  },
+  "propagation_ok": true
+}

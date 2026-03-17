@@ -1,0 +1,36 @@
+﻿tests\test_align_run_metadata.py:10:    parse_run_segment_kind,
+tests\test_align_run_metadata.py:22:def test_parse_run_segment_kind_empty_payload() -> None:
+tests\test_align_run_metadata.py:23:    kind, valid = parse_run_segment_kind(None)
+tests\test_align_run_metadata.py:28:def test_parse_run_segment_kind_valid_payload() -> None:
+tests\test_align_run_metadata.py:29:    kind, valid = parse_run_segment_kind('{"segment_kind":"utterance"}')
+tests\test_align_run_metadata.py:34:def test_parse_run_segment_kind_valid_object_without_key() -> None:
+tests\test_align_run_metadata.py:35:    kind, valid = parse_run_segment_kind('{"foo":"bar"}')
+tests\test_align_run_metadata.py:40:def test_parse_run_segment_kind_invalid_payload_logs_debug(caplog) -> None:
+tests\test_align_run_metadata.py:42:        kind, valid = parse_run_segment_kind(
+tests\test_align_run_metadata.py:52:def test_parse_run_segment_kind_non_object_payload_logs_debug(caplog) -> None:
+tests\test_align_run_metadata.py:54:        kind, valid = parse_run_segment_kind(
+tests\test_export_phase5.py:121:def test_export_segments_srt_like():
+tests\test_ui_alignement.py:855:        "howimetyourcorpus.app.tabs.tab_alignement.parse_run_segment_kind",
+tests\test_ui_guards.py:14:from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget  # noqa: E402
+tests\test_ui_guards.py:32:    tab = InspectorTabWidget(
+tests\test_ui_guards.py:46:    tab._run_normalize()
+tests\test_ui_inspecteur_profiles.py:14:from howimetyourcorpus.app.tabs.tab_inspecteur import InspectorTabWidget
+tests\test_ui_inspecteur_profiles.py:149:                    "text": "Another longer line used for inspecteur tests",
+tests\test_ui_inspecteur_profiles.py:195:    tab = InspectorTabWidget(
+tests\test_ui_inspecteur_profiles.py:203:    tab.inspect_view_combo.setCurrentIndex(tab.inspect_view_combo.findData("segments"))
+tests\test_ui_inspecteur_profiles.py:216:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_inspecteur.QMessageBox.warning", _warning)
+tests\test_ui_inspecteur_profiles.py:217:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_inspecteur.QMessageBox.information", _info)
+tests\test_ui_inspecteur_profiles.py:219:    tab.segment_goto_edit.setText("2")
+tests\test_ui_inspecteur_profiles.py:222:    selected = tab.inspect_segments_list.currentItem()
+tests\test_ui_inspecteur_profiles.py:226:    assert tab.segment_goto_edit.text() == ""
+tests\test_ui_inspecteur_profiles.py:228:    tab.segment_goto_edit.setText("nope")
+tests\test_ui_inspecteur_profiles.py:232:    tab.segment_goto_edit.setText("999")
+tests\test_ui_inspecteur_profiles.py:242:    tab = InspectorTabWidget(
+tests\test_ui_inspecteur_profiles.py:252:    assert tab.inspect_profile_combo.currentText() == "aggressive_v1"
+tests\test_ui_inspecteur_profiles.py:256:    assert tab.inspect_profile_combo.currentText() == "default_fr_v1"
+tests\test_ui_inspecteur_profiles.py:260:    assert tab.inspect_profile_combo.currentText() == "conservative_v1"
+tests\test_ui_mainwindow_core.py:66:    win._refresh_inspecteur_episodes()
+tests\test_ui_mainwindow_core.py:160:    monkeypatch.setattr(win, "_refresh_inspecteur_episodes", lambda: None)
+tests\test_ui_mainwindow_core.py:177:    monkeypatch.setattr(win, "_refresh_inspecteur_episodes", lambda: None)
+tests\test_ui_preparer_navigation.py:77:    win._refresh_inspecteur_episodes()
+tests\test_ui_preparer_navigation.py:84:def test_preparer_tab_inserted_between_inspecteur_and_alignement(main_window_with_project: MainWindow) -> None:

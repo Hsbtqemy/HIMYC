@@ -1,0 +1,78 @@
+{
+  "episode_count": 1,
+  "run_count": 1,
+  "delete_run_enabled": true,
+  "delegation_calls": [
+    {
+      "name": "run_align_episode",
+      "kwargs_keys": [
+        "message_box"
+      ]
+    },
+    {
+      "name": "delete_current_run",
+      "kwargs_keys": [
+        "confirm_action_fn",
+        "message_box"
+      ]
+    },
+    {
+      "name": "bulk_accept",
+      "kwargs_keys": [
+        "confirm_action_fn",
+        "message_box"
+      ]
+    },
+    {
+      "name": "bulk_reject",
+      "kwargs_keys": [
+        "confirm_action_fn",
+        "message_box"
+      ]
+    },
+    {
+      "name": "export_alignment",
+      "kwargs_keys": [
+        "file_dialog",
+        "message_box"
+      ]
+    },
+    {
+      "name": "export_parallel_concordance",
+      "kwargs_keys": [
+        "file_dialog",
+        "message_box"
+      ]
+    },
+    {
+      "name": "generate_alignment_groups",
+      "kwargs_keys": [
+        "message_box"
+      ]
+    },
+    {
+      "name": "export_grouped_alignment",
+      "kwargs_keys": [
+        "file_dialog",
+        "message_box"
+      ]
+    },
+    {
+      "name": "export_align_report",
+      "kwargs_keys": [
+        "file_dialog",
+        "message_box"
+      ]
+    },
+    {
+      "name": "table_context_menu",
+      "kwargs_keys": [
+        "edit_dialog_cls",
+        "menu_cls"
+      ]
+    }
+  ],
+  "delegation_expected_count": 10,
+  "delegation_seen_count": 10,
+  "delegation_missing": []
+}

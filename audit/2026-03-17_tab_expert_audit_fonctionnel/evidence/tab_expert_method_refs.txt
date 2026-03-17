@@ -1,0 +1,16 @@
+﻿78:    def _get_context_episode_map(self) -> dict[str, str]:
+117:    def _alignment_snapshot(self) -> dict[str, Any]:
+134:        if episode_id and hasattr(db, "get_align_runs_for_episode"):
+136:                runs = db.get_align_runs_for_episode(episode_id) or []
+162:    def _propagation_snapshot(self, episode_hint: str) -> dict[str, Any]:
+164:        if store is None or not hasattr(store, "load_character_assignments"):
+173:            assignments = list(store.load_character_assignments() or [])
+184:    def _undo_snapshot(self) -> dict[str, Any]:
+204:    def _build_snapshot(self) -> dict[str, Any]:
+210:        context_consistent = len(non_empty) <= 1
+219:            "project_loaded": bool(store and db),
+221:            "context_consistent": context_consistent,
+229:    def _render_snapshot(self, snapshot: dict[str, Any]) -> str:
+238:            f"Project loaded: {'yes' if snapshot.get('project_loaded') else 'no'}",
+239:            f"Context consistent: {'yes' if snapshot.get('context_consistent') else 'no'}",
+274:    def refresh(self) -> None:

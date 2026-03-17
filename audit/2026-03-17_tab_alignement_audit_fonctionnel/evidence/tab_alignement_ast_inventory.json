@@ -1,0 +1,400 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_alignement.py",
+  "total_lines": 428,
+  "helpers": [],
+  "widgets_count": 21,
+  "connections_count": 13,
+  "methods_count": 23,
+  "widgets": [
+    {
+      "name": "_actions_controller",
+      "widget_ctor": "AlignmentActionsController",
+      "line": 57
+    },
+    {
+      "name": "align_episode_combo",
+      "widget_ctor": "QComboBox",
+      "line": 62
+    },
+    {
+      "name": "align_run_combo",
+      "widget_ctor": "QComboBox",
+      "line": 66
+    },
+    {
+      "name": "align_segment_kind_combo",
+      "widget_ctor": "QComboBox",
+      "line": 70
+    },
+    {
+      "name": "align_pivot_lang_combo",
+      "widget_ctor": "QComboBox",
+      "line": 78
+    },
+    {
+      "name": "align_target_lang_combo",
+      "widget_ctor": "QComboBox",
+      "line": 85
+    },
+    {
+      "name": "align_run_btn",
+      "widget_ctor": "QPushButton",
+      "line": 90
+    },
+    {
+      "name": "align_delete_run_btn",
+      "widget_ctor": "QPushButton",
+      "line": 93
+    },
+    {
+      "name": "align_by_similarity_cb",
+      "widget_ctor": "QCheckBox",
+      "line": 97
+    },
+    {
+      "name": "export_align_btn",
+      "widget_ctor": "QPushButton",
+      "line": 102
+    },
+    {
+      "name": "export_parallel_btn",
+      "widget_ctor": "QPushButton",
+      "line": 105
+    },
+    {
+      "name": "align_group_btn",
+      "widget_ctor": "QPushButton",
+      "line": 108
+    },
+    {
+      "name": "export_grouped_btn",
+      "widget_ctor": "QPushButton",
+      "line": 114
+    },
+    {
+      "name": "align_report_btn",
+      "widget_ctor": "QPushButton",
+      "line": 120
+    },
+    {
+      "name": "align_accepted_only_cb",
+      "widget_ctor": "QCheckBox",
+      "line": 124
+    },
+    {
+      "name": "bulk_accept_btn",
+      "widget_ctor": "QPushButton",
+      "line": 148
+    },
+    {
+      "name": "bulk_reject_btn",
+      "widget_ctor": "QPushButton",
+      "line": 153
+    },
+    {
+      "name": "bulk_threshold_spin",
+      "widget_ctor": "QSpinBox",
+      "line": 159
+    },
+    {
+      "name": "main_splitter",
+      "widget_ctor": "QSplitter",
+      "line": 169
+    },
+    {
+      "name": "align_table",
+      "widget_ctor": "QTableView",
+      "line": 171
+    },
+    {
+      "name": "stats_widget",
+      "widget_ctor": "AlignStatsWidget",
+      "line": 178
+    }
+  ],
+  "connections": [
+    {
+      "widget": "align_episode_combo",
+      "signal": "currentIndexChanged",
+      "slot": "_on_episode_changed",
+      "line": 63,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 304,
+      "slot_decorators": []
+    },
+    {
+      "widget": "align_run_combo",
+      "signal": "currentIndexChanged",
+      "slot": "_on_run_changed",
+      "line": 67,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 328,
+      "slot_decorators": []
+    },
+    {
+      "widget": "align_pivot_lang_combo",
+      "signal": "currentIndexChanged",
+      "slot": "_on_pivot_lang_changed",
+      "line": 82,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 296,
+      "slot_decorators": []
+    },
+    {
+      "widget": "align_run_btn",
+      "signal": "clicked",
+      "slot": "_run_align_episode",
+      "line": 91,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 395,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "align_delete_run_btn",
+      "signal": "clicked",
+      "slot": "_delete_current_run",
+      "line": 95,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 353,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "export_align_btn",
+      "signal": "clicked",
+      "slot": "_export_alignment",
+      "line": 103,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 410,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "export_parallel_btn",
+      "signal": "clicked",
+      "slot": "_export_parallel_concordance",
+      "line": 106,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 417,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "align_group_btn",
+      "signal": "clicked",
+      "slot": "_generate_alignment_groups",
+      "line": 112,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 399,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "export_grouped_btn",
+      "signal": "clicked",
+      "slot": "_export_grouped_alignment",
+      "line": 118,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 403,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "align_report_btn",
+      "signal": "clicked",
+      "slot": "_export_align_report",
+      "line": 121,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 424,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "bulk_accept_btn",
+      "signal": "clicked",
+      "slot": "_bulk_accept",
+      "line": 150,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 360,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "bulk_reject_btn",
+      "signal": "clicked",
+      "slot": "_bulk_reject",
+      "line": 155,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 368,
+      "slot_decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "widget": "align_table",
+      "signal": "customContextMenuRequested",
+      "slot": "_table_context_menu",
+      "line": 175,
+      "in_method": "__init__",
+      "slot_exists": true,
+      "slot_line": 387,
+      "slot_decorators": []
+    }
+  ],
+  "methods": [
+    {
+      "name": "__init__",
+      "line": 44,
+      "decorators": []
+    },
+    {
+      "name": "_restore_align_splitter",
+      "line": 190,
+      "decorators": []
+    },
+    {
+      "name": "save_state",
+      "line": 200,
+      "decorators": []
+    },
+    {
+      "name": "refresh",
+      "line": 205,
+      "decorators": []
+    },
+    {
+      "name": "set_episode_and_segment_kind",
+      "line": 224,
+      "decorators": []
+    },
+    {
+      "name": "_load_project_languages",
+      "line": 236,
+      "decorators": []
+    },
+    {
+      "name": "_refresh_language_combos",
+      "line": 255,
+      "decorators": []
+    },
+    {
+      "name": "_refresh_target_lang_combo",
+      "line": 278,
+      "decorators": []
+    },
+    {
+      "name": "_on_pivot_lang_changed",
+      "line": 296,
+      "decorators": []
+    },
+    {
+      "name": "_on_episode_changed",
+      "line": 304,
+      "decorators": []
+    },
+    {
+      "name": "_on_run_changed",
+      "line": 328,
+      "decorators": []
+    },
+    {
+      "name": "_update_stats",
+      "line": 334,
+      "decorators": []
+    },
+    {
+      "name": "_delete_current_run",
+      "line": 353,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_bulk_accept",
+      "line": 360,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_bulk_reject",
+      "line": 368,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_fill_links",
+      "line": 375,
+      "decorators": []
+    },
+    {
+      "name": "_table_context_menu",
+      "line": 387,
+      "decorators": []
+    },
+    {
+      "name": "_run_align_episode",
+      "line": 395,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_generate_alignment_groups",
+      "line": 399,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_export_grouped_alignment",
+      "line": 403,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_export_alignment",
+      "line": 410,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_export_parallel_concordance",
+      "line": 417,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "name": "_export_align_report",
+      "line": 424,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    }
+  ]
+}

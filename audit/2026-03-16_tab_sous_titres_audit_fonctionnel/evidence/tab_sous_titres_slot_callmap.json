@@ -1,0 +1,1020 @@
+{
+  "_on_episode_changed": {
+    "line": 222,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.subs_tracks_list.clear",
+        "line": 223
+      },
+      {
+        "name": "self.subs_content_edit.clear",
+        "line": 224
+      },
+      {
+        "name": "self.subs_save_btn.setEnabled",
+        "line": 225
+      },
+      {
+        "name": "self.subs_delete_track_btn.setEnabled",
+        "line": 226
+      },
+      {
+        "name": "self.subs_export_final_btn.setEnabled",
+        "line": 227
+      },
+      {
+        "name": "self.subs_norm_btn.setEnabled",
+        "line": 228
+      },
+      {
+        "name": "self._get_store",
+        "line": 231
+      },
+      {
+        "name": "store.load_custom_profiles",
+        "line": 232
+      },
+      {
+        "name": "get_all_profile_ids",
+        "line": 233
+      },
+      {
+        "name": "self.subs_norm_profile_combo.currentText",
+        "line": 234
+      },
+      {
+        "name": "self.subs_norm_profile_combo.clear",
+        "line": 235
+      },
+      {
+        "name": "self.subs_norm_profile_combo.addItems",
+        "line": 236
+      },
+      {
+        "name": "self.subs_norm_profile_combo.setCurrentText",
+        "line": 238
+      },
+      {
+        "name": "self.subs_episode_combo.currentData",
+        "line": 239
+      },
+      {
+        "name": "self._get_db",
+        "line": 240
+      },
+      {
+        "name": "db.get_tracks_for_episode",
+        "line": 243
+      },
+      {
+        "name": "t.get",
+        "line": 245
+      },
+      {
+        "name": "t.get",
+        "line": 246
+      },
+      {
+        "name": "t.get",
+        "line": 247
+      },
+      {
+        "name": "QListWidgetItem",
+        "line": 248
+      },
+      {
+        "name": "item.setData",
+        "line": 249
+      },
+      {
+        "name": "self.subs_tracks_list.addItem",
+        "line": 250
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "subs_tracks_list",
+        "line": 223
+      },
+      {
+        "name": "subs_content_edit",
+        "line": 224
+      },
+      {
+        "name": "subs_save_btn",
+        "line": 225
+      },
+      {
+        "name": "subs_delete_track_btn",
+        "line": 226
+      },
+      {
+        "name": "subs_export_final_btn",
+        "line": 227
+      },
+      {
+        "name": "subs_norm_btn",
+        "line": 228
+      },
+      {
+        "name": "_editing_lang",
+        "line": 229
+      },
+      {
+        "name": "_editing_fmt",
+        "line": 230
+      },
+      {
+        "name": "_get_store",
+        "line": 231
+      },
+      {
+        "name": "subs_norm_profile_combo",
+        "line": 234
+      },
+      {
+        "name": "subs_norm_profile_combo",
+        "line": 235
+      },
+      {
+        "name": "subs_norm_profile_combo",
+        "line": 236
+      },
+      {
+        "name": "subs_norm_profile_combo",
+        "line": 238
+      },
+      {
+        "name": "subs_episode_combo",
+        "line": 239
+      },
+      {
+        "name": "_get_db",
+        "line": 240
+      },
+      {
+        "name": "subs_tracks_list",
+        "line": 250
+      }
+    ]
+  },
+  "_on_track_selected": {
+    "line": 252,
+    "decorators": [],
+    "calls": [
+      {
+        "name": "self.subs_content_edit.clear",
+        "line": 253
+      },
+      {
+        "name": "self.subs_save_btn.setEnabled",
+        "line": 254
+      },
+      {
+        "name": "bool",
+        "line": 255
+      },
+      {
+        "name": "self.subs_delete_track_btn.setEnabled",
+        "line": 255
+      },
+      {
+        "name": "bool",
+        "line": 256
+      },
+      {
+        "name": "self.subs_export_final_btn.setEnabled",
+        "line": 256
+      },
+      {
+        "name": "bool",
+        "line": 257
+      },
+      {
+        "name": "self.subs_norm_btn.setEnabled",
+        "line": 257
+      },
+      {
+        "name": "self._get_store",
+        "line": 262
+      },
+      {
+        "name": "self.subs_episode_combo.currentData",
+        "line": 265
+      },
+      {
+        "name": "current.data",
+        "line": 268
+      },
+      {
+        "name": "isinstance",
+        "line": 269
+      },
+      {
+        "name": "data.get",
+        "line": 271
+      },
+      {
+        "name": "store.load_episode_subtitle_content",
+        "line": 272
+      },
+      {
+        "name": "self.subs_content_edit.setPlainText",
+        "line": 278
+      },
+      {
+        "name": "self.subs_save_btn.setEnabled",
+        "line": 279
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "subs_content_edit",
+        "line": 253
+      },
+      {
+        "name": "subs_save_btn",
+        "line": 254
+      },
+      {
+        "name": "subs_delete_track_btn",
+        "line": 255
+      },
+      {
+        "name": "subs_export_final_btn",
+        "line": 256
+      },
+      {
+        "name": "subs_norm_btn",
+        "line": 257
+      },
+      {
+        "name": "_editing_lang",
+        "line": 258
+      },
+      {
+        "name": "_editing_fmt",
+        "line": 259
+      },
+      {
+        "name": "_get_store",
+        "line": 262
+      },
+      {
+        "name": "subs_episode_combo",
+        "line": 265
+      },
+      {
+        "name": "_editing_lang",
+        "line": 276
+      },
+      {
+        "name": "_editing_fmt",
+        "line": 277
+      },
+      {
+        "name": "subs_content_edit",
+        "line": 278
+      },
+      {
+        "name": "subs_save_btn",
+        "line": 279
+      }
+    ]
+  },
+  "_delete_selected_track": {
+    "line": 282,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self.subs_tracks_list.currentItem",
+        "line": 283
+      },
+      {
+        "name": "self._get_store",
+        "line": 284
+      },
+      {
+        "name": "self._get_db",
+        "line": 285
+      },
+      {
+        "name": "self.subs_episode_combo.currentData",
+        "line": 288
+      },
+      {
+        "name": "current.data",
+        "line": 289
+      },
+      {
+        "name": "isinstance",
+        "line": 290
+      },
+      {
+        "name": "data.get",
+        "line": 292
+      },
+      {
+        "name": "confirm_action",
+        "line": 296
+      },
+      {
+        "name": "getattr",
+        "line": 309
+      },
+      {
+        "name": "DeleteSubtitleTrackCommand",
+        "line": 311
+      },
+      {
+        "name": "undo_stack.push",
+        "line": 312
+      },
+      {
+        "name": "db.delete_subtitle_track",
+        "line": 314
+      },
+      {
+        "name": "db.delete_align_runs_for_episode",
+        "line": 315
+      },
+      {
+        "name": "store.remove_episode_subtitle",
+        "line": 316
+      },
+      {
+        "name": "self._on_episode_changed",
+        "line": 317
+      },
+      {
+        "name": "self._refresh_episodes",
+        "line": 318
+      },
+      {
+        "name": "self._show_status",
+        "line": 319
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "subs_tracks_list",
+        "line": 283
+      },
+      {
+        "name": "_get_store",
+        "line": 284
+      },
+      {
+        "name": "_get_db",
+        "line": 285
+      },
+      {
+        "name": "subs_episode_combo",
+        "line": 288
+      },
+      {
+        "name": "_on_episode_changed",
+        "line": 317
+      },
+      {
+        "name": "_refresh_episodes",
+        "line": 318
+      },
+      {
+        "name": "_show_status",
+        "line": 319
+      }
+    ]
+  },
+  "_normalize_track": {
+    "line": 322,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self.subs_tracks_list.currentItem",
+        "line": 324
+      },
+      {
+        "name": "self._get_store",
+        "line": 325
+      },
+      {
+        "name": "self._get_db",
+        "line": 326
+      },
+      {
+        "name": "self.subs_episode_combo.currentData",
+        "line": 329
+      },
+      {
+        "name": "current.data",
+        "line": 330
+      },
+      {
+        "name": "isinstance",
+        "line": 331
+      },
+      {
+        "name": "data.get",
+        "line": 333
+      },
+      {
+        "name": "self.subs_norm_profile_combo.currentText",
+        "line": 336
+      },
+      {
+        "name": "self.subs_rewrite_srt_check.isChecked",
+        "line": 337
+      },
+      {
+        "name": "store.normalize_subtitle_track",
+        "line": 338
+      },
+      {
+        "name": "self._on_episode_changed",
+        "line": 339
+      },
+      {
+        "name": "self._refresh_episodes",
+        "line": 340
+      },
+      {
+        "name": "self._show_status",
+        "line": 345
+      },
+      {
+        "name": "self._show_status",
+        "line": 347
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "subs_tracks_list",
+        "line": 324
+      },
+      {
+        "name": "_get_store",
+        "line": 325
+      },
+      {
+        "name": "_get_db",
+        "line": 326
+      },
+      {
+        "name": "subs_episode_combo",
+        "line": 329
+      },
+      {
+        "name": "subs_norm_profile_combo",
+        "line": 336
+      },
+      {
+        "name": "subs_rewrite_srt_check",
+        "line": 337
+      },
+      {
+        "name": "_on_episode_changed",
+        "line": 339
+      },
+      {
+        "name": "_refresh_episodes",
+        "line": 340
+      },
+      {
+        "name": "_show_status",
+        "line": 345
+      },
+      {
+        "name": "_show_status",
+        "line": 347
+      }
+    ]
+  },
+  "_export_srt_final": {
+    "line": 350,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self.subs_tracks_list.currentItem",
+        "line": 352
+      },
+      {
+        "name": "self._get_db",
+        "line": 353
+      },
+      {
+        "name": "self.subs_episode_combo.currentData",
+        "line": 357
+      },
+      {
+        "name": "current.data",
+        "line": 358
+      },
+      {
+        "name": "isinstance",
+        "line": 359
+      },
+      {
+        "name": "data.get",
+        "line": 361
+      },
+      {
+        "name": "QFileDialog.getSaveFileName",
+        "line": 364
+      },
+      {
+        "name": "Path",
+        "line": 369
+      },
+      {
+        "name": "path.suffix.lower",
+        "line": 370
+      },
+      {
+        "name": "path.with_suffix",
+        "line": 371
+      },
+      {
+        "name": "db.get_cues_for_episode_lang",
+        "line": 373
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 375
+      },
+      {
+        "name": "cues_to_srt",
+        "line": 377
+      },
+      {
+        "name": "path.write_text",
+        "line": 378
+      },
+      {
+        "name": "self._show_status",
+        "line": 379
+      },
+      {
+        "name": "logger.exception",
+        "line": 381
+      },
+      {
+        "name": "QMessageBox.critical",
+        "line": 382
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "subs_tracks_list",
+        "line": 352
+      },
+      {
+        "name": "_get_db",
+        "line": 353
+      },
+      {
+        "name": "subs_episode_combo",
+        "line": 357
+      },
+      {
+        "name": "_show_status",
+        "line": 379
+      }
+    ]
+  },
+  "_import_file": {
+    "line": 390,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self.subs_episode_combo.currentData",
+        "line": 391
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 393
+      },
+      {
+        "name": "QFileDialog.getOpenFileName",
+        "line": 395
+      },
+      {
+        "name": "self.subs_lang_combo.currentText",
+        "line": 403
+      },
+      {
+        "name": "self.subs_apply_profile_on_import_cb.isChecked",
+        "line": 404
+      },
+      {
+        "name": "self.subs_norm_profile_combo.currentText",
+        "line": 404
+      },
+      {
+        "name": "strip",
+        "line": 404
+      },
+      {
+        "name": "ImportSubtitlesStep",
+        "line": 405
+      },
+      {
+        "name": "self._run_job",
+        "line": 405
+      },
+      {
+        "name": "self.refresh",
+        "line": 406
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "subs_episode_combo",
+        "line": 391
+      },
+      {
+        "name": "subs_lang_combo",
+        "line": 403
+      },
+      {
+        "name": "subs_apply_profile_on_import_cb",
+        "line": 404
+      },
+      {
+        "name": "subs_norm_profile_combo",
+        "line": 404
+      },
+      {
+        "name": "_run_job",
+        "line": 405
+      },
+      {
+        "name": "refresh",
+        "line": 406
+      }
+    ]
+  },
+  "_import_batch": {
+    "line": 409,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self._get_store",
+        "line": 410
+      },
+      {
+        "name": "store.load_series_index",
+        "line": 411
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 413
+      },
+      {
+        "name": "QFileDialog.getExistingDirectory",
+        "line": 415
+      },
+      {
+        "name": "Path",
+        "line": 418
+      },
+      {
+        "name": "set",
+        "line": 420
+      },
+      {
+        "name": "folder_path.rglob",
+        "line": 421
+      },
+      {
+        "name": "folder_path.rglob",
+        "line": 421
+      },
+      {
+        "name": "sorted",
+        "line": 421
+      },
+      {
+        "name": "sorted",
+        "line": 421
+      },
+      {
+        "name": "p.is_file",
+        "line": 422
+      },
+      {
+        "name": "p.resolve",
+        "line": 424
+      },
+      {
+        "name": "str",
+        "line": 424
+      },
+      {
+        "name": "seen.add",
+        "line": 427
+      },
+      {
+        "name": "_parse_subtitle_filename",
+        "line": 428
+      },
+      {
+        "name": "_normalize_episode_id",
+        "line": 430
+      },
+      {
+        "name": "re.search",
+        "line": 434
+      },
+      {
+        "name": "lower",
+        "line": 436
+      },
+      {
+        "name": "mm.group",
+        "line": 436
+      },
+      {
+        "name": "rows.append",
+        "line": 437
+      },
+      {
+        "name": "QMessageBox.information",
+        "line": 439
+      },
+      {
+        "name": "store.load_project_languages",
+        "line": 446
+      },
+      {
+        "name": "get_all_profile_ids",
+        "line": 447
+      },
+      {
+        "name": "store.load_custom_profiles",
+        "line": 447
+      },
+      {
+        "name": "SubtitleBatchImportDialog",
+        "line": 448
+      },
+      {
+        "name": "dlg.exec",
+        "line": 449
+      },
+      {
+        "name": "ImportSubtitlesStep",
+        "line": 452
+      },
+      {
+        "name": "self._run_job",
+        "line": 453
+      },
+      {
+        "name": "self.refresh",
+        "line": 454
+      },
+      {
+        "name": "self._refresh_episodes",
+        "line": 455
+      },
+      {
+        "name": "len",
+        "line": 456
+      },
+      {
+        "name": "self._show_status",
+        "line": 456
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_store",
+        "line": 410
+      },
+      {
+        "name": "_run_job",
+        "line": 453
+      },
+      {
+        "name": "refresh",
+        "line": 454
+      },
+      {
+        "name": "_refresh_episodes",
+        "line": 455
+      },
+      {
+        "name": "_show_status",
+        "line": 456
+      }
+    ]
+  },
+  "_import_opensubtitles": {
+    "line": 459,
+    "decorators": [
+      "require_project"
+    ],
+    "calls": [
+      {
+        "name": "self._get_store",
+        "line": 460
+      },
+      {
+        "name": "store.load_series_index",
+        "line": 462
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 464
+      },
+      {
+        "name": "store.load_config_extra",
+        "line": 466
+      },
+      {
+        "name": "config_extra.get",
+        "line": 467
+      },
+      {
+        "name": "config_extra.get",
+        "line": 468
+      },
+      {
+        "name": "store.load_project_languages",
+        "line": 470
+      },
+      {
+        "name": "OpenSubtitlesDownloadDialog",
+        "line": 471
+      },
+      {
+        "name": "isinstance",
+        "line": 474
+      },
+      {
+        "name": "isinstance",
+        "line": 475
+      },
+      {
+        "name": "dlg.exec",
+        "line": 478
+      },
+      {
+        "name": "store.save_config_extra",
+        "line": 481
+      },
+      {
+        "name": "DownloadOpenSubtitlesStep",
+        "line": 486
+      },
+      {
+        "name": "self._run_job",
+        "line": 489
+      },
+      {
+        "name": "self.refresh",
+        "line": 490
+      },
+      {
+        "name": "self._refresh_episodes",
+        "line": 491
+      },
+      {
+        "name": "len",
+        "line": 492
+      },
+      {
+        "name": "self._show_status",
+        "line": 492
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "_get_store",
+        "line": 460
+      },
+      {
+        "name": "_run_job",
+        "line": 489
+      },
+      {
+        "name": "refresh",
+        "line": 490
+      },
+      {
+        "name": "_refresh_episodes",
+        "line": 491
+      },
+      {
+        "name": "_show_status",
+        "line": 492
+      }
+    ]
+  },
+  "_save_content": {
+    "line": 495,
+    "decorators": [
+      "require_project_and_db"
+    ],
+    "calls": [
+      {
+        "name": "self.subs_episode_combo.currentData",
+        "line": 496
+      },
+      {
+        "name": "self._get_store",
+        "line": 497
+      },
+      {
+        "name": "QMessageBox.warning",
+        "line": 502
+      },
+      {
+        "name": "self.subs_content_edit.toPlainText",
+        "line": 504
+      },
+      {
+        "name": "store.save_episode_subtitle_content",
+        "line": 506
+      },
+      {
+        "name": "ImportSubtitlesStep",
+        "line": 509
+      },
+      {
+        "name": "self._run_job",
+        "line": 509
+      },
+      {
+        "name": "str",
+        "line": 509
+      },
+      {
+        "name": "self.refresh",
+        "line": 510
+      },
+      {
+        "name": "logger.exception",
+        "line": 512
+      },
+      {
+        "name": "QMessageBox.critical",
+        "line": 513
+      }
+    ],
+    "self_attrs": [
+      {
+        "name": "subs_episode_combo",
+        "line": 496
+      },
+      {
+        "name": "_get_store",
+        "line": 497
+      },
+      {
+        "name": "_editing_fmt",
+        "line": 501
+      },
+      {
+        "name": "_editing_lang",
+        "line": 501
+      },
+      {
+        "name": "subs_content_edit",
+        "line": 504
+      },
+      {
+        "name": "_editing_fmt",
+        "line": 507
+      },
+      {
+        "name": "_editing_lang",
+        "line": 507
+      },
+      {
+        "name": "_editing_lang",
+        "line": 509
+      },
+      {
+        "name": "_run_job",
+        "line": 509
+      },
+      {
+        "name": "refresh",
+        "line": 510
+      }
+    ]
+  }
+}

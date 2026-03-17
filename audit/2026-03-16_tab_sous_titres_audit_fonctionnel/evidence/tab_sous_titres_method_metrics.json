@@ -1,0 +1,177 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_sous_titres.py",
+  "methods": [
+    {
+      "method": "__init__",
+      "line": 71,
+      "loc": 115,
+      "branches": 0,
+      "calls": 80
+    },
+    {
+      "method": "set_languages",
+      "line": 187,
+      "loc": 4,
+      "branches": 0,
+      "calls": 2
+    },
+    {
+      "method": "set_episode_selector_visible",
+      "line": 192,
+      "loc": 4,
+      "branches": 0,
+      "calls": 2
+    },
+    {
+      "method": "set_episode_and_load",
+      "line": 197,
+      "loc": 6,
+      "branches": 2,
+      "calls": 4
+    },
+    {
+      "method": "refresh",
+      "line": 204,
+      "loc": 17,
+      "branches": 6,
+      "calls": 10
+    },
+    {
+      "method": "_on_episode_changed",
+      "line": 222,
+      "loc": 29,
+      "branches": 3,
+      "calls": 22
+    },
+    {
+      "method": "_on_track_selected",
+      "line": 252,
+      "loc": 28,
+      "branches": 5,
+      "calls": 16
+    },
+    {
+      "method": "_delete_selected_track",
+      "line": 282,
+      "loc": 38,
+      "branches": 5,
+      "calls": 17
+    },
+    {
+      "method": "_normalize_track",
+      "line": 322,
+      "loc": 26,
+      "branches": 5,
+      "calls": 14
+    },
+    {
+      "method": "_export_srt_final",
+      "line": 350,
+      "loc": 38,
+      "branches": 7,
+      "calls": 17
+    },
+    {
+      "method": "_import_file",
+      "line": 390,
+      "loc": 17,
+      "branches": 2,
+      "calls": 10
+    },
+    {
+      "method": "_import_batch",
+      "line": 409,
+      "loc": 48,
+      "branches": 11,
+      "calls": 32
+    },
+    {
+      "method": "_import_opensubtitles",
+      "line": 459,
+      "loc": 34,
+      "branches": 2,
+      "calls": 18
+    },
+    {
+      "method": "_save_content",
+      "line": 495,
+      "loc": 24,
+      "branches": 3,
+      "calls": 11
+    }
+  ],
+  "top_loc": [
+    {
+      "method": "__init__",
+      "line": 71,
+      "loc": 115,
+      "branches": 0,
+      "calls": 80
+    },
+    {
+      "method": "_import_batch",
+      "line": 409,
+      "loc": 48,
+      "branches": 11,
+      "calls": 32
+    },
+    {
+      "method": "_delete_selected_track",
+      "line": 282,
+      "loc": 38,
+      "branches": 5,
+      "calls": 17
+    },
+    {
+      "method": "_export_srt_final",
+      "line": 350,
+      "loc": 38,
+      "branches": 7,
+      "calls": 17
+    },
+    {
+      "method": "_import_opensubtitles",
+      "line": 459,
+      "loc": 34,
+      "branches": 2,
+      "calls": 18
+    }
+  ],
+  "top_branches": [
+    {
+      "method": "_import_batch",
+      "line": 409,
+      "loc": 48,
+      "branches": 11,
+      "calls": 32
+    },
+    {
+      "method": "_export_srt_final",
+      "line": 350,
+      "loc": 38,
+      "branches": 7,
+      "calls": 17
+    },
+    {
+      "method": "refresh",
+      "line": 204,
+      "loc": 17,
+      "branches": 6,
+      "calls": 10
+    },
+    {
+      "method": "_on_track_selected",
+      "line": 252,
+      "loc": 28,
+      "branches": 5,
+      "calls": 16
+    },
+    {
+      "method": "_delete_selected_track",
+      "line": 282,
+      "loc": 38,
+      "branches": 5,
+      "calls": 17
+    }
+  ]
+}

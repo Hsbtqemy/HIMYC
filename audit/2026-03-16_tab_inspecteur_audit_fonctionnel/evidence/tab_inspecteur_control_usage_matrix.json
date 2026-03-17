@@ -1,0 +1,490 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_inspecteur.py",
+  "controls_count": 17,
+  "controls": [
+    {
+      "name": "inspect_episode_combo",
+      "type": "QComboBox",
+      "defined_line": 71,
+      "connected_signals": [
+        {
+          "signal": "currentIndexChanged",
+          "line": 72,
+          "slot_expr": "_load_episode"
+        }
+      ],
+      "used_lines": [
+        71,
+        72,
+        73,
+        230,
+        231,
+        238,
+        241,
+        242,
+        243,
+        260,
+        264,
+        265,
+        266,
+        271,
+        331,
+        337,
+        412,
+        426,
+        469,
+        482
+      ],
+      "used_methods": [
+        "__init__",
+        "_export_segments",
+        "_load_episode",
+        "_on_kind_filter_changed",
+        "_run_normalize",
+        "_run_segment",
+        "_set_episode_preferred_profile",
+        "_switch_view",
+        "refresh",
+        "set_episode_and_load",
+        "set_episode_selector_visible"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 20
+    },
+    {
+      "name": "inspect_view_combo",
+      "type": "QComboBox",
+      "defined_line": 75,
+      "connected_signals": [
+        {
+          "signal": "currentIndexChanged",
+          "line": 78,
+          "slot_expr": "_switch_view"
+        }
+      ],
+      "used_lines": [
+        75,
+        76,
+        77,
+        78,
+        79,
+        328,
+        373
+      ],
+      "used_methods": [
+        "__init__",
+        "_fill_segments",
+        "_switch_view"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 7
+    },
+    {
+      "name": "inspect_kind_combo",
+      "type": "QComboBox",
+      "defined_line": 81,
+      "connected_signals": [
+        {
+          "signal": "currentIndexChanged",
+          "line": 86,
+          "slot_expr": "_on_kind_filter_changed"
+        }
+      ],
+      "used_lines": [
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        190,
+        330,
+        378
+      ],
+      "used_methods": [
+        "__init__",
+        "_fill_segments",
+        "_switch_view"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 10
+    },
+    {
+      "name": "segment_goto_edit",
+      "type": "QLineEdit",
+      "defined_line": 90,
+      "connected_signals": [
+        {
+          "signal": "returnPressed",
+          "line": 94,
+          "slot_expr": "_goto_segment"
+        }
+      ],
+      "used_lines": [
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        343,
+        361
+      ],
+      "used_methods": [
+        "__init__",
+        "_goto_segment"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 8
+    },
+    {
+      "name": "segment_goto_btn",
+      "type": "QPushButton",
+      "defined_line": 96,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 99,
+          "slot_expr": "_goto_segment"
+        }
+      ],
+      "used_lines": [
+        96,
+        97,
+        98,
+        99,
+        100
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 5
+    },
+    {
+      "name": "inspect_segment_btn",
+      "type": "QPushButton",
+      "defined_line": 101,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 102,
+          "slot_expr": "_run_segment"
+        }
+      ],
+      "used_lines": [
+        101,
+        102,
+        103
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 3
+    },
+    {
+      "name": "inspect_export_segments_btn",
+      "type": "QPushButton",
+      "defined_line": 104,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 109,
+          "slot_expr": "_export_segments"
+        }
+      ],
+      "used_lines": [
+        104,
+        105,
+        109,
+        110
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 4
+    },
+    {
+      "name": "inspect_profile_combo",
+      "type": "QComboBox",
+      "defined_line": 121,
+      "connected_signals": [
+        {
+          "signal": "currentTextChanged",
+          "line": 126,
+          "slot_expr": "_update_profile_rules_preview"
+        }
+      ],
+      "used_lines": [
+        121,
+        122,
+        123,
+        126,
+        127,
+        249,
+        250,
+        251,
+        253,
+        255,
+        324,
+        421,
+        432,
+        440,
+        463
+      ],
+      "used_methods": [
+        "__init__",
+        "_load_episode",
+        "_open_profiles_dialog",
+        "_run_normalize",
+        "_set_episode_preferred_profile",
+        "_update_profile_rules_preview",
+        "refresh_profile_combo"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 15
+    },
+    {
+      "name": "inspect_norm_btn",
+      "type": "QPushButton",
+      "defined_line": 128,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 132,
+          "slot_expr": "_run_normalize"
+        }
+      ],
+      "used_lines": [
+        128,
+        129,
+        132,
+        133
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 4
+    },
+    {
+      "name": "inspect_set_preferred_profile_btn",
+      "type": "QPushButton",
+      "defined_line": 134,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 138,
+          "slot_expr": "_set_episode_preferred_profile"
+        }
+      ],
+      "used_lines": [
+        134,
+        135,
+        138,
+        139
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 4
+    },
+    {
+      "name": "inspect_manage_profiles_btn",
+      "type": "QPushButton",
+      "defined_line": 140,
+      "connected_signals": [
+        {
+          "signal": "clicked",
+          "line": 144,
+          "slot_expr": "_open_profiles_dialog"
+        }
+      ],
+      "used_lines": [
+        140,
+        141,
+        144,
+        145
+      ],
+      "used_methods": [
+        "__init__"
+      ],
+      "used_outside_init": false,
+      "connection_count": 1,
+      "usage_count": 4
+    },
+    {
+      "name": "inspect_profile_rules_preview",
+      "type": "QPlainTextEdit",
+      "defined_line": 148,
+      "connected_signals": [],
+      "used_lines": [
+        148,
+        149,
+        150,
+        151,
+        152,
+        153,
+        442,
+        448,
+        450
+      ],
+      "used_methods": [
+        "__init__",
+        "_update_profile_rules_preview"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 9
+    },
+    {
+      "name": "raw_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 158,
+      "connected_signals": [],
+      "used_lines": [
+        158,
+        159,
+        167,
+        170,
+        275,
+        291
+      ],
+      "used_methods": [
+        "__init__",
+        "_load_episode"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 6
+    },
+    {
+      "name": "clean_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 160,
+      "connected_signals": [],
+      "used_lines": [
+        160,
+        161,
+        168,
+        171,
+        276,
+        292,
+        403,
+        404,
+        407,
+        408
+      ],
+      "used_methods": [
+        "__init__",
+        "_load_episode",
+        "_on_segment_selected"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 10
+    },
+    {
+      "name": "inspect_segments_list",
+      "type": "QListWidget",
+      "defined_line": 162,
+      "connected_signals": [
+        {
+          "signal": "currentItemChanged",
+          "line": 164,
+          "slot_expr": "_on_segment_selected"
+        }
+      ],
+      "used_lines": [
+        162,
+        163,
+        164,
+        165,
+        189,
+        280,
+        329,
+        354,
+        355,
+        358,
+        359,
+        372,
+        393
+      ],
+      "used_methods": [
+        "__init__",
+        "_fill_segments",
+        "_goto_segment",
+        "_load_episode",
+        "_switch_view"
+      ],
+      "used_outside_init": true,
+      "connection_count": 1,
+      "usage_count": 13
+    },
+    {
+      "name": "merge_examples_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 177,
+      "connected_signals": [],
+      "used_lines": [
+        177,
+        178,
+        179,
+        181,
+        278,
+        300,
+        307
+      ],
+      "used_methods": [
+        "__init__",
+        "_load_episode"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 7
+    },
+    {
+      "name": "inspect_notes_edit",
+      "type": "QPlainTextEdit",
+      "defined_line": 183,
+      "connected_signals": [],
+      "used_lines": [
+        183,
+        184,
+        187,
+        188,
+        225,
+        279,
+        285,
+        288
+      ],
+      "used_methods": [
+        "__init__",
+        "_load_episode",
+        "save_state"
+      ],
+      "used_outside_init": true,
+      "connection_count": 0,
+      "usage_count": 8
+    }
+  ],
+  "metrics": {
+    "with_signal_connection": 12,
+    "used_outside_init": 11,
+    "potentially_unwired": []
+  }
+}

@@ -1,0 +1,104 @@
+﻿tests\test_align_run_metadata.py:8:    format_segment_kind_label,
+tests\test_align_run_metadata.py:9:    normalize_segment_kind,
+tests\test_align_run_metadata.py:10:    parse_run_segment_kind,
+tests\test_align_run_metadata.py:14:def test_normalize_segment_kind() -> None:
+tests\test_align_run_metadata.py:15:    assert normalize_segment_kind("utterance") == "utterance"
+tests\test_align_run_metadata.py:16:    assert normalize_segment_kind("UtTeRaNcE") == "utterance"
+tests\test_align_run_metadata.py:17:    assert normalize_segment_kind("sentence") == "sentence"
+tests\test_align_run_metadata.py:18:    assert normalize_segment_kind("unknown") == "sentence"
+tests\test_align_run_metadata.py:19:    assert normalize_segment_kind(None) == "sentence"
+tests\test_align_run_metadata.py:22:def test_parse_run_segment_kind_empty_payload() -> None:
+tests\test_align_run_metadata.py:23:    kind, valid = parse_run_segment_kind(None)
+tests\test_align_run_metadata.py:28:def test_parse_run_segment_kind_valid_payload() -> None:
+tests\test_align_run_metadata.py:29:    kind, valid = parse_run_segment_kind('{"segment_kind":"utterance"}')
+tests\test_align_run_metadata.py:34:def test_parse_run_segment_kind_valid_object_without_key() -> None:
+tests\test_align_run_metadata.py:35:    kind, valid = parse_run_segment_kind('{"foo":"bar"}')
+tests\test_align_run_metadata.py:40:def test_parse_run_segment_kind_invalid_payload_logs_debug(caplog) -> None:
+tests\test_align_run_metadata.py:42:        kind, valid = parse_run_segment_kind(
+tests\test_align_run_metadata.py:43:            '{"segment_kind":',
+tests\test_align_run_metadata.py:52:def test_parse_run_segment_kind_non_object_payload_logs_debug(caplog) -> None:
+tests\test_align_run_metadata.py:54:        kind, valid = parse_run_segment_kind(
+tests\test_align_run_metadata.py:64:def test_format_segment_kind_label() -> None:
+tests\test_align_run_metadata.py:65:    assert format_segment_kind_label("utterance") == " (tours)"
+tests\test_align_run_metadata.py:66:    assert format_segment_kind_label("sentence") == " (phrases)"
+tests\test_align_run_metadata.py:67:    assert format_segment_kind_label("weird") == " (phrases)"
+tests\test_export_phase5.py:8:    export_parallel_concordance_csv,
+tests\test_export_phase5.py:9:    export_parallel_concordance_tsv,
+tests\test_export_phase5.py:10:    export_parallel_concordance_jsonl,
+tests\test_export_phase5.py:11:    export_parallel_concordance_txt,
+tests\test_export_phase5.py:12:    export_align_report_html,
+tests\test_export_phase5.py:47:def test_export_parallel_concordance_csv(sample_rows):
+tests\test_export_phase5.py:51:        export_parallel_concordance_csv(sample_rows, path)
+tests\test_export_phase5.py:60:def test_export_parallel_concordance_tsv(sample_rows):
+tests\test_export_phase5.py:64:        export_parallel_concordance_tsv(sample_rows, path)
+tests\test_export_phase5.py:72:def test_export_parallel_concordance_jsonl(sample_rows):
+tests\test_export_phase5.py:76:        export_parallel_concordance_jsonl(sample_rows, path)
+tests\test_export_phase5.py:87:def test_export_parallel_concordance_txt_accepts_numeric_confidence(sample_rows):
+tests\test_export_phase5.py:91:        export_parallel_concordance_txt(sample_rows, path)
+tests\test_export_phase5.py:99:def test_export_align_report_html(sample_stats, sample_rows):
+tests\test_export_phase5.py:103:        export_align_report_html(sample_stats, sample_rows, "S01E01", "run1", path)
+tests\test_align_grouping.py:113:        params_json=json.dumps({"segment_kind": "utterance"}),
+tests\test_ui_guards.py:13:from howimetyourcorpus.app.tabs.tab_alignement import AlignmentTabWidget  # noqa: E402
+tests\test_ui_guards.py:102:    tab = AlignmentTabWidget(
+tests\test_ui_guards.py:127:        on_go_alignement=lambda _episode_id, _segment_kind: None,
+tests\test_ui_alignement.py:19:from howimetyourcorpus.app.tabs.tab_alignement import AlignmentTabWidget
+tests\test_ui_alignement.py:20:from howimetyourcorpus.core.pipeline.tasks import AlignEpisodeStep
+tests\test_ui_alignement.py:146:) -> AlignmentTabWidget:
+tests\test_ui_alignement.py:147:    tab = AlignmentTabWidget(
+tests\test_ui_alignement.py:164:def test_bulk_accept_updates_only_candidates(
+tests\test_ui_alignement.py:177:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.confirm_action", lambda *_a, **_k: True)
+tests\test_ui_alignement.py:183:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.information", _info)
+tests\test_ui_alignement.py:185:    tab._bulk_accept()
+tests\test_ui_alignement.py:193:def test_bulk_reject_updates_only_candidates(
+tests\test_ui_alignement.py:206:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.confirm_action", lambda *_a, **_k: True)
+tests\test_ui_alignement.py:212:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.information", _info)
+tests\test_ui_alignement.py:214:    tab._bulk_reject()
+tests\test_ui_alignement.py:233:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.confirm_action", lambda *_a, **_k: True)
+tests\test_ui_alignement.py:270:        "howimetyourcorpus.app.tabs.tab_alignement.QFileDialog.getSaveFileName",
+tests\test_ui_alignement.py:278:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.information", _info)
+tests\test_ui_alignement.py:312:        "howimetyourcorpus.app.tabs.tab_alignement.QFileDialog.getSaveFileName",
+tests\test_ui_alignement.py:315:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.information", lambda *_a, **_k: None)
+tests\test_ui_alignement.py:339:    tab.align_segment_kind_combo.setCurrentIndex(tab.align_segment_kind_combo.findData("utterance"))
+tests\test_ui_alignement.py:347:    assert isinstance(step, AlignEpisodeStep)
+tests\test_ui_alignement.py:350:    assert step.segment_kind == "utterance"
+tests\test_ui_alignement.py:377:    assert isinstance(step, AlignEpisodeStep)
+tests\test_ui_alignement.py:393:        "howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.warning",
+tests\test_ui_alignement.py:430:    assert isinstance(step, AlignEpisodeStep)
+tests\test_ui_alignement.py:456:        "howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.warning",
+tests\test_ui_alignement.py:481:        "howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.warning",
+tests\test_ui_alignement.py:535:        "howimetyourcorpus.app.tabs.tab_alignement.QMessageBox.warning",
+tests\test_ui_alignement.py:561:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.QSettings", _BadSettings)
+tests\test_ui_alignement.py:563:        "howimetyourcorpus.app.tabs.tab_alignement.logger.debug",
+tests\test_ui_alignement.py:591:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.QSettings", _CaptureSettings)
+tests\test_ui_alignement.py:615:    monkeypatch.setattr("howimetyourcorpus.app.tabs.tab_alignement.QSettings", _BadSettings)
+tests\test_ui_alignement.py:622:    tab = AlignmentTabWidget(
+tests\test_ui_alignement.py:730:def test_set_episode_and_segment_kind_selects_matching_items(
+tests\test_ui_alignement.py:743:    tab.set_episode_and_segment_kind("S01E02", "utterance")
+tests\test_ui_alignement.py:745:    assert tab.align_segment_kind_combo.currentData() == "utterance"
+tests\test_ui_alignement.py:750:def test_set_episode_and_segment_kind_keeps_selection_when_not_found(
+tests\test_ui_alignement.py:755:    tab.align_segment_kind_combo.clear()
+tests\test_ui_alignement.py:763:    tab.set_episode_and_segment_kind("S99E99", "utterance")
+tests\test_ui_alignement.py:821:    tab = AlignmentTabWidget(
+tests\test_ui_alignement.py:839:def test_on_episode_changed_formats_segment_kind_labels_when_payload_is_valid(
+tests\test_ui_alignement.py:855:        "howimetyourcorpus.app.tabs.tab_alignement.parse_run_segment_kind",
+tests\test_ui_alignement.py:861:        "howimetyourcorpus.app.tabs.tab_alignement.format_segment_kind_label",
+tests\test_ui_alignement.py:955:        "howimetyourcorpus.app.tabs.tab_alignement.logger.exception",
+tests\test_ui_alignement.py:968:    tab = AlignmentTabWidget(
+tests\test_ui_alignement.py:1021:        "export_parallel_concordance",
+tests\test_ui_alignement.py:1026:        "export_align_report",
+tests\test_ui_alignement.py:1032:    tab._export_parallel_concordance()
+tests\test_ui_alignement.py:1033:    tab._export_align_report()
+tests\test_ui_personnages.py:197:def test_fill_propagate_run_combo_displays_segment_kind_and_total_links(
+tests\test_ui_personnages.py:203:        run={"align_run_id": "run1", "pivot_lang": "en", "params_json": '{"segment_kind":"utterance"}'},
+tests\test_ui_personnages.py:208:                "params_json": '{"segment_kind":"utterance"}',
+tests\test_ui_personnages.py:236:    db = _FakeDB(run={"align_run_id": "run1", "pivot_lang": "en", "params_json": '{"segment_kind":"utterance"}'})
+tests\test_ui_personnages.py:275:    db = _FakeDB(run={"align_run_id": "run1", "pivot_lang": "en", "params_json": '{"segment_kind":"sentence"}'})
+tests\test_ui_preparer_navigation.py:91:def test_navigation_handoff_episode_and_segment_kind(main_window_with_project: MainWindow) -> None:
+tests\test_ui_preparer_navigation.py:99:    win.open_alignement_for_episode("S01E01", segment_kind="utterance")
+tests\test_ui_preparer_navigation.py:102:    assert win.alignment_tab.align_segment_kind_combo.currentData() == "utterance"
+tests\test_ui_preparer_navigation.py:123:    win.preparer_tab._on_go_alignement = lambda episode_id, segment_kind: called.update(  # noqa: SLF001
+tests\test_ui_preparer_navigation.py:124:        {"episode_id": episode_id, "segment_kind": segment_kind}
+tests\test_ui_preparer_navigation.py:128:    assert called == {"episode_id": "S01E01", "segment_kind": "utterance"}
+tests\test_ui_preparer_navigation.py:171:    win.preparer_tab._on_go_alignement = lambda episode_id, segment_kind: called.update(  # noqa: SLF001
+tests\test_ui_preparer_navigation.py:172:        {"episode_id": episode_id, "segment_kind": segment_kind}
+tests\test_ui_preparer_navigation.py:176:    assert called == {"episode_id": "S01E01", "segment_kind": "utterance"}

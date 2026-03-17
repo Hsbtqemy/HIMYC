@@ -1,0 +1,8 @@
+﻿56:        win.tabs.addTab(win.project_tab, "Projet")
+75:        win.tabs.addTab(win.corpus_tab, "Corpus")
+97:        win.tabs.addTab(win.inspector_tab, "Inspecteur")
+112:        win.tabs.addTab(win.preparer_tab, "Préparer")
+126:        win.tabs.addTab(win.alignment_tab, "Alignement")
+138:        win.tabs.addTab(win.concordance_tab, "Concordance")
+151:        win.tabs.addTab(win.personnages_tab, "Personnages")
+160:        win.tabs.addTab(widget, "Logs")

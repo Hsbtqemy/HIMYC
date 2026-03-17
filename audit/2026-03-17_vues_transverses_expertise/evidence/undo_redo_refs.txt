@@ -1,0 +1,120 @@
+﻿src/howimetyourcorpus/app\undo_commands.py:1:"""Commandes Undo/Redo pour QUndoStack (Basse Priorité #3)."""
+src/howimetyourcorpus/app\undo_commands.py:9:from PySide6.QtGui import QUndoCommand
+src/howimetyourcorpus/app\undo_commands.py:16:class SetAlignStatusCommand(QUndoCommand):
+src/howimetyourcorpus/app\undo_commands.py:42:class EditAlignLinkCommand(QUndoCommand):
+src/howimetyourcorpus/app\undo_commands.py:81:class DeleteAlignRunCommand(QUndoCommand):
+src/howimetyourcorpus/app\undo_commands.py:82:    """Commande pour supprimer un run d'alignement (avec backup pour Undo)."""
+src/howimetyourcorpus/app\undo_commands.py:158:class BulkAcceptLinksCommand(QUndoCommand):
+src/howimetyourcorpus/app\undo_commands.py:192:class BulkRejectLinksCommand(QUndoCommand):
+src/howimetyourcorpus/app\undo_commands.py:226:class DeleteSubtitleTrackCommand(QUndoCommand):
+src/howimetyourcorpus/app\undo_commands.py:434:class CallbackUndoCommand(QUndoCommand):
+src/howimetyourcorpus/app\undo_commands.py:435:    """Commande Undo/Redo générique basée sur callbacks."""
+src/howimetyourcorpus/app\mainwindow_tabs.py:95:            undo_stack=win.undo_stack,
+src/howimetyourcorpus/app\mainwindow_tabs.py:110:            undo_stack=win.undo_stack,
+src/howimetyourcorpus/app\mainwindow_tabs.py:124:            undo_stack=win.undo_stack,
+src/howimetyourcorpus/app\ui_mainwindow.py:18:from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QUndoStack
+src/howimetyourcorpus/app\ui_mainwindow.py:86:        # Basse Priorité #3 : Undo/Redo stack global
+src/howimetyourcorpus/app\ui_mainwindow.py:87:        self.undo_stack = QUndoStack(self)
+src/howimetyourcorpus/app\ui_mainwindow.py:88:        self.undo_stack.setUndoLimit(50)  # Limite à 50 actions
+src/howimetyourcorpus/app\ui_mainwindow.py:111:        """Barre de menu : Édition (Undo/Redo), Aide (À propos, Mises à jour)."""
+src/howimetyourcorpus/app\ui_mainwindow.py:115:        # Basse Priorité #3 : Menu Édition avec Undo/Redo
+src/howimetyourcorpus/app\ui_mainwindow.py:118:        # Action Undo (Ctrl+Z)
+src/howimetyourcorpus/app\ui_mainwindow.py:119:        undo_action = self.undo_stack.createUndoAction(self, "Annuler")
+src/howimetyourcorpus/app\ui_mainwindow.py:122:            undo_action.triggered.connect(self.undo_stack.undo)
+src/howimetyourcorpus/app\ui_mainwindow.py:123:        undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+src/howimetyourcorpus/app\ui_mainwindow.py:127:        # Action Redo (Ctrl+Y ou Ctrl+Shift+Z)
+src/howimetyourcorpus/app\ui_mainwindow.py:128:        redo_action = self.undo_stack.createRedoAction(self, "Refaire")
+src/howimetyourcorpus/app\ui_mainwindow.py:131:            redo_action.triggered.connect(self.undo_stack.redo)
+src/howimetyourcorpus/app\ui_mainwindow.py:132:        redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+src/howimetyourcorpus/app\ui_mainwindow.py:139:        clear_history_act = QAction("Effacer l'historique Undo/Redo", self)
+src/howimetyourcorpus/app\ui_mainwindow.py:169:        """Efface l'historique Undo/Redo (Basse Priorité #3)."""
+src/howimetyourcorpus/app\ui_mainwindow.py:170:        count = self.undo_stack.count()
+src/howimetyourcorpus/app\ui_mainwindow.py:178:            f"Effacer {count} action(s) dans l'historique Undo/Redo ?\n\n"
+src/howimetyourcorpus/app\ui_mainwindow.py:185:            self.undo_stack.clear()
+src/howimetyourcorpus/app\tabs\alignement_actions.py:18:    BulkAcceptLinksCommand,
+src/howimetyourcorpus/app\tabs\alignement_actions.py:19:    BulkRejectLinksCommand,
+src/howimetyourcorpus/app\tabs\alignement_actions.py:20:    DeleteAlignRunCommand,
+src/howimetyourcorpus/app\tabs\alignement_actions.py:21:    EditAlignLinkCommand,
+src/howimetyourcorpus/app\tabs\alignement_actions.py:22:    SetAlignStatusCommand,
+src/howimetyourcorpus/app\tabs\alignement_actions.py:74:            "Vous pourrez annuler cette suppression avec Ctrl+Z (Undo) après validation.",
+src/howimetyourcorpus/app\tabs\alignement_actions.py:79:            if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\alignement_actions.py:80:                cmd = DeleteAlignRunCommand(db, run_id, eid)
+src/howimetyourcorpus/app\tabs\alignement_actions.py:81:                tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\alignement_actions.py:85:            self._logger.exception("Suppression run (Undo)")
+src/howimetyourcorpus/app\tabs\alignement_actions.py:91:                    "Le run a été supprimé (annulation Undo non disponible).",
+src/howimetyourcorpus/app\tabs\alignement_actions.py:143:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\alignement_actions.py:145:            cmd = BulkAcceptLinksCommand(db, link_ids, len(link_ids))
+src/howimetyourcorpus/app\tabs\alignement_actions.py:146:            tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\alignement_actions.py:198:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\alignement_actions.py:200:            cmd = BulkRejectLinksCommand(db, link_ids, len(link_ids))
+src/howimetyourcorpus/app\tabs\alignement_actions.py:201:            tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\alignement_actions.py:244:            if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\alignement_actions.py:245:                cmd = SetAlignStatusCommand(
+src/howimetyourcorpus/app\tabs\alignement_actions.py:252:                tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\alignement_actions.py:260:            if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\alignement_actions.py:261:                cmd = SetAlignStatusCommand(
+src/howimetyourcorpus/app\tabs\alignement_actions.py:268:                tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\alignement_actions.py:281:            if tab.undo_stack and old_target_id != new_target_id:
+src/howimetyourcorpus/app\tabs\alignement_actions.py:282:                cmd = EditAlignLinkCommand(
+src/howimetyourcorpus/app\tabs\alignement_actions.py:290:                tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\tab_alignement.py:1:"""Onglet Alignement : run par épisode, table des liens, accepter/rejeter, exports + Undo/Redo (Basse Priorité #3)."""
+src/howimetyourcorpus/app\tabs\tab_alignement.py:9:from PySide6.QtGui import QUndoStack
+src/howimetyourcorpus/app\tabs\tab_alignement.py:42:    """Widget de l'onglet Alignement : épisode, run, table liens, lancer alignement, exports + Undo/Redo (BP3)."""
+src/howimetyourcorpus/app\tabs\tab_alignement.py:49:        undo_stack: QUndoStack | None = None,
+src/howimetyourcorpus/app\tabs\tab_alignement.py:56:        self.undo_stack = undo_stack  # Basse Priorité #3
+src/howimetyourcorpus/app\tabs\tab_alignement.py:361:        """Moyenne Priorité #4 : Accepte tous les liens avec confidence > seuil + Undo/Redo (BP3)."""
+src/howimetyourcorpus/app\tabs\tab_alignement.py:369:        """Moyenne Priorité #4 : Rejette tous les liens avec confidence < seuil + Undo/Redo (BP3)."""
+src/howimetyourcorpus/app\tabs\preparer_save.py:8:from PySide6.QtGui import QUndoStack
+src/howimetyourcorpus/app\tabs\preparer_save.py:11:from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
+src/howimetyourcorpus/app\tabs\preparer_save.py:25:        undo_stack: QUndoStack | None,
+src/howimetyourcorpus/app\tabs\preparer_save.py:31:        self._undo_stack = undo_stack
+src/howimetyourcorpus/app\tabs\preparer_save.py:267:        if not self._undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_save.py:269:        self._undo_stack.push(
+src/howimetyourcorpus/app\tabs\preparer_save.py:270:            CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:1:"""§15.4 — Onglet Inspecteur + Sous-titres fusionnés : un onglet, deux colonnes (Transcript à gauche, SRT à droite), épisode partagé + Undo/Redo (BP3)."""
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:9:from PySide6.QtGui import QUndoStack
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:36:        undo_stack: QUndoStack | None = None,  # Basse Priorité #3
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:73:        # Basse Priorité #3 : Propager undo_stack vers le tab sous-titres
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:74:        if undo_stack:
+src/howimetyourcorpus/app\tabs\tab_inspecteur_sous_titres.py:75:            self.subtitles_tab.undo_stack = undo_stack
+src/howimetyourcorpus/app\tabs\preparer_persistence.py:92:        before_state = capture_before() if tab.undo_stack else {}
+src/howimetyourcorpus/app\tabs\preparer_persistence.py:97:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:32:from howimetyourcorpus.app.undo_commands import DeleteSubtitleTrackCommand
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:300:            f"⚠️ Cette action est irréversible (avec Undo/Redo) :\n"
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:304:            f"Note : Undo/Redo peut restaurer cette suppression (données sauvegardées)."
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:308:        # Basse Priorité #3 : Utiliser commande Undo/Redo
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:309:        undo_stack = getattr(self, "undo_stack", None)
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:310:        if undo_stack:
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:311:            cmd = DeleteSubtitleTrackCommand(db, store, eid, lang)
+src/howimetyourcorpus/app\tabs\tab_sous_titres.py:312:            undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\tab_preparer.py:9:from PySide6.QtGui import QUndoStack
+src/howimetyourcorpus/app\tabs\tab_preparer.py:26:from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
+src/howimetyourcorpus/app\tabs\tab_preparer.py:57:        undo_stack: QUndoStack | None = None,
+src/howimetyourcorpus/app\tabs\tab_preparer.py:65:        self.undo_stack = undo_stack
+src/howimetyourcorpus/app\tabs\tab_preparer.py:85:            undo_stack=self.undo_stack,
+src/howimetyourcorpus/app\tabs\tab_preparer.py:245:        if self.undo_stack:
+src/howimetyourcorpus/app\tabs\tab_preparer.py:246:            cmd = CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\tab_preparer.py:252:            self.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\preparer_actions.py:13:from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
+src/howimetyourcorpus/app\tabs\preparer_actions.py:106:                    if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_actions.py:107:                        cmd = CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\preparer_actions.py:112:                        tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\preparer_edit.py:17:from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
+src/howimetyourcorpus/app\tabs\preparer_edit.py:109:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_edit.py:110:            cmd = CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:116:            tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\preparer_edit.py:158:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_edit.py:159:            cmd = CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:164:            tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\preparer_edit.py:231:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_edit.py:232:            tab.undo_stack.push(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:233:                CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:302:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_edit.py:303:            cmd = CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:308:            tab.undo_stack.push(cmd)
+src/howimetyourcorpus/app\tabs\preparer_edit.py:559:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_edit.py:560:            tab.undo_stack.push(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:561:                CallbackUndoCommand(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:604:        if tab.undo_stack:
+src/howimetyourcorpus/app\tabs\preparer_edit.py:605:            tab.undo_stack.push(
+src/howimetyourcorpus/app\tabs\preparer_edit.py:606:                CallbackUndoCommand(

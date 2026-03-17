@@ -1,0 +1,113 @@
+﻿1: """Tests UI du prototype de vue transverse Expert."""
+2: 
+3: from __future__ import annotations
+4: 
+5: import os
+6: from pathlib import Path
+7: 
+8: import pytest
+9: from PySide6.QtWidgets import QApplication
+10: 
+11: os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+12: 
+13: from howimetyourcorpus.app.ui_mainwindow import MainWindow  # noqa: E402
+14: from howimetyourcorpus.core.models import EpisodeRef, ProjectConfig, SeriesIndex  # noqa: E402
+15: from howimetyourcorpus.core.storage.db import CorpusDB  # noqa: E402
+16: from howimetyourcorpus.core.storage.project_store import ProjectStore  # noqa: E402
+17: 
+18: 
+19: @pytest.fixture
+20: def qapp() -> QApplication:
+21:     app = QApplication.instance()
+22:     if app is None:
+23:         app = QApplication([])
+24:     return app
+25: 
+26: 
+27: @pytest.fixture
+28: def main_window_with_project(tmp_path: Path, qapp: QApplication):
+29:     root = tmp_path / "project"
+30:     config = ProjectConfig(
+31:         project_name="test_project",
+32:         root_dir=root,
+33:         source_id="subslikescript",
+34:         series_url="https://example.invalid/series",
+35:     )
+36:     ProjectStore.init_project(config)
+37:     store = ProjectStore(root)
+38:     db = CorpusDB(store.get_db_path())
+39:     db.init()
+40:     store.save_series_index(
+41:         SeriesIndex(
+42:             series_title="Test",
+43:             series_url="https://example.invalid/series",
+44:             episodes=[
+45:                 EpisodeRef(
+46:                     episode_id="S01E01",
+47:                     season=1,
+48:                     episode=1,
+49:                     title="Pilot",
+50:                     url="https://example.invalid/s01e01",
+51:                 )
+52:             ],
+53:         )
+54:     )
+55: 
+56:     win = MainWindow()
+57:     win._config = config
+58:     win._store = store
+59:     win._db = db
+60:     win._refresh_inspecteur_episodes()
+61:     win._refresh_preparer()
+62:     win._refresh_align_runs()
+63:     win._refresh_personnages()
+64:     win._refresh_expert()
+65:     yield win
+66:     win.close()
+67: 
+68: 
+69: def test_expert_tab_reports_core_cross_context(main_window_with_project: MainWindow) -> None:
+70:     win = main_window_with_project
+71:     assert hasattr(win, "expert_tab")
+72: 
+73:     win._kwic_open_inspector_impl("S01E01")
+74:     win.open_preparer_for_episode("S01E01", source="transcript")
+75:     win.open_alignement_for_episode("S01E01", segment_kind="utterance")
+76:     win._refresh_expert()
+77: 
+78:     text = win.expert_tab.summary_edit.toPlainText()
+79:     assert "Project loaded: yes" in text
+80:     assert "Inspecteur: S01E01" in text
+81:     assert "Preparer: S01E01" in text
+82:     assert "Alignement: S01E01" in text
+83:     assert "Segment filter: utterance" in text
+84:     assert "Undo actions: 0" in text
+85: 
+86: 
+87: def test_expert_tab_detects_context_mismatch(
+88:     main_window_with_project: MainWindow,
+89:     monkeypatch: pytest.MonkeyPatch,
+90: ) -> None:
+91:     win = main_window_with_project
+92:     monkeypatch.setattr(win.preparer_tab, "current_episode_id", lambda: "S99E99")
+93:     win._refresh_expert()
+94:     text = win.expert_tab.summary_edit.toPlainText()
+95:     assert "Context consistent: no" in text
+96: 
+97: 
+98: def test_refresh_tabs_after_job_triggers_expert_refresh(
+99:     main_window_with_project: MainWindow,
+100:     monkeypatch: pytest.MonkeyPatch,
+101: ) -> None:
+102:     win = main_window_with_project
+103:     called = {"expert": 0}
+104:     monkeypatch.setattr(win, "_refresh_episodes_from_store", lambda: None)
+105:     monkeypatch.setattr(win, "_refresh_inspecteur_episodes", lambda: None)
+106:     monkeypatch.setattr(win, "_refresh_preparer", lambda: None)
+107:     monkeypatch.setattr(win, "_refresh_align_runs", lambda: None)
+108:     monkeypatch.setattr(win, "_refresh_concordance", lambda: None)
+109:     monkeypatch.setattr(win, "_refresh_personnages", lambda: None)
+110:     monkeypatch.setattr(win, "_refresh_expert", lambda: called.__setitem__("expert", called["expert"] + 1))
+111: 
+112:     win._refresh_tabs_after_job()
+113:     assert called["expert"] == 1

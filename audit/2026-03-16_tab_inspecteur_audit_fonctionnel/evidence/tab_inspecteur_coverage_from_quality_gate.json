@@ -1,0 +1,14 @@
+{
+  "src\\howimetyourcorpus\\app\\tabs\\tab_inspecteur.py": {
+    "covered_lines": 281,
+    "num_statements": 384,
+    "percent_covered": 73.17708333333333,
+    "missing_lines": 103
+  },
+  "src\\howimetyourcorpus\\app\\tabs\\tab_inspecteur_sous_titres.py": {
+    "covered_lines": 88,
+    "num_statements": 98,
+    "percent_covered": 89.79591836734694,
+    "missing_lines": 10
+  }
+}

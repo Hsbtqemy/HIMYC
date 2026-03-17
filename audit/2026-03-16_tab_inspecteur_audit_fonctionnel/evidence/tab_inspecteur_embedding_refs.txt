@@ -1,0 +1,20 @@
+﻿src/howimetyourcorpus/app/mainwindow_tabs.py:12:    InspecteurEtSousTitresTabWidget,
+src/howimetyourcorpus/app/mainwindow_tabs.py:30:        tab_inspecteur: int,
+src/howimetyourcorpus/app/mainwindow_tabs.py:40:        self._tab_inspecteur = tab_inspecteur
+src/howimetyourcorpus/app/mainwindow_tabs.py:56:        win.tabs.addTab(win.project_tab, "Projet")
+src/howimetyourcorpus/app/mainwindow_tabs.py:75:        win.tabs.addTab(win.corpus_tab, "Corpus")
+src/howimetyourcorpus/app/mainwindow_tabs.py:86:    def build_tab_inspecteur(self) -> None:
+src/howimetyourcorpus/app/mainwindow_tabs.py:88:        win.inspector_tab = InspecteurEtSousTitresTabWidget(
+src/howimetyourcorpus/app/mainwindow_tabs.py:97:        win.tabs.addTab(win.inspector_tab, "Inspecteur")
+src/howimetyourcorpus/app/mainwindow_tabs.py:99:            self._tab_inspecteur,
+src/howimetyourcorpus/app/mainwindow_tabs.py:112:        win.tabs.addTab(win.preparer_tab, "Préparer")
+src/howimetyourcorpus/app/mainwindow_tabs.py:126:        win.tabs.addTab(win.alignment_tab, "Alignement")
+src/howimetyourcorpus/app/mainwindow_tabs.py:138:        win.tabs.addTab(win.concordance_tab, "Concordance")
+src/howimetyourcorpus/app/mainwindow_tabs.py:151:        win.tabs.addTab(win.personnages_tab, "Personnages")
+src/howimetyourcorpus/app/mainwindow_tabs.py:160:        win.tabs.addTab(widget, "Logs")
+src/howimetyourcorpus/app/mainwindow_tabs.py:207:        win.tabs.setCurrentIndex(self._tab_inspecteur)
+src/howimetyourcorpus/app/mainwindow_tabs.py:208:        if win.tabs.currentIndex() != self._tab_inspecteur:
+src/howimetyourcorpus/app/ui_mainwindow.py:79:            tab_inspecteur=TAB_INSPECTEUR,
+src/howimetyourcorpus/app/ui_mainwindow.py:99:        self._build_tab_inspecteur()
+src/howimetyourcorpus/app/ui_mainwindow.py:335:    def _build_tab_inspecteur(self) -> None:
+src/howimetyourcorpus/app/ui_mainwindow.py:336:        self._tabs_controller.build_tab_inspecteur()

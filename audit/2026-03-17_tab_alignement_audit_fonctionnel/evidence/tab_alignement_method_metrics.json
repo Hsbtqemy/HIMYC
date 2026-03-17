@@ -1,0 +1,230 @@
+{
+  "file": "src\\howimetyourcorpus\\app\\tabs\\tab_alignement.py",
+  "methods": [
+    {
+      "method": "_load_project_languages",
+      "line_start": 236,
+      "line_end": 253,
+      "loc": 18,
+      "decision_complexity": 9,
+      "call_count": 9,
+      "decorators": []
+    },
+    {
+      "method": "refresh",
+      "line_start": 205,
+      "line_end": 222,
+      "loc": 18,
+      "decision_complexity": 8,
+      "call_count": 11,
+      "decorators": []
+    },
+    {
+      "method": "_on_episode_changed",
+      "line_start": 304,
+      "line_end": 326,
+      "loc": 23,
+      "decision_complexity": 7,
+      "call_count": 13,
+      "decorators": []
+    },
+    {
+      "method": "_refresh_language_combos",
+      "line_start": 255,
+      "line_end": 276,
+      "loc": 22,
+      "decision_complexity": 7,
+      "call_count": 15,
+      "decorators": []
+    },
+    {
+      "method": "_refresh_target_lang_combo",
+      "line_start": 278,
+      "line_end": 294,
+      "loc": 17,
+      "decision_complexity": 6,
+      "call_count": 12,
+      "decorators": []
+    },
+    {
+      "method": "_update_stats",
+      "line_start": 334,
+      "line_end": 350,
+      "loc": 17,
+      "decision_complexity": 6,
+      "call_count": 9,
+      "decorators": []
+    },
+    {
+      "method": "_restore_align_splitter",
+      "line_start": 190,
+      "line_end": 198,
+      "loc": 9,
+      "decision_complexity": 5,
+      "call_count": 7,
+      "decorators": []
+    },
+    {
+      "method": "set_episode_and_segment_kind",
+      "line_start": 224,
+      "line_end": 234,
+      "loc": 11,
+      "decision_complexity": 4,
+      "call_count": 8,
+      "decorators": []
+    },
+    {
+      "method": "_fill_links",
+      "line_start": 375,
+      "line_end": 385,
+      "loc": 11,
+      "decision_complexity": 3,
+      "call_count": 8,
+      "decorators": []
+    },
+    {
+      "method": "_on_pivot_lang_changed",
+      "line_start": 296,
+      "line_end": 302,
+      "loc": 7,
+      "decision_complexity": 3,
+      "call_count": 4,
+      "decorators": []
+    },
+    {
+      "method": "__init__",
+      "line_start": 44,
+      "line_end": 188,
+      "loc": 145,
+      "decision_complexity": 1,
+      "call_count": 107,
+      "decorators": []
+    },
+    {
+      "method": "_bulk_accept",
+      "line_start": 360,
+      "line_end": 365,
+      "loc": 6,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_bulk_reject",
+      "line_start": 368,
+      "line_end": 373,
+      "loc": 6,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_table_context_menu",
+      "line_start": 387,
+      "line_end": 392,
+      "loc": 6,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": []
+    },
+    {
+      "method": "_delete_current_run",
+      "line_start": 353,
+      "line_end": 357,
+      "loc": 5,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_export_align_report",
+      "line_start": 424,
+      "line_end": 428,
+      "loc": 5,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_export_alignment",
+      "line_start": 410,
+      "line_end": 414,
+      "loc": 5,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_export_grouped_alignment",
+      "line_start": 403,
+      "line_end": 407,
+      "loc": 5,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_export_parallel_concordance",
+      "line_start": 417,
+      "line_end": 421,
+      "loc": 5,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_on_run_changed",
+      "line_start": 328,
+      "line_end": 332,
+      "loc": 5,
+      "decision_complexity": 1,
+      "call_count": 5,
+      "decorators": []
+    },
+    {
+      "method": "save_state",
+      "line_start": 200,
+      "line_end": 203,
+      "loc": 4,
+      "decision_complexity": 1,
+      "call_count": 3,
+      "decorators": []
+    },
+    {
+      "method": "_generate_alignment_groups",
+      "line_start": 399,
+      "line_end": 400,
+      "loc": 2,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    },
+    {
+      "method": "_run_align_episode",
+      "line_start": 395,
+      "line_end": 396,
+      "loc": 2,
+      "decision_complexity": 1,
+      "call_count": 1,
+      "decorators": [
+        "require_project_and_db"
+      ]
+    }
+  ]
+}

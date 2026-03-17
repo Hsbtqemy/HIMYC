@@ -1,0 +1,29 @@
+{
+  "before": {
+    "save_enabled": false,
+    "delete_enabled": false,
+    "export_enabled": false,
+    "norm_enabled": false,
+    "episode_combo_count": 0,
+    "tracks_count": 0
+  },
+  "after_refresh": {
+    "episode_combo_count": 1,
+    "current_episode": "S01E01",
+    "tracks_count": 2,
+    "save_enabled": false,
+    "delete_enabled": false,
+    "export_enabled": false,
+    "norm_enabled": false
+  },
+  "after_select_track": {
+    "selected_row": 0,
+    "save_enabled": true,
+    "delete_enabled": true,
+    "export_enabled": true,
+    "norm_enabled": true,
+    "editing_lang": "fr",
+    "editing_fmt": "srt",
+    "content_len": 40
+  }
+}

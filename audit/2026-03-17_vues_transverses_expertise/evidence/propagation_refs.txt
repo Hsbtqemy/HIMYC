@@ -1,0 +1,44 @@
+﻿src/howimetyourcorpus/core/preparer/service.py:301:        assignments = self.store.load_character_assignments()
+src/howimetyourcorpus/core/preparer/service.py:307:                and a.get("source_type") == "segment"
+src/howimetyourcorpus/core/preparer/service.py:318:                        "source_type": "segment",
+src/howimetyourcorpus/core/preparer/service.py:323:        self.store.save_character_assignments(assignments)
+src/howimetyourcorpus/core/preparer/service.py:328:        assignments = self.store.load_character_assignments()
+src/howimetyourcorpus/core/preparer/service.py:334:                and a.get("source_type") == "cue"
+src/howimetyourcorpus/core/preparer/service.py:345:                        "source_type": "cue",
+src/howimetyourcorpus/core/preparer/service.py:350:        self.store.save_character_assignments(assignments)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:26:from howimetyourcorpus.core.align import format_segment_kind_label, parse_run_segment_kind
+src/howimetyourcorpus/app/tabs/tab_personnages.py:92:        self.personnages_episode_combo.currentIndexChanged.connect(self._fill_propagate_run_combo)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:139:        self.personnages_propagate_btn = QPushButton("Propager")
+src/howimetyourcorpus/app/tabs/tab_personnages.py:140:        self.personnages_propagate_btn.setToolTip(
+src/howimetyourcorpus/app/tabs/tab_personnages.py:145:        self.personnages_propagate_btn.clicked.connect(self._propagate)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:146:        prop_row.addWidget(self.personnages_propagate_btn)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:192:        self._fill_propagate_run_combo()
+src/howimetyourcorpus/app/tabs/tab_personnages.py:228:    def _fill_propagate_run_combo(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_personnages.py:239:            segment_kind, _ = parse_run_segment_kind(
+src/howimetyourcorpus/app/tabs/tab_personnages.py:244:            label = f"{run_id}{format_segment_kind_label(segment_kind)}"
+src/howimetyourcorpus/app/tabs/tab_personnages.py:375:        assignments = store.load_character_assignments()
+src/howimetyourcorpus/app/tabs/tab_personnages.py:376:        source_type = "segment" if source_key in ("segments", "segments_utterance") else "cue"
+src/howimetyourcorpus/app/tabs/tab_personnages.py:380:            if a.get("episode_id") == eid and a.get("source_type") == source_type
+src/howimetyourcorpus/app/tabs/tab_personnages.py:500:        source_type = "segment" if source_key in ("segments", "segments_utterance") else "cue"
+src/howimetyourcorpus/app/tabs/tab_personnages.py:512:                    "source_type": source_type,
+src/howimetyourcorpus/app/tabs/tab_personnages.py:516:        all_assignments = store.load_character_assignments()
+src/howimetyourcorpus/app/tabs/tab_personnages.py:522:                return a.get("source_type") == "segment" and ":sentence:" in (a.get("source_id") or "")
+src/howimetyourcorpus/app/tabs/tab_personnages.py:524:                return a.get("source_type") == "segment" and ":utterance:" in (a.get("source_id") or "")
+src/howimetyourcorpus/app/tabs/tab_personnages.py:528:                return a.get("source_type") == "cue" and (a.get("source_id") or "").startswith(prefix)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:533:        store.save_character_assignments(all_assignments)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:537:    def _propagate(self) -> None:
+src/howimetyourcorpus/app/tabs/tab_personnages.py:560:        assignments = store.load_character_assignments()
+src/howimetyourcorpus/app/tabs/tab_personnages.py:567:        run_segment_kind, _ = parse_run_segment_kind(
+src/howimetyourcorpus/app/tabs/tab_personnages.py:572:        expected_segment_marker = ":utterance:" if run_segment_kind == "utterance" else ":sentence:"
+src/howimetyourcorpus/app/tabs/tab_personnages.py:573:        expected_segment_label = "tours" if run_segment_kind == "utterance" else "phrases"
+src/howimetyourcorpus/app/tabs/tab_personnages.py:575:            a.get("source_type") == "segment" and expected_segment_marker in (a.get("source_id") or "")
+src/howimetyourcorpus/app/tabs/tab_personnages.py:578:        has_cue_assignments = any(a.get("source_type") == "cue" for a in episode_assignments)
+src/howimetyourcorpus/app/tabs/tab_personnages.py:598:            nb_seg, nb_cue = store.propagate_character_names(db, eid, run_id, languages_to_rewrite=languages_to_rewrite)
+src/howimetyourcorpus/core/storage/align_grouping.py:46:        for a in store.load_character_assignments()
+src/howimetyourcorpus/core/storage/align_grouping.py:52:        source_type = (a.get("source_type") or "").strip().lower()
+src/howimetyourcorpus/core/storage/align_grouping.py:57:        if source_type == "segment":
+src/howimetyourcorpus/core/storage/align_grouping.py:59:        elif source_type == "cue":
+src/howimetyourcorpus/core/storage/character_propagation.py:8:def propagate_character_names(
+src/howimetyourcorpus/core/storage/character_propagation.py:24:    assignments = store.load_character_assignments()
+src/howimetyourcorpus/core/storage/character_propagation.py:31:        source_type = assignment.get("source_type") or ""
+src/howimetyourcorpus/core/storage/character_propagation.py:36:        if source_type == "segment":
