@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from howimetyourcorpus.app.tabs.cta_recommender import EpisodeState, recommend
 from howimetyourcorpus.core.normalize.profiles import (
     get_all_profile_ids,
     get_profile,
@@ -54,6 +55,7 @@ class InspectorTabWidget(QWidget):
         get_config: Callable[[], object],
         run_job: Callable[[list], None],
         show_status: Callable[[str, int], None],
+        get_similarity_mode: Callable[[], bool] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
@@ -62,97 +64,134 @@ class InspectorTabWidget(QWidget):
         self._get_config = get_config
         self._run_job = run_job
         self._show_status = show_status
+        self._get_similarity_mode = get_similarity_mode
         self._current_episode_id: str | None = None
+        self._avance_expanded: bool = False
 
         layout = QVBoxLayout(self)
-        row = QHBoxLayout()
+
+        # --- Sélecteur d'épisode (masqué en mode combiné §15.4) ---
+        ep_row = QHBoxLayout()
         self._inspect_episode_label = QLabel("Épisode:")
-        row.addWidget(self._inspect_episode_label)
+        ep_row.addWidget(self._inspect_episode_label)
         self.inspect_episode_combo = QComboBox()
         self.inspect_episode_combo.currentIndexChanged.connect(self._load_episode)
-        row.addWidget(self.inspect_episode_combo)
-        row.addWidget(QLabel("Vue:"))
+        ep_row.addWidget(self.inspect_episode_combo)
+        ep_row.addStretch()
+        layout.addLayout(ep_row)
+
+        # --- Bloc Consulter : navigation et lecture ---
+        consulter_group = QGroupBox("Consulter")
+        consulter_layout = QHBoxLayout(consulter_group)
+        consulter_layout.addWidget(QLabel("Vue:"))
         self.inspect_view_combo = QComboBox()
         self.inspect_view_combo.addItem("Épisode", "episode")
         self.inspect_view_combo.addItem("Segments", "segments")
         self.inspect_view_combo.currentIndexChanged.connect(self._switch_view)
-        row.addWidget(self.inspect_view_combo)
-        row.addWidget(QLabel("Kind:"))
+        consulter_layout.addWidget(self.inspect_view_combo)
+        self._kind_label = QLabel("Kind:")
+        consulter_layout.addWidget(self._kind_label)
         self.inspect_kind_combo = QComboBox()
         self.inspect_kind_combo.addItem("Tous", "")
         self.inspect_kind_combo.addItem("Phrases", "sentence")
         self.inspect_kind_combo.addItem("Tours", "utterance")
         self.inspect_kind_combo.setToolTip("Filtre la liste segments par type (phrases/tours de parole)")
         self.inspect_kind_combo.currentIndexChanged.connect(self._on_kind_filter_changed)
-        row.addWidget(self.inspect_kind_combo)
-        # §15.5 — Navigation segments (Aller au segment #N)
-        row.addWidget(QLabel("Aller à:"))
+        consulter_layout.addWidget(self.inspect_kind_combo)
+        self._goto_label = QLabel("Aller à:")
+        consulter_layout.addWidget(self._goto_label)
         self.segment_goto_edit = QLineEdit()
         self.segment_goto_edit.setPlaceholderText("#N")
         self.segment_goto_edit.setMaximumWidth(60)
         self.segment_goto_edit.setToolTip("Entrez le numéro de segment (ex: 42) et appuyez sur Entrée")
         self.segment_goto_edit.returnPressed.connect(self._goto_segment)
-        row.addWidget(self.segment_goto_edit)
+        consulter_layout.addWidget(self.segment_goto_edit)
         self.segment_goto_btn = QPushButton("→")
         self.segment_goto_btn.setMaximumWidth(40)
         self.segment_goto_btn.setToolTip("Aller au segment #N")
         self.segment_goto_btn.clicked.connect(self._goto_segment)
-        row.addWidget(self.segment_goto_btn)
+        consulter_layout.addWidget(self.segment_goto_btn)
+        consulter_layout.addStretch()
+        layout.addWidget(consulter_group)
+
+        # --- Bloc Produire : actions de transformation ---
+        produire_group = QGroupBox("Produire")
+        produire_layout = QVBoxLayout(produire_group)
+        produire_row1 = QHBoxLayout()
         self.inspect_segment_btn = QPushButton("Segmente l'épisode")
         self.inspect_segment_btn.clicked.connect(self._run_segment)
-        row.addWidget(self.inspect_segment_btn)
+        produire_row1.addWidget(self.inspect_segment_btn)
         self.inspect_export_segments_btn = QPushButton("Exporter les segments")
-        self.inspect_export_segments_btn.setToolTip(
-            "Exporte les segments de l'épisode affiché : TXT (une ligne par segment), CSV/TSV (colonnes détaillées), "
-            "SRT-like (blocs numérotés), Word (.docx)."
-        )
         self.inspect_export_segments_btn.clicked.connect(self._export_segments)
-        row.addWidget(self.inspect_export_segments_btn)
-        layout.addLayout(row)
-
-        # §15.5 — Normalisation (transcript) : regrouper profil + actions + lien Gérer les profils + aperçu des règles
-        norm_group = QGroupBox("Normalisation (transcript)")
-        norm_group.setToolTip(
-            "Profil appliqué à RAW → CLEAN. Priorité : préféré épisode > défaut source (Profils) > config projet."
-        )
-        norm_layout = QVBoxLayout(norm_group)
-        norm_row = QHBoxLayout()
-        norm_row.addWidget(QLabel("Profil:"))
+        produire_row1.addWidget(self.inspect_export_segments_btn)
+        produire_row1.addStretch()
+        produire_layout.addLayout(produire_row1)
+        produire_row2 = QHBoxLayout()
+        produire_row2.addWidget(QLabel("Profil:"))
         self.inspect_profile_combo = QComboBox()
         self.inspect_profile_combo.addItems(list(PROFILES.keys()))
         self.inspect_profile_combo.setToolTip(
             "Profil pour « Normaliser cet épisode ». Priorité : préféré épisode > défaut source (Profils) > config projet."
         )
         self.inspect_profile_combo.currentTextChanged.connect(self._update_profile_rules_preview)
-        norm_row.addWidget(self.inspect_profile_combo)
+        produire_row2.addWidget(self.inspect_profile_combo)
         self.inspect_norm_btn = QPushButton("Normaliser cet épisode")
-        self.inspect_norm_btn.setToolTip(
-            "Applique la normalisation (RAW → CLEAN) à l'épisode affiché, avec le profil choisi."
-        )
         self.inspect_norm_btn.clicked.connect(self._run_normalize)
-        norm_row.addWidget(self.inspect_norm_btn)
+        produire_row2.addWidget(self.inspect_norm_btn)
+        produire_row2.addStretch()
+        produire_layout.addLayout(produire_row2)
+        layout.addWidget(produire_group)
+
+        # --- Bloc Avancé : gestion des profils (replié par défaut) ---
+        self._avance_toggle_btn = QPushButton("Avancé ▸")
+        self._avance_toggle_btn.setFlat(True)
+        self._avance_toggle_btn.setToolTip(
+            "Profil appliqué à RAW → CLEAN. Priorité : préféré épisode > défaut source (Profils) > config projet."
+        )
+        self._avance_toggle_btn.clicked.connect(self._toggle_avance)
+        layout.addWidget(self._avance_toggle_btn)
+
+        self._avance_group = QGroupBox()
+        self._avance_group.setVisible(False)
+        avance_layout = QVBoxLayout(self._avance_group)
+        avance_row = QHBoxLayout()
         self.inspect_set_preferred_profile_btn = QPushButton("Définir comme préféré pour cet épisode")
         self.inspect_set_preferred_profile_btn.setToolTip(
             "Mémorise ce profil pour cet épisode. Utilisé en priorité lors du batch (Corpus) et ici."
         )
         self.inspect_set_preferred_profile_btn.clicked.connect(self._set_episode_preferred_profile)
-        norm_row.addWidget(self.inspect_set_preferred_profile_btn)
+        avance_row.addWidget(self.inspect_set_preferred_profile_btn)
         self.inspect_manage_profiles_btn = QPushButton("Gérer les profils…")
         self.inspect_manage_profiles_btn.setToolTip(
             "Ouvre le dialogue de gestion des profils : créer, modifier, supprimer les profils personnalisés (profiles.json)."
         )
         self.inspect_manage_profiles_btn.clicked.connect(self._open_profiles_dialog)
-        norm_row.addWidget(self.inspect_manage_profiles_btn)
-        norm_layout.addLayout(norm_row)
-        norm_layout.addWidget(QLabel("Aperçu des règles du profil :"))
+        avance_row.addWidget(self.inspect_manage_profiles_btn)
+        avance_row.addStretch()
+        avance_layout.addLayout(avance_row)
+        avance_layout.addWidget(QLabel("Aperçu des règles du profil :"))
         self.inspect_profile_rules_preview = QPlainTextEdit()
         self.inspect_profile_rules_preview.setReadOnly(True)
         self.inspect_profile_rules_preview.setMaximumHeight(140)
         self.inspect_profile_rules_preview.setPlaceholderText("Sélectionnez un profil…")
         self.inspect_profile_rules_preview.setToolTip("Résumé des options du profil sélectionné (lecture seule).")
-        norm_layout.addWidget(self.inspect_profile_rules_preview)
-        layout.addWidget(norm_group)
+        avance_layout.addWidget(self.inspect_profile_rules_preview)
+        layout.addWidget(self._avance_group)
         self._update_profile_rules_preview()
+
+        # --- Statut Prêt alignement (US-104) + CTA (US-302) ---
+        self.pret_alignement_label = QLabel("Prêt alignement : —")
+        self.pret_alignement_label.setToolTip(
+            "Prêt si CLEAN + segments + tracks SRT sont présents pour cet épisode."
+        )
+        layout.addWidget(self.pret_alignement_label)
+
+        self.cta_label = QLabel("Prochaine action : —")
+        self.cta_label.setToolTip(
+            "Recommandation CTA basée sur l'état réel de l'épisode (matrice US-301)."
+        )
+        self.cta_label.setWordWrap(True)
+        layout.addWidget(self.cta_label)
 
         self.inspect_main_split = QSplitter(Qt.Orientation.Horizontal)
         self.raw_edit = QPlainTextEdit()
@@ -169,7 +208,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_main_split.addWidget(self.inspect_right_split)
         self.raw_edit.setMinimumHeight(60)
         self.clean_edit.setMinimumHeight(60)
-        layout.addWidget(self.inspect_main_split)
+        layout.addWidget(self.inspect_main_split, 1)
         self._restore_splitter_sizes()
 
         self.inspect_stats_label = QLabel("Stats: —")
@@ -188,6 +227,102 @@ class InspectorTabWidget(QWidget):
         layout.addWidget(self.inspect_notes_edit)
         self.inspect_segments_list.setVisible(False)
         self.inspect_kind_combo.setVisible(False)
+        self._kind_label.setVisible(False)
+        self._goto_label.setVisible(False)
+        self.segment_goto_edit.setVisible(False)
+        self.segment_goto_btn.setVisible(False)
+        self._update_action_buttons()
+
+    def _update_action_buttons(self) -> None:
+        """US-103/104/302 — Active/désactive les boutons, met à jour Prêt alignement et CTA."""
+        eid = self._current_episode_id
+        store = self._get_store() if eid else None
+        db = self._get_db() if eid else None
+
+        has_raw = bool(eid and store and store.has_episode_raw(eid))
+        has_clean = bool(eid and store and store.has_episode_clean(eid))
+        has_segments = False
+        has_tracks = False
+        has_alignment_run = False
+        if eid and db:
+            try:
+                has_segments = bool(db.get_segments_for_episode(eid))
+            except Exception:
+                pass
+            try:
+                has_tracks = bool(db.get_tracks_for_episode(eid))
+            except Exception:
+                pass
+            try:
+                has_alignment_run = bool(db.get_align_runs_for_episode(eid))
+            except Exception:
+                pass
+
+        use_similarity = False
+        if self._get_similarity_mode is not None:
+            try:
+                use_similarity = bool(self._get_similarity_mode())
+            except Exception:
+                pass
+
+        # Normaliser : nécessite RAW
+        self.inspect_norm_btn.setEnabled(has_raw)
+        self.inspect_norm_btn.setToolTip(
+            "Applique la normalisation (RAW → CLEAN) à l'épisode affiché, avec le profil choisi."
+            if has_raw
+            else "Indisponible : aucun texte RAW pour cet épisode. Téléchargez d'abord le transcript."
+        )
+
+        # Segmenter : nécessite CLEAN
+        self.inspect_segment_btn.setEnabled(has_clean)
+        self.inspect_segment_btn.setToolTip(
+            ""
+            if has_clean
+            else "Indisponible : aucun texte CLEAN pour cet épisode. Normalisez d'abord le transcript."
+        )
+
+        # Exporter : nécessite des segments
+        self.inspect_export_segments_btn.setEnabled(has_segments)
+        self.inspect_export_segments_btn.setToolTip(
+            "Exporte les segments de l'épisode affiché : TXT (une ligne par segment), CSV/TSV (colonnes détaillées), "
+            "SRT-like (blocs numérotés), Word (.docx)."
+            if has_segments
+            else "Indisponible : aucun segment pour cet épisode. Lancez d'abord « Segmente l'épisode »."
+        )
+
+        # Statut Prêt alignement (US-104)
+        manquants = []
+        if not has_clean:
+            manquants.append("CLEAN")
+        if not has_segments:
+            manquants.append("segments")
+        if not has_tracks:
+            manquants.append("tracks SRT")
+
+        if eid is None:
+            self.pret_alignement_label.setText("Prêt alignement : —")
+        elif not manquants:
+            self.pret_alignement_label.setText("Prêt alignement : Oui")
+        else:
+            self.pret_alignement_label.setText(
+                f"Prêt alignement : Non (manquants : {', '.join(manquants)})"
+            )
+
+        # CTA Prochaine action recommandée (US-302)
+        if eid is None:
+            self.cta_label.setText("Prochaine action : —")
+        else:
+            state = EpisodeState(
+                has_raw=has_raw,
+                has_clean=has_clean,
+                has_segments=has_segments,
+                has_tracks=has_tracks,
+                has_alignment_run=has_alignment_run,
+                use_similarity=use_similarity,
+            )
+            rec = recommend(state)
+            self.cta_label.setText(f"Prochaine action : {rec.label}")
+            self.cta_label.setToolTip(rec.detail)
 
     def _restore_splitter_sizes(self) -> None:
         def to_sizes(val) -> list[int] | None:
@@ -278,6 +413,7 @@ class InspectorTabWidget(QWidget):
             self.merge_examples_edit.clear()
             self.inspect_notes_edit.clear()
             self.inspect_segments_list.clear()
+            self._update_action_buttons()
             return
         if self._current_episode_id and self._current_episode_id != eid:
             store.save_episode_notes(
@@ -323,11 +459,21 @@ class InspectorTabWidget(QWidget):
         if profile and profile in all_ids:
             self.inspect_profile_combo.setCurrentText(profile)
         self._fill_segments(eid)
+        self._update_action_buttons()
+
+    def _toggle_avance(self) -> None:
+        self._avance_expanded = not self._avance_expanded
+        self._avance_group.setVisible(self._avance_expanded)
+        self._avance_toggle_btn.setText("Avancé ▾" if self._avance_expanded else "Avancé ▸")
 
     def _switch_view(self) -> None:
         is_segments = self.inspect_view_combo.currentData() == "segments"
         self.inspect_segments_list.setVisible(is_segments)
         self.inspect_kind_combo.setVisible(is_segments)
+        self._kind_label.setVisible(is_segments)
+        self._goto_label.setVisible(is_segments)
+        self.segment_goto_edit.setVisible(is_segments)
+        self.segment_goto_btn.setVisible(is_segments)
         eid = self.inspect_episode_combo.currentData()
         if eid:
             self._fill_segments(eid)
