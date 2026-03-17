@@ -9,6 +9,7 @@ from howimetyourcorpus.app.tabs import (
     AlignmentTabWidget,
     ConcordanceTabWidget,
     CorpusTabWidget,
+    ExpertTransverseTabWidget,
     InspecteurEtSousTitresTabWidget,
     LogsTabWidget,
     PersonnagesTabWidget,
@@ -159,6 +160,23 @@ class MainWindowTabsController:
         widget = LogsTabWidget(on_open_log=win._open_log_file)  # noqa: SLF001
         win.tabs.addTab(widget, "Logs")
 
+    def build_tab_expert(self) -> None:
+        win = self._window
+        win.expert_tab = ExpertTransverseTabWidget(
+            get_store=lambda: win._store,  # noqa: SLF001
+            get_db=lambda: win._db,  # noqa: SLF001
+            get_inspector_tab=lambda: getattr(win, "inspector_tab", None),
+            get_preparer_tab=lambda: getattr(win, "preparer_tab", None),
+            get_alignment_tab=lambda: getattr(win, "alignment_tab", None),
+            get_personnages_tab=lambda: getattr(win, "personnages_tab", None),
+            get_undo_stack=lambda: getattr(win, "undo_stack", None),
+        )
+        win.tabs.addTab(win.expert_tab, "Expert")
+        win.tabs.setTabToolTip(
+            win.tabs.indexOf(win.expert_tab),
+            "Vue transverse d'expertise : contexte multi-onglets, run alignement, propagation et etat undo/redo.",
+        )
+
     def refresh_episodes_from_store(self) -> None:
         win = self._window
         if hasattr(win, "corpus_tab") and win.corpus_tab:
@@ -201,6 +219,11 @@ class MainWindowTabsController:
         win = self._window
         if hasattr(win, "concordance_tab") and win.concordance_tab:
             win.concordance_tab.refresh_speakers()
+
+    def refresh_expert(self) -> None:
+        win = self._window
+        if hasattr(win, "expert_tab") and win.expert_tab:
+            win.expert_tab.refresh()
 
     def kwic_open_inspector(self, episode_id: str) -> None:
         win = self._window

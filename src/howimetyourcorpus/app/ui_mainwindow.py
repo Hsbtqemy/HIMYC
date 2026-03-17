@@ -1,4 +1,4 @@
-"""Fenêtre principale : onglets Projet, Corpus, Inspecteur, Préparer, Alignement, Concordance, Personnages, Logs."""
+"""Fenêtre principale : onglets Projet, Corpus, Inspecteur, Préparer, Alignement, Concordance, Personnages, Logs, Expert."""
 
 from __future__ import annotations
 
@@ -102,6 +102,7 @@ class MainWindow(QMainWindow):
         self._build_tab_concordance()
         self._build_tab_personnages()
         self._build_tab_logs()
+        self._build_tab_expert()
         self.tabs.setCurrentIndex(TAB_PROJET)
         self._previous_tab_index = TAB_PROJET
         self._reverting_tab_change = False
@@ -325,6 +326,8 @@ class MainWindow(QMainWindow):
         if index == TAB_CORPUS and self._store is not None:
             # Court délai pour que l'onglet soit actif et visible avant de remplir l'arbre
             QTimer.singleShot(50, self._refresh_episodes_from_store)
+        if hasattr(self, "expert_tab") and self.expert_tab and index == self.tabs.indexOf(self.expert_tab):
+            self.expert_tab.refresh()
 
     def _refresh_episodes_from_store(self) -> None:
         self._tabs_controller.refresh_episodes_from_store()
@@ -379,6 +382,9 @@ class MainWindow(QMainWindow):
     def _refresh_concordance(self) -> None:
         self._tabs_controller.refresh_concordance()
 
+    def _refresh_expert(self) -> None:
+        self._tabs_controller.refresh_expert()
+
     def _kwic_open_inspector_impl(self, episode_id: str) -> None:
         """Passe à l'onglet Inspecteur et charge l'épisode (appelé depuis l'onglet Concordance)."""
         self._tabs_controller.kwic_open_inspector(episode_id)
@@ -393,6 +399,9 @@ class MainWindow(QMainWindow):
 
     def _build_tab_logs(self) -> None:
         self._tabs_controller.build_tab_logs()
+
+    def _build_tab_expert(self) -> None:
+        self._tabs_controller.build_tab_expert()
 
     def _open_log_file(self) -> None:
         if not self._config:

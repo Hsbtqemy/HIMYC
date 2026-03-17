@@ -106,6 +106,7 @@ class MainWindowJobsController:
             ("_refresh_align_runs", win._refresh_align_runs, False),  # noqa: SLF001
             ("_refresh_concordance", win._refresh_concordance, False),  # noqa: SLF001
             ("_refresh_personnages", win._refresh_personnages, False),  # noqa: SLF001
+            ("_refresh_expert", win._refresh_expert, False),  # noqa: SLF001
         ]
         if not has_combined_inspector:
             refreshers.insert(3, ("_refresh_subs_tracks", win._refresh_subs_tracks, False))  # noqa: SLF001

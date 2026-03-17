@@ -37,6 +37,8 @@ class MainWindowProjectController:
             win.alignment_tab._refresh_language_combos()  # noqa: SLF001
         if hasattr(win, "personnages_tab") and win.personnages_tab:
             win.personnages_tab.refresh()
+        if hasattr(win, "expert_tab") and win.expert_tab:
+            win.expert_tab.refresh()
 
     def validate_and_init_project_from_tab(self, *, message_box: Any, timer: Any) -> None:
         """Valide le formulaire Projet puis initialise/charge le projet."""
@@ -123,6 +125,7 @@ class MainWindowProjectController:
                 win._refresh_subs_tracks()  # noqa: SLF001
             win._refresh_align_runs()  # noqa: SLF001
             win._refresh_personnages()  # noqa: SLF001
+            win._refresh_expert()  # noqa: SLF001
 
         if deferred:
             # Ne pas remplir le Corpus ici : provoque segfault Qt/macOS.
