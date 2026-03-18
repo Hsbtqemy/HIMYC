@@ -34,6 +34,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7", "pytest-cov>=4"]
 align = ["rapidfuzz>=3.0"]  # Phase 4 : meilleure similarité textuelle (sinon fallback Jaccard)
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]  # MX-003 : backend HTTP pour frontend Tauri
 
 [project.scripts]
 howimetyourcorpus = "howimetyourcorpus.app.main:main"
