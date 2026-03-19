@@ -564,6 +564,8 @@ def query_corpus(
     else:
         hits = db.query_kwic(term, window=window, limit=limit)
 
+    has_more = len(hits) >= limit  # avant post-filtres
+
     # Filtres post-query
     if body.episode_id:
         hits = [h for h in hits if h.episode_id == body.episode_id]
@@ -573,10 +575,66 @@ def query_corpus(
 
     from dataclasses import asdict
     return {
-        "term":  term,
-        "scope": body.scope,
-        "total": len(hits),
-        "hits":  [asdict(h) for h in hits],
+        "term":     term,
+        "scope":    body.scope,
+        "total":    len(hits),
+        "has_more": has_more,
+        "hits":     [asdict(h) for h in hits],
+    }
+
+
+# ─── /query/facets (MX-025) ────────────────────────────────────────────────────
+
+@app.post("/query/facets", summary="Facettes concordancier (MX-025)")
+def query_facets(
+    body: _QueryRequest,
+    db: CorpusDB | None = Depends(_get_db_optional),
+) -> dict[str, Any]:
+    """Agrège total_hits, épisodes distincts, langues distinctes et top-épisodes."""
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "NO_DB", "message": "corpus.db introuvable."},
+        )
+    term = body.term.strip()
+    if not term:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "EMPTY_TERM", "message": "Le terme est vide."},
+        )
+
+    BIG = 5000
+    if body.scope == "segments":
+        hits = db.query_kwic_segments(term, kind=body.kind, window=5, limit=BIG)
+    elif body.scope == "cues":
+        hits = db.query_kwic_cues(term, lang=body.lang, window=5, limit=BIG)
+    else:
+        hits = db.query_kwic(term, window=5, limit=BIG)
+
+    if body.episode_id:
+        hits = [h for h in hits if h.episode_id == body.episode_id]
+    if body.speaker:
+        needle = body.speaker.lower()
+        hits = [h for h in hits if h.speaker and needle in h.speaker.lower()]
+
+    ep_counts: dict[str, dict] = {}
+    langs: set[str] = set()
+    for h in hits:
+        if h.episode_id not in ep_counts:
+            ep_counts[h.episode_id] = {"episode_id": h.episode_id, "title": h.title, "count": 0}
+        ep_counts[h.episode_id]["count"] += 1
+        if h.lang:
+            langs.add(h.lang)
+
+    top_episodes = sorted(ep_counts.values(), key=lambda x: x["count"], reverse=True)[:8]
+
+    return {
+        "term":               term,
+        "scope":              body.scope,
+        "total_hits":         len(hits),
+        "distinct_episodes":  len(ep_counts),
+        "distinct_langs":     len(langs),
+        "top_episodes":       top_episodes,
     }
 
 
