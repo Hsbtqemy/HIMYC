@@ -526,6 +526,15 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def set_align_note(self, link_id: str, note: str | None) -> None:
+        """Enregistre une note libre dans meta_json d'un lien (G-008 / MX-049)."""
+        conn = self._conn()
+        try:
+            db_align.set_align_note(conn, link_id, note)
+            conn.commit()
+        finally:
+            conn.close()
+
     def bulk_set_align_status(
         self,
         align_run_id: str,

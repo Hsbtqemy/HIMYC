@@ -69,6 +69,30 @@ def set_align_status(conn: sqlite3.Connection, link_id: str, status: str) -> Non
     conn.execute("UPDATE align_links SET status = ? WHERE link_id = ?", (status, link_id))
 
 
+def set_align_note(conn: sqlite3.Connection, link_id: str, note: str | None) -> None:
+    """Enregistre une note libre dans meta_json (G-008 / MX-049).
+    Lit le meta_json existant, fusionne la note, réécrit.
+    Si note est None ou vide, supprime la clé 'note' du meta.
+    """
+    row = conn.execute(
+        "SELECT meta_json FROM align_links WHERE link_id = ?", (link_id,)
+    ).fetchone()
+    if row is None:
+        return
+    try:
+        meta: dict = json.loads(row[0]) if row[0] else {}
+    except (TypeError, ValueError):
+        meta = {}
+    if note:
+        meta["note"] = note
+    else:
+        meta.pop("note", None)
+    new_meta = json.dumps(meta, ensure_ascii=False) if meta else None
+    conn.execute(
+        "UPDATE align_links SET meta_json = ? WHERE link_id = ?", (new_meta, link_id)
+    )
+
+
 def bulk_set_align_status(
     conn: sqlite3.Connection,
     align_run_id: str,
@@ -422,7 +446,8 @@ def get_audit_links(
                al.segment_id, al.cue_id, al.cue_id_target,
                s.text AS text_segment, s.speaker_explicit, s.n AS segment_n,
                pc.text_clean AS text_pivot,
-               tc.text_clean AS text_target
+               tc.text_clean AS text_target,
+               al.meta_json
         {base_sql}
         ORDER BY COALESCE(s.n, 999999), al.lang
         LIMIT ? OFFSET ?
@@ -434,6 +459,13 @@ def get_audit_links(
     for r in rows:
         d = dict(r)
         d["confidence"] = round(d["confidence"], 4) if d["confidence"] is not None else None
+        # Extraire la note depuis meta_json (G-008)
+        meta_raw = d.pop("meta_json", None)
+        try:
+            meta = json.loads(meta_raw) if meta_raw else {}
+        except (TypeError, ValueError):
+            meta = {}
+        d["note"] = meta.get("note") or None
         result.append(d)
     return result, total
 

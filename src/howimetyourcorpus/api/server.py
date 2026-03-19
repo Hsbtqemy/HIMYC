@@ -626,26 +626,37 @@ def get_alignment_run_collisions(
 _VALID_LINK_STATUSES = frozenset(("accepted", "rejected", "auto", "ignored"))
 
 
-class _AlignStatusBody(BaseModel):
-    status: str  # "accepted" | "rejected" | "auto" | "ignored"
+class _AlignLinkPatchBody(BaseModel):
+    status: str | None = None   # "accepted" | "rejected" | "auto" | "ignored"
+    note:   str | None = None   # annotation libre (G-008 / MX-049)
 
 
 @app.patch(
     "/alignment_links/{link_id}",
-    summary="Mettre à jour le statut d'un lien d'alignement (MX-028)",
+    summary="Mettre à jour statut et/ou note d'un lien (MX-028 + G-008)",
 )
 def patch_alignment_link(
     link_id: str,
-    body: _AlignStatusBody,
+    body: _AlignLinkPatchBody,
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
-    """Accepte, rejette ou ignore un lien (accepted / rejected / auto / ignored)."""
+    """Met à jour le statut et/ou la note d'un lien d'alignement.
+    Au moins un des champs (status, note) doit être fourni.
+    """
     if db is None:
         raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
-    if body.status not in _VALID_LINK_STATUSES:
-        raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": "status doit être accepted, rejected, auto ou ignored."})
-    db.set_align_status(link_id, body.status)
-    return {"link_id": link_id, "status": body.status}
+    if body.status is None and body.note is None:
+        raise HTTPException(422, detail={"error": "NOTHING_TO_UPDATE", "message": "Fournissez au moins status ou note."})
+    result: dict[str, Any] = {"link_id": link_id}
+    if body.status is not None:
+        if body.status not in _VALID_LINK_STATUSES:
+            raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": "status doit être accepted, rejected, auto ou ignored."})
+        db.set_align_status(link_id, body.status)
+        result["status"] = body.status
+    if body.note is not None:
+        db.set_align_note(link_id, body.note or None)
+        result["note"] = body.note
+    return result
 
 
 class _BulkAlignStatusBody(BaseModel):
