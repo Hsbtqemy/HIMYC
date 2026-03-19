@@ -1186,6 +1186,47 @@ def export_qa_report(
     }
 
 
+# ─── /episodes/{id}/propagate_characters (MX-031) ────────────────────────────
+
+
+class _PropagateBody(BaseModel):
+    run_id: str
+
+
+@app.post(
+    "/episodes/{episode_id}/propagate_characters",
+    status_code=200,
+    summary="Propage les personnages vers segments/cues et réécrit les SRT (MX-031)",
+)
+def propagate_characters(
+    episode_id: str,
+    body: _PropagateBody,
+    store: ProjectStore = Depends(_get_store),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """
+    À partir des assignations et des liens d'alignement du run :
+    - Met à jour segments.speaker_explicit avec le nom canonique du personnage
+    - Préfixe les text_clean des cues alignées avec le nom par langue
+    - Réécrit les fichiers SRT dans le projet
+    Retourne le nombre de segments et de cues mis à jour.
+    """
+    if db is None:
+        raise HTTPException(503, detail={"error": "DB_UNAVAILABLE", "message": "Base de données non disponible."})
+
+    run = db.get_align_run(body.run_id)
+    if run is None or run.get("episode_id") != episode_id:
+        raise HTTPException(404, detail={"error": "RUN_NOT_FOUND", "message": f"Run {body.run_id!r} introuvable pour l'épisode {episode_id!r}."})
+
+    nb_seg, nb_cue = store.propagate_character_names(db, episode_id, body.run_id)
+    return {
+        "episode_id": episode_id,
+        "run_id": body.run_id,
+        "nb_segments_updated": nb_seg,
+        "nb_cues_updated": nb_cue,
+    }
+
+
 # ─── /alignment_runs (MX-030) ────────────────────────────────────────────────
 
 
