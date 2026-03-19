@@ -558,6 +558,33 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def search_subtitle_cues(
+        self,
+        episode_id: str,
+        lang: str,
+        *,
+        q: str | None = None,
+        around_cue_id: str | None = None,
+        around_window: int = 10,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Recherche des cues SRT (FTS ou neighbourhood). Retourne (rows, total)."""
+        conn = self._conn()
+        try:
+            return db_align.search_subtitle_cues(
+                conn,
+                episode_id,
+                lang,
+                q=q,
+                around_cue_id=around_cue_id,
+                around_window=around_window,
+                limit=limit,
+                offset=offset,
+            )
+        finally:
+            conn.close()
+
     def get_align_runs_for_episode(self, episode_id: str) -> list[dict]:
         """Retourne les runs d'alignement d'un épisode (pour l'UI)."""
         conn = self._conn()

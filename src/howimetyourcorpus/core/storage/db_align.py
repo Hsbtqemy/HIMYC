@@ -144,6 +144,103 @@ def update_align_link_cues(
         conn.execute("UPDATE align_links SET cue_id_target = ?, status = ? WHERE link_id = ?", (cue_id_target, "accepted", link_id))
 
 
+def search_subtitle_cues(
+    conn: sqlite3.Connection,
+    episode_id: str,
+    lang: str,
+    *,
+    q: str | None = None,
+    around_cue_id: str | None = None,
+    around_window: int = 10,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    """Recherche des cues SRT pour une langue/épisode (MX-040).
+
+    Modes :
+    - ``around_cue_id`` : retourne les ``around_window`` cues avant et après ce cue (même episode/lang,
+      triés par n).  Ignoré si ``q`` est fourni.
+    - ``q`` : recherche FTS5 dans ``cues_fts``.  Prioritaire sur ``around_cue_id``.
+    - Sans aucun filtre : retourne les cues dans l'ordre (n ASC) avec pagination.
+
+    Retourne ``(rows, total)`` où ``rows`` est une liste de dicts avec :
+    ``cue_id, episode_id, lang, n, start_ms, end_ms, text_clean``.
+    """
+    conn.row_factory = sqlite3.Row
+
+    if q:
+        # Mode FTS : on recherche dans cues_fts puis on joint pour récupérer les champs
+        # On échappe les caractères spéciaux FTS5 pour éviter les erreurs de syntaxe.
+        safe_q = q.replace('"', '""').strip()
+        fts_query = f'"{safe_q}"' if safe_q else safe_q
+
+        count_row = conn.execute(
+            """SELECT COUNT(*) AS cnt
+               FROM cues_fts
+               WHERE cues_fts MATCH ? AND episode_id = ? AND lang = ?""",
+            (fts_query, episode_id, lang),
+        ).fetchone()
+        total = (count_row["cnt"] if count_row else 0)
+
+        rows = conn.execute(
+            """SELECT sc.cue_id, sc.episode_id, sc.lang, sc.n,
+                      sc.start_ms, sc.end_ms, sc.text_clean
+               FROM cues_fts cf
+               JOIN subtitle_cues sc ON cf.cue_id = sc.cue_id
+               WHERE cf.cues_fts MATCH ? AND cf.episode_id = ? AND cf.lang = ?
+               ORDER BY sc.n
+               LIMIT ? OFFSET ?""",
+            (fts_query, episode_id, lang, limit, offset),
+        ).fetchall()
+        return [dict(r) for r in rows], total
+
+    if around_cue_id:
+        # Mode neighbourhood : on récupère le n du cue de référence, puis ±window
+        ref = conn.execute(
+            "SELECT n FROM subtitle_cues WHERE cue_id = ? AND episode_id = ? AND lang = ?",
+            (around_cue_id, episode_id, lang),
+        ).fetchone()
+        if ref is None:
+            return [], 0
+        n_ref = ref["n"]
+        n_min = n_ref - around_window
+        n_max = n_ref + around_window
+
+        count_row = conn.execute(
+            """SELECT COUNT(*) AS cnt FROM subtitle_cues
+               WHERE episode_id = ? AND lang = ? AND n BETWEEN ? AND ?""",
+            (episode_id, lang, n_min, n_max),
+        ).fetchone()
+        total = (count_row["cnt"] if count_row else 0)
+
+        rows = conn.execute(
+            """SELECT cue_id, episode_id, lang, n, start_ms, end_ms, text_clean
+               FROM subtitle_cues
+               WHERE episode_id = ? AND lang = ? AND n BETWEEN ? AND ?
+               ORDER BY n
+               LIMIT ? OFFSET ?""",
+            (episode_id, lang, n_min, n_max, limit, offset),
+        ).fetchall()
+        return [dict(r) for r in rows], total
+
+    # Mode liste simple : tous les cues triés par n
+    count_row = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM subtitle_cues WHERE episode_id = ? AND lang = ?",
+        (episode_id, lang),
+    ).fetchone()
+    total = (count_row["cnt"] if count_row else 0)
+
+    rows = conn.execute(
+        """SELECT cue_id, episode_id, lang, n, start_ms, end_ms, text_clean
+           FROM subtitle_cues
+           WHERE episode_id = ? AND lang = ?
+           ORDER BY n
+           LIMIT ? OFFSET ?""",
+        (episode_id, lang, limit, offset),
+    ).fetchall()
+    return [dict(r) for r in rows], total
+
+
 def get_align_runs_for_episode(conn: sqlite3.Connection, episode_id: str) -> list[dict]:
     """Retourne les runs d'alignement d'un épisode (pour l'UI)."""
     conn.row_factory = sqlite3.Row

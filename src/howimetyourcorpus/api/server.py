@@ -578,6 +578,73 @@ def bulk_patch_alignment_links(
     return {"updated": n, "new_status": body.new_status}
 
 
+# ─── Retarget (MX-040) ────────────────────────────────────────────────────────
+
+
+@app.get(
+    "/episodes/{episode_id}/subtitle_cues",
+    summary="Recherche de cues SRT pour un épisode/lang (MX-040)",
+)
+def get_subtitle_cues(
+    episode_id: str,
+    lang: str = Query(..., min_length=1, max_length=20),
+    q: str | None = Query(None, max_length=200),
+    around_cue_id: str | None = Query(None),
+    around_window: int = Query(10, ge=1, le=50),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Retourne des cues SRT pour le retarget d'un lien d'alignement.
+
+    Modes :
+    - ``q`` : recherche FTS5 sur le texte des cues (prioritaire).
+    - ``around_cue_id`` : ±``around_window`` cues voisins par numéro de séquence.
+    - Sans filtre : liste paginée triée par n.
+    """
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    rows, total = db.search_subtitle_cues(
+        episode_id,
+        lang,
+        q=q or None,
+        around_cue_id=around_cue_id or None,
+        around_window=around_window,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "episode_id": episode_id,
+        "lang": lang,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "cues": rows,
+    }
+
+
+class _RetargetBody(BaseModel):
+    cue_id_target: str  # Nouveau cue cible
+
+
+@app.patch(
+    "/alignment_links/{link_id}/retarget",
+    summary="Réassigner la cue cible d'un lien d'alignement (MX-040)",
+)
+def retarget_alignment_link(
+    link_id: str,
+    body: _RetargetBody,
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Met à jour le cue_id_target d'un lien et passe son statut à 'accepted'."""
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    if not body.cue_id_target.strip():
+        raise HTTPException(422, detail={"error": "INVALID_CUE_ID", "message": "cue_id_target est requis."})
+    db.update_align_link_cues(link_id, cue_id_target=body.cue_id_target)
+    return {"link_id": link_id, "cue_id_target": body.cue_id_target, "status": "accepted"}
+
+
 # ─── Concordancier parallèle (MX-029) ────────────────────────────────────────
 
 
