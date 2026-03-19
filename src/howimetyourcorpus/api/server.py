@@ -436,10 +436,12 @@ def get_alignment_run_stats(
         raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     stats = db.get_align_stats_for_run(episode_id, run_id)
     collisions = db.get_collisions_for_run(episode_id, run_id)
-    # Calcul couverture : % de liens avec statut != rejected (liens actifs) / total pivot
-    nb_pivot = stats.get("nb_pivot", 0)
-    nb_rejected = stats.get("by_status", {}).get("rejected", 0)
-    nb_active = max(0, nb_pivot - nb_rejected)
+    # Calcul couverture : % de liens non-rejetés et non-ignorés / total pivot
+    nb_pivot    = stats.get("nb_pivot", 0)
+    by_status   = stats.get("by_status", {})
+    nb_rejected = by_status.get("rejected", 0)
+    nb_ignored  = by_status.get("ignored",  0)
+    nb_active   = max(0, nb_pivot - nb_rejected - nb_ignored)
     coverage_pct = round(nb_active / nb_pivot * 100, 1) if nb_pivot else None
     return {
         **stats,
@@ -455,7 +457,7 @@ def get_alignment_run_stats(
 def get_alignment_run_links(
     episode_id: str,
     run_id: str,
-    status: str | None = Query(None, pattern="^(auto|accepted|rejected)$"),
+    status: str | None = Query(None, pattern="^(auto|accepted|rejected|ignored)$"),
     q: str | None = Query(None, max_length=200),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
@@ -497,8 +499,11 @@ def get_alignment_run_collisions(
     return {"episode_id": episode_id, "run_id": run_id, "collisions": collisions}
 
 
+_VALID_LINK_STATUSES = frozenset(("accepted", "rejected", "auto", "ignored"))
+
+
 class _AlignStatusBody(BaseModel):
-    status: str  # "accepted" | "rejected" | "auto"
+    status: str  # "accepted" | "rejected" | "auto" | "ignored"
 
 
 @app.patch(
@@ -510,13 +515,67 @@ def patch_alignment_link(
     body: _AlignStatusBody,
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
-    """Accepte ou rejette un lien (accepted / rejected / auto)."""
+    """Accepte, rejette ou ignore un lien (accepted / rejected / auto / ignored)."""
     if db is None:
         raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
-    if body.status not in ("accepted", "rejected", "auto"):
-        raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": "status doit être accepted, rejected ou auto."})
+    if body.status not in _VALID_LINK_STATUSES:
+        raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": "status doit être accepted, rejected, auto ou ignored."})
     db.set_align_status(link_id, body.status)
     return {"link_id": link_id, "status": body.status}
+
+
+class _BulkAlignStatusBody(BaseModel):
+    """Corps pour la mise à jour groupée des statuts (MX-039).
+
+    Deux modes exclusifs :
+    - ``link_ids`` fourni  → met à jour la liste explicite d'IDs.
+    - ``link_ids`` absent  → met à jour tous les liens du run filtré par ``filter_status``
+      et/ou ``conf_lt`` (confidence strictement inférieure, 0–1).
+    """
+
+    new_status: str
+    link_ids: list[str] | None = None
+    filter_status: str | None = None
+    conf_lt: float | None = None
+
+
+@app.patch(
+    "/episodes/{episode_id}/alignment_runs/{run_id}/links/bulk",
+    summary="Mise à jour groupée des statuts de liens (MX-039)",
+)
+def bulk_patch_alignment_links(
+    episode_id: str,
+    run_id: str,
+    body: _BulkAlignStatusBody,
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Modifie le statut de plusieurs liens en une seule opération atomique.
+
+    - ``new_status``    : statut à appliquer (accepted / rejected / auto / ignored).
+    - ``link_ids``      : liste explicite d'IDs à mettre à jour (mode liste).
+    - ``filter_status`` : filtre sur le statut courant (mode filtre).
+    - ``conf_lt``       : filtre sur la confidence < valeur (mode filtre).
+
+    En mode filtre, si aucun critère n'est fourni, tous les liens du run sont mis à jour.
+    """
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    if body.new_status not in _VALID_LINK_STATUSES:
+        raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": f"new_status doit être parmi {sorted(_VALID_LINK_STATUSES)}."})
+    if body.filter_status is not None and body.filter_status not in _VALID_LINK_STATUSES:
+        raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": f"filter_status doit être parmi {sorted(_VALID_LINK_STATUSES)}."})
+    if body.link_ids is not None and len(body.link_ids) == 0:
+        return {"updated": 0, "new_status": body.new_status}
+
+    n = db.bulk_set_align_status(
+        run_id,
+        episode_id,
+        body.new_status,
+        link_ids=body.link_ids,
+        filter_status=body.filter_status,
+        conf_lt=body.conf_lt,
+    )
+    return {"updated": n, "new_status": body.new_status}
 
 
 # ─── Concordancier parallèle (MX-029) ────────────────────────────────────────
@@ -529,7 +588,7 @@ def patch_alignment_link(
 def get_alignment_concordance(
     episode_id: str,
     run_id: str,
-    status: str | None = Query(None, pattern="^(auto|accepted|rejected)$"),
+    status: str | None = Query(None, pattern="^(auto|accepted|rejected|ignored)$"),
     q: str | None = Query(None, max_length=200),
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:

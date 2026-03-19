@@ -65,8 +65,63 @@ def upsert_align_links(
 
 
 def set_align_status(conn: sqlite3.Connection, link_id: str, status: str) -> None:
-    """Met à jour le statut d'un lien (accepted / rejected)."""
+    """Met à jour le statut d'un lien (accepted / rejected / ignored)."""
     conn.execute("UPDATE align_links SET status = ? WHERE link_id = ?", (status, link_id))
+
+
+def bulk_set_align_status(
+    conn: sqlite3.Connection,
+    align_run_id: str,
+    episode_id: str,
+    new_status: str,
+    *,
+    link_ids: list[str] | None = None,
+    filter_status: str | None = None,
+    conf_lt: float | None = None,
+) -> int:
+    """Mise à jour groupée des statuts de liens (MX-039).
+
+    Deux modes :
+    - ``link_ids`` non-None : met à jour la liste explicite d'IDs (chunké par 500 pour SQLite).
+    - Sinon         : met à jour tous les liens du run correspondant aux filtres optionnels
+      ``filter_status`` (statut courant) et ``conf_lt`` (confidence strictement inférieure).
+
+    Retourne le nombre de lignes effectivement modifiées.
+    """
+    if link_ids is not None:
+        if not link_ids:
+            return 0
+        total_updated = 0
+        # SQLite SQLITE_LIMIT_VARIABLE_NUMBER ≈ 999 — on chunk par 500 pour la marge
+        chunk_size = 500
+        for i in range(0, len(link_ids), chunk_size):
+            chunk = link_ids[i : i + chunk_size]
+            placeholders = ",".join("?" * len(chunk))
+            cur = conn.execute(
+                f"UPDATE align_links SET status = ? WHERE link_id IN ({placeholders})",
+                [new_status, *chunk],
+            )
+            total_updated += cur.rowcount
+        return total_updated
+
+    # Filter-based update (tous les liens du run correspondant aux critères)
+    where_parts = ["align_run_id = ?", "episode_id = ?"]
+    params: list = [align_run_id, episode_id]
+
+    if filter_status is not None:
+        where_parts.append("status = ?")
+        params.append(filter_status)
+
+    if conf_lt is not None:
+        where_parts.append("(confidence IS NOT NULL AND confidence < ?)")
+        params.append(conf_lt)
+
+    where = " AND ".join(where_parts)
+    cur = conn.execute(
+        f"UPDATE align_links SET status = ? WHERE {where}",
+        [new_status, *params],
+    )
+    return cur.rowcount
 
 
 def update_align_link_cues(

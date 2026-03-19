@@ -509,11 +509,38 @@ class CorpusDB:
             conn.close()
 
     def set_align_status(self, link_id: str, status: str) -> None:
-        """Met à jour le statut d'un lien (accepted / rejected)."""
+        """Met à jour le statut d'un lien (accepted / rejected / ignored)."""
         conn = self._conn()
         try:
             db_align.set_align_status(conn, link_id, status)
             conn.commit()
+        finally:
+            conn.close()
+
+    def bulk_set_align_status(
+        self,
+        align_run_id: str,
+        episode_id: str,
+        new_status: str,
+        *,
+        link_ids: list[str] | None = None,
+        filter_status: str | None = None,
+        conf_lt: float | None = None,
+    ) -> int:
+        """Mise à jour groupée des statuts de liens (MX-039). Retourne le nombre de lignes modifiées."""
+        conn = self._conn()
+        try:
+            n = db_align.bulk_set_align_status(
+                conn,
+                align_run_id,
+                episode_id,
+                new_status,
+                link_ids=link_ids,
+                filter_status=filter_status,
+                conf_lt=conf_lt,
+            )
+            conn.commit()
+            return n
         finally:
             conn.close()
 
