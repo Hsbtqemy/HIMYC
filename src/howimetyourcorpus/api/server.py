@@ -448,3 +448,82 @@ def cancel_job(
             },
         )
     return {"job_id": job_id, "status": "cancelled"}
+
+
+# ─── /query (MX-022) ──────────────────────────────────────────────────────────
+
+QUERY_SCOPES = frozenset(["episodes", "segments", "cues"])
+QUERY_KINDS  = frozenset(["sentence", "utterance"])
+
+
+class _QueryRequest(BaseModel):
+    term:       str
+    scope:      str                  = "segments"
+    kind:       str | None           = None   # segments uniquement
+    lang:       str | None           = None   # cues uniquement
+    episode_id: str | None           = None   # filtre post-query par episode_id
+    speaker:    str | None           = None   # filtre post-query par locuteur
+    window:     int                  = 60
+    limit:      int                  = 200
+
+
+@app.post("/query", summary="Recherche KWIC concordancier (MX-022)")
+def query_corpus(
+    body: _QueryRequest,
+    db: CorpusDB | None = Depends(_get_db_optional),
+) -> dict[str, Any]:
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "NO_DB",
+                "message": "corpus.db introuvable — indexez d'abord le projet.",
+            },
+        )
+    term = body.term.strip()
+    if not term:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "EMPTY_TERM", "message": "Le terme de recherche est vide."},
+        )
+    if body.scope not in QUERY_SCOPES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "INVALID_SCOPE",
+                "message": f"Scope invalide : {body.scope!r}. Valeurs : {sorted(QUERY_SCOPES)}",
+            },
+        )
+    if body.kind and body.kind not in QUERY_KINDS:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "INVALID_KIND",
+                "message": f"Kind invalide : {body.kind!r}. Valeurs : {sorted(QUERY_KINDS)}",
+            },
+        )
+
+    limit = max(1, min(body.limit, 2000))
+    window = max(10, min(body.window, 200))
+
+    if body.scope == "segments":
+        hits = db.query_kwic_segments(term, kind=body.kind, window=window, limit=limit)
+    elif body.scope == "cues":
+        hits = db.query_kwic_cues(term, lang=body.lang, window=window, limit=limit)
+    else:
+        hits = db.query_kwic(term, window=window, limit=limit)
+
+    # Filtres post-query
+    if body.episode_id:
+        hits = [h for h in hits if h.episode_id == body.episode_id]
+    if body.speaker:
+        needle = body.speaker.lower()
+        hits = [h for h in hits if h.speaker and needle in h.speaker.lower()]
+
+    from dataclasses import asdict
+    return {
+        "term":  term,
+        "scope": body.scope,
+        "total": len(hits),
+        "hits":  [asdict(h) for h in hits],
+    }
