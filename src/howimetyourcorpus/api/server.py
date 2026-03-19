@@ -1352,12 +1352,15 @@ def auto_assign_characters(
     if index is None or not index.episodes:
         return {"created": 0, "unmatched_labels": [], "dry_run": dry_run}
 
-    # Load existing assignments to skip duplicates
+    # Load existing assignments to skip duplicates.
+    # Rétrocompat : les anciens enregistrements peuvent utiliser source_type/source_id
+    # ou le nouveau format segment_id/cue_id.
     existing = store.load_character_assignments()
-    existing_keys: set[tuple[str, str]] = {
-        (str(a.get("source_type") or ""), str(a.get("source_id") or ""))
-        for a in existing
-    }
+    existing_seg_ids: set[str] = set()
+    for a in existing:
+        seg_id = a.get("segment_id") or a.get("source_id") or ""
+        if seg_id:
+            existing_seg_ids.add(str(seg_id))
 
     new_assignments: list[dict[str, Any]] = []
     unmatched: set[str] = set()
@@ -1373,17 +1376,16 @@ def auto_assign_characters(
             if not char_id:
                 unmatched.add(speaker)
                 continue
-            key = ("segment", seg["segment_id"])
-            if key in existing_keys:
+            seg_id = seg["segment_id"]
+            if seg_id in existing_seg_ids:
                 continue
             new_assignments.append({
-                "source_type": "segment",
-                "source_id": seg["segment_id"],
+                "segment_id":   seg_id,
                 "character_id": char_id,
-                "episode_id": ep.episode_id,
+                "episode_id":   ep.episode_id,
                 "speaker_label": speaker,
             })
-            existing_keys.add(key)
+            existing_seg_ids.add(seg_id)
             created += 1
 
     if new_assignments and not dry_run:
