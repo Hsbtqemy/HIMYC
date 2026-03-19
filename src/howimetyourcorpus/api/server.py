@@ -1186,6 +1186,91 @@ def export_qa_report(
     }
 
 
+# ─── /assignments/auto (MX-032) ──────────────────────────────────────────────
+
+
+@app.post("/assignments/auto", status_code=200, summary="Auto-assignation speaker_explicit → personnages (MX-032)")
+def auto_assign_characters(
+    dry_run: bool = Query(False, description="Simuler sans sauvegarder"),
+    store: ProjectStore = Depends(_get_store),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """
+    Parcourt tous les segments du projet, compare speaker_explicit avec le catalogue
+    personnages (id / canonical / names_by_lang / aliases, insensible à la casse),
+    et crée les assignations manquantes de type source_type=segment.
+    Les assignations existantes ne sont pas modifiées.
+    Si dry_run=true, retourne uniquement les statistiques sans sauvegarder.
+    """
+    characters = store.load_character_names()
+    if not characters:
+        raise HTTPException(422, detail={"error": "NO_CHARACTERS", "message": "Aucun personnage défini."})
+    if db is None:
+        raise HTTPException(503, detail={"error": "DB_UNAVAILABLE", "message": "Base de données non disponible."})
+
+    # Build lowercase label → character_id lookup
+    label_to_char: dict[str, str] = {}
+    for char in characters:
+        char_id = (char.get("id") or char.get("canonical") or "").strip()
+        if not char_id:
+            continue
+        labels: set[str] = {char_id, char.get("canonical") or ""}
+        labels.update((char.get("names_by_lang") or {}).values())
+        labels.update(char.get("aliases") or [])
+        for label in labels:
+            clean = (label or "").strip()
+            if clean:
+                label_to_char[clean.lower()] = char_id
+
+    index = store.load_series_index()
+    if index is None or not index.episodes:
+        return {"created": 0, "unmatched_labels": [], "dry_run": dry_run}
+
+    # Load existing assignments to skip duplicates
+    existing = store.load_character_assignments()
+    existing_keys: set[tuple[str, str]] = {
+        (str(a.get("source_type") or ""), str(a.get("source_id") or ""))
+        for a in existing
+    }
+
+    new_assignments: list[dict[str, Any]] = []
+    unmatched: set[str] = set()
+    created = 0
+
+    for ep in index.episodes:
+        segments = db.get_segments_for_episode(ep.episode_id)
+        for seg in segments:
+            speaker = (seg.get("speaker_explicit") or "").strip()
+            if not speaker:
+                continue
+            char_id = label_to_char.get(speaker.lower())
+            if not char_id:
+                unmatched.add(speaker)
+                continue
+            key = ("segment", seg["segment_id"])
+            if key in existing_keys:
+                continue
+            new_assignments.append({
+                "source_type": "segment",
+                "source_id": seg["segment_id"],
+                "character_id": char_id,
+                "episode_id": ep.episode_id,
+                "speaker_label": speaker,
+            })
+            existing_keys.add(key)
+            created += 1
+
+    if new_assignments and not dry_run:
+        store.save_character_assignments(existing + new_assignments)
+
+    return {
+        "created": created,
+        "total_after": len(existing) + (created if not dry_run else 0),
+        "unmatched_labels": sorted(unmatched),
+        "dry_run": dry_run,
+    }
+
+
 # ─── /episodes/{id}/propagate_characters (MX-031) ────────────────────────────
 
 
