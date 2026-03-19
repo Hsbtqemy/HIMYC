@@ -41,6 +41,7 @@ howimetyourcorpus = "howimetyourcorpus.app.main:main"
 
 [project.urls]
 Repository = "https://github.com/Hsbtqemy/HIMYC"
+Tauri = "https://github.com/Hsbtqemy/HIMYC_Tauri"
 
 [tool.setuptools.packages.find]
 where = ["src"]

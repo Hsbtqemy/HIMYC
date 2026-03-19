@@ -338,9 +338,9 @@ def test_kind_goto_visible_in_segments_view(qapp: QApplication) -> None:  # noqa
 
 
 def test_main_split_has_stretch(qapp: QApplication) -> None:  # noqa: ARG001
-    """Le splitter RAW/CLEAN a un stretch > 0 pour occuper l'espace disponible."""
+    """Le splitter externe (_outer_split) a un stretch > 0 pour occuper l'espace disponible."""
     tab = _make_tab()
     vbox = tab.layout()
-    idx = vbox.indexOf(tab.inspect_main_split)
+    idx = vbox.indexOf(tab._outer_split)
     assert idx >= 0
     assert vbox.stretch(idx) > 0

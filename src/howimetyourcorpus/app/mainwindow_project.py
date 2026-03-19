@@ -24,8 +24,8 @@ class MainWindowProjectController:
         """Met à jour les listes de langues (Sous-titres, Concordance, Préparer, Alignement, Personnages)."""
         win = self._window
         langs = win._store.load_project_languages() if win._store else ["en", "fr", "it"]  # noqa: SLF001
-        if hasattr(win, "inspector_tab") and win.inspector_tab and hasattr(win.inspector_tab, "subtitles_tab"):
-            win.inspector_tab.subtitles_tab.set_languages(langs)
+        if hasattr(win, "inspector_tab") and win.inspector_tab and hasattr(win.inspector_tab, "has_subtitle_panel") and win.inspector_tab.has_subtitle_panel():
+            win.inspector_tab.set_subtitle_languages(langs)
         if hasattr(win, "concordance_tab") and hasattr(win.concordance_tab, "set_languages"):
             win.concordance_tab.set_languages(langs)
             win.concordance_tab.refresh_speakers()
@@ -115,7 +115,8 @@ class MainWindowProjectController:
         has_combined_inspector = bool(
             hasattr(win, "inspector_tab")
             and win.inspector_tab
-            and hasattr(win.inspector_tab, "subtitles_tab")
+            and hasattr(win.inspector_tab, "has_subtitle_panel")
+            and win.inspector_tab.has_subtitle_panel()
         )
 
         def _refresh() -> None:

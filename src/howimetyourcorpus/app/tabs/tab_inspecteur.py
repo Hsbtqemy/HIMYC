@@ -77,10 +77,34 @@ class InspectorTabWidget(QWidget):
         self.inspect_episode_combo = QComboBox()
         self.inspect_episode_combo.currentIndexChanged.connect(self._load_episode)
         ep_row.addWidget(self.inspect_episode_combo)
+        # INS-005 — Sélecteur Source (transcript / pistes SRT) — contrôle la disponibilité des actions
+        self._file_label = QLabel("Source :")
+        ep_row.addWidget(self._file_label)
+        self.inspect_file_combo = QComboBox()
+        self.inspect_file_combo.setMinimumWidth(130)
+        self.inspect_file_combo.setToolTip(
+            "Source active : pilote le contenu affiché ET les actions disponibles.\n"
+            "• Transcript : zone de travail = RAW / CLEAN. Actions Normaliser et Découper actives.\n"
+            "• SRT — <lang> : zone de travail = contenu brut de la piste SRT. Actions Produire désactivées.\n"
+            "Les options SRT ne sont disponibles que si des pistes ont été importées via Outils SRT ▸."
+        )
+        self.inspect_file_combo.addItem("Transcript", "transcript")
+        self.inspect_file_combo.currentIndexChanged.connect(self._on_source_changed)
+        ep_row.addWidget(self.inspect_file_combo)
         ep_row.addStretch()
         layout.addLayout(ep_row)
 
-        # --- Bloc Consulter : navigation et lecture ---
+        # --- Splitter principal : volet gauche (contrôles) | volet droit (RAW / CLEAN) ---
+        self._outer_split = QSplitter(Qt.Orientation.Horizontal)
+        layout.addWidget(self._outer_split, 1)
+
+        # ── Volet gauche : tous les contrôles ──────────────────────────────
+        self._controls_panel = QWidget()
+        self._controls_panel.setMinimumWidth(220)
+        controls_layout = QVBoxLayout(self._controls_panel)
+        controls_layout.setContentsMargins(0, 4, 0, 0)
+
+        # Bloc Consulter : navigation et lecture
         consulter_group = QGroupBox("Consulter")
         consulter_layout = QHBoxLayout(consulter_group)
         consulter_layout.addWidget(QLabel("Vue:"))
@@ -89,7 +113,7 @@ class InspectorTabWidget(QWidget):
         self.inspect_view_combo.addItem("Segments", "segments")
         self.inspect_view_combo.currentIndexChanged.connect(self._switch_view)
         consulter_layout.addWidget(self.inspect_view_combo)
-        self._kind_label = QLabel("Kind:")
+        self._kind_label = QLabel("Type:")
         consulter_layout.addWidget(self._kind_label)
         self.inspect_kind_combo = QComboBox()
         self.inspect_kind_combo.addItem("Tous", "")
@@ -112,13 +136,13 @@ class InspectorTabWidget(QWidget):
         self.segment_goto_btn.clicked.connect(self._goto_segment)
         consulter_layout.addWidget(self.segment_goto_btn)
         consulter_layout.addStretch()
-        layout.addWidget(consulter_group)
+        controls_layout.addWidget(consulter_group)
 
-        # --- Bloc Produire : actions de transformation ---
+        # Bloc Produire : actions de transformation
         produire_group = QGroupBox("Produire")
         produire_layout = QVBoxLayout(produire_group)
         produire_row1 = QHBoxLayout()
-        self.inspect_segment_btn = QPushButton("Segmente l'épisode")
+        self.inspect_segment_btn = QPushButton("Découper en segments")
         self.inspect_segment_btn.clicked.connect(self._run_segment)
         produire_row1.addWidget(self.inspect_segment_btn)
         self.inspect_export_segments_btn = QPushButton("Exporter les segments")
@@ -140,16 +164,16 @@ class InspectorTabWidget(QWidget):
         produire_row2.addWidget(self.inspect_norm_btn)
         produire_row2.addStretch()
         produire_layout.addLayout(produire_row2)
-        layout.addWidget(produire_group)
+        controls_layout.addWidget(produire_group)
 
-        # --- Bloc Avancé : gestion des profils (replié par défaut) ---
+        # Bloc Avancé : gestion des profils (replié par défaut)
         self._avance_toggle_btn = QPushButton("Avancé ▸")
         self._avance_toggle_btn.setFlat(True)
         self._avance_toggle_btn.setToolTip(
             "Profil appliqué à RAW → CLEAN. Priorité : préféré épisode > défaut source (Profils) > config projet."
         )
         self._avance_toggle_btn.clicked.connect(self._toggle_avance)
-        layout.addWidget(self._avance_toggle_btn)
+        controls_layout.addWidget(self._avance_toggle_btn)
 
         self._avance_group = QGroupBox()
         self._avance_group.setVisible(False)
@@ -176,55 +200,63 @@ class InspectorTabWidget(QWidget):
         self.inspect_profile_rules_preview.setPlaceholderText("Sélectionnez un profil…")
         self.inspect_profile_rules_preview.setToolTip("Résumé des options du profil sélectionné (lecture seule).")
         avance_layout.addWidget(self.inspect_profile_rules_preview)
-        layout.addWidget(self._avance_group)
+        controls_layout.addWidget(self._avance_group)
         self._update_profile_rules_preview()
 
-        # --- Statut Prêt alignement (US-104) + CTA (US-302) ---
+        # Statut Prêt alignement (US-104) + CTA (US-302)
         self.pret_alignement_label = QLabel("Prêt alignement : —")
         self.pret_alignement_label.setToolTip(
-            "Prêt si CLEAN + segments + tracks SRT sont présents pour cet épisode."
+            "Prêt si CLEAN + segments + tracks SRT sont présents pour cet épisode.\n"
+            "« tracks SRT » = pistes importées via le bouton Outils SRT ▸ en haut de l'Inspecteur."
         )
-        layout.addWidget(self.pret_alignement_label)
+        controls_layout.addWidget(self.pret_alignement_label)
 
         self.cta_label = QLabel("Prochaine action : —")
         self.cta_label.setToolTip(
             "Recommandation CTA basée sur l'état réel de l'épisode (matrice US-301)."
         )
         self.cta_label.setWordWrap(True)
-        layout.addWidget(self.cta_label)
-
-        self.inspect_main_split = QSplitter(Qt.Orientation.Horizontal)
-        self.raw_edit = QPlainTextEdit()
-        self.raw_edit.setPlaceholderText("RAW")
-        self.clean_edit = QPlainTextEdit()
-        self.clean_edit.setPlaceholderText("CLEAN")
-        self.inspect_segments_list = QListWidget()
-        self.inspect_segments_list.setMinimumWidth(80)
-        self.inspect_segments_list.currentItemChanged.connect(self._on_segment_selected)
-        self.inspect_main_split.addWidget(self.inspect_segments_list)
-        self.inspect_right_split = QSplitter(Qt.Orientation.Vertical)
-        self.inspect_right_split.addWidget(self.raw_edit)
-        self.inspect_right_split.addWidget(self.clean_edit)
-        self.inspect_main_split.addWidget(self.inspect_right_split)
-        self.raw_edit.setMinimumHeight(60)
-        self.clean_edit.setMinimumHeight(60)
-        layout.addWidget(self.inspect_main_split, 1)
-        self._restore_splitter_sizes()
+        controls_layout.addWidget(self.cta_label)
 
         self.inspect_stats_label = QLabel("Stats: —")
-        layout.addWidget(self.inspect_stats_label)
+        controls_layout.addWidget(self.inspect_stats_label)
         self.merge_examples_edit = QPlainTextEdit()
         self.merge_examples_edit.setReadOnly(True)
         self.merge_examples_edit.setMaximumHeight(120)
-        layout.addWidget(QLabel("Exemples de fusions:"))
-        layout.addWidget(self.merge_examples_edit)
-        layout.addWidget(QLabel("Notes — à vérifier / à affiner (sauvegardé par épisode) :"))
+        controls_layout.addWidget(QLabel("Exemples de fusions:"))
+        controls_layout.addWidget(self.merge_examples_edit)
+        controls_layout.addWidget(QLabel("Notes — à vérifier / à affiner (sauvegardé par épisode) :"))
         self.inspect_notes_edit = QPlainTextEdit()
         self.inspect_notes_edit.setPlaceholderText(
             "Points à vérifier, à changer, à affiner pour cet épisode…"
         )
         self.inspect_notes_edit.setMaximumHeight(100)
-        layout.addWidget(self.inspect_notes_edit)
+        controls_layout.addWidget(self.inspect_notes_edit)
+        controls_layout.addStretch()
+
+        self._outer_split.addWidget(self._controls_panel)
+
+        # ── Volet droit : liste segments + RAW + CLEAN côte à côte ─────────
+        self.inspect_main_split = QSplitter(Qt.Orientation.Horizontal)
+        self.inspect_segments_list = QListWidget()
+        self.inspect_segments_list.setMinimumWidth(80)
+        self.inspect_segments_list.currentItemChanged.connect(self._on_segment_selected)
+        self.raw_edit = QPlainTextEdit()
+        self.raw_edit.setPlaceholderText("RAW")
+        self.raw_edit.setMinimumHeight(60)
+        self.clean_edit = QPlainTextEdit()
+        self.clean_edit.setPlaceholderText("CLEAN")
+        self.clean_edit.setMinimumHeight(60)
+        self.inspect_main_split.addWidget(self.inspect_segments_list)
+        self.inspect_main_split.addWidget(self.raw_edit)
+        self.inspect_main_split.addWidget(self.clean_edit)
+        self.inspect_main_split.setStretchFactor(1, 1)
+        self.inspect_main_split.setStretchFactor(2, 1)
+        self._outer_split.addWidget(self.inspect_main_split)
+        self._outer_split.setStretchFactor(0, 0)
+        self._outer_split.setStretchFactor(1, 1)
+
+        self._restore_splitter_sizes()
         self.inspect_segments_list.setVisible(False)
         self.inspect_kind_combo.setVisible(False)
         self._kind_label.setVisible(False)
@@ -232,6 +264,67 @@ class InspectorTabWidget(QWidget):
         self.segment_goto_edit.setVisible(False)
         self.segment_goto_btn.setVisible(False)
         self._update_action_buttons()
+
+    def _refresh_file_combo(self, eid: str | None) -> None:
+        """INS-005 — Peuple le combo Fichier : Transcript toujours + pistes SRT disponibles."""
+        self.inspect_file_combo.blockSignals(True)
+        current = self.inspect_file_combo.currentData()
+        self.inspect_file_combo.clear()
+        self.inspect_file_combo.addItem("Transcript", "transcript")
+        if eid:
+            db = self._get_db()
+            if db:
+                try:
+                    seen_langs: set[str] = set()
+                    for t in db.get_tracks_for_episode(eid):
+                        lang = t.get("lang", "")
+                        if lang and lang not in seen_langs:
+                            seen_langs.add(lang)
+                            self.inspect_file_combo.addItem(f"SRT — {lang.upper()}", f"srt_{lang}")
+                except Exception:
+                    pass
+        idx = self.inspect_file_combo.findData(current)
+        self.inspect_file_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.inspect_file_combo.blockSignals(False)
+
+    def _on_source_changed(self) -> None:
+        """INS-014 — Déclenché par le combo Source : recharge contenu puis met à jour les actions."""
+        self._load_source_content()
+        self._update_action_buttons()
+
+    def _load_source_content(self) -> None:
+        """INS-014 — Charge dans la zone de travail le contenu correspondant à la source active."""
+        eid = self._current_episode_id
+        if not eid:
+            self.raw_edit.clear()
+            self.clean_edit.clear()
+            self.raw_edit.setPlaceholderText("RAW")
+            self.clean_edit.setPlaceholderText("CLEAN")
+            return
+        source = self.inspect_file_combo.currentData() or "transcript"
+        store = self._get_store()
+        if not store:
+            return
+        if source == "transcript":
+            raw = store.load_episode_text(eid, kind="raw")
+            clean = store.load_episode_text(eid, kind="clean")
+            self.raw_edit.setPlainText(raw)
+            self.clean_edit.setPlainText(clean)
+            self.raw_edit.setPlaceholderText("RAW")
+            self.clean_edit.setPlaceholderText("CLEAN")
+        else:
+            # source = "srt_<lang>"
+            lang = source[4:]
+            result = None
+            try:
+                result = store.load_episode_subtitle_content(eid, lang)
+            except Exception:
+                pass
+            content = result[0] if result else ""
+            self.raw_edit.setPlainText(content)
+            self.raw_edit.setPlaceholderText(f"SRT — {lang.upper()} (contenu brut)")
+            self.clean_edit.clear()
+            self.clean_edit.setPlaceholderText("Non applicable — source SRT")
 
     def _update_action_buttons(self) -> None:
         """US-103/104/302 — Active/désactive les boutons, met à jour Prêt alignement et CTA."""
@@ -265,21 +358,37 @@ class InspectorTabWidget(QWidget):
             except Exception:
                 pass
 
-        # Normaliser : nécessite RAW
-        self.inspect_norm_btn.setEnabled(has_raw)
-        self.inspect_norm_btn.setToolTip(
-            "Applique la normalisation (RAW → CLEAN) à l'épisode affiché, avec le profil choisi."
-            if has_raw
-            else "Indisponible : aucun texte RAW pour cet épisode. Téléchargez d'abord le transcript."
-        )
+        # INS-006 — Source courante (transcript ou srt_<lang>)
+        source = self.inspect_file_combo.currentData() if self.inspect_file_combo.count() > 0 else "transcript"
+        is_transcript = not source or source == "transcript"
 
-        # Segmenter : nécessite CLEAN
-        self.inspect_segment_btn.setEnabled(has_clean)
-        self.inspect_segment_btn.setToolTip(
-            ""
-            if has_clean
-            else "Indisponible : aucun texte CLEAN pour cet épisode. Normalisez d'abord le transcript."
-        )
+        # Normaliser : nécessite RAW + source transcript
+        if not is_transcript:
+            self.inspect_norm_btn.setEnabled(False)
+            self.inspect_norm_btn.setToolTip(
+                "Source SRT sélectionnée — normalisation non applicable. Sélectionnez Transcript."
+            )
+        else:
+            self.inspect_norm_btn.setEnabled(has_raw)
+            self.inspect_norm_btn.setToolTip(
+                "Applique la normalisation (RAW → CLEAN) à l'épisode affiché, avec le profil choisi."
+                if has_raw
+                else "Indisponible : aucun texte RAW pour cet épisode. Téléchargez d'abord le transcript."
+            )
+
+        # Segmenter : nécessite CLEAN + source transcript
+        if not is_transcript:
+            self.inspect_segment_btn.setEnabled(False)
+            self.inspect_segment_btn.setToolTip(
+                "Source SRT sélectionnée — segmentation transcript non applicable. Sélectionnez Transcript."
+            )
+        else:
+            self.inspect_segment_btn.setEnabled(has_clean)
+            self.inspect_segment_btn.setToolTip(
+                ""
+                if has_clean
+                else "Indisponible : aucun texte CLEAN pour cet épisode. Normalisez d'abord le transcript."
+            )
 
         # Exporter : nécessite des segments
         self.inspect_export_segments_btn.setEnabled(has_segments)
@@ -287,7 +396,7 @@ class InspectorTabWidget(QWidget):
             "Exporte les segments de l'épisode affiché : TXT (une ligne par segment), CSV/TSV (colonnes détaillées), "
             "SRT-like (blocs numérotés), Word (.docx)."
             if has_segments
-            else "Indisponible : aucun segment pour cet épisode. Lancez d'abord « Segmente l'épisode »."
+            else "Indisponible : aucun segment pour cet épisode. Lancez d'abord « Découper en segments »."
         )
 
         # Statut Prêt alignement (US-104)
@@ -321,8 +430,18 @@ class InspectorTabWidget(QWidget):
                 use_similarity=use_similarity,
             )
             rec = recommend(state)
-            self.cta_label.setText(f"Prochaine action : {rec.label}")
-            self.cta_label.setToolTip(rec.detail)
+            # INS-006 — Si source SRT active, les actions Produire sont désactivées :
+            # neutraliser les recommandations qui pointeraient vers ces actions.
+            if not is_transcript and rec.action_id in ("normalize_episode", "segment_episode", "segment_or_srt_only"):
+                self.cta_label.setText("Prochaine action : Source SRT sélectionnée — Ouvrez l'onglet Alignement pour lancer.")
+                self.cta_label.setToolTip(
+                    "Mode SRT actif. Les actions Normaliser et Découper ne sont pas disponibles pour cette source.\n"
+                    "Sélectionnez « Transcript » dans Source pour accéder à ces actions,\n"
+                    "ou ouvrez l'onglet Alignement pour lancer directement avec la piste SRT."
+                )
+            else:
+                self.cta_label.setText(f"Prochaine action : {rec.label}")
+                self.cta_label.setToolTip(rec.detail)
 
     def _restore_splitter_sizes(self) -> None:
         def to_sizes(val) -> list[int] | None:
@@ -341,18 +460,18 @@ class InspectorTabWidget(QWidget):
             return None
 
         settings = QSettings()
+        outer = to_sizes(settings.value("inspecteur/outerSplitter"))
         main = to_sizes(settings.value("inspecteur/mainSplitter"))
-        right = to_sizes(settings.value("inspecteur/rightSplitter"))
+        if outer is not None and len(outer) >= 2:
+            self._outer_split.setSizes(outer)
         if main is not None and len(main) >= 2:
             self.inspect_main_split.setSizes(main)
-        if right is not None and len(right) >= 2:
-            self.inspect_right_split.setSizes(right)
 
     def save_state(self) -> None:
         """Sauvegarde les proportions des splitters et les notes de l'épisode courant (appelé à la fermeture)."""
         settings = QSettings()
+        settings.setValue("inspecteur/outerSplitter", self._outer_split.sizes())
         settings.setValue("inspecteur/mainSplitter", self.inspect_main_split.sizes())
-        settings.setValue("inspecteur/rightSplitter", self.inspect_right_split.sizes())
         store = self._get_store()
         if self._current_episode_id and store:
             store.save_episode_notes(
@@ -413,6 +532,7 @@ class InspectorTabWidget(QWidget):
             self.merge_examples_edit.clear()
             self.inspect_notes_edit.clear()
             self.inspect_segments_list.clear()
+            self._refresh_file_combo(None)  # INS-005 — reset à Transcript
             self._update_action_buttons()
             return
         if self._current_episode_id and self._current_episode_id != eid:
@@ -422,10 +542,6 @@ class InspectorTabWidget(QWidget):
             )
         self._current_episode_id = eid
         self.inspect_notes_edit.setPlainText(store.load_episode_notes(eid))
-        raw = store.load_episode_text(eid, kind="raw")
-        clean = store.load_episode_text(eid, kind="clean")
-        self.raw_edit.setPlainText(raw)
-        self.clean_edit.setPlainText(clean)
         meta = store.load_episode_transform_meta(eid)
         if meta is not None:
             stats = meta.get("raw_lines", 0), meta.get("clean_lines", 0), meta.get("merges", 0)
@@ -458,6 +574,8 @@ class InspectorTabWidget(QWidget):
         all_ids = get_all_profile_ids(store.load_custom_profiles() if store else None)
         if profile and profile in all_ids:
             self.inspect_profile_combo.setCurrentText(profile)
+        self._refresh_file_combo(eid)  # INS-005 — mettre à jour les sources disponibles
+        self._load_source_content()    # INS-014 — charger le contenu selon la source active
         self._fill_segments(eid)
         self._update_action_buttons()
 
@@ -555,6 +673,9 @@ class InspectorTabWidget(QWidget):
 
     @require_project
     def _run_normalize(self) -> None:
+        # INS-015 — Guard source : normalisation transcript-only (bouton déjà désactivé par _update_action_buttons)
+        if (self.inspect_file_combo.currentData() or "transcript") != "transcript":
+            return
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
         assert store is not None  # garanti par @require_project
@@ -612,6 +733,9 @@ class InspectorTabWidget(QWidget):
 
     @require_project_and_db
     def _run_segment(self) -> None:
+        # INS-015 — Guard source : segmentation transcript-only (bouton déjà désactivé par _update_action_buttons)
+        if (self.inspect_file_combo.currentData() or "transcript") != "transcript":
+            return
         eid = self.inspect_episode_combo.currentData()
         store = self._get_store()
         assert store is not None  # garanti par @require_project_and_db
@@ -635,7 +759,7 @@ class InspectorTabWidget(QWidget):
             QMessageBox.warning(
                 self,
                 "Export segments",
-                "Aucun segment pour cet épisode. Lancez d'abord « Segmente l'épisode ».",
+                "Aucun segment pour cet épisode. Lancez d'abord « Découper en segments ».",
             )
             return
         path, selected_filter = QFileDialog.getSaveFileName(

@@ -311,3 +311,163 @@ def test_expert_context_consistent_when_same_episode(qapp: QApplication) -> None
 
     text = expert.summary_edit.toPlainText()
     assert "Context consistent: yes" in text
+
+
+# ---------------------------------------------------------------------------
+# INS-001/002/004 — Mode Focus et bouton Outils SRT
+# ---------------------------------------------------------------------------
+
+def _clear_focus_setting() -> None:
+    """Nettoie la clé QSettings pour garantir l'état par défaut (True)."""
+    from PySide6.QtCore import QSettings
+    QSettings().remove("inspecteur/focus_mode")
+
+
+def test_focus_mode_is_default(qapp: QApplication) -> None:  # noqa: ARG001
+    """À l'ouverture sans QSettings, le mode Focus est actif (_focus_mode = True)."""
+    _clear_focus_setting()
+    tab = _combined(_FakeStore(), _FakeDb())
+    assert tab._focus_mode is True
+
+
+def test_srt_panel_hidden_in_focus_mode(qapp: QApplication) -> None:  # noqa: ARG001
+    """En mode Focus, le panneau SRT est masqué (setVisible(False))."""
+    _clear_focus_setting()
+    tab = _combined(_FakeStore(), _FakeDb())
+    # Le panneau a explicitement reçu setVisible(False) → False même sans show()
+    assert not tab._srt_panel.isVisible()
+
+
+def test_srt_toggle_btn_label_in_focus_mode(qapp: QApplication) -> None:  # noqa: ARG001
+    """En mode Focus, le bouton affiche ▸ (panneau fermé)."""
+    _clear_focus_setting()
+    tab = _combined(_FakeStore(), _FakeDb())
+    assert "▸" in tab._srt_toggle_btn.text()
+
+
+def test_toggle_opens_srt_panel(qapp: QApplication) -> None:  # noqa: ARG001
+    """Cliquer le bouton SRT passe en mode Complet (_focus_mode = False)."""
+    _clear_focus_setting()
+    tab = _combined(_FakeStore(), _FakeDb())
+    tab._srt_toggle_btn.click()
+    assert tab._focus_mode is False
+
+
+def test_toggle_label_changes_to_open(qapp: QApplication) -> None:  # noqa: ARG001
+    """Après le premier toggle, le bouton affiche ▾ (panneau ouvert)."""
+    _clear_focus_setting()
+    tab = _combined(_FakeStore(), _FakeDb())
+    tab._srt_toggle_btn.click()
+    assert "▾" in tab._srt_toggle_btn.text()
+
+
+def test_toggle_twice_returns_to_focus(qapp: QApplication) -> None:  # noqa: ARG001
+    """Double clic sur le bouton remet en mode Focus."""
+    _clear_focus_setting()
+    tab = _combined(_FakeStore(), _FakeDb())
+    tab._srt_toggle_btn.click()
+    tab._srt_toggle_btn.click()
+    assert tab._focus_mode is True
+    assert "▸" in tab._srt_toggle_btn.text()
+
+
+def test_save_state_no_crash_in_focus_mode(qapp: QApplication) -> None:  # noqa: ARG001
+    """save_state() ne crashe pas en mode Focus (QSettings)."""
+    tab = _combined(_FakeStore(), _FakeDb())
+    tab.save_state()  # doit s'exécuter sans exception
+
+
+def test_episode_change_in_focus_mode_no_crash(qapp: QApplication) -> None:  # noqa: ARG001
+    """Changer d'épisode en mode Focus ne provoque pas de crash."""
+    _clear_focus_setting()
+    tab = _combined(_FakeStore(), _FakeDb())
+    assert tab._focus_mode is True
+    idx = tab.episode_combo.findData("S01E02")
+    tab.episode_combo.setCurrentIndex(idx)
+    assert tab.inspector_tab._current_episode_id == "S01E02"
+
+
+# ---------------------------------------------------------------------------
+# INS-005/006 — Sélecteur Fichier et actions contextuelles
+# ---------------------------------------------------------------------------
+
+def test_file_combo_has_transcript_always(qapp: QApplication) -> None:  # noqa: ARG001
+    """Le combo Fichier contient toujours 'Transcript' (quelle que soit la présence de tracks)."""
+    store = _FakeStore()
+    db = _FakeDb()  # pas de tracks
+    tab = _inspector(store, db)
+    data_values = [tab.inspect_file_combo.itemData(i) for i in range(tab.inspect_file_combo.count())]
+    assert "transcript" in data_values
+
+
+def test_file_combo_has_srt_when_tracks_present(qapp: QApplication) -> None:  # noqa: ARG001
+    """Le combo Fichier ajoute les options SRT quand des pistes sont disponibles."""
+    store = _FakeStore()
+    db = _FakeDb(tracks={"S01E01": [{"track_id": "t1", "lang": "fr"}]})
+    tab = _inspector(store, db)
+    data_values = [tab.inspect_file_combo.itemData(i) for i in range(tab.inspect_file_combo.count())]
+    assert "srt_fr" in data_values
+
+
+def test_file_combo_no_srt_when_no_tracks(qapp: QApplication) -> None:  # noqa: ARG001
+    """Sans tracks, seule l'option Transcript est présente dans le combo Fichier."""
+    store = _FakeStore()
+    db = _FakeDb(tracks={})
+    tab = _inspector(store, db)
+    assert tab.inspect_file_combo.count() == 1
+    assert tab.inspect_file_combo.itemData(0) == "transcript"
+
+
+def test_norm_btn_disabled_with_srt_source(qapp: QApplication) -> None:  # noqa: ARG001
+    """INS-006 — Normaliser est désactivé quand la source SRT est sélectionnée."""
+    store = _FakeStore(raw_episodes={"S01E01"})
+    db = _FakeDb(tracks={"S01E01": [{"lang": "en"}]})
+    tab = _inspector(store, db)
+    # Sélectionner la source SRT
+    idx = tab.inspect_file_combo.findData("srt_en")
+    assert idx >= 0
+    tab.inspect_file_combo.setCurrentIndex(idx)
+    assert not tab.inspect_norm_btn.isEnabled()
+    assert "SRT" in tab.inspect_norm_btn.toolTip()
+
+
+def test_segment_btn_disabled_with_srt_source(qapp: QApplication) -> None:  # noqa: ARG001
+    """INS-006 — Segmenter est désactivé quand la source SRT est sélectionnée."""
+    store = _FakeStore(raw_episodes={"S01E01"}, clean_episodes={"S01E01"})
+    db = _FakeDb(tracks={"S01E01": [{"lang": "en"}]})
+    tab = _inspector(store, db)
+    idx = tab.inspect_file_combo.findData("srt_en")
+    tab.inspect_file_combo.setCurrentIndex(idx)
+    assert not tab.inspect_segment_btn.isEnabled()
+    assert "SRT" in tab.inspect_segment_btn.toolTip()
+
+
+def test_norm_btn_restored_on_transcript_source(qapp: QApplication) -> None:  # noqa: ARG001
+    """INS-006 — Normaliser est réactivé quand on revient à la source Transcript."""
+    store = _FakeStore(raw_episodes={"S01E01"})
+    db = _FakeDb(tracks={"S01E01": [{"lang": "en"}]})
+    tab = _inspector(store, db)
+    # Aller sur SRT
+    idx_srt = tab.inspect_file_combo.findData("srt_en")
+    tab.inspect_file_combo.setCurrentIndex(idx_srt)
+    assert not tab.inspect_norm_btn.isEnabled()
+    # Revenir sur Transcript
+    idx_tr = tab.inspect_file_combo.findData("transcript")
+    tab.inspect_file_combo.setCurrentIndex(idx_tr)
+    assert tab.inspect_norm_btn.isEnabled()
+
+
+def test_file_combo_resets_to_transcript_on_episode_change(qapp: QApplication) -> None:  # noqa: ARG001
+    """Changer d'épisode peuple le combo Fichier selon les tracks du nouvel épisode."""
+    store = _FakeStore()
+    # S01E01 a une track FR, S01E02 n'en a pas
+    db = _FakeDb(tracks={"S01E01": [{"lang": "fr"}], "S01E02": []})
+    tab = _inspector(store, db)
+    # S01E01 : doit avoir srt_fr
+    data_e01 = [tab.inspect_file_combo.itemData(i) for i in range(tab.inspect_file_combo.count())]
+    assert "srt_fr" in data_e01
+    # Changer vers S01E02
+    tab.set_episode_and_load("S01E02")
+    data_e02 = [tab.inspect_file_combo.itemData(i) for i in range(tab.inspect_file_combo.count())]
+    assert "srt_fr" not in data_e02
+    assert "transcript" in data_e02

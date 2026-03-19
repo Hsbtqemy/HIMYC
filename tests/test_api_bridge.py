@@ -197,23 +197,217 @@ def test_jobs_stub_returns_empty_list(tmp_path):
         del os.environ["HIMYC_PROJECT_PATH"]
 
 
-def test_jobs_post_stub_501(tmp_path):
-    """POST /jobs retourne 501 NOT_IMPLEMENTED (stub MX-006)."""
+# ─── POST /episodes/{id}/sources/transcript (MX-005) ─────────────────────────
+
+
+def test_import_transcript_creates_raw(tmp_path):
+    """POST /episodes/S01E01/sources/transcript → 201, raw.txt créé."""
     os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
     try:
-        r = client.post("/jobs", json={})
-        assert r.status_code == 501
-        assert r.json()["detail"]["error"] == "NOT_IMPLEMENTED"
+        r = client.post(
+            "/episodes/S01E01/sources/transcript",
+            json={"content": "Hello world transcript"},
+        )
+        assert r.status_code == 201
+        data = r.json()
+        assert data["source_key"] == "transcript"
+        assert data["state"] == "raw"
+        assert (tmp_path / "episodes" / "S01E01" / "raw.txt").read_text() == "Hello world transcript"
     finally:
         del os.environ["HIMYC_PROJECT_PATH"]
 
 
-def test_jobs_get_by_id_stub_404(tmp_path):
-    """GET /jobs/{id} retourne 404 JOB_NOT_FOUND (stub MX-006)."""
+def test_import_transcript_empty_content(tmp_path):
+    """Contenu vide → 422 EMPTY_CONTENT."""
     os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
     try:
-        r = client.get("/jobs/some-job-id")
+        r = client.post(
+            "/episodes/S01E01/sources/transcript",
+            json={"content": "   "},
+        )
+        assert r.status_code == 422
+        assert r.json()["detail"]["error"] == "EMPTY_CONTENT"
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+# ─── POST /episodes/{id}/sources/srt_{lang} (MX-005) ─────────────────────────
+
+
+def test_import_srt_creates_file(tmp_path):
+    """POST /episodes/S01E01/sources/srt_en → 201, fichier SRT créé."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        srt_content = "1\n00:00:01,000 --> 00:00:02,000\nHello\n"
+        r = client.post(
+            "/episodes/S01E01/sources/srt_en",
+            json={"content": srt_content, "fmt": "srt"},
+        )
+        assert r.status_code == 201
+        data = r.json()
+        assert data["source_key"] == "srt_en"
+        assert data["language"] == "en"
+        assert data["state"] == "raw"
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_import_srt_invalid_source_key(tmp_path):
+    """source_key invalide → 400 INVALID_SOURCE_KEY."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.post(
+            "/episodes/S01E01/sources/invalid_key",
+            json={"content": "1\n00:00:01,000 --> 00:00:02,000\nHello\n"},
+        )
+        assert r.status_code == 400
+        assert r.json()["detail"]["error"] == "INVALID_SOURCE_KEY"
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_import_srt_empty_content(tmp_path):
+    """Contenu SRT vide → 422 EMPTY_CONTENT."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.post(
+            "/episodes/S01E01/sources/srt_fr",
+            json={"content": ""},
+        )
+        assert r.status_code == 422
+        assert r.json()["detail"]["error"] == "EMPTY_CONTENT"
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_list_empty(tmp_path):
+    """GET /jobs → liste vide sur un projet sans jobs."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.get("/jobs")
+        assert r.status_code == 200
+        assert r.json()["jobs"] == []
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_create_normalize_transcript(tmp_path):
+    """POST /jobs avec type normalize_transcript → 201 + job pending."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.post(
+            "/jobs",
+            json={"job_type": "normalize_transcript", "episode_id": "S01E01"},
+        )
+        assert r.status_code == 201
+        data = r.json()
+        assert data["job_type"] == "normalize_transcript"
+        assert data["episode_id"] == "S01E01"
+        assert data["status"] in ("pending", "running", "done", "error")
+        assert "job_id" in data
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_create_invalid_type(tmp_path):
+    """POST /jobs avec type inconnu → 400 INVALID_JOB_TYPE."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.post(
+            "/jobs",
+            json={"job_type": "unknown_type", "episode_id": "S01E01"},
+        )
+        assert r.status_code == 400
+        assert r.json()["detail"]["error"] == "INVALID_JOB_TYPE"
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_get_by_id(tmp_path):
+    """GET /jobs/{id} retourne le job créé."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r_create = client.post(
+            "/jobs",
+            json={"job_type": "normalize_transcript", "episode_id": "S01E02"},
+        )
+        job_id = r_create.json()["job_id"]
+        r = client.get(f"/jobs/{job_id}")
+        assert r.status_code == 200
+        assert r.json()["job_id"] == job_id
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_get_by_id_not_found(tmp_path):
+    """GET /jobs/{id} → 404 JOB_NOT_FOUND pour id inconnu."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.get("/jobs/nonexistent-id")
         assert r.status_code == 404
         assert r.json()["detail"]["error"] == "JOB_NOT_FOUND"
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_cancel_pending(tmp_path):
+    """DELETE /jobs/{id} annule un job pending."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r_create = client.post(
+            "/jobs",
+            json={"job_type": "segment_transcript", "episode_id": "S01E03"},
+        )
+        job_id = r_create.json()["job_id"]
+        # Annuler seulement si pending (le worker peut être rapide)
+        r_del = client.delete(f"/jobs/{job_id}")
+        # 200 (annulé) ou 409 (déjà running/done)
+        assert r_del.status_code in (200, 409)
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_create_align(tmp_path):
+    """POST /jobs avec type align + params → 201."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.post(
+            "/jobs",
+            json={
+                "job_type": "align",
+                "episode_id": "S01E01",
+                "params": {"pivot_lang": "en", "target_langs": ["fr"], "segment_kind": "sentence"},
+            },
+        )
+        assert r.status_code == 201
+        data = r.json()
+        assert data["job_type"] == "align"
+        assert data["params"]["pivot_lang"] == "en"
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_alignment_runs_empty(tmp_path):
+    """GET /episodes/{id}/alignment_runs → liste vide si aucun run."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        r = client.get("/episodes/S01E01/alignment_runs")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["episode_id"] == "S01E01"
+        assert data["runs"] == []
+    finally:
+        del os.environ["HIMYC_PROJECT_PATH"]
+
+
+def test_jobs_persistence(tmp_path):
+    """Les jobs sont persistés dans jobs.json après création."""
+    os.environ["HIMYC_PROJECT_PATH"] = str(tmp_path)
+    try:
+        client.post(
+            "/jobs",
+            json={"job_type": "normalize_srt", "episode_id": "S01E01", "source_key": "srt_en"},
+        )
+        assert (tmp_path / "jobs.json").exists()
     finally:
         del os.environ["HIMYC_PROJECT_PATH"]

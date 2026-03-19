@@ -5,7 +5,7 @@
 |----------------|-------------------------------------------------|
 | Référence      | MX-017                                          |
 | Date recette   | 2026-03-19                                      |
-| Version app    | commit e3ce77b (himyc-tauri main)               |
+| Version app    | commit e3ce77b (HIMYC_Tauri main)               |
 | OS / résolution| macOS 25.3.0                                    |
 | Testeur        | hsmy                                            |
 | Backend port   | 8765                                            |

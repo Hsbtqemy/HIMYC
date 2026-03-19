@@ -1,0 +1,71 @@
+{
+  "jobs": [
+    {
+      "job_id": "d98e7a21-1fa5-4e00-8c1d-736a9a322243",
+      "job_type": "normalize_transcript",
+      "episode_id": "S01E01",
+      "source_key": "",
+      "status": "done",
+      "created_at": "2026-03-18T21:48:52.813161+00:00",
+      "updated_at": "2026-03-18T21:48:53.591426+00:00",
+      "error_msg": null,
+      "result": {
+        "profile": "default_en_v1"
+      },
+      "params": {}
+    },
+    {
+      "job_id": "f19a25de-39e4-45b4-b957-ea60e265d170",
+      "job_type": "segment_transcript",
+      "episode_id": "S01E01",
+      "source_key": "",
+      "status": "error",
+      "created_at": "2026-03-18T21:52:03.002828+00:00",
+      "updated_at": "2026-03-18T21:52:03.472071+00:00",
+      "error_msg": "Statut de préparation invalide: 'segmented'",
+      "result": {},
+      "params": {}
+    },
+    {
+      "job_id": "366c025c-8e1b-4f5c-9971-a854c0c8f9cf",
+      "job_type": "segment_transcript",
+      "episode_id": "S01E01",
+      "source_key": "",
+      "status": "error",
+      "created_at": "2026-03-18T21:53:13.321064+00:00",
+      "updated_at": "2026-03-18T21:53:13.571004+00:00",
+      "error_msg": "Statut de préparation invalide: 'segmented'",
+      "result": {},
+      "params": {}
+    },
+    {
+      "job_id": "db174c78-094b-4dc7-8d2e-89c61a7c341b",
+      "job_type": "align",
+      "episode_id": "S01E01",
+      "source_key": "",
+      "status": "done",
+      "created_at": "2026-03-19T06:23:34.499959+00:00",
+      "updated_at": "2026-03-19T06:23:35.378064+00:00",
+      "error_msg": null,
+      "result": {
+        "run_id": "S01E01-1773901414454",
+        "pivot_lang": "en",
+        "target_langs": [
+          "en",
+          "fr",
+          "it"
+        ]
+      },
+      "params": {
+        "pivot_lang": "en",
+        "target_langs": [
+          "en",
+          "fr",
+          "it"
+        ],
+        "segment_kind": "sentence",
+        "run_id": "S01E01-1773901414454"
+      }
+    }
+  ]
+}

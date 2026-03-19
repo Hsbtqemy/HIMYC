@@ -321,7 +321,7 @@ class AlignmentActionsController:
                 tab,
                 "Alignement",
                 "Aucun segment disponible pour cet épisode et aucune langue cible sélectionnée.\n"
-                "Segmentez d'abord l'épisode dans l'onglet Inspecteur, ou choisissez une langue cible pour un alignement cues↔cues.",
+                "Segmentez d'abord l'épisode (Inspecteur → bloc Produire), ou choisissez une langue cible pour un alignement cues↔cues.",
             )
             return
 
@@ -333,7 +333,7 @@ class AlignmentActionsController:
                 tab,
                 "Alignement",
                 "Alignement cues↔cues impossible : piste pivot manquante.\n"
-                f"Importez la piste {pivot_lang.upper()} dans l'onglet Sous-titres.",
+                f"Importez la piste {pivot_lang.upper()} via le bouton « Outils SRT ▸ » en haut de l'Inspecteur.",
             )
             return
         if not has_segments and not has_any_target_cues:
@@ -350,7 +350,7 @@ class AlignmentActionsController:
                 tab,
                 "Alignement",
                 f"Aucune piste de sous-titres trouvée pour {selected}.\n"
-                "Importez au moins une piste dans l'onglet Sous-titres.",
+                "Importez au moins une piste via le bouton « Outils SRT ▸ » en haut de l'Inspecteur.",
             )
             return
         if target_langs:

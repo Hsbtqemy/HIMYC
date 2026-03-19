@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -53,6 +54,13 @@ class InspecteurEtSousTitresTabWidget(QWidget):
         self.episode_combo.currentIndexChanged.connect(self._on_episode_changed)
         row.addWidget(self.episode_combo)
         row.addStretch()
+        # INS-002 — bouton toggle SRT (créé ici pour placement dans la barre épisode)
+        self._srt_toggle_btn = QPushButton("Outils SRT ▸")
+        self._srt_toggle_btn.setCheckable(False)
+        self._srt_toggle_btn.setFlat(True)
+        self._srt_toggle_btn.setToolTip("Afficher / masquer les outils de sous-titres SRT")
+        self._srt_toggle_btn.clicked.connect(self._toggle_srt_panel)
+        row.addWidget(self._srt_toggle_btn)
         layout.addLayout(row)
 
         self.inspector_tab = InspectorTabWidget(
@@ -78,14 +86,36 @@ class InspecteurEtSousTitresTabWidget(QWidget):
 
         self._main_split = QSplitter(Qt.Orientation.Horizontal)
         self._main_split.addWidget(self._wrap_label(self.inspector_tab, "Transcript (RAW/CLEAN, segments)"))
-        self._main_split.addWidget(self._wrap_label(self.subtitles_tab, "Sous-titres SRT (pistes, import, normaliser)"))
+        self._srt_panel = self._wrap_label(self.subtitles_tab, "Sous-titres SRT (pistes, import, normaliser)")
+        self._main_split.addWidget(self._srt_panel)
         self._main_split.setStretchFactor(0, 1)
         self._main_split.setStretchFactor(1, 1)
         self._main_split.setMinimumWidth(400)
         for i in range(self._main_split.count()):
             self._main_split.widget(i).setMinimumWidth(180)
         layout.addWidget(self._main_split)
+        # INS-001 — mode Focus par défaut, écrasé par QSettings si sauvegardé
+        self._focus_mode: bool = True
         self._restore_combined_splitter()
+        self._apply_focus_mode(self._focus_mode)
+
+    # ------------------------------------------------------------------
+    # INS-001/002 — Mode Focus
+    # ------------------------------------------------------------------
+
+    def _apply_focus_mode(self, focus: bool) -> None:
+        """Masque/affiche le panneau SRT et met à jour le bouton toggle."""
+        self._srt_panel.setVisible(not focus)
+        self._srt_toggle_btn.setText("Outils SRT ▸" if focus else "Outils SRT ▾")
+
+    def _toggle_srt_panel(self) -> None:
+        """INS-002 — Bascule Focus/Complet et persiste l'état."""
+        self._focus_mode = not self._focus_mode
+        self._apply_focus_mode(self._focus_mode)
+        settings = QSettings()
+        settings.setValue("inspecteur/focus_mode", self._focus_mode)
+
+    # ------------------------------------------------------------------
 
     @staticmethod
     def _wrap_label(widget: QWidget, title: str) -> QWidget:
@@ -135,12 +165,35 @@ class InspecteurEtSousTitresTabWidget(QWidget):
                 self._main_split.setSizes([int(x) for x in val[:2]])
             except (TypeError, ValueError) as exc:
                 logger.debug("Invalid inspecteur+sous-titres splitter state %r: %s", val, exc)
+        # INS-001 — restaurer le mode Focus (True par défaut si absent)
+        saved = settings.value("inspecteur/focus_mode")
+        if saved is not None:
+            if isinstance(saved, bool):
+                self._focus_mode = saved
+            else:
+                self._focus_mode = str(saved).lower() in ("true", "1", "yes")
 
     def save_state(self) -> None:
-        """Sauvegarde splitters et notes (délégué à l'Inspecteur + splitter fusionné)."""
+        """Sauvegarde splitters, mode Focus et notes (délégué à l'Inspecteur + splitter fusionné)."""
         settings = QSettings()
         settings.setValue("inspecteur_sous_titres/mainSplitter", self._main_split.sizes())
+        settings.setValue("inspecteur/focus_mode", self._focus_mode)
         self.inspector_tab.save_state()
+
+    # ------------------------------------------------------------------
+    # INS-007 — API de capacité (remplace les hasattr structurels)
+    # ------------------------------------------------------------------
+
+    def has_subtitle_panel(self) -> bool:
+        """Retourne True si ce widget embarque un panneau sous-titres actif."""
+        return True
+
+    def set_subtitle_languages(self, langs: list[str]) -> None:
+        """Met à jour les langues du panneau sous-titres (délégué à subtitles_tab)."""
+        if hasattr(self.subtitles_tab, "set_languages"):
+            self.subtitles_tab.set_languages(langs)
+
+    # ------------------------------------------------------------------
 
     def refresh_profile_combo(self, profile_ids: list[str], current: str | None) -> None:
         """Met à jour le combo profil (délégué à l'Inspecteur)."""

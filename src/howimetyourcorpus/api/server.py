@@ -21,6 +21,8 @@ from pydantic import BaseModel
 from howimetyourcorpus.core.storage.db import CorpusDB
 from howimetyourcorpus.core.storage.project_store import ProjectStore
 from howimetyourcorpus.api.jobs import JOB_TYPES, get_job_store
+from howimetyourcorpus.core.adapters.tvmaze import TvmazeAdapter
+from howimetyourcorpus.core.adapters.subslikescript import SubslikescriptAdapter
 
 VERSION = "0.1.0"
 
@@ -576,3 +578,117 @@ def save_assignments(
             detail={"error": "INVALID_ASSIGNMENTS", "message": str(exc)},
         ) from exc
     return {"saved": len(body.assignments)}
+
+
+# ─── /web — Sources web (MX-021b) ─────────────────────────────────────────────
+
+
+class _TvmazeDiscoverBody(BaseModel):
+    series_name: str
+
+
+class _SubslikeDiscoverBody(BaseModel):
+    series_url: str
+
+
+class _SubslikeFetchBody(BaseModel):
+    episode_id: str
+    episode_url: str
+
+
+def _episode_ref_to_dict(ep) -> dict[str, Any]:
+    return {
+        "episode_id": ep.episode_id,
+        "season": ep.season,
+        "episode": ep.episode,
+        "title": ep.title,
+        "url": ep.url,
+    }
+
+
+@app.post("/web/tvmaze/discover", summary="Découvrir une série via TVMaze (MX-021b)")
+def web_tvmaze_discover(body: _TvmazeDiscoverBody) -> dict[str, Any]:
+    """Recherche une série par nom sur TVMaze et retourne la liste des épisodes."""
+    name = body.series_name.strip()
+    if not name:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "EMPTY_NAME", "message": "Le nom de la série est requis."},
+        )
+    try:
+        adapter = TvmazeAdapter()
+        index = adapter.discover_series(name)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "TVMAZE_ERROR", "message": str(exc)},
+        ) from exc
+    return {
+        "series_title": index.series_title,
+        "series_url": index.series_url,
+        "episode_count": len(index.episodes),
+        "episodes": [_episode_ref_to_dict(ep) for ep in index.episodes],
+    }
+
+
+@app.post("/web/subslikescript/discover", summary="Découvrir une série via Subslikescript (MX-021b)")
+def web_subslikescript_discover(body: _SubslikeDiscoverBody) -> dict[str, Any]:
+    """Parse la page série Subslikescript et retourne la liste des épisodes."""
+    url = body.series_url.strip()
+    if not url:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "EMPTY_URL", "message": "L'URL de la série est requise."},
+        )
+    try:
+        adapter = SubslikescriptAdapter()
+        index = adapter.discover_series(url)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "SUBSLIKE_ERROR", "message": str(exc)},
+        ) from exc
+    return {
+        "series_title": index.series_title,
+        "series_url": index.series_url,
+        "episode_count": len(index.episodes),
+        "episodes": [_episode_ref_to_dict(ep) for ep in index.episodes],
+    }
+
+
+@app.post(
+    "/web/subslikescript/fetch_transcript",
+    status_code=201,
+    summary="Télécharger et importer un transcript depuis Subslikescript (MX-021b)",
+)
+def web_subslikescript_fetch_transcript(
+    body: _SubslikeFetchBody,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    """Récupère le transcript d'un épisode depuis Subslikescript et le sauvegarde dans le projet."""
+    episode_id = body.episode_id.strip()
+    episode_url = body.episode_url.strip()
+    if not episode_id or not episode_url:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "MISSING_FIELDS", "message": "episode_id et episode_url sont requis."},
+        )
+    try:
+        adapter = SubslikescriptAdapter()
+        html = adapter.fetch_episode_html(episode_url)
+        raw_text, _meta = adapter.parse_episode(html, episode_url)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "FETCH_ERROR", "message": str(exc)},
+        ) from exc
+    ep_dir = store._episode_dir(episode_id)
+    ep_dir.mkdir(parents=True, exist_ok=True)
+    (ep_dir / "raw.txt").write_text(raw_text, encoding="utf-8")
+    store.set_episode_prep_status(episode_id, "transcript", "raw")
+    return {
+        "episode_id": episode_id,
+        "source_key": "transcript",
+        "chars": len(raw_text),
+        "state": "raw",
+    }

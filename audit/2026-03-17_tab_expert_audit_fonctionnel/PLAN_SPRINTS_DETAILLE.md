@@ -135,3 +135,31 @@ Livrer une experience claire pour utilisateur lambda/expert sans dupliquer la lo
 
 - Vue Expert P1/P2: terminee (cf. `PLAN_ACTION_P0_P1_P2.md`).
 - Sprints Cockpit Inspecteur: planifies ici, a executer selon priorites produit.
+
+## Etat reel apres execution (au 2026-03-18)
+
+Sprint 1, 2, 3 et lot recentrage INS-001 → INS-012 : **LIVRES**.
+
+| Lot | Tickets | Etat | Tests |
+|---|---|---|---|
+| Sprint 1 (US-101/103/104/105) | INS-001 → INS-004 (P0) | Livre | 125/125 verts |
+| Sprint 2 (US-204/205/301) | INS-004 tests | Livre | — |
+| Sprint 3 (US-302/304) | INS-003 microcopy | Livre | — |
+| Phase 2 recentrage (INS-005/006) | Selecteur Fichier + actions source | Livre | +7 tests |
+| Phase 3 recentrage (INS-007/008/009) | Adaptateur + decouplage + integration | Livre | +14 tests |
+| Phase 4 (INS-010/011/012) | UX final + docs + gate | Livre | 125/125 verts |
+
+Suite ciblee finale :
+`pytest -q tests/test_ui_inspecteur_sprint1.py tests/test_ui_inspecteur_sprint2.py
+tests/test_ui_inspecteur_sprint3.py tests/test_cta_recommender.py
+tests/test_ui_preparer_navigation.py tests/test_ui_inspecteur_source_flow.py`
+
+**Resultat : 125/125 passes.**
+
+Changements structurels permanents :
+- Mode Focus par defaut (INS-001/002).
+- Selecteur Fichier source-aware (INS-005/006).
+- API de capacite `has_subtitle_panel()` / `set_subtitle_languages()` (INS-007/008).
+- Microcopy aligne sur le nouveau flux Focus (INS-003/010).
+
+Reference migration : `MIGRATION_INSPECTEUR_RECENTRAGE.md`.

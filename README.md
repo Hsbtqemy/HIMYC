@@ -71,6 +71,15 @@ Le .exe est placé dans le dossier où vous avez lancé le script (ou où vous l
     ```
   (Si le package n'est pas installé en éditable, `PYTHONPATH=src` est nécessaire.)
 
+### Variante UI Tauri (expérimental)
+
+L’interface **Tauri** (TypeScript + Rust) vit dans un dépôt séparé : **[HIMYC_Tauri](https://github.com/Hsbtqemy/HIMYC_Tauri)**. Elle s’appuie sur le **même backend** Python (API locale, port `8765`).
+
+- Cloner à côté de ce repo : `git clone https://github.com/Hsbtqemy/HIMYC_Tauri.git`
+- macOS : depuis la racine **HIMYC**, `./launch-tauri.sh` (ou `launch-tauri-split.sh`) lance le backend et le shell Tauri. Définir `HIMYC_TAURI_DIR` si le clone n’est pas dans `../HIMYC_Tauri` (chemin par défaut sur machine de dev).
+
+Voir l’ADR et le backlog dans `audit/2026-03-17_tab_expert_audit_fonctionnel/` pour le détail de l’architecture.
+
 ## Projet exemple (EN + FR)
 
 Un **projet démo** est fourni dans le dépôt pour comprendre la mécanique sans scraper :

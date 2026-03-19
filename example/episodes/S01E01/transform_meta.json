@@ -5,6 +5,10 @@
   "kept_breaks": 0,
   "duration_ms": 0,
   "debug": {
-    "merge_examples": []
+    "merge_examples": [],
+    "punctuation_fixes": 0,
+    "regex_replacements": 0,
+    "case_transforms": 0,
+    "history": []
   }
 }

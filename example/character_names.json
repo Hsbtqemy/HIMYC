@@ -1,13 +1,16 @@
 {
   "characters": [
     {
-      "id": "Marshall",
-      "canonical": "Marshall",
+      "id": "rachel_green",
+      "canonical": "Rachel Green",
       "names_by_lang": {
-        "en": "Marshall",
-        "fr": "Denis",
-        "it": "Filippe"
-      }
+        "en": "Rachel",
+        "fr": "Rachel"
+      },
+      "aliases": [
+        "RACHEL",
+        "Rachel G."
+      ]
     }
   ]
 }

@@ -97,7 +97,8 @@ class MainWindowJobsController:
         has_combined_inspector = bool(
             hasattr(win, "inspector_tab")
             and win.inspector_tab
-            and hasattr(win.inspector_tab, "subtitles_tab")
+            and hasattr(win.inspector_tab, "has_subtitle_panel")
+            and win.inspector_tab.has_subtitle_panel()
         )
         refreshers: list[tuple[str, Any, bool]] = [
             ("_refresh_episodes_from_store", win._refresh_episodes_from_store, True),  # noqa: SLF001

@@ -110,7 +110,7 @@ def recommend(state: EpisodeState) -> CtaRecommendation:
         return CtaRecommendation(
             action_id="import_srt",
             label="Importer des SRT",
-            detail="Transcript segmenté présent. Il manque les pistes SRT. Ouvrez l'onglet Sous-titres → importer.",
+            detail="Transcript segmenté présent. Il manque les pistes SRT. Cliquez « Outils SRT ▸ » en haut de l'Inspecteur pour importer.",
             mode=CtaMode.INCOMPLETE,
             missing=["tracks SRT"],
         )
@@ -122,13 +122,13 @@ def recommend(state: EpisodeState) -> CtaRecommendation:
                 action_id="segment_or_srt_only",
                 label="Segmenter le transcript ou lancer en mode SRT-only",
                 detail="CLEAN présent + SRT importés. Option A : segmenter (Inspecteur) puis aligner transcript-first. "
-                       "Option B : lancer directement en mode SRT-only (cue↔cue).",
+                       "Option B : lancer directement en mode SRT-only (cue↔cue) depuis l'onglet Alignement.",
                 mode=CtaMode.SRT_ONLY,
             )
         return CtaRecommendation(
             action_id="segment_episode",
             label="Segmenter l'épisode",
-            detail="CLEAN présent mais pas de segments. Inspecteur → Segmente l'épisode.",
+            detail="CLEAN présent mais pas de segments. Inspecteur → bloc Produire → Segmenter l'épisode.",
             mode=CtaMode.INCOMPLETE,
             missing=["segments"],
         )
@@ -158,7 +158,7 @@ def recommend(state: EpisodeState) -> CtaRecommendation:
         action_id="start",
         label="Démarrer : télécharger le transcript ou importer des SRT",
         detail="Aucune donnée pour cet épisode. Option A : télécharger le transcript (onglet Projet → Corpus). "
-               "Option B : importer directement des SRT (onglet Sous-titres).",
+               "Option B : importer des SRT via « Outils SRT ▸ » en haut de l'Inspecteur.",
         mode=CtaMode.INCOMPLETE,
         missing=["CLEAN", "segments", "tracks SRT"],
     )
