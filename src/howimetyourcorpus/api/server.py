@@ -16,9 +16,11 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from howimetyourcorpus.core.storage.db import CorpusDB
 from howimetyourcorpus.core.storage.project_store import ProjectStore
+from howimetyourcorpus.api.jobs import JOB_TYPES, get_job_store
 
 VERSION = "0.1.0"
 
@@ -136,13 +138,25 @@ def list_episodes(
         eid = ep.episode_id
         ep_status = prep_status.get(eid, {})
 
-        # Source transcript
+        # Source transcript — état dérivé des fichiers sur disque
+        # (le store natif ne supporte pas "segmented", on le détecte via segments.jsonl)
+        from pathlib import Path as _Path
+        _seg_file = _Path(store.root_dir) / "episodes" / eid / "segments.jsonl"
+        if _seg_file.exists():
+            _transcript_state = "segmented"
+        elif store.has_episode_clean(eid):
+            _transcript_state = "normalized"
+        elif store.has_episode_raw(eid):
+            _transcript_state = "raw"
+        else:
+            _transcript_state = ep_status.get("transcript", "unknown")
+
         sources: list[dict[str, Any]] = [
             {
                 "source_key": "transcript",
                 "available": store.has_episode_raw(eid),
                 "has_clean": store.has_episode_clean(eid),
-                "state": ep_status.get("transcript", "unknown"),
+                "state": _transcript_state,
             }
         ]
 
@@ -237,32 +251,200 @@ def get_episode_source(
     )
 
 
-# ─── /jobs (stub — MX-006) ────────────────────────────────────────────────────
+# ─── /episodes/{id}/sources/{source_key} POST (import — MX-005) ──────────────
 
 
-@app.get("/jobs", summary="File de jobs (stub MX-006)")
-def list_jobs(_store: ProjectStore = Depends(_get_store)) -> dict[str, Any]:
-    """Stub MX-006 — la gestion des jobs sera implementee dans MX-006."""
-    return {"jobs": [], "_note": "MX-006 implementera la queue, progression et reprise."}
+class _TranscriptImport(BaseModel):
+    content: str
 
 
-@app.post("/jobs", summary="Creer un job (stub MX-006)")
-def create_job(_store: ProjectStore = Depends(_get_store)) -> None:
-    raise HTTPException(
-        status_code=501,
-        detail={
-            "error": "NOT_IMPLEMENTED",
-            "message": "Gestion des jobs implementee dans MX-006.",
-        },
-    )
+class _SrtImport(BaseModel):
+    content: str
+    fmt: str = "srt"  # "srt" | "vtt"
 
 
-@app.get("/jobs/{job_id}", summary="Statut d un job (stub MX-006)")
-def get_job(job_id: str, _store: ProjectStore = Depends(_get_store)) -> None:
-    raise HTTPException(
-        status_code=404,
-        detail={
-            "error": "JOB_NOT_FOUND",
-            "message": f"Job {job_id!r} introuvable. MX-006 implementera la gestion des jobs.",
-        },
-    )
+@app.post(
+    "/episodes/{episode_id}/sources/transcript",
+    status_code=201,
+    summary="Importer un transcript (texte brut) pour un episode",
+)
+def import_transcript(
+    episode_id: str,
+    body: _TranscriptImport,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    if not body.content.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "EMPTY_CONTENT",
+                "message": "Le contenu du transcript est vide.",
+            },
+        )
+    ep_dir = store._episode_dir(episode_id)
+    ep_dir.mkdir(parents=True, exist_ok=True)
+    (ep_dir / "raw.txt").write_text(body.content, encoding="utf-8")
+    store.set_episode_prep_status(episode_id, "transcript", "raw")
+    return {"episode_id": episode_id, "source_key": "transcript", "state": "raw"}
+
+
+@app.post(
+    "/episodes/{episode_id}/sources/{source_key}",
+    status_code=201,
+    summary="Importer une piste SRT/VTT pour un episode",
+)
+def import_source(
+    episode_id: str,
+    source_key: str,
+    body: _SrtImport,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    if not source_key.startswith("srt_") or len(source_key) < 5:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "INVALID_SOURCE_KEY",
+                "message": (
+                    f"Cle source invalide : « {source_key} ». "
+                    "Format attendu : srt_<lang> (ex: srt_en, srt_fr)."
+                ),
+            },
+        )
+    lang = source_key[4:]
+    fmt = body.fmt if body.fmt in ("srt", "vtt") else "srt"
+    if not body.content.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "EMPTY_CONTENT",
+                "message": f"Le contenu de la piste {source_key} est vide.",
+            },
+        )
+    store.save_episode_subtitle_content(episode_id, lang, body.content, fmt)
+    store.set_episode_prep_status(episode_id, source_key, "raw")
+    return {
+        "episode_id": episode_id,
+        "source_key": source_key,
+        "language": lang,
+        "fmt": fmt,
+        "state": "raw",
+    }
+
+
+# ─── /episodes/{id}/alignment_runs (MX-009) ──────────────────────────────────
+
+
+@app.get(
+    "/episodes/{episode_id}/alignment_runs",
+    summary="Liste les runs d alignement pour un episode",
+)
+def list_alignment_runs(
+    episode_id: str,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    align_dir = store.align_dir(episode_id)
+    runs: list[dict[str, Any]] = []
+    if align_dir.is_dir():
+        import json as _json
+        for sub in sorted(align_dir.iterdir()):
+            if not sub.is_dir():
+                continue
+            run_id = sub.name
+            # Lire le rapport si présent
+            report_path = sub / "report.json"
+            if report_path.exists():
+                try:
+                    rep = _json.loads(report_path.read_text(encoding="utf-8"))
+                    runs.append({
+                        "run_id":       run_id,
+                        "episode_id":   episode_id,
+                        "pivot_lang":   rep.get("pivot_lang", ""),
+                        "target_langs": rep.get("target_langs", []),
+                        "segment_kind": rep.get("segment_kind", "sentence"),
+                        "created_at":   rep.get("created_at", ""),
+                    })
+                except Exception:
+                    runs.append({"run_id": run_id, "episode_id": episode_id})
+    return {"episode_id": episode_id, "runs": runs}
+
+
+# ─── /jobs (MX-006) ───────────────────────────────────────────────────────────
+
+
+class _JobCreate(BaseModel):
+    job_type: str
+    episode_id: str
+    source_key: str = ""
+    params: dict[str, Any] = {}
+
+
+@app.get("/jobs", summary="Liste des jobs avec statut")
+def list_jobs(path: Path = Depends(_require_project_path)) -> dict[str, Any]:
+    store = get_job_store(path)
+    jobs = [j.to_dict() for j in store.list_all()]
+    # Tri : running en premier, puis pending, puis par date desc
+    order = {"running": 0, "pending": 1, "done": 2, "error": 3, "cancelled": 4}
+    jobs.sort(key=lambda j: (order.get(j["status"], 9), j["created_at"]))
+    return {"jobs": jobs}
+
+
+@app.post("/jobs", status_code=201, summary="Creer un job")
+def create_job(
+    body: _JobCreate,
+    path: Path = Depends(_require_project_path),
+) -> dict[str, Any]:
+    if body.job_type not in JOB_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "INVALID_JOB_TYPE",
+                "message": (
+                    f"Type de job invalide : {body.job_type!r}. "
+                    f"Valeurs : {sorted(JOB_TYPES)}"
+                ),
+            },
+        )
+    store = get_job_store(path)
+    job = store.create(body.job_type, body.episode_id, body.source_key, params=body.params)
+    return job.to_dict()
+
+
+@app.get("/jobs/{job_id}", summary="Statut d un job")
+def get_job(
+    job_id: str,
+    path: Path = Depends(_require_project_path),
+) -> dict[str, Any]:
+    store = get_job_store(path)
+    job = store.get(job_id)
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "JOB_NOT_FOUND",
+                "message": f"Job {job_id!r} introuvable.",
+            },
+        )
+    return job.to_dict()
+
+
+@app.delete("/jobs/{job_id}", summary="Annuler un job pending")
+def cancel_job(
+    job_id: str,
+    path: Path = Depends(_require_project_path),
+) -> dict[str, Any]:
+    store = get_job_store(path)
+    if not store.get(job_id):
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "JOB_NOT_FOUND", "message": f"Job {job_id!r} introuvable."},
+        )
+    cancelled = store.cancel(job_id)
+    if not cancelled:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "JOB_NOT_CANCELLABLE",
+                "message": "Seuls les jobs en 'pending' peuvent être annulés.",
+            },
+        )
+    return {"job_id": job_id, "status": "cancelled"}
