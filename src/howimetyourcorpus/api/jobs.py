@@ -330,10 +330,12 @@ def _execute_job(job: JobRecord, project_path: Path) -> dict[str, Any]:
         return {"cues_updated": n}
 
     if job.job_type == "align":
-        pivot_lang    = job.params.get("pivot_lang", "en")
-        target_langs  = job.params.get("target_langs", [])
-        segment_kind  = job.params.get("segment_kind", "sentence")
-        run_id        = job.params.get("run_id") or job.job_id[:8]
+        pivot_lang           = job.params.get("pivot_lang", "en")
+        target_langs         = job.params.get("target_langs", [])
+        segment_kind         = job.params.get("segment_kind", "sentence")
+        min_confidence       = float(job.params.get("min_confidence", 0.3))
+        use_similarity       = bool(job.params.get("use_similarity_for_cues", False))
+        run_id               = job.params.get("run_id") or job.job_id[:8]
 
         db_path = store.get_db_path()
         if not db_path.exists():
@@ -349,6 +351,8 @@ def _execute_job(job: JobRecord, project_path: Path) -> dict[str, Any]:
             pivot_lang=pivot_lang,
             target_langs=target_langs,
             segment_kind=segment_kind,
+            min_confidence=min_confidence,
+            use_similarity_for_cues=use_similarity,
         )
         ctx: dict[str, Any] = {"store": store, "db": db}
         results = runner.run([step], ctx, force=True)
@@ -362,11 +366,13 @@ def _execute_job(job: JobRecord, project_path: Path) -> dict[str, Any]:
         run_dir = align_dir / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         report = {
-            "run_id":       run_id,
-            "pivot_lang":   pivot_lang,
-            "target_langs": target_langs,
-            "segment_kind": segment_kind,
-            "created_at":   datetime.now(timezone.utc).isoformat(),
+            "run_id":                 run_id,
+            "pivot_lang":             pivot_lang,
+            "target_langs":           target_langs,
+            "segment_kind":           segment_kind,
+            "min_confidence":         min_confidence,
+            "use_similarity_for_cues": use_similarity,
+            "created_at":             datetime.now(timezone.utc).isoformat(),
         }
         (run_dir / "report.json").write_text(
             _json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
