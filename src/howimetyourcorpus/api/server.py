@@ -805,14 +805,15 @@ def web_subslikescript_fetch_transcript(
 
 
 class _ExportBody(BaseModel):
-    scope: str = "corpus"          # "corpus" | "segments"
-    fmt: str = "txt"               # "txt" | "csv" | "json" | "tsv"
+    scope: str = "corpus"          # "corpus" | "segments" | "jobs"
+    fmt: str = "txt"               # "txt" | "csv" | "json" | "tsv" | "jsonl"
     use_clean: bool = True         # clean.txt si disponible, sinon raw.txt
 
 
-@app.post("/export", status_code=201, summary="Exporter corpus ou segments (Exporter section)")
+@app.post("/export", status_code=201, summary="Exporter corpus, segments ou jobs (Exporter section)")
 def run_export(
     body: _ExportBody,
+    path: Path = Depends(_require_project_path),
     store: ProjectStore = Depends(_get_store),
 ) -> dict[str, Any]:
     """Génère un fichier d'export dans {project_path}/exports/ et retourne son chemin."""
@@ -825,9 +826,9 @@ def run_export(
 
     scope = body.scope
     fmt = body.fmt
-    if scope not in ("corpus", "segments"):
+    if scope not in ("corpus", "segments", "jobs"):
         raise HTTPException(422, detail={"error": "INVALID_SCOPE", "message": f"scope invalide: {scope}"})
-    if fmt not in ("txt", "csv", "json", "tsv", "docx"):
+    if fmt not in ("txt", "csv", "json", "tsv", "docx", "jsonl"):
         raise HTTPException(422, detail={"error": "INVALID_FORMAT", "message": f"format invalide: {fmt}"})
 
     index = store.load_series_index()
@@ -855,6 +856,19 @@ def run_export(
             raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": f"Format {fmt} non supporté pour corpus."})
         return {"scope": scope, "fmt": fmt, "episodes": len(pairs), "path": str(out_path)}
 
+    if scope == "jobs":
+        job_store_inst = get_job_store(path)
+        all_jobs = [j.to_dict() for j in job_store_inst.list_all()]
+        if fmt not in ("jsonl", "json"):
+            raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": "Jobs: formats supportés: jsonl, json."})
+        out_path = export_dir / f"jobs.{fmt}"
+        if fmt == "jsonl":
+            lines = "\n".join(_json.dumps(j, ensure_ascii=False) for j in all_jobs)
+            out_path.write_text(lines, encoding="utf-8")
+        else:
+            out_path.write_text(_json.dumps(all_jobs, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"scope": scope, "fmt": fmt, "jobs": len(all_jobs), "path": str(out_path)}
+
     # scope == "segments"
     all_segments: list[dict[str, Any]] = []
     for ep in index.episodes:
@@ -875,3 +889,107 @@ def run_export(
     else:
         raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": f"Format {fmt} non supporté pour segments."})
     return {"scope": scope, "fmt": fmt, "segments": len(all_segments), "path": str(out_path)}
+
+
+# ─── /export/qa (MX-027) ─────────────────────────────────────────────────────
+
+
+@app.get("/export/qa", summary="Rapport QA corpus (MX-027)")
+def export_qa_report(
+    policy: str = Query("lenient", pattern="^(strict|lenient)$"),
+    store: ProjectStore = Depends(_get_store),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Diagnostics corpus : état normalisation, segmentation, alignement."""
+    import json as _json
+
+    index = store.load_series_index()
+    if index is None or not index.episodes:
+        return {
+            "gate": "blocking",
+            "policy": policy,
+            "total_episodes": 0,
+            "n_raw": 0,
+            "n_normalized": 0,
+            "n_segmented": 0,
+            "n_with_srts": 0,
+            "n_alignment_runs": 0,
+            "issues": [{"level": "blocking", "code": "NO_EPISODES", "message": "Aucun épisode dans le projet."}],
+        }
+
+    episodes = index.episodes
+    n_total = len(episodes)
+    n_raw = n_normalized = n_segmented = n_with_srts = n_alignment_runs = 0
+    issues: list[dict[str, Any]] = []
+
+    # Batch SRT tracks from DB
+    tracks_by_episode: dict[str, list[dict[str, Any]]] = {}
+    if db is not None:
+        try:
+            tracks_by_episode = db.get_tracks_for_episodes([ep.episode_id for ep in episodes])
+        except Exception:
+            pass
+
+    for ep in episodes:
+        eid = ep.episode_id
+        has_raw = store.has_episode_raw(eid)
+        has_clean = store.has_episode_clean(eid)
+        seg_path = Path(store.root_dir) / "episodes" / eid / "segments.jsonl"
+        has_segments = seg_path.exists() and seg_path.stat().st_size > 0
+
+        # SRT coverage
+        if tracks_by_episode.get(eid):
+            n_with_srts += 1
+
+        # Alignment runs
+        align_dir = store.align_dir(eid)
+        if align_dir.is_dir():
+            for sub in align_dir.iterdir():
+                if sub.is_dir() and (sub / "report.json").exists():
+                    n_alignment_runs += 1
+
+        if not has_raw:
+            issues.append({
+                "level": "blocking",
+                "code": "NO_TRANSCRIPT",
+                "episode": eid,
+                "message": f"Transcript manquant : {eid}",
+            })
+            continue
+
+        if has_segments:
+            n_segmented += 1
+        elif has_clean:
+            n_normalized += 1
+            level = "warning"
+            issues.append({
+                "level": level,
+                "code": "NOT_SEGMENTED",
+                "episode": eid,
+                "message": f"Non segmenté : {eid}",
+            })
+        else:
+            n_raw += 1
+            level = "blocking" if policy == "strict" else "warning"
+            issues.append({
+                "level": level,
+                "code": "NOT_NORMALIZED",
+                "episode": eid,
+                "message": f"Non normalisé : {eid}",
+            })
+
+    has_blocking = any(i["level"] == "blocking" for i in issues)
+    has_warnings = any(i["level"] == "warning" for i in issues)
+    gate = "blocking" if has_blocking else ("warnings" if has_warnings else "ok")
+
+    return {
+        "gate": gate,
+        "policy": policy,
+        "total_episodes": n_total,
+        "n_raw": n_raw,
+        "n_normalized": n_normalized,
+        "n_segmented": n_segmented,
+        "n_with_srts": n_with_srts,
+        "n_alignment_runs": n_alignment_runs,
+        "issues": issues,
+    }
