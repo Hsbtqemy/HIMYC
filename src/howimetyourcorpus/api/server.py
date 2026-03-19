@@ -692,3 +692,79 @@ def web_subslikescript_fetch_transcript(
         "chars": len(raw_text),
         "state": "raw",
     }
+
+
+# ─── /export (MX-021b Exporter) ───────────────────────────────────────────────
+
+
+class _ExportBody(BaseModel):
+    scope: str = "corpus"          # "corpus" | "segments"
+    fmt: str = "txt"               # "txt" | "csv" | "json" | "tsv"
+    use_clean: bool = True         # clean.txt si disponible, sinon raw.txt
+
+
+@app.post("/export", status_code=201, summary="Exporter corpus ou segments (Exporter section)")
+def run_export(
+    body: _ExportBody,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    """Génère un fichier d'export dans {project_path}/exports/ et retourne son chemin."""
+    import json as _json
+    from howimetyourcorpus.core.export_utils import (
+        export_corpus_txt, export_corpus_csv, export_corpus_json, export_corpus_docx,
+        export_segments_txt, export_segments_csv, export_segments_tsv,
+    )
+    from howimetyourcorpus.core.models import EpisodeRef
+
+    scope = body.scope
+    fmt = body.fmt
+    if scope not in ("corpus", "segments"):
+        raise HTTPException(422, detail={"error": "INVALID_SCOPE", "message": f"scope invalide: {scope}"})
+    if fmt not in ("txt", "csv", "json", "tsv", "docx"):
+        raise HTTPException(422, detail={"error": "INVALID_FORMAT", "message": f"format invalide: {fmt}"})
+
+    index = store.load_series_index()
+    if index is None or not index.episodes:
+        raise HTTPException(422, detail={"error": "NO_EPISODES", "message": "Aucun épisode dans le projet."})
+
+    export_dir = Path(store.root_dir) / "exports"
+    export_dir.mkdir(exist_ok=True)
+    out_path = export_dir / f"{scope}.{fmt}"
+
+    if scope == "corpus":
+        pairs: list[tuple[EpisodeRef, str]] = []
+        for ep in index.episodes:
+            kind = "clean" if (body.use_clean and store.has_episode_clean(ep.episode_id)) else "raw"
+            text = store.load_episode_text(ep.episode_id, kind=kind)
+            if text.strip():
+                pairs.append((ep, text))
+        if not pairs:
+            raise HTTPException(422, detail={"error": "NO_TEXT", "message": "Aucun texte disponible pour l'export."})
+        if fmt == "txt":    export_corpus_txt(pairs, out_path)
+        elif fmt == "csv":  export_corpus_csv(pairs, out_path)
+        elif fmt == "json": export_corpus_json(pairs, out_path)
+        elif fmt == "docx": export_corpus_docx(pairs, out_path)
+        else:
+            raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": f"Format {fmt} non supporté pour corpus."})
+        return {"scope": scope, "fmt": fmt, "episodes": len(pairs), "path": str(out_path)}
+
+    # scope == "segments"
+    all_segments: list[dict[str, Any]] = []
+    for ep in index.episodes:
+        seg_path = Path(store.root_dir) / "episodes" / ep.episode_id / "segments.jsonl"
+        if seg_path.exists():
+            for line in seg_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line:
+                    try:
+                        all_segments.append(_json.loads(line))
+                    except Exception:
+                        pass
+    if not all_segments:
+        raise HTTPException(422, detail={"error": "NO_SEGMENTS", "message": "Aucun segment disponible. Lancez la segmentation d'abord."})
+    if fmt == "txt":    export_segments_txt(all_segments, out_path)
+    elif fmt == "csv":  export_segments_csv(all_segments, out_path)
+    elif fmt == "tsv":  export_segments_tsv(all_segments, out_path)
+    else:
+        raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": f"Format {fmt} non supporté pour segments."})
+    return {"scope": scope, "fmt": fmt, "segments": len(all_segments), "path": str(out_path)}
