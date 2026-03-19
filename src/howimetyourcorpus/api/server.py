@@ -1184,3 +1184,79 @@ def export_qa_report(
         "n_alignment_runs": n_alignment_runs,
         "issues": issues,
     }
+
+
+# ─── /alignment_runs (MX-030) ────────────────────────────────────────────────
+
+
+@app.get("/alignment_runs", summary="Toutes les runs d'alignement du projet (MX-030)")
+def list_all_alignment_runs(
+    store: ProjectStore = Depends(_get_store),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Retourne toutes les runs d'alignement pour tous les épisodes du projet."""
+    if db is None:
+        return {"runs": []}
+    index = store.load_series_index()
+    if index is None or not index.episodes:
+        return {"runs": []}
+    episode_ids = [ep.episode_id for ep in index.episodes]
+    runs_by_ep = db.get_align_runs_for_episodes(episode_ids)
+    all_runs: list[dict[str, Any]] = []
+    for ep in index.episodes:
+        for r in runs_by_ep.get(ep.episode_id, []):
+            all_runs.append(r)
+    return {"runs": all_runs}
+
+
+# ─── /export/alignments (MX-030) ─────────────────────────────────────────────
+
+
+@app.get("/export/alignments", summary="Export CSV/TSV du concordancier parallèle d'un run (MX-030)")
+def export_alignments(
+    episode_id: str = Query(..., description="ID de l'épisode"),
+    run_id: str = Query(..., description="ID du run d'alignement"),
+    fmt: str = Query("csv", pattern="^(csv|tsv)$"),
+    db: CorpusDB | None = Depends(_get_db),
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    """Génère un fichier CSV ou TSV du concordancier parallèle pour un run d'alignement."""
+    import csv as _csv
+    import io as _io
+
+    if db is None:
+        raise HTTPException(503, detail={"error": "DB_UNAVAILABLE", "message": "Base de données non disponible."})
+
+    rows = db.get_parallel_concordance(episode_id, run_id)
+    if not rows:
+        raise HTTPException(422, detail={"error": "NO_DATA", "message": "Aucun lien d'alignement pour ce run."})
+
+    export_dir = Path(store.root_dir) / "exports"
+    export_dir.mkdir(exist_ok=True)
+    out_path = export_dir / f"alignments_{episode_id}_{run_id[:8]}.{fmt}"
+
+    sep = "," if fmt == "csv" else "\t"
+    fieldnames = ["segment_id", "personnage", "text_segment", "text_en", "confidence_pivot",
+                  "text_fr", "confidence_fr", "text_it", "confidence_it"]
+    buf = _io.StringIO()
+    writer = _csv.DictWriter(buf, fieldnames=fieldnames, delimiter=sep, extrasaction="ignore",
+                              lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        # Stringify confidence values
+        r = dict(row)
+        for k in ("confidence_pivot", "confidence_fr", "confidence_it"):
+            if r.get(k) is not None:
+                r[k] = f"{r[k]:.4f}"
+            else:
+                r[k] = ""
+        writer.writerow(r)
+
+    out_path.write_text(buf.getvalue(), encoding="utf-8")
+    return {
+        "episode_id": episode_id,
+        "run_id": run_id,
+        "fmt": fmt,
+        "rows": len(rows),
+        "path": str(out_path),
+    }
