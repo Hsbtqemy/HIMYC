@@ -527,3 +527,52 @@ def query_corpus(
         "total": len(hits),
         "hits":  [asdict(h) for h in hits],
     }
+
+
+# ─── /characters (MX-021c) ────────────────────────────────────────────────────
+
+class _CharacterCatalogBody(BaseModel):
+    characters: list[dict[str, Any]]
+
+class _AssignmentsBody(BaseModel):
+    assignments: list[dict[str, Any]]
+
+
+@app.get("/characters", summary="Liste le catalogue personnages (MX-021c)")
+def list_characters(store: ProjectStore = Depends(_get_store)) -> dict[str, Any]:
+    return {"characters": store.load_character_names()}
+
+
+@app.put("/characters", summary="Sauvegarde le catalogue personnages (MX-021c)")
+def save_characters(
+    body: _CharacterCatalogBody,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    try:
+        store.save_character_names(body.characters)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "INVALID_CATALOG", "message": str(exc)},
+        ) from exc
+    return {"saved": len(body.characters)}
+
+
+@app.get("/assignments", summary="Liste les assignations personnage (MX-021c)")
+def list_assignments(store: ProjectStore = Depends(_get_store)) -> dict[str, Any]:
+    return {"assignments": store.load_character_assignments()}
+
+
+@app.put("/assignments", summary="Sauvegarde les assignations personnage (MX-021c)")
+def save_assignments(
+    body: _AssignmentsBody,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    try:
+        store.save_character_assignments(body.assignments)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "INVALID_ASSIGNMENTS", "message": str(exc)},
+        ) from exc
+    return {"saved": len(body.assignments)}
