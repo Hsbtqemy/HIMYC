@@ -28,14 +28,22 @@ def propagate_character_names(
     assign_segment: dict[str, str] = {}
     assign_cue: dict[str, str] = {}
     for assignment in episode_assignments:
+        character_id = (assignment.get("character_id") or "").strip()
+        if not character_id:
+            continue
+        # Nouveau format (B-002) : segment_id / cue_id
+        seg_id_new = (assignment.get("segment_id") or "").strip()
+        cue_id_new = (assignment.get("cue_id") or "").strip()
+        # Ancien format : source_type / source_id (rétrocompat)
         source_type = assignment.get("source_type") or ""
         source_id = (assignment.get("source_id") or "").strip()
-        character_id = (assignment.get("character_id") or "").strip()
-        if not source_id or not character_id:
-            continue
-        if source_type == "segment":
+        if seg_id_new:
+            assign_segment[seg_id_new] = character_id
+        elif cue_id_new:
+            assign_cue[cue_id_new] = character_id
+        elif source_type == "segment" and source_id:
             assign_segment[source_id] = character_id
-        else:
+        elif source_id:
             assign_cue[source_id] = character_id
 
     links = db.query_alignment_for_episode(episode_id, run_id=run_id)
@@ -51,7 +59,10 @@ def propagate_character_names(
 
     nb_seg = 0
     for segment_id, character_id in assign_segment.items():
-        db.update_segment_speaker(segment_id, character_id)
+        # Écrire le nom canonique (G-003), pas l'ID opaque
+        ch = char_by_id.get(character_id) or {}
+        canonical_name = ch.get("canonical") or character_id
+        db.update_segment_speaker(segment_id, canonical_name)
         nb_seg += 1
 
     def name_for_lang(character_id: str, lang: str) -> str:

@@ -1533,7 +1533,7 @@ class _PropagateBody(BaseModel):
 @app.post(
     "/episodes/{episode_id}/propagate_characters",
     status_code=200,
-    summary="Propage les personnages vers segments/cues et réécrit les SRT (MX-031)",
+    summary="Propage les personnages vers segments/cues et réécrit les SRT (MX-031 + G-003)",
 )
 def propagate_characters(
     episode_id: str,
