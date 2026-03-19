@@ -40,7 +40,7 @@ app.add_middleware(
         "tauri://localhost",
         "https://tauri.localhost",
     ],
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -381,6 +381,61 @@ def delete_source(
         except Exception:
             pass
     return {"episode_id": episode_id, "source_key": source_key, "lang": lang}
+
+
+class _TranscriptPatch(BaseModel):
+    clean: str
+
+
+@app.patch(
+    "/episodes/{episode_id}/sources/transcript",
+    status_code=200,
+    summary="Éditer le texte normalisé (clean) d'un transcript (G-001 / MX-041)",
+)
+def patch_transcript(
+    episode_id: str,
+    body: _TranscriptPatch,
+    store: ProjectStore = Depends(_get_store),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Écrase clean.txt avec le texte fourni.
+    Invalide les segments (supprime segments.jsonl + DB segments) car ils seraient périmés.
+    Remet le prep_status à 'normalized'.
+    Le frontend doit relancer le job 'segment' après coup si besoin.
+    """
+    if not body.clean.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "EMPTY_CONTENT",
+                "message": "Le texte clean ne peut pas être vide.",
+            },
+        )
+    ep_dir = store._episode_dir(episode_id)
+    if not ep_dir.exists():
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "EPISODE_NOT_FOUND", "message": f"Épisode inconnu : {episode_id}"},
+        )
+    # Écrire clean.txt
+    (ep_dir / "clean.txt").write_text(body.clean, encoding="utf-8")
+    # Invalider segments.jsonl (devenu périmé)
+    seg_file = ep_dir / "segments.jsonl"
+    if seg_file.exists():
+        seg_file.unlink()
+    # Invalider les segments en DB
+    if db is not None:
+        try:
+            db.delete_segments_for_episode(episode_id)
+        except Exception:
+            pass
+    store.set_episode_prep_status(episode_id, "transcript", "normalized")
+    return {
+        "episode_id": episode_id,
+        "source_key": "transcript",
+        "state": "normalized",
+        "chars": len(body.clean),
+    }
 
 
 @app.post(
