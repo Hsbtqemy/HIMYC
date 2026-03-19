@@ -472,6 +472,15 @@ class CorpusDB:
         finally:
             conn.close()
 
+    def delete_segments_for_episode(self, episode_id: str) -> None:
+        """Supprime tous les segments (toutes kinds) pour un épisode."""
+        conn = self._conn()
+        try:
+            conn.execute("DELETE FROM segments WHERE episode_id = ?", (episode_id,))
+            conn.commit()
+        finally:
+            conn.close()
+
     def get_cues_for_episode_lang(self, episode_id: str, lang: str) -> list[dict]:
         """Retourne les cues d'un épisode pour une langue (pour l'Inspecteur). meta = dict si meta_json présent."""
         conn = self._conn()

@@ -314,6 +314,75 @@ class _SrtImport(BaseModel):
     fmt: str = "srt"  # "srt" | "vtt"
 
 
+@app.delete(
+    "/episodes/{episode_id}/sources/transcript",
+    status_code=200,
+    summary="Supprimer le transcript d'un épisode (G-002)",
+)
+def delete_transcript(
+    episode_id: str,
+    store: ProjectStore = Depends(_get_store),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Supprime raw.txt, clean.txt et segments.jsonl pour cet épisode.
+    Remet le prep_status à 'absent'. N'efface pas les runs d'alignement existants.
+    """
+    ep_dir = store._episode_dir(episode_id)
+    removed: list[str] = []
+    for name in ("raw.txt", "clean.txt", "segments.jsonl"):
+        path = ep_dir / name
+        if path.exists():
+            path.unlink()
+            removed.append(name)
+    # Réinitialiser le prep_status pour transcript
+    store.set_episode_prep_status(episode_id, "transcript", "absent")
+    # Supprimer les segments en DB si elle existe
+    if db is not None:
+        try:
+            db.delete_segments_for_episode(episode_id)
+        except Exception:
+            pass
+    return {"episode_id": episode_id, "source_key": "transcript", "removed": removed}
+
+
+@app.delete(
+    "/episodes/{episode_id}/sources/{source_key}",
+    status_code=200,
+    summary="Supprimer une piste SRT d'un épisode (G-002)",
+)
+def delete_source(
+    episode_id: str,
+    source_key: str,
+    store: ProjectStore = Depends(_get_store),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Supprime les fichiers .srt/.vtt et les cues_jsonl pour ce lang.
+    Réinitialise le prep_status. Supprime aussi les cues en DB et les runs d'alignement liés.
+    """
+    if not source_key.startswith("srt_") or len(source_key) < 5:
+        raise HTTPException(
+            400,
+            detail={
+                "error": "INVALID_SOURCE_KEY",
+                "message": f"Clé source invalide : « {source_key} ». Format attendu : srt_<lang>.",
+            },
+        )
+    lang = source_key[4:]
+    store.remove_episode_subtitle(episode_id, lang)
+    store.set_episode_prep_status(episode_id, source_key, "absent")
+    # Supprimer les cues et les runs d'alignement liés en DB
+    if db is not None:
+        try:
+            db.delete_subtitle_track(episode_id, lang)
+        except Exception:
+            pass
+        try:
+            db.delete_align_runs_for_episode(episode_id)
+        except Exception:
+            pass
+    return {"episode_id": episode_id, "source_key": source_key, "lang": lang}
+
+
 @app.post(
     "/episodes/{episode_id}/sources/transcript",
     status_code=201,
