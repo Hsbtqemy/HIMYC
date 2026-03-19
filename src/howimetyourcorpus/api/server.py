@@ -519,6 +519,97 @@ def patch_alignment_link(
     return {"link_id": link_id, "status": body.status}
 
 
+# ─── Concordancier parallèle (MX-029) ────────────────────────────────────────
+
+
+@app.get(
+    "/episodes/{episode_id}/alignment_runs/{run_id}/concordance",
+    summary="Concordancier parallèle segment+pivot+cibles (MX-029)",
+)
+def get_alignment_concordance(
+    episode_id: str,
+    run_id: str,
+    status: str | None = Query(None, pattern="^(auto|accepted|rejected)$"),
+    q: str | None = Query(None, max_length=200),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """
+    Retourne les lignes du concordancier parallèle :
+    segment transcript + cue pivot + cue(s) cible(s) alignées.
+    Optionnel : filtre status (auto/accepted/rejected) + recherche texte q.
+    """
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    rows = db.get_parallel_concordance(episode_id, run_id, status_filter=status or None)
+    # Filtre texte côté backend si fourni
+    if q:
+        ql = q.lower()
+        rows = [
+            r for r in rows
+            if ql in (r.get("text_segment") or "").lower()
+            or ql in (r.get("text_en") or "").lower()
+            or ql in (r.get("text_fr") or "").lower()
+            or ql in (r.get("text_it") or "").lower()
+        ]
+    return {"episode_id": episode_id, "run_id": run_id, "total": len(rows), "rows": rows}
+
+
+# ─── Segments longtext (MX-029) ──────────────────────────────────────────────
+
+
+@app.get(
+    "/episodes/{episode_id}/segments",
+    summary="Liste des segments d'un épisode (MX-029)",
+)
+def get_episode_segments(
+    episode_id: str,
+    kind: str = Query("sentence", pattern="^(sentence|utterance)$"),
+    q: str | None = Query(None, max_length=200),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """
+    Retourne les segments d'un épisode (kind=sentence|utterance).
+    Filtre optionnel full-text q (FTS si DB dispo, sinon LIKE).
+    """
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    from howimetyourcorpus.core.storage import db_segments as _db_seg
+    conn = db._conn()
+    try:
+        if q:
+            # FTS5 search
+            try:
+                conn.row_factory = __import__("sqlite3").Row
+                fts_rows = conn.execute(
+                    "SELECT segment_id FROM segments_fts WHERE episode_id=? AND kind=? AND text MATCH ? ORDER BY rank LIMIT 500",
+                    [episode_id, kind, q],
+                ).fetchall()
+                ids = [r["segment_id"] for r in fts_rows]
+                if ids:
+                    placeholders = ",".join("?" * len(ids))
+                    segs = conn.execute(
+                        f"SELECT segment_id, n, kind, text, speaker_explicit FROM segments WHERE segment_id IN ({placeholders}) ORDER BY n",
+                        ids,
+                    ).fetchall()
+                    segments = [dict(s) for s in segs]
+                else:
+                    segments = []
+            except Exception:
+                # FTS fallback: LIKE
+                conn.row_factory = __import__("sqlite3").Row
+                like = f"%{q}%"
+                segs = conn.execute(
+                    "SELECT segment_id, n, kind, text, speaker_explicit FROM segments WHERE episode_id=? AND kind=? AND text LIKE ? ORDER BY n LIMIT 500",
+                    [episode_id, kind, like],
+                ).fetchall()
+                segments = [dict(s) for s in segs]
+        else:
+            segments = _db_seg.get_segments_for_episode(conn, episode_id, kind=kind)
+    finally:
+        conn.close()
+    return {"episode_id": episode_id, "kind": kind, "total": len(segments), "segments": segments}
+
+
 # ─── /jobs (MX-006) ───────────────────────────────────────────────────────────
 
 

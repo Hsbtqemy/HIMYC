@@ -1,0 +1,8 @@
+## S01E01 - Demo
+
+TED: Hello. How are you?
+MARSHALL: I'm fine. This is a short demo.
+TED: We will align the transcript with subtitles.
+MARSHALL: One line in English, one in Italian.
+TED: Legendary.
+

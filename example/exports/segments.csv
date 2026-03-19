@@ -1,0 +1,13 @@
+segment_id,episode_id,kind,n,start_char,end_char,text
+S01E01:sentence:0,S01E01,sentence,0,0,11,TED: Hello.
+S01E01:sentence:1,S01E01,sentence,1,12,24,How are you?
+S01E01:sentence:2,S01E01,sentence,2,25,44,MARSHALL: I'm fine.
+S01E01:sentence:3,S01E01,sentence,3,45,66,This is a short demo.
+S01E01:sentence:4,S01E01,sentence,4,67,116,TED: We will align the transcript with subtitles.
+S01E01:sentence:5,S01E01,sentence,5,117,163,"MARSHALL: One line in English, one in Italian."
+S01E01:sentence:6,S01E01,sentence,6,164,179,TED: Legendary.
+S01E01:utterance:0,S01E01,utterance,0,5,24,Hello. How are you?
+S01E01:utterance:1,S01E01,utterance,1,35,66,I'm fine. This is a short demo.
+S01E01:utterance:2,S01E01,utterance,2,72,116,We will align the transcript with subtitles.
+S01E01:utterance:3,S01E01,utterance,3,127,163,"One line in English, one in Italian."
+S01E01:utterance:4,S01E01,utterance,4,169,179,Legendary.
