@@ -617,3 +617,31 @@ class CorpusDB:
             return db_align.get_parallel_concordance(conn, episode_id, run_id, status_filter)
         finally:
             conn.close()
+
+    def get_audit_links(
+        self,
+        episode_id: str,
+        run_id: str,
+        *,
+        status_filter: str | None = None,
+        q: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[dict], int]:
+        """Liens enrichis avec texte pour la vue Audit (paginage + filtre)."""
+        conn = self._conn()
+        try:
+            return db_align.get_audit_links(
+                conn, episode_id, run_id,
+                status_filter=status_filter, q=q, offset=offset, limit=limit,
+            )
+        finally:
+            conn.close()
+
+    def get_collisions_for_run(self, episode_id: str, run_id: str) -> list[dict]:
+        """Détecte les collisions d'alignement (cue pivot → plusieurs cues cibles, même lang)."""
+        conn = self._conn()
+        try:
+            return db_align.get_collisions_for_run(conn, episode_id, run_id)
+        finally:
+            conn.close()

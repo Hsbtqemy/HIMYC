@@ -231,6 +231,128 @@ def get_align_stats_for_run(
     }
 
 
+def get_audit_links(
+    conn: sqlite3.Connection,
+    episode_id: str,
+    run_id: str,
+    *,
+    status_filter: str | None = None,
+    q: str | None = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> tuple[list[dict], int]:
+    """
+    Liens d'alignement enrichis avec le texte des segments et cues (pour la vue Audit).
+    Retourne (rows, total_count).
+    """
+    conn.row_factory = sqlite3.Row
+    where = "al.episode_id = ? AND al.align_run_id = ?"
+    params: list = [episode_id, run_id]
+    if status_filter:
+        where += " AND al.status = ?"
+        params.append(status_filter)
+    if q:
+        like = f"%{q}%"
+        where += " AND (s.text LIKE ? OR pc.text_clean LIKE ? OR tc.text_clean LIKE ?)"
+        params.extend([like, like, like])
+
+    base_sql = f"""
+        FROM align_links al
+        LEFT JOIN segments s ON al.segment_id = s.segment_id
+        LEFT JOIN subtitle_cues pc ON al.cue_id = pc.cue_id
+        LEFT JOIN subtitle_cues tc ON al.cue_id_target = tc.cue_id
+        WHERE {where}
+    """
+    total = conn.execute(f"SELECT COUNT(*) {base_sql}", params).fetchone()[0]
+    rows = conn.execute(
+        f"""
+        SELECT al.link_id, al.role, al.lang, al.confidence, al.status,
+               al.segment_id, al.cue_id, al.cue_id_target,
+               s.text AS text_segment, s.speaker_explicit, s.n AS segment_n,
+               pc.text_clean AS text_pivot,
+               tc.text_clean AS text_target
+        {base_sql}
+        ORDER BY COALESCE(s.n, 999999), al.lang
+        LIMIT ? OFFSET ?
+        """,
+        [*params, limit, offset],
+    ).fetchall()
+
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["confidence"] = round(d["confidence"], 4) if d["confidence"] is not None else None
+        result.append(d)
+    return result, total
+
+
+def get_collisions_for_run(
+    conn: sqlite3.Connection,
+    episode_id: str,
+    run_id: str,
+) -> list[dict]:
+    """
+    Détecte les collisions : cue pivot → plusieurs liens vers le même lang cible.
+    Une collision = même cue_id apparaît dans > 1 liens cible pour le même lang.
+    Retourne la liste avec texte pivot + liste des cues cibles en conflit.
+    """
+    conn.row_factory = sqlite3.Row
+    # Trouver les cue_id pivot qui ont plusieurs liens target pour le même lang
+    collision_rows = conn.execute(
+        """
+        SELECT al.cue_id AS pivot_cue_id, al.lang, COUNT(*) AS n_targets
+        FROM align_links al
+        WHERE al.episode_id = ? AND al.align_run_id = ? AND al.role = 'target'
+        GROUP BY al.cue_id, al.lang
+        HAVING COUNT(*) > 1
+        ORDER BY COUNT(*) DESC
+        """,
+        [episode_id, run_id],
+    ).fetchall()
+
+    if not collision_rows:
+        return []
+
+    collisions = []
+    for cr in collision_rows:
+        pivot_cue_id = cr["pivot_cue_id"]
+        lang = cr["lang"]
+        # Texte du cue pivot
+        pc = conn.execute(
+            "SELECT text_clean FROM subtitle_cues WHERE cue_id = ?", [pivot_cue_id]
+        ).fetchone()
+        pivot_text = pc["text_clean"] if pc else ""
+        # Liens target en conflit
+        target_links = conn.execute(
+            """
+            SELECT al.link_id, al.cue_id_target, al.confidence, al.status,
+                   tc.text_clean AS target_text
+            FROM align_links al
+            LEFT JOIN subtitle_cues tc ON al.cue_id_target = tc.cue_id
+            WHERE al.episode_id = ? AND al.align_run_id = ?
+              AND al.role = 'target' AND al.cue_id = ? AND al.lang = ?
+            """,
+            [episode_id, run_id, pivot_cue_id, lang],
+        ).fetchall()
+        collisions.append({
+            "pivot_cue_id": pivot_cue_id,
+            "pivot_text": pivot_text,
+            "lang": lang,
+            "n_targets": cr["n_targets"],
+            "targets": [
+                {
+                    "link_id": t["link_id"],
+                    "cue_id_target": t["cue_id_target"],
+                    "target_text": t["target_text"] or "",
+                    "confidence": round(t["confidence"], 4) if t["confidence"] else None,
+                    "status": t["status"],
+                }
+                for t in target_links
+            ],
+        })
+    return collisions
+
+
 def get_parallel_concordance(
     conn: sqlite3.Connection,
     episode_id: str,

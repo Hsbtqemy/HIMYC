@@ -419,6 +419,106 @@ def list_alignment_runs(
     return {"episode_id": episode_id, "runs": runs}
 
 
+# ─── Alignment Audit (MX-028) ─────────────────────────────────────────────────
+
+
+@app.get(
+    "/episodes/{episode_id}/alignment_runs/{run_id}/stats",
+    summary="Statistiques d'un run d'alignement (MX-028)",
+)
+def get_alignment_run_stats(
+    episode_id: str,
+    run_id: str,
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Retourne nb_links, by_status (auto/accepted/rejected), avg_confidence, n_collisions."""
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    stats = db.get_align_stats_for_run(episode_id, run_id)
+    collisions = db.get_collisions_for_run(episode_id, run_id)
+    # Calcul couverture : % de liens avec statut != rejected (liens actifs) / total pivot
+    nb_pivot = stats.get("nb_pivot", 0)
+    nb_rejected = stats.get("by_status", {}).get("rejected", 0)
+    nb_active = max(0, nb_pivot - nb_rejected)
+    coverage_pct = round(nb_active / nb_pivot * 100, 1) if nb_pivot else None
+    return {
+        **stats,
+        "n_collisions": len(collisions),
+        "coverage_pct": coverage_pct,
+    }
+
+
+@app.get(
+    "/episodes/{episode_id}/alignment_runs/{run_id}/links",
+    summary="Liens d'alignement paginés + enrichis (MX-028)",
+)
+def get_alignment_run_links(
+    episode_id: str,
+    run_id: str,
+    status: str | None = Query(None, pattern="^(auto|accepted|rejected)$"),
+    q: str | None = Query(None, max_length=200),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Liens enrichis avec texte (segment transcript + cue pivot + cue cible). Paginés."""
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    rows, total = db.get_audit_links(
+        episode_id, run_id,
+        status_filter=status,
+        q=q or None,
+        offset=offset,
+        limit=limit,
+    )
+    return {
+        "episode_id": episode_id,
+        "run_id": run_id,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "links": rows,
+    }
+
+
+@app.get(
+    "/episodes/{episode_id}/alignment_runs/{run_id}/collisions",
+    summary="Collisions d'alignement pour un run (MX-028)",
+)
+def get_alignment_run_collisions(
+    episode_id: str,
+    run_id: str,
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Retourne les cues pivot avec plusieurs liens target dans le même lang (collisions)."""
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    collisions = db.get_collisions_for_run(episode_id, run_id)
+    return {"episode_id": episode_id, "run_id": run_id, "collisions": collisions}
+
+
+class _AlignStatusBody(BaseModel):
+    status: str  # "accepted" | "rejected" | "auto"
+
+
+@app.patch(
+    "/alignment_links/{link_id}",
+    summary="Mettre à jour le statut d'un lien d'alignement (MX-028)",
+)
+def patch_alignment_link(
+    link_id: str,
+    body: _AlignStatusBody,
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Accepte ou rejette un lien (accepted / rejected / auto)."""
+    if db is None:
+        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    if body.status not in ("accepted", "rejected", "auto"):
+        raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": "status doit être accepted, rejected ou auto."})
+    db.set_align_status(link_id, body.status)
+    return {"link_id": link_id, "status": body.status}
+
+
 # ─── /jobs (MX-006) ───────────────────────────────────────────────────────────
 
 
