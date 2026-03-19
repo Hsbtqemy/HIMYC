@@ -9,10 +9,10 @@
 
 | Dimension | État |
 |-----------|------|
-| Endpoints backend | 28/28 implémentés |
+| Endpoints backend | 30/30 implémentés |
 | Modules frontend | 6/6 présents |
-| Bugs critiques | 1 fixé (Query import), 1 ouvert (CharacterAssignment schema) |
-| Couverture fonctionnelle estimée | ~87 % |
+| Bugs critiques | 2 fixés (Query import, CharacterAssignment schema) |
+| Couverture fonctionnelle estimée | ~95 % |
 
 ---
 
@@ -28,7 +28,7 @@
 | MX-009 | Handoff Inspecter → Aligner | ✅ | ✅ | Livré |
 | MX-020 | Shell navigation (hub + 5 modules) | ✅ | ✅ | Livré |
 | MX-021b | Web discovery (TVMaze + Subslikescript) | ✅ | ✅ | Livré |
-| MX-021c | Catalogue personnages + assignations | ✅ | ⚠️ | Schema mismatch |
+| MX-021c | Catalogue personnages + assignations | ✅ | ✅ | Livré (B-002 fixé) |
 | MX-022 | KWIC query (FTS5) | ✅ | ✅ | Livré |
 | MX-025 | Facettes & analytics | ✅ | ✅ | Livré |
 | MX-027 | QA report (gate + issues) | ✅ | ✅ | Livré |
@@ -36,7 +36,7 @@
 | MX-029 | Concordancier parallèle | ✅ | ✅ | Livré |
 | MX-030 | Export alignements (CSV/TSV) | ✅ | ✅ | Livré |
 | MX-031 | Propagate personnages → SRT | ✅ | ✅ | Livré |
-| MX-032 | Auto-assign personnages | ✅ | ⚠️ | Schema mismatch |
+| MX-032 | Auto-assign personnages | ✅ | ✅ | Livré (B-002 fixé) |
 | MX-034 | Concordancier — query builder + export | ✅ | ✅ | Livré |
 | MX-035 | Quality bar + batch collisions | ✅ | ✅ | Livré |
 | MX-036 | Mode Traduction segmentation | ✅ | ✅ | Livré |
@@ -44,6 +44,11 @@
 | MX-038 | Export rapport JSON run | ✅ | ✅ | Livré |
 | MX-039 | Curation granulaire (ignored + bulk) | ✅ | ✅ | Livré |
 | MX-040 | Retarget modal (search + réassignation) | ✅ | ✅ | Livré |
+| MX-041 | Édition transcript inline (G-001) | ✅ | ✅ | Livré |
+| MX-042 | Suppression source transcript + SRT (G-002) | ✅ | ✅ | Livré |
+| MX-043 | Keyboard shortcuts Audit View (G-005) | — | ✅ | Livré |
+| MX-044 | Filtre épisode Concordancier (G-006) | — | ✅ | Livré |
+| MX-046 | Export rapport HTML (G-009) | — | ✅ | Livré |
 
 ---
 
@@ -58,7 +63,7 @@
 
 ---
 
-### 🐛 B-002 — Schema `CharacterAssignment` incohérent · **OUVERT**
+### 🐛 B-002 — Schema `CharacterAssignment` incohérent · **FIXÉ**
 
 - **Sévérité** : P1 — Auto-assign produit un format que le frontend ne sait pas lire
 - **Backend** (`/assignments/auto`) retourne :
@@ -175,27 +180,23 @@
 
 ## Prochaines actions recommandées
 
-### Semaine courante
+### Semaine courante — ✅ LIVRÉ
 
-| Priorité | Action | Effort | Ticket |
-|----------|--------|--------|--------|
-| 🔴 P1 | Fixer B-002 (CharacterAssignment schema) | S | — |
-| 🟠 P1 | G-001 : Édition transcript inline | M | MX-041 |
-| 🟠 P1 | G-002 : Suppression source | S | MX-042 |
-
-### Semaine suivante
-
-| Priorité | Action | Effort | Ticket |
-|----------|--------|--------|--------|
-| 🟡 P2 | G-005 : Keyboard shortcuts Audit View | S | MX-043 |
-| 🟡 P2 | G-006 : Filtre épisode Concordancier parallèle | S | MX-044 |
-| 🟡 P2 | G-003 : Propagate personnages → segments | M | MX-045 |
-| 🟡 P2 | G-009 : Export rapport HTML | S | MX-046 |
+| Ticket | Action | État |
+|--------|--------|------|
+| B-001  | Fix Query import server.py | ✅ Fixé |
+| B-002  | Fix CharacterAssignment schema | ✅ Fixé |
+| MX-041 | G-001 : Édition transcript inline | ✅ Livré |
+| MX-042 | G-002 : Suppression transcript + SRT | ✅ Livré |
+| MX-043 | G-005 : Keyboard shortcuts Audit View | ✅ Livré |
+| MX-044 | G-006 : Filtre épisode Concordancier | ✅ Livré |
+| MX-046 | G-009 : Export rapport HTML | ✅ Livré |
 
 ### Sprint suivant
 
 | Priorité | Action | Effort | Ticket |
 |----------|--------|--------|--------|
+| 🟡 P2 | G-003 : Propagate personnages → segments | M | MX-045 |
 | 🟡 P2 | G-004 : Minimap Audit View | L | MX-047 |
 | 🟡 P2 | G-007 : Progression job align | M | MX-048 |
 | 🟡 P2 | G-008 : Note/commentaire lien | M | MX-049 |
@@ -223,4 +224,4 @@
 
 ---
 
-*Généré automatiquement après audit du 19 mars 2026.*
+*Généré automatiquement après audit du 19 mars 2026. Mis à jour le 19 mars 2026 après sprint MX-041→MX-046.*
