@@ -246,11 +246,12 @@ class CorpusDB:
         episode: int | None = None,
         window: int = 45,
         limit: int = 200,
+        case_sensitive: bool = False,
     ) -> list[KwicHit]:
         """Recherche KWIC sur documents (FTS5). Délègue à db_kwic."""
         conn = self._conn()
         try:
-            return _query_kwic(conn, term, season=season, episode=episode, window=window, limit=limit)
+            return _query_kwic(conn, term, season=season, episode=episode, window=window, limit=limit, case_sensitive=case_sensitive)
         finally:
             conn.close()
 
@@ -334,12 +335,14 @@ class CorpusDB:
         episode: int | None = None,
         window: int = 45,
         limit: int = 200,
+        case_sensitive: bool = False,
     ) -> list[KwicHit]:
         """Recherche KWIC au niveau segments (FTS segments_fts). Délègue à db_kwic."""
         conn = self._conn()
         try:
             return _query_kwic_segments(
-                conn, term, kind=kind, season=season, episode=episode, window=window, limit=limit
+                conn, term, kind=kind, season=season, episode=episode, window=window, limit=limit,
+                case_sensitive=case_sensitive,
             )
         finally:
             conn.close()
@@ -437,12 +440,14 @@ class CorpusDB:
         episode: int | None = None,
         window: int = 45,
         limit: int = 200,
+        case_sensitive: bool = False,
     ) -> list[KwicHit]:
         """Recherche KWIC sur les cues sous-titres (FTS cues_fts). Délègue à db_kwic."""
         conn = self._conn()
         try:
             return _query_kwic_cues(
-                conn, term, lang=lang, season=season, episode=episode, window=window, limit=limit
+                conn, term, lang=lang, season=season, episode=episode, window=window, limit=limit,
+                case_sensitive=case_sensitive,
             )
         finally:
             conn.close()

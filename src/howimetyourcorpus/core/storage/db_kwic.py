@@ -38,6 +38,7 @@ def query_kwic(
     episode: int | None = None,
     window: int = 45,
     limit: int = 200,
+    case_sensitive: bool = False,
 ) -> list[KwicHit]:
     """
     Recherche KWIC sur documents (FTS5). Construit (left, match, right) avec window caractères.
@@ -81,7 +82,8 @@ def query_kwic(
         ).fetchall()
 
     hits: list[KwicHit] = []
-    pattern = re.compile(re.escape(term), re.IGNORECASE)
+    flags = 0 if case_sensitive else re.IGNORECASE
+    pattern = re.compile(re.escape(term), flags)
     for row in rows:
         episode_id = row["episode_id"]
         title = row["title"] or ""
@@ -119,6 +121,7 @@ def query_kwic_segments(
     episode: int | None = None,
     window: int = 45,
     limit: int = 200,
+    case_sensitive: bool = False,
 ) -> list[KwicHit]:
     """Recherche KWIC au niveau segments (FTS segments_fts). Retourne des KwicHit avec segment_id et kind."""
     if not term or not term.strip():
@@ -148,7 +151,8 @@ def query_kwic_segments(
     ).fetchall()
 
     hits: list[KwicHit] = []
-    pattern = re.compile(re.escape(term), re.IGNORECASE)
+    flags = 0 if case_sensitive else re.IGNORECASE
+    pattern = re.compile(re.escape(term), flags)
     for row in rows:
         segment_id = row["segment_id"]
         episode_id = row["episode_id"]
@@ -192,6 +196,7 @@ def query_kwic_cues(
     episode: int | None = None,
     window: int = 45,
     limit: int = 200,
+    case_sensitive: bool = False,
 ) -> list[KwicHit]:
     """Recherche KWIC sur les cues sous-titres (FTS cues_fts). Retourne des KwicHit avec cue_id et lang."""
     if not term or not term.strip():
@@ -221,7 +226,8 @@ def query_kwic_cues(
     ).fetchall()
 
     hits: list[KwicHit] = []
-    pattern = re.compile(re.escape(term), re.IGNORECASE)
+    flags = 0 if case_sensitive else re.IGNORECASE
+    pattern = re.compile(re.escape(term), flags)
     for row in rows:
         cue_id = row["cue_id"]
         episode_id = row["episode_id"]

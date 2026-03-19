@@ -960,14 +960,15 @@ QUERY_KINDS  = frozenset(["sentence", "utterance"])
 
 
 class _QueryRequest(BaseModel):
-    term:       str
-    scope:      str                  = "segments"
-    kind:       str | None           = None   # segments uniquement
-    lang:       str | None           = None   # cues uniquement
-    episode_id: str | None           = None   # filtre post-query par episode_id
-    speaker:    str | None           = None   # filtre post-query par locuteur
-    window:     int                  = 60
-    limit:      int                  = 200
+    term:           str
+    scope:          str       = "segments"
+    kind:           str | None = None   # segments uniquement
+    lang:           str | None = None   # cues uniquement
+    episode_id:     str | None = None   # filtre post-query par episode_id
+    speaker:        str | None = None   # filtre post-query par locuteur
+    window:         int        = 60
+    limit:          int        = 200
+    case_sensitive: bool       = False
 
 
 @app.post("/query", summary="Recherche KWIC concordancier (MX-022)")
@@ -1009,12 +1010,13 @@ def query_corpus(
     limit = max(1, min(body.limit, 2000))
     window = max(10, min(body.window, 200))
 
+    cs = body.case_sensitive
     if body.scope == "segments":
-        hits = db.query_kwic_segments(term, kind=body.kind, window=window, limit=limit)
+        hits = db.query_kwic_segments(term, kind=body.kind, window=window, limit=limit, case_sensitive=cs)
     elif body.scope == "cues":
-        hits = db.query_kwic_cues(term, lang=body.lang, window=window, limit=limit)
+        hits = db.query_kwic_cues(term, lang=body.lang, window=window, limit=limit, case_sensitive=cs)
     else:
-        hits = db.query_kwic(term, window=window, limit=limit)
+        hits = db.query_kwic(term, window=window, limit=limit, case_sensitive=cs)
 
     has_more = len(hits) >= limit  # avant post-filtres
 
