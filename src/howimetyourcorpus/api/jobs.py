@@ -216,6 +216,14 @@ class JobStore:
                 job.error_msg  = error_msg
                 self._save()
 
+    def mark_progress(self, job_id: str, progress: dict[str, Any]) -> None:
+        """Met à jour _progress dans result pendant l'exécution (G-007 / MX-048).
+        Mise à jour en mémoire uniquement — pas de flush disque pour éviter la contention."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job and job.status == RUNNING:
+                job.result = {**job.result, "_progress": progress}
+
     def has_active(self) -> bool:
         """True si au moins un job est pending ou running."""
         with self._lock:
@@ -255,9 +263,23 @@ class JobWorker:
     def _run_job(self, job: JobRecord) -> None:
         logger.info("JobWorker : démarrage %s %s/%s", job.job_type, job.episode_id, job.source_key)
         self._store.mark_running(job.job_id)
+
+        import re as _re
+
+        def _on_progress(_step: str, pct_float: float, message: str) -> None:
+            """Callback transmis à AlignEpisodeStep.run() → mise à jour _progress."""
+            m = _re.search(r"(\d+)/(\d+)", message)
+            segments_done  = int(m.group(1)) if m else 0
+            segments_total = int(m.group(2)) if m else 0
+            self._store.mark_progress(job.job_id, {
+                "progress_pct":    round(pct_float * 100),
+                "segments_done":   segments_done,
+                "segments_total":  segments_total,
+            })
+
         try:
             project_path = self._get_project_path()
-            result = _execute_job(job, project_path)
+            result = _execute_job(job, project_path, on_progress=_on_progress)
             self._store.mark_done(job.job_id, result)
             logger.info("JobWorker : done %s %s", job.job_type, job.episode_id)
         except Exception as e:
@@ -267,7 +289,11 @@ class JobWorker:
 
 # ── Exécution job ──────────────────────────────────────────────────────────
 
-def _execute_job(job: JobRecord, project_path: Path) -> dict[str, Any]:
+def _execute_job(
+    job: JobRecord,
+    project_path: Path,
+    on_progress: Any = None,
+) -> dict[str, Any]:
     """Exécute un job de façon synchrone. Lève une exception en cas d'erreur."""
     from howimetyourcorpus.core.storage.project_store import ProjectStore
     from howimetyourcorpus.core.pipeline.runner import PipelineRunner
@@ -355,7 +381,7 @@ def _execute_job(job: JobRecord, project_path: Path) -> dict[str, Any]:
             use_similarity_for_cues=use_similarity,
         )
         ctx: dict[str, Any] = {"store": store, "db": db}
-        results = runner.run([step], ctx, force=True)
+        results = runner.run([step], ctx, force=True, on_progress=on_progress)
         if results and not results[0].success:
             raise RuntimeError(results[0].message)
 
