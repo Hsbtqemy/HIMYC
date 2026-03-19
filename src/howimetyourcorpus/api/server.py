@@ -101,9 +101,58 @@ def config(store: ProjectStore = Depends(_get_store)) -> dict[str, Any]:
     extra = store.load_config_extra()
     languages = store.load_project_languages()
     return {
-        "project_name": extra.get("project_name", store.root_dir.name),
-        "project_path": str(store.root_dir),
-        "languages": languages,
+        "project_name":     extra.get("project_name", store.root_dir.name),
+        "project_path":     str(store.root_dir),
+        "source_id":        extra.get("source_id", ""),
+        "series_url":       extra.get("series_url", ""),
+        "languages":        languages,
+        "normalize_profile": extra.get("normalize_profile", "default_en_v1"),
+    }
+
+
+class _ConfigBody(BaseModel):
+    project_name:      str | None = None
+    source_id:         str | None = None
+    series_url:        str | None = None
+    normalize_profile: str | None = None
+    languages:         list[str] | None = None
+
+
+@app.put("/config", summary="Mettre à jour la configuration du projet")
+def update_config(
+    body: _ConfigBody,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
+    valid_profiles = get_all_profile_ids()
+    updates: dict[str, Any] = {}
+    if body.project_name is not None:
+        n = body.project_name.strip()
+        if not n:
+            raise HTTPException(422, detail={"error": "EMPTY_NAME", "message": "Le nom du projet ne peut pas être vide."})
+        updates["project_name"] = n
+    if body.source_id is not None:
+        updates["source_id"] = body.source_id.strip()
+    if body.series_url is not None:
+        updates["series_url"] = body.series_url.strip()
+    if body.normalize_profile is not None:
+        p = body.normalize_profile.strip()
+        if p and p not in valid_profiles:
+            raise HTTPException(422, detail={"error": "INVALID_PROFILE", "message": f"Profil inconnu : {p}. Disponibles : {', '.join(valid_profiles)}"})
+        updates["normalize_profile"] = p
+    if updates:
+        store.save_config_extra(updates)
+    if body.languages is not None:
+        langs = [l.strip().lower() for l in body.languages if l.strip()]
+        store.save_project_languages(langs)
+    # Return updated config
+    extra = store.load_config_extra()
+    return {
+        "project_name":     extra.get("project_name", store.root_dir.name),
+        "project_path":     str(store.root_dir),
+        "source_id":        extra.get("source_id", ""),
+        "series_url":       extra.get("series_url", ""),
+        "languages":        store.load_project_languages(),
         "normalize_profile": extra.get("normalize_profile", "default_en_v1"),
     }
 
