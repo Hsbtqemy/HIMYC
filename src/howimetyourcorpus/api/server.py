@@ -1364,7 +1364,8 @@ def run_export(
     import json as _json
     from howimetyourcorpus.core.export_utils import (
         export_corpus_txt, export_corpus_csv, export_corpus_json, export_corpus_docx,
-        export_segments_txt, export_segments_csv, export_segments_tsv,
+        export_corpus_utterances_jsonl,
+        export_segments_txt, export_segments_csv, export_segments_tsv, export_segments_docx,
     )
     from howimetyourcorpus.core.models import EpisodeRef
 
@@ -1392,10 +1393,11 @@ def run_export(
                 pairs.append((ep, text))
         if not pairs:
             raise HTTPException(422, detail={"error": "NO_TEXT", "message": "Aucun texte disponible pour l'export."})
-        if fmt == "txt":    export_corpus_txt(pairs, out_path)
-        elif fmt == "csv":  export_corpus_csv(pairs, out_path)
-        elif fmt == "json": export_corpus_json(pairs, out_path)
-        elif fmt == "docx": export_corpus_docx(pairs, out_path)
+        if fmt == "txt":     export_corpus_txt(pairs, out_path)
+        elif fmt == "csv":   export_corpus_csv(pairs, out_path)
+        elif fmt == "json":  export_corpus_json(pairs, out_path)
+        elif fmt == "docx":  export_corpus_docx(pairs, out_path)
+        elif fmt == "jsonl": export_corpus_utterances_jsonl(pairs, out_path)
         else:
             raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": f"Format {fmt} non supporté pour corpus."})
         return {"scope": scope, "fmt": fmt, "episodes": len(pairs), "path": str(out_path)}
@@ -1427,9 +1429,10 @@ def run_export(
                         pass
     if not all_segments:
         raise HTTPException(422, detail={"error": "NO_SEGMENTS", "message": "Aucun segment disponible. Lancez la segmentation d'abord."})
-    if fmt == "txt":    export_segments_txt(all_segments, out_path)
-    elif fmt == "csv":  export_segments_csv(all_segments, out_path)
-    elif fmt == "tsv":  export_segments_tsv(all_segments, out_path)
+    if fmt == "txt":     export_segments_txt(all_segments, out_path)
+    elif fmt == "csv":   export_segments_csv(all_segments, out_path)
+    elif fmt == "tsv":   export_segments_tsv(all_segments, out_path)
+    elif fmt == "docx":  export_segments_docx(all_segments, out_path)
     else:
         raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": f"Format {fmt} non supporté pour segments."})
     return {"scope": scope, "fmt": fmt, "segments": len(all_segments), "path": str(out_path)}
