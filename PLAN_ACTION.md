@@ -1,7 +1,8 @@
 # Plan d'action HIMYC — Audit 19 mars 2026
 
 > **Périmètre** : Backend Python (`/HIMYC`) + Frontend Tauri TypeScript (`/himyc-tauri`)
-> **Derniers tickets livrés** : MX-034 → MX-040 (concordancier, quality bar, mode traduction, align config, export rapport, curation granulaire, retarget modal)
+> **Derniers tickets livrés** : MX-034 → MX-046, MX-048, MX-049 + audit général 20 mars 2026
+> **Rapport d'audit complet** : `AUDIT_2026-03.md`
 
 ---
 
@@ -11,8 +12,9 @@
 |-----------|------|
 | Endpoints backend | 30/30 implémentés |
 | Modules frontend | 6/6 présents |
-| Bugs critiques | 2 fixés (Query import, CharacterAssignment schema) |
-| Couverture fonctionnelle estimée | ~95 % |
+| Bugs critiques | 3 fixés (Query import, CharacterAssignment schema, **_get_db undefined**) |
+| Couverture fonctionnelle estimée | ~96 % |
+| Audit dernière mise à jour | 20 mars 2026 |
 
 ---
 
@@ -178,28 +180,116 @@
 
 ---
 
+## Bugs confirmés — [AUDIT-2026-03]
+
+### 🐛 B-003 — `_get_db` indéfinie · **FIXÉ**
+
+- **Sévérité** : P0 — NameError au chargement — serveur ne démarrait pas
+- **Présent depuis** : commit `26d1967` (MX-028)
+- **Endpoints affectés** : 17 routes (DELETE transcript, audit stats/links/collisions, PATCH link, bulk, subtitle_cues, retarget, segments, QA, auto-assign, propagate, export/alignments…)
+- **Fix** : Définition de `_get_db()` strict (lève 503 si corpus.db absent)
+- **Commit** : `fix(server): define _get_db`
+
+---
+
+## Issues audit — [AUDIT-2026-03]
+
+### 🔴 CRITIQUE
+
+| ID | Issue | Fichier | Priorité |
+|----|-------|---------|----------|
+| B-003 | `_get_db` indéfinie — serveur ne démarre pas | server.py | ✅ Fixé |
+| AUD-01 | Export alignements cassé si `pivot_lang ≠ en` | db_align.py L554-618 | P1 |
+
+### 🟡 WARN
+
+| ID | Issue | Fichier | Priorité |
+|----|-------|---------|----------|
+| AUD-02 | Guards `if db is None:` redondants (endpoints _get_db) | server.py ~15 occurrences | P3 |
+| AUD-03 | Export `/export/alignments` écrit sur disque inutilement | server.py L1660 | P2 |
+| AUD-04 | `personnage` / `speaker` / `speaker_explicit` — 3 noms | db_align.py, export_utils.py, api.ts | P3 |
+| AUD-05 | `apiPost()` utilisé pour PATCH — pas de `apiPatch()` | himyc-tauri/src/api.ts | P3 |
+
+### 🔵 NOTE
+
+| ID | Issue | Fichier |
+|----|-------|---------|
+| AUD-06 | FK manquantes + pas de CASCADE sur tables enfants | schema.sql, migrations |
+| AUD-07 | Table `runs` (schema.sql) jamais utilisée | schema.sql L43 |
+| AUD-08 | `speaker_explicit` absent de segments_fts | 002_segments.sql |
+| AUD-09 | `VERSION = "0.1.0"` hardcodé, non sync pyproject | server.py L27 |
+
+---
+
+## Tickets d'action audit
+
+### AUD-01 · Export alignements multilangue · P1 · Effort M
+
+**Problème** : `get_parallel_concordance()` assume pivot_lang = EN. Les colonnes `text_en/fr/it` sont hardcodées. Si pivot_lang = FR, `text_en` et `text_it` restent vides.
+
+**Backend requis** :
+- `db_align.get_parallel_concordance()` : renommer `target_by_cue_en` → `target_by_cue_pivot`
+- Rendre l'assignation `text_{lang}` dynamique selon `pivot_lang` et les langues target disponibles dans `align_links`
+- `server.py export_alignments()` : déduire les `fieldnames` du run plutôt que les hardcoder
+
+**Frontend** : Mise à jour de l'interface `ExportAlignmentResult` si les colonnes changent
+
+---
+
+### AUD-03 · Export alignements : retour streaming plutôt que disque · P2 · Effort S
+
+**Problème** : Le fichier écrit dans `exports/` n'est jamais lu par le frontend.
+
+**Fix** : Retourner `StreamingResponse` (CSV/TSV inline) au lieu de `FileResponse`. Le frontend reçoit le contenu directement et peut proposer un téléchargement via Blob URL (pattern déjà utilisé pour l'export HTML).
+
+---
+
+### AUD-06 · Migration FK + CASCADE · P3 · Effort S
+
+**Migration 006** à créer :
+```sql
+-- PRAGMA foreign_keys doit être ON (déjà le cas dans _conn())
+-- SQLite ne supporte pas ALTER TABLE ADD CONSTRAINT
+-- → recréer les tables avec FK ou documenter l'absence de CASCADE
+
+-- Alternative légère : ajouter des triggers ON DELETE pour simuler CASCADE
+CREATE TRIGGER IF NOT EXISTS fk_cascade_segments
+BEFORE DELETE ON episodes BEGIN
+  DELETE FROM segments WHERE episode_id = OLD.episode_id;
+END;
+-- idem pour subtitle_tracks, subtitle_cues, align_runs, align_links
+```
+
+---
+
 ## Prochaines actions recommandées
 
-### Semaine courante — ✅ LIVRÉ
+### Livré — sprint 19-20 mars 2026
 
 | Ticket | Action | État |
 |--------|--------|------|
 | B-001  | Fix Query import server.py | ✅ Fixé |
 | B-002  | Fix CharacterAssignment schema | ✅ Fixé |
+| B-003  | Fix `_get_db` undefined | ✅ Fixé |
 | MX-041 | G-001 : Édition transcript inline | ✅ Livré |
 | MX-042 | G-002 : Suppression transcript + SRT | ✅ Livré |
 | MX-043 | G-005 : Keyboard shortcuts Audit View | ✅ Livré |
 | MX-044 | G-006 : Filtre épisode Concordancier | ✅ Livré |
+| MX-045 | G-003 : Propagate personnages → segments | ✅ Livré |
 | MX-046 | G-009 : Export rapport HTML | ✅ Livré |
+| MX-048 | G-007 : Progression job align | ✅ Livré |
+| MX-049 | G-008 : Note/commentaire lien | ✅ Livré |
+| —      | Case-sensitive concordancier (bouton Aa) | ✅ Livré |
 
-### Sprint suivant
+### Sprint prochain — priorités audit
 
-| Priorité | Action | Effort | Ticket |
+| Priorité | Ticket | Action | Effort |
 |----------|--------|--------|--------|
-| 🟡 P2 | G-003 : Propagate personnages → segments | M | MX-045 |
-| 🟡 P2 | G-004 : Minimap Audit View | L | MX-047 |
-| 🟡 P2 | G-007 : Progression job align | M | MX-048 |
-| 🟡 P2 | G-008 : Note/commentaire lien | M | MX-049 |
+| 🔴 P1 | AUD-01 | Export alignements multilangue dynamique | M |
+| 🟡 P2 | AUD-03 | Export streaming (supprimer écriture disque) | S |
+| 🟡 P2 | G-004  | Minimap Audit View | L |
+| 🔵 P3 | AUD-06 | Migration FK + CASCADE triggers | S |
+| 🔵 P3 | AUD-02 | Nettoyer guards `if db is None` redondants | S |
 
 ---
 
@@ -224,4 +314,4 @@
 
 ---
 
-*Généré automatiquement après audit du 19 mars 2026. Mis à jour le 19 mars 2026 après sprint MX-041→MX-046.*
+*Généré après audit du 19 mars 2026. Mis à jour le 20 mars 2026 — audit général (branchements, DB, exports) + sprint MX-041→MX-049.*

@@ -85,6 +85,20 @@ def _get_db_optional(path: Path = Depends(_require_project_path)) -> CorpusDB | 
     return CorpusDB(db_path)
 
 
+def _get_db(path: Path = Depends(_require_project_path)) -> CorpusDB | None:
+    """Retourne CorpusDB — lève 503 si corpus.db absent (endpoints qui exigent la DB)."""
+    db_path = path / "corpus.db"
+    if not db_path.exists():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "NO_DB",
+                "message": "corpus.db introuvable — indexez d'abord le projet.",
+            },
+        )
+    return CorpusDB(db_path)
+
+
 # ─── /health ──────────────────────────────────────────────────────────────────
 
 
