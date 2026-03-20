@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
 from howimetyourcorpus.core.normalize.profiles import PROFILES
 from howimetyourcorpus.app.ui_utils import require_project
 
@@ -223,7 +224,7 @@ class ProjectTabWidget(QWidget):
         if not series_url:
             series_url = ""
         rate_limit = self.rate_limit_spin.value()
-        normalize_profile = self.normalize_profile_combo.currentText() or "default_en_v1"
+        normalize_profile = self.normalize_profile_combo.currentText() or DEFAULT_NORMALIZE_PROFILE
         return {
             "root": root,
             "source_id": source_id,

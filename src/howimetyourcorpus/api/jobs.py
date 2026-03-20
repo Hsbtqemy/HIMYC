@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
+
 logger = logging.getLogger(__name__)
 
 # ── Statuts ────────────────────────────────────────────────────────────────
@@ -309,7 +311,7 @@ def _execute_job(
                 "Importez un transcript avant de normaliser."
             )
         extra = store.load_config_extra()
-        profile_id = extra.get("normalize_profile", "default_en_v1")
+        profile_id = extra.get("normalize_profile", DEFAULT_NORMALIZE_PROFILE)
         runner = PipelineRunner()
         step   = NormalizeEpisodeStep(job.episode_id, profile_id)
         ctx: dict[str, Any] = {"store": store}
@@ -350,7 +352,7 @@ def _execute_job(
         from howimetyourcorpus.core.storage.db import CorpusDB
         db = CorpusDB(db_path)
         extra = store.load_config_extra()
-        profile_id = extra.get("normalize_profile", "default_en_v1")
+        profile_id = extra.get("normalize_profile", DEFAULT_NORMALIZE_PROFILE)
         n = store.normalize_subtitle_track(db, job.episode_id, lang, profile_id)
         store.set_episode_prep_status(job.episode_id, job.source_key, "normalized")
         return {"cues_updated": n}

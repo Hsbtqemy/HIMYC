@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from howimetyourcorpus.core.pipeline.tasks import DownloadOpenSubtitlesStep, ImportSubtitlesStep
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.subtitles.parsers import cues_to_srt
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE, SUPPORTED_LANGUAGES
 from howimetyourcorpus.app.dialogs import OpenSubtitlesDownloadDialog, SubtitleBatchImportDialog
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db, confirm_action
 from howimetyourcorpus.app.undo_commands import DeleteSubtitleTrackCommand
@@ -93,7 +94,7 @@ class SubtitleTabWidget(QWidget):
         row.addWidget(self.subs_episode_combo)
         row.addWidget(QLabel("Langue:"))
         self.subs_lang_combo = QComboBox()
-        self.subs_lang_combo.addItems(["en", "fr", "it"])
+        self.subs_lang_combo.addItems(list(SUPPORTED_LANGUAGES))
         self.subs_lang_combo.setToolTip(
             "Le format SRT ne contient pas de langue. Choisissez ici la langue de ce fichier (EN, FR, etc.)."
         )
@@ -333,7 +334,7 @@ class SubtitleTabWidget(QWidget):
         lang = data.get("lang", "")
         if not lang:
             return
-        profile_id = self.subs_norm_profile_combo.currentText() or "default_en_v1"
+        profile_id = self.subs_norm_profile_combo.currentText() or DEFAULT_NORMALIZE_PROFILE
         rewrite_srt = self.subs_rewrite_srt_check.isChecked()
         nb = store.normalize_subtitle_track(db, eid, lang, profile_id, rewrite_srt=rewrite_srt)
         self._on_episode_changed()

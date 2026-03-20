@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from howimetyourcorpus.app.tabs.cta_recommender import EpisodeState, recommend
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
 from howimetyourcorpus.core.normalize.profiles import (
     get_all_profile_ids,
     get_profile,
@@ -569,7 +570,7 @@ class InspectorTabWidget(QWidget):
         profile = (
             episode_preferred.get(eid)
             or (source_defaults.get(ref.source_id or "") if ref else None)
-            or (config.normalize_profile if config else "default_en_v1")
+            or (config.normalize_profile if config else DEFAULT_NORMALIZE_PROFILE)
         )
         all_ids = get_all_profile_ids(store.load_custom_profiles() if store else None)
         if profile and profile in all_ids:
@@ -685,7 +686,7 @@ class InspectorTabWidget(QWidget):
         if not store.has_episode_raw(eid):
             QMessageBox.warning(self, "Normalisation", "L'épisode doit d'abord être téléchargé (RAW).")
             return
-        profile = self.inspect_profile_combo.currentText() or "default_en_v1"
+        profile = self.inspect_profile_combo.currentText() or DEFAULT_NORMALIZE_PROFILE
         self._run_job([NormalizeEpisodeStep(eid, profile)])
 
     @require_project
@@ -696,7 +697,7 @@ class InspectorTabWidget(QWidget):
         if not eid:
             QMessageBox.warning(self, "Profil préféré", "Sélectionnez un épisode.")
             return
-        profile = self.inspect_profile_combo.currentText() or "default_en_v1"
+        profile = self.inspect_profile_combo.currentText() or DEFAULT_NORMALIZE_PROFILE
         preferred = store.load_episode_preferred_profiles()
         preferred[eid] = profile
         store.save_episode_preferred_profiles(preferred)

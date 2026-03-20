@@ -9,6 +9,7 @@ from typing import Any
 from PySide6.QtWidgets import QMessageBox
 
 from howimetyourcorpus.app.dialogs import NormalizeOptionsDialog, SegmentationOptionsDialog
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
 from howimetyourcorpus.app.dialogs.search_replace import SearchReplaceDialog
 from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
 from howimetyourcorpus.core.preparer import (
@@ -36,7 +37,7 @@ class PreparerActionsController:
 
         store = tab._get_store()
         assert store is not None  # garanti par @require_project côté widget
-        profile_id = "default_en_v1"
+        profile_id = DEFAULT_NORMALIZE_PROFILE
         if tab._current_episode_id:
             preferred = store.load_episode_preferred_profiles()
             episode_profile = preferred.get(tab._current_episode_id)

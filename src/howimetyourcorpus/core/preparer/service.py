@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile, get_profile
 from howimetyourcorpus.core.segment import Segment, segmenter_utterances
 from howimetyourcorpus.core.storage import db_segments, db_subtitles
@@ -276,10 +277,10 @@ class PreparerService:
         return updated
 
     def _profile_from_options(self, options: dict[str, Any]) -> NormalizationProfile:
-        profile_id = str(options.get("profile_id") or "default_en_v1")
-        base = get_profile(profile_id, self.store.load_custom_profiles()) or get_profile("default_en_v1")
+        profile_id = str(options.get("profile_id") or DEFAULT_NORMALIZE_PROFILE)
+        base = get_profile(profile_id, self.store.load_custom_profiles()) or get_profile(DEFAULT_NORMALIZE_PROFILE)
         if base is None:
-            base = NormalizationProfile(id="default_en_v1")
+            base = NormalizationProfile(id=DEFAULT_NORMALIZE_PROFILE)
 
         return NormalizationProfile(
             id=profile_id,

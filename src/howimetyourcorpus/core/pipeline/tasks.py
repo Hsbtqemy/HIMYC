@@ -8,6 +8,12 @@ import logging
 from pathlib import Path
 from typing import Callable
 
+from howimetyourcorpus.core.constants import (
+    CLEAN_TEXT_FILENAME,
+    DEFAULT_NORMALIZE_PROFILE,
+    EPISODES_DIR_NAME,
+    SEGMENTS_JSONL_FILENAME,
+)
 from howimetyourcorpus.core.adapters.base import AdapterRegistry
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus, ProjectConfig, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import get_profile
@@ -313,8 +319,8 @@ class BuildDbIndexStep(Step):
                 to_index = [e.episode_id for e in index.episodes if store.has_episode_clean(e.episode_id)]
             else:
                 # Parcourir episodes/
-                for d in (store.root_dir / "episodes").iterdir():
-                    if d.is_dir() and (d / "clean.txt").exists():
+                for d in (store.root_dir / EPISODES_DIR_NAME).iterdir():
+                    if d.is_dir() and (d / CLEAN_TEXT_FILENAME).exists():
                         to_index.append(d.name)
         n = len(to_index)
         is_cancelled = context.get("is_cancelled")
@@ -354,7 +360,7 @@ class SegmentEpisodeStep(Step):
         store: ProjectStore = context["store"]
         db: CorpusDB | None = context.get("db")
         ep_dir = store._episode_dir(self.episode_id)  # noqa: SLF001 - sanitation centralisée côté store
-        segments_path = ep_dir / "segments.jsonl"
+        segments_path = ep_dir / SEGMENTS_JSONL_FILENAME
         if not force and segments_path.exists():
             if on_progress:
                 on_progress(self.name, 1.0, f"Skip (already segmented): {self.episode_id}")
@@ -420,11 +426,11 @@ class RebuildSegmentsIndexStep(Step):
         if index:
             to_segment = [e.episode_id for e in index.episodes if store.has_episode_clean(e.episode_id)]
         else:
-            for d in (store.root_dir / "episodes").iterdir():
-                if d.is_dir() and (d / "clean.txt").exists():
+            for d in (store.root_dir / EPISODES_DIR_NAME).iterdir():
+                if d.is_dir() and (d / CLEAN_TEXT_FILENAME).exists():
                     to_segment.append(d.name)
         n = len(to_segment)
-        lang_hint = getattr(context.get("config"), "normalize_profile", "default_en_v1").split("_")[0].replace("default", "en") or "en"
+        lang_hint = getattr(context.get("config"), "normalize_profile", DEFAULT_NORMALIZE_PROFILE).split("_")[0].replace("default", "en") or "en"
         is_cancelled = context.get("is_cancelled")
         for i, eid in enumerate(to_segment):
             if is_cancelled and is_cancelled():

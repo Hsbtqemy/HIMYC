@@ -30,6 +30,12 @@ jobs:
         run: |
           python scripts/quality_gate.py --coverage-min 62 --output-dir doc/audit/latest_quality_gate
 
+      - name: Run E2E pipeline tests (normalize → segment → export)
+        shell: pwsh
+        run: |
+          $env:HIMYC_PROJECT_PATH = "$env:RUNNER_TEMP\himyc-e2e"
+          pytest tests/test_e2e_pipeline.py -v
+
       - name: Run checklist E2E assist (targeted)
         shell: pwsh
         run: |

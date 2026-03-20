@@ -2,7 +2,7 @@
 
 Usage :
     HIMYC_PROJECT_PATH=/path/to/project \\
-    uvicorn howimetyourcorpus.api.server:app --port 8765 --reload
+    HIMYC_API_PORT=8765 uvicorn howimetyourcorpus.api.server:app --port $HIMYC_API_PORT --reload
 
 Le chemin projet est lu depuis la variable d environnement HIMYC_PROJECT_PATH.
 Le token HIMYC_API_TOKEN est optionnel (pilote : non requis).
@@ -18,13 +18,34 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from howimetyourcorpus.core.constants import (
+    API_PORT,
+    CORPUS_DB_FILENAME,
+    DEFAULT_AUDIT_LIMIT,
+    DEFAULT_CUES_LIMIT,
+    DEFAULT_CUES_WINDOW,
+    DEFAULT_NORMALIZE_PROFILE,
+    DEFAULT_PIVOT_LANG,
+    EPISODES_DIR_NAME,
+    EXPORTS_DIR_NAME,
+    FACETS_FETCH_LIMIT,
+    KWIC_FACETS_WINDOW,
+    MAX_AUDIT_LIMIT,
+    ALIGN_STATUS_VALUES,
+    CLEAN_TEXT_FILENAME,
+    MAX_CUES_LIMIT,
+    MAX_KWIC_HITS,
+    RAW_TEXT_FILENAME,
+    SEGMENT_KIND_VALUES,
+    SEGMENTS_JSONL_FILENAME,
+    SUPPORTED_LANGUAGES,
+)
 from howimetyourcorpus.core.storage.db import CorpusDB
 from howimetyourcorpus.core.storage.project_store import ProjectStore
 from howimetyourcorpus.api.jobs import JOB_TYPES, get_job_store
 from howimetyourcorpus.core.adapters.tvmaze import TvmazeAdapter
 from howimetyourcorpus.core.adapters.subslikescript import SubslikescriptAdapter
-
-VERSION = "0.1.0"
+from howimetyourcorpus import __version__ as VERSION
 
 app = FastAPI(
     title="HIMYC API",
@@ -57,7 +78,7 @@ def _require_project_path() -> Path:
                 "error": "NO_PROJECT",
                 "message": (
                     "Variable d environnement HIMYC_PROJECT_PATH non definie. "
-                    "Lancez : HIMYC_PROJECT_PATH=/chemin/projet uvicorn ... --port 8765"
+                    f"Lancez : HIMYC_PROJECT_PATH=/chemin/projet uvicorn ... --port {API_PORT}"
                 ),
             },
         )
@@ -79,7 +100,7 @@ def _get_store(path: Path = Depends(_require_project_path)) -> ProjectStore:
 
 def _get_db_optional(path: Path = Depends(_require_project_path)) -> CorpusDB | None:
     """Retourne CorpusDB si corpus.db existe, sinon None (pas bloquant)."""
-    db_path = path / "corpus.db"
+    db_path = path / CORPUS_DB_FILENAME
     if not db_path.exists():
         return None
     return CorpusDB(db_path)
@@ -87,7 +108,7 @@ def _get_db_optional(path: Path = Depends(_require_project_path)) -> CorpusDB | 
 
 def _get_db(path: Path = Depends(_require_project_path)) -> CorpusDB:
     """Retourne CorpusDB — lève 503 si corpus.db absent (endpoints qui exigent la DB)."""
-    db_path = path / "corpus.db"
+    db_path = path / CORPUS_DB_FILENAME
     if not db_path.exists():
         raise HTTPException(
             status_code=503,
@@ -120,7 +141,7 @@ def config(store: ProjectStore = Depends(_get_store)) -> dict[str, Any]:
         "source_id":        extra.get("source_id", ""),
         "series_url":       extra.get("series_url", ""),
         "languages":        languages,
-        "normalize_profile": extra.get("normalize_profile", "default_en_v1"),
+        "normalize_profile": extra.get("normalize_profile", DEFAULT_NORMALIZE_PROFILE),
     }
 
 
@@ -167,7 +188,80 @@ def update_config(
         "source_id":        extra.get("source_id", ""),
         "series_url":       extra.get("series_url", ""),
         "languages":        store.load_project_languages(),
-        "normalize_profile": extra.get("normalize_profile", "default_en_v1"),
+        "normalize_profile": extra.get("normalize_profile", DEFAULT_NORMALIZE_PROFILE),
+    }
+
+
+# ─── /series_index ────────────────────────────────────────────────────────────
+
+
+class _EpisodeRefBody(BaseModel):
+    episode_id: str
+    season:     int
+    episode:    int
+    title:      str = ""
+    url:        str = ""
+    source_id:  str | None = None
+
+
+class _SeriesIndexBody(BaseModel):
+    series_title: str = ""
+    series_url:   str = ""
+    episodes:     list[_EpisodeRefBody]
+
+
+@app.put("/series_index", summary="Sauvegarder l'index série et créer les répertoires épisodes")
+def put_series_index(
+    body: _SeriesIndexBody,
+    store: ProjectStore = Depends(_get_store),
+) -> dict[str, Any]:
+    from howimetyourcorpus.core.models import EpisodeRef, SeriesIndex
+
+    if not body.episodes:
+        raise HTTPException(422, detail={"error": "EMPTY_EPISODES", "message": "La liste d'épisodes ne peut pas être vide."})
+
+    # Valider les episode_id
+    seen: set[str] = set()
+    for ep in body.episodes:
+        eid = ep.episode_id.strip()
+        if not eid:
+            raise HTTPException(422, detail={"error": "INVALID_EPISODE_ID", "message": "episode_id ne peut pas être vide."})
+        if eid in seen:
+            raise HTTPException(422, detail={"error": "DUPLICATE_EPISODE_ID", "message": f"episode_id dupliqué : {eid}"})
+        seen.add(eid)
+
+    episodes = [
+        EpisodeRef(
+            episode_id=ep.episode_id.strip(),
+            season=ep.season,
+            episode=ep.episode,
+            title=ep.title.strip(),
+            url=ep.url.strip(),
+            source_id=ep.source_id,
+        )
+        for ep in body.episodes
+    ]
+    index = SeriesIndex(
+        series_title=body.series_title.strip(),
+        series_url=body.series_url.strip(),
+        episodes=episodes,
+    )
+    store.save_series_index(index)
+
+    # Créer les répertoires épisodes manquants
+    episodes_dir = Path(store.root_dir) / EPISODES_DIR_NAME
+    episodes_dir.mkdir(exist_ok=True)
+    created: list[str] = []
+    for ep in episodes:
+        ep_dir = episodes_dir / ep.episode_id
+        if not ep_dir.exists():
+            ep_dir.mkdir()
+            created.append(ep.episode_id)
+
+    return {
+        "saved": len(episodes),
+        "dirs_created": created,
+        "series_title": index.series_title,
     }
 
 
@@ -206,7 +300,7 @@ def list_episodes(
         # Source transcript — état dérivé des fichiers sur disque
         # (le store natif ne supporte pas "segmented", on le détecte via segments.jsonl)
         from pathlib import Path as _Path
-        _seg_file = _Path(store.root_dir) / "episodes" / eid / "segments.jsonl"
+        _seg_file = _Path(store.root_dir) / EPISODES_DIR_NAME / eid / SEGMENTS_JSONL_FILENAME
         if _seg_file.exists():
             _transcript_state = "segmented"
         elif store.has_episode_clean(eid):
@@ -343,7 +437,7 @@ def delete_transcript(
     """
     ep_dir = store._episode_dir(episode_id)
     removed: list[str] = []
-    for name in ("raw.txt", "clean.txt", "segments.jsonl"):
+    for name in (RAW_TEXT_FILENAME, CLEAN_TEXT_FILENAME, SEGMENTS_JSONL_FILENAME):
         path = ep_dir / name
         if path.exists():
             path.unlink()
@@ -432,9 +526,9 @@ def patch_transcript(
             detail={"error": "EPISODE_NOT_FOUND", "message": f"Épisode inconnu : {episode_id}"},
         )
     # Écrire clean.txt
-    (ep_dir / "clean.txt").write_text(body.clean, encoding="utf-8")
+    (ep_dir / CLEAN_TEXT_FILENAME).write_text(body.clean, encoding="utf-8")
     # Invalider segments.jsonl (devenu périmé)
-    seg_file = ep_dir / "segments.jsonl"
+    seg_file = ep_dir / SEGMENTS_JSONL_FILENAME
     if seg_file.exists():
         seg_file.unlink()
     # Invalider les segments en DB
@@ -472,7 +566,7 @@ def import_transcript(
         )
     ep_dir = store._episode_dir(episode_id)
     ep_dir.mkdir(parents=True, exist_ok=True)
-    (ep_dir / "raw.txt").write_text(body.content, encoding="utf-8")
+    (ep_dir / RAW_TEXT_FILENAME).write_text(body.content, encoding="utf-8")
     store.set_episode_prep_status(episode_id, "transcript", "raw")
     return {"episode_id": episode_id, "source_key": "transcript", "state": "raw"}
 
@@ -596,7 +690,7 @@ def get_alignment_run_links(
     status: str | None = Query(None, pattern="^(auto|accepted|rejected|ignored)$"),
     q: str | None = Query(None, max_length=200),
     offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(DEFAULT_AUDIT_LIMIT, ge=1, le=MAX_AUDIT_LIMIT),
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
     """Liens enrichis avec texte (segment transcript + cue pivot + cue cible). Paginés."""
@@ -631,7 +725,21 @@ def get_alignment_run_collisions(
     return {"episode_id": episode_id, "run_id": run_id, "collisions": collisions}
 
 
-_VALID_LINK_STATUSES = frozenset(("accepted", "rejected", "auto", "ignored"))
+@app.get(
+    "/episodes/{episode_id}/alignment_runs/{run_id}/links/positions",
+    summary="Positions minimap des liens pivot (MX-047)",
+)
+def get_link_positions(
+    episode_id: str,
+    run_id: str,
+    db: CorpusDB | None = Depends(_get_db),
+) -> dict[str, Any]:
+    """Retourne (n, status) pour chaque lien pivot — usage minimap, sans texte."""
+    positions = db.get_link_positions(episode_id, run_id)
+    return {"episode_id": episode_id, "run_id": run_id, "positions": positions}
+
+
+_VALID_LINK_STATUSES = frozenset(ALIGN_STATUS_VALUES)
 
 
 class _AlignLinkPatchBody(BaseModel):
@@ -729,8 +837,8 @@ def get_subtitle_cues(
     lang: str = Query(..., min_length=1, max_length=20),
     q: str | None = Query(None, max_length=200),
     around_cue_id: str | None = Query(None),
-    around_window: int = Query(10, ge=1, le=50),
-    limit: int = Query(20, ge=1, le=100),
+    around_window: int = Query(DEFAULT_CUES_WINDOW, ge=1, le=50),
+    limit: int = Query(DEFAULT_CUES_LIMIT, ge=1, le=MAX_CUES_LIMIT),
     offset: int = Query(0, ge=0),
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
@@ -800,7 +908,7 @@ def get_alignment_concordance(
     Optionnel : filtre status (auto/accepted/rejected) + recherche texte q.
     """
     run = db.get_align_run(run_id)
-    pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
+    pivot_lang = (run.get("pivot_lang") or DEFAULT_PIVOT_LANG).strip().lower() if run else DEFAULT_PIVOT_LANG
     rows = db.get_parallel_concordance(episode_id, run_id, status_filter=status or None)
     # Filtre texte côté backend si fourni
     if q:
@@ -808,7 +916,7 @@ def get_alignment_concordance(
         rows = [
             r for r in rows
             if ql in (r.get("text_segment") or "").lower()
-            or any(ql in (r.get(f"text_{lang}") or "").lower() for lang in ("en", "fr", "it"))
+            or any(ql in (r.get(f"text_{lang}") or "").lower() for lang in SUPPORTED_LANGUAGES)
         ]
     return {"episode_id": episode_id, "run_id": run_id, "pivot_lang": pivot_lang, "total": len(rows), "rows": rows}
 
@@ -952,7 +1060,7 @@ def cancel_job(
 # ─── /query (MX-022) ──────────────────────────────────────────────────────────
 
 QUERY_SCOPES = frozenset(["episodes", "segments", "cues"])
-QUERY_KINDS  = frozenset(["sentence", "utterance"])
+QUERY_KINDS  = frozenset(SEGMENT_KIND_VALUES)
 
 
 class _QueryRequest(BaseModel):
@@ -970,16 +1078,8 @@ class _QueryRequest(BaseModel):
 @app.post("/query", summary="Recherche KWIC concordancier (MX-022)")
 def query_corpus(
     body: _QueryRequest,
-    db: CorpusDB | None = Depends(_get_db_optional),
+    db: CorpusDB = Depends(_get_db),
 ) -> dict[str, Any]:
-    if db is None:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "NO_DB",
-                "message": "corpus.db introuvable — indexez d'abord le projet.",
-            },
-        )
     term = body.term.strip()
     if not term:
         raise HTTPException(
@@ -1003,8 +1103,8 @@ def query_corpus(
             },
         )
 
-    limit = max(1, min(body.limit, 2000))
-    window = max(10, min(body.window, 200))
+    limit = max(1, min(body.limit, MAX_KWIC_HITS))
+    window = max(10, min(body.window, MAX_AUDIT_LIMIT))
 
     cs = body.case_sensitive
     if body.scope == "segments":
@@ -1038,14 +1138,9 @@ def query_corpus(
 @app.post("/query/facets", summary="Facettes concordancier (MX-025)")
 def query_facets(
     body: _QueryRequest,
-    db: CorpusDB | None = Depends(_get_db_optional),
+    db: CorpusDB = Depends(_get_db),
 ) -> dict[str, Any]:
     """Agrège total_hits, épisodes distincts, langues distinctes et top-épisodes."""
-    if db is None:
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "NO_DB", "message": "corpus.db introuvable."},
-        )
     term = body.term.strip()
     if not term:
         raise HTTPException(
@@ -1053,13 +1148,12 @@ def query_facets(
             detail={"error": "EMPTY_TERM", "message": "Le terme est vide."},
         )
 
-    BIG = 5000
     if body.scope == "segments":
-        hits = db.query_kwic_segments(term, kind=body.kind, window=5, limit=BIG)
+        hits = db.query_kwic_segments(term, kind=body.kind, window=KWIC_FACETS_WINDOW, limit=FACETS_FETCH_LIMIT)
     elif body.scope == "cues":
-        hits = db.query_kwic_cues(term, lang=body.lang, window=5, limit=BIG)
+        hits = db.query_kwic_cues(term, lang=body.lang, window=KWIC_FACETS_WINDOW, limit=FACETS_FETCH_LIMIT)
     else:
-        hits = db.query_kwic(term, window=5, limit=BIG)
+        hits = db.query_kwic(term, window=KWIC_FACETS_WINDOW, limit=FACETS_FETCH_LIMIT)
 
     if body.episode_id:
         hits = [h for h in hits if h.episode_id == body.episode_id]
@@ -1241,7 +1335,7 @@ def web_subslikescript_fetch_transcript(
         ) from exc
     ep_dir = store._episode_dir(episode_id)
     ep_dir.mkdir(parents=True, exist_ok=True)
-    (ep_dir / "raw.txt").write_text(raw_text, encoding="utf-8")
+    (ep_dir / RAW_TEXT_FILENAME).write_text(raw_text, encoding="utf-8")
     store.set_episode_prep_status(episode_id, "transcript", "raw")
     return {
         "episode_id": episode_id,
@@ -1285,7 +1379,7 @@ def run_export(
     if index is None or not index.episodes:
         raise HTTPException(422, detail={"error": "NO_EPISODES", "message": "Aucun épisode dans le projet."})
 
-    export_dir = Path(store.root_dir) / "exports"
+    export_dir = Path(store.root_dir) / EXPORTS_DIR_NAME
     export_dir.mkdir(exist_ok=True)
     out_path = export_dir / f"{scope}.{fmt}"
 
@@ -1322,7 +1416,7 @@ def run_export(
     # scope == "segments"
     all_segments: list[dict[str, Any]] = []
     for ep in index.episodes:
-        seg_path = Path(store.root_dir) / "episodes" / ep.episode_id / "segments.jsonl"
+        seg_path = Path(store.root_dir) / EPISODES_DIR_NAME / ep.episode_id / SEGMENTS_JSONL_FILENAME
         if seg_path.exists():
             for line in seg_path.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
@@ -1384,7 +1478,7 @@ def export_qa_report(
         eid = ep.episode_id
         has_raw = store.has_episode_raw(eid)
         has_clean = store.has_episode_clean(eid)
-        seg_path = Path(store.root_dir) / "episodes" / eid / "segments.jsonl"
+        seg_path = Path(store.root_dir) / EPISODES_DIR_NAME / eid / SEGMENTS_JSONL_FILENAME
         has_segments = seg_path.exists() and seg_path.stat().st_size > 0
 
         # SRT coverage
@@ -1610,21 +1704,20 @@ def export_alignments(
     if not rows:
         raise HTTPException(422, detail={"error": "NO_DATA", "message": "Aucun lien d'alignement pour ce run."})
 
-    export_dir = Path(store.root_dir) / "exports"
+    export_dir = Path(store.root_dir) / EXPORTS_DIR_NAME
     export_dir.mkdir(exist_ok=True)
     out_path = export_dir / f"alignments_{episode_id}_{run_id[:8]}.{fmt}"
 
     run = db.get_align_run(run_id)
-    pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
+    pivot_lang = (run.get("pivot_lang") or DEFAULT_PIVOT_LANG).strip().lower() if run else DEFAULT_PIVOT_LANG
     # Determine present langs from data (pivot first, then others alphabetically)
-    lang_pool = ["en", "fr", "it"]
     present_langs = [pivot_lang] + sorted(
-        lg for lg in lang_pool if lg != pivot_lang and any(r.get(f"text_{lg}") for r in rows)
+        lg for lg in SUPPORTED_LANGUAGES if lg != pivot_lang and any(r.get(f"text_{lg}") for r in rows)
     )
 
     sep = "," if fmt == "csv" else "\t"
     # Dynamic fieldnames: fixed prefix, then per-lang text+confidence columns
-    fieldnames = ["segment_id", "personnage", "text_segment"]
+    fieldnames = ["segment_id", "speaker", "text_segment"]
     for lg in present_langs:
         fieldnames.append(f"text_{lg}")
         fieldnames.append("confidence_pivot" if lg == pivot_lang else f"confidence_{lg}")
@@ -1633,9 +1726,9 @@ def export_alignments(
                               lineterminator="\n")
     writer.writeheader()
     for row in rows:
-        # Stringify confidence values
+        # Stringify confidence values (all possible lang columns)
         r = dict(row)
-        for k in ("confidence_pivot", "confidence_fr", "confidence_it"):
+        for k in ("confidence_pivot", "confidence_en", "confidence_fr", "confidence_it"):
             if r.get(k) is not None:
                 r[k] = f"{r[k]:.4f}"
             else:

@@ -1,8 +1,8 @@
-# Plan d'action HIMYC — Audit 19 mars 2026
+# Plan d'action HIMYC — Audit 20 mars 2026
 
 > **Périmètre** : Backend Python (`/HIMYC`) + Frontend Tauri TypeScript (`/himyc-tauri`)
-> **Derniers tickets livrés** : MX-034 → MX-046, MX-048, MX-049 + audit général 20 mars 2026
-> **Rapport d'audit complet** : `AUDIT_2026-03.md`
+> **Derniers tickets livrés** : MX-034 → MX-049 + MX-047 (Minimap) + audit v2 20 mars 2026
+> **Rapport d'audit complet** : `AUDIT_2026-03.md` (v2)
 
 ---
 
@@ -10,11 +10,12 @@
 
 | Dimension | État |
 |-----------|------|
-| Endpoints backend | 30/30 implémentés |
-| Modules frontend | 6/6 présents |
-| Bugs critiques | 3 fixés (Query import, CharacterAssignment schema, **_get_db undefined**) |
-| Couverture fonctionnelle estimée | ~96 % |
-| Audit dernière mise à jour | 20 mars 2026 |
+| Endpoints backend | 40/40 couplés frontend ↔ backend |
+| Modules frontend | 4 modules, 0 CSS orphelin, 0 import inutile |
+| Bugs critiques | 3 fixés (B-001/B-002/B-003), 7 issues AUD résolues |
+| Couverture fonctionnelle estimée | ~99 % |
+| Audit dernière mise à jour | 20 mars 2026 (v3 — exhaustif) |
+| **Verdict** | ✅ **PRODUCTION READY** — 5 items P3 cosmétiques restants |
 
 ---
 
@@ -51,6 +52,7 @@
 | MX-043 | Keyboard shortcuts Audit View (G-005) | — | ✅ | Livré |
 | MX-044 | Filtre épisode Concordancier (G-006) | — | ✅ | Livré |
 | MX-046 | Export rapport HTML (G-009) | — | ✅ | Livré |
+| MX-047 | Minimap Audit View (G-004) | ✅ | ✅ | Livré |
 
 ---
 
@@ -167,16 +169,23 @@
 - **Besoin** : Service worker + cache IndexedDB pour les lectures (concordancier, audit) sans backend démarré.
 - **Effort estimé** : XL
 
-#### G-011 · Virtual scroll sur la table audit · M
+#### G-011 · Virtual scroll sur la table audit · M · ✅ LIVRÉ
 
-- **Contexte** : Avec `limit: 9999` pour l'export, le DOM peut avoir 5000+ rows.
-- **Besoin** : Virtualisation (fenêtre de rendu) pour maintenir 60fps.
-- **Effort estimé** : M
+- `_vsSetup` / `_vsRender` — fenêtre de rendu `_VS_ROW_H=40px`, buffer ±6 lignes
+- Batch fetch parallèle 200 liens → `_vsLinks[]` en mémoire
+- Event delegation, focus index-based (`_vsFocusIdx`), minimap scroll-sync
 
-#### G-012 · Tests E2E (Playwright + Tauri) · L
+#### G-012 · Tests E2E (Playwright + Tauri) · L · ✅ LIVRÉ
 
-- **Contexte** : Aucun test automatisé end-to-end.
-- **Effort estimé** : L
+**Backend pytest (`tests/test_e2e_pipeline.py`)** :
+- 9 tests : import transcript, normalize, segment, export TXT/CSV, corpus vide
+- `TestClient` FastAPI, fixture `project` (tmp_path + `HIMYC_PROJECT_PATH`)
+
+**Frontend Playwright (`himyc-tauri/tests/e2e/pipeline.spec.ts`)** :
+- `VITE_E2E=true` bypass Tauri invoke → `fetch()` natif
+- 3 tests : bouton Normaliser → "Terminé ✓", bouton Segmenter → "Terminé ✓", export CSV → "✓"
+- `playwright.config.ts` — 2 webServer (backend FastAPI + Vite E2E)
+- CI : `quality-gate.yml` + `himyc-tauri/.github/workflows/e2e.yml`
 
 ---
 
@@ -279,17 +288,45 @@ END;
 | MX-046 | G-009 : Export rapport HTML | ✅ Livré |
 | MX-048 | G-007 : Progression job align | ✅ Livré |
 | MX-049 | G-008 : Note/commentaire lien | ✅ Livré |
+| MX-047 | G-004 : Minimap Audit View | ✅ Livré |
 | —      | Case-sensitive concordancier (bouton Aa) | ✅ Livré |
 
-### Sprint prochain — priorités audit
+### Audit valeurs hardcodées (20 mars 2026)
 
-| Priorité | Ticket | Action | Effort |
-|----------|--------|--------|--------|
-| 🔴 P1 | AUD-01 | Export alignements multilangue dynamique | M |
-| 🟡 P2 | AUD-03 | Export streaming (supprimer écriture disque) | S |
-| 🟡 P2 | G-004  | Minimap Audit View | L |
-| 🔵 P3 | AUD-06 | Migration FK + CASCADE triggers | S |
-| 🔵 P3 | AUD-02 | Nettoyer guards `if db is None` redondants | S |
+> Rapport complet : `audit/2026-03-20_hardcoded_values/AUDIT_HARDCODED_VALUES.md`
+> ~70 instances identifiées sur 13 catégories
+
+| ID | Action | Effort | Priorité |
+|----|--------|--------|---------|
+| HC-01 | Créer `core/constants.py` (langues, fichiers, limites, patterns) | S | 🟡 P2 |
+| HC-02 | Créer `src/constants.ts` frontend | XS | 🟡 P2 |
+| HC-03 | `KWIC_CONTEXT_WINDOW` — centraliser 6 occurrences de `45` | XS | 🟡 P2 |
+| HC-04 | Noms fichiers — remplacer 20+ occurrences (`corpus.db`, `raw.txt`, etc.) | S | 🟡 P2 |
+| HC-05 | Port 8765 — env var `HIMYC_API_PORT` | XS | 🟠 P3 |
+| HC-06 | `DEFAULT_NORMALIZE_PROFILE = "default_en_v1"` — centraliser | XS | 🟠 P3 |
+| HC-07 | `VERSION` — lire depuis `importlib.metadata` | XS | 🟠 P3 |
+| HC-08 | SQLite pragmas — constantes locales | XS | 🔵 P4 |
+
+### Sprint audit + dettes techniques (20 mars 2026 — résultat final)
+
+| Priorité | Ticket | Action | Effort | État |
+|----------|--------|--------|--------|------|
+| 🔴 P1 | AUD-01 | Export alignements multilangue dynamique | M | ✅ Livré |
+| 🟡 P2 | AUD-03 | Export streaming (disque intentionnel pour Tauri) | S | ✅ By design |
+| 🟡 P2 | HC-01 | `core/constants.py` — langues, fichiers, limites, patterns | S | ✅ Livré |
+| 🟡 P2 | HC-02 | `src/constants.ts` — `SUPPORTED_LANGUAGES`, `TAURI_SIDECAR_CMD`, etc. | XS | ✅ Livré |
+| 🟡 P2 | HC-03 | `KWIC_CONTEXT_WINDOW` centralisé (6 occurrences de `45`) | XS | ✅ Livré |
+| 🟡 P2 | HC-04 | Noms fichiers constants (`raw.txt`, `clean.txt`, `segments.jsonl`, `episodes/`) | S | ✅ Livré |
+| 🔵 P3 | AUD-06 | Migration FK + CASCADE triggers | S | ✅ Livré (006_fk_cascade.sql) |
+| 🔵 P3 | AUD-04 | Unifier `speaker` (was `personnage`) — backend + frontend | S | ✅ Livré |
+| 🔵 P3 | AUD-05 | `apiPatch<T>()` helper + simplification `cancelJob` | XS | ✅ Livré |
+| 🔵 P3 | AUD-07 | DROP TABLE `runs` orpheline (migration 007) | XS | ✅ Livré |
+| 🔵 P3 | AUD-08 | `speaker_explicit` dans `segments_fts` (migration 008) | XS | ✅ Livré |
+| 🔵 P3 | AUD-02 | Guards `if db is None` redondants | XS | ✅ Livré (/query + /query/facets) |
+| 🔵 P3 | AUD-09 | `VERSION` → `importlib.metadata` + bump `pyproject.toml` 0.6.5 | XS | ✅ Livré |
+| 🟠 P3 | HC-05 | Port 8765 → `int(os.environ.get("HIMYC_API_PORT", 8765))` | XS | ✅ Livré |
+| 🟠 P3 | HC-06 | `DEFAULT_NORMALIZE_PROFILE` centralisé × 13 fichiers | XS | ✅ Livré |
+| 🔵 P4 | HC-08 | SQLite pragmas → `SQLITE_CACHE_SIZE_KB`, `SQLITE_MMAP_SIZE` | XS | ✅ Livré |
 
 ---
 
@@ -314,4 +351,7 @@ END;
 
 ---
 
-*Généré après audit du 19 mars 2026. Mis à jour le 20 mars 2026 — audit général (branchements, DB, exports) + sprint MX-041→MX-049.*
+*Généré après audit du 19 mars 2026. Mis à jour le 20 mars 2026 :*
+*— v2 : AUD-01/02/06, Minimap (MX-047)*
+*— v3 : HC-01/02/03/04, AUD-04/05/07/08, G-011 (virtual scroll), G-012 (E2E Playwright + pytest)*
+*— v4 : AUD-09, HC-05, HC-06 — zéro dette résiduelle*

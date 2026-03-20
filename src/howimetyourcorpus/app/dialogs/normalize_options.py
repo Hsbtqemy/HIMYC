@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids, get_profile
 
 
@@ -26,7 +27,7 @@ class NormalizeOptionsDialog(QDialog):
         parent=None,
         *,
         store: Any = None,
-        default_profile_id: str = "default_en_v1",
+        default_profile_id: str = DEFAULT_NORMALIZE_PROFILE,
     ):
         super().__init__(parent)
         self.setWindowTitle("Options de normalisation")
@@ -105,7 +106,7 @@ class NormalizeOptionsDialog(QDialog):
     def get_options(self) -> dict[str, Any]:
         """Retourne les options explicites choisies par l'utilisateur."""
         return {
-            "profile_id": self.profile_combo.currentText() or "default_en_v1",
+            "profile_id": self.profile_combo.currentText() or DEFAULT_NORMALIZE_PROFILE,
             "merge_subtitle_breaks": self.merge_subtitle_breaks_cb.isChecked(),
             "fix_double_spaces": self.fix_double_spaces_cb.isChecked(),
             "fix_french_punctuation": self.fix_french_punctuation_cb.isChecked(),

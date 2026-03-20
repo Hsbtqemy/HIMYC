@@ -7,6 +7,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
+
 
 @dataclass(frozen=True)
 class ProjectConfig:
@@ -24,7 +26,7 @@ class ProjectConfig:
     """Délai minimal entre requêtes HTTP (secondes)."""
     user_agent: str = "HowIMetYourCorpus/0.1 (research)"
     """User-Agent pour les requêtes HTTP."""
-    normalize_profile: str = "default_en_v1"
+    normalize_profile: str = DEFAULT_NORMALIZE_PROFILE
     """Profil de normalisation à appliquer."""
 
 

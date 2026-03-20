@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE, SUPPORTED_LANGUAGES
 from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex
 from howimetyourcorpus.core.normalize.profiles import get_all_profile_ids
 from howimetyourcorpus.core.storage.db import CorpusDB
@@ -23,7 +24,7 @@ class MainWindowProjectController:
     def refresh_language_combos(self) -> None:
         """Met à jour les listes de langues (Sous-titres, Concordance, Préparer, Alignement, Personnages)."""
         win = self._window
-        langs = win._store.load_project_languages() if win._store else ["en", "fr", "it"]  # noqa: SLF001
+        langs = win._store.load_project_languages() if win._store else list(SUPPORTED_LANGUAGES)  # noqa: SLF001
         if hasattr(win, "inspector_tab") and win.inspector_tab and hasattr(win.inspector_tab, "has_subtitle_panel") and win.inspector_tab.has_subtitle_panel():
             win.inspector_tab.set_subtitle_languages(langs)
         if hasattr(win, "concordance_tab") and hasattr(win.concordance_tab, "set_languages"):
@@ -92,7 +93,7 @@ class MainWindowProjectController:
             series_url=data.get("series_url", ""),
             rate_limit_s=float(data.get("rate_limit_s", 2)),
             user_agent=data.get("user_agent", "HowIMetYourCorpus/0.1 (research)"),
-            normalize_profile=data.get("normalize_profile", "default_en_v1"),
+            normalize_profile=data.get("normalize_profile", DEFAULT_NORMALIZE_PROFILE),
         )
         win._config = config  # noqa: SLF001
         win._store = ProjectStore(config.root_dir)  # noqa: SLF001

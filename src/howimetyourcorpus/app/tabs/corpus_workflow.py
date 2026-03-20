@@ -6,6 +6,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QMessageBox
 
+from howimetyourcorpus.core.constants import DEFAULT_NORMALIZE_PROFILE
 from howimetyourcorpus.core.pipeline.tasks import (
     BuildDbIndexStep,
     FetchEpisodeStep,
@@ -59,7 +60,7 @@ class CorpusWorkflowController:
         ref_by_id = {episode.episode_id: episode for episode in index.episodes}
         episode_preferred = store.load_episode_preferred_profiles()
         source_defaults = store.load_source_profile_defaults()
-        batch_profile = tab.norm_batch_profile_combo.currentText() or "default_en_v1"
+        batch_profile = tab.norm_batch_profile_combo.currentText() or DEFAULT_NORMALIZE_PROFILE
         steps = [
             NormalizeEpisodeStep(
                 episode_id,
@@ -116,7 +117,7 @@ class CorpusWorkflowController:
         ref_by_id = {episode.episode_id: episode for episode in index.episodes}
         episode_preferred = store.load_episode_preferred_profiles()
         source_defaults = store.load_source_profile_defaults()
-        batch_profile = tab.norm_batch_profile_combo.currentText() or "default_en_v1"
+        batch_profile = tab.norm_batch_profile_combo.currentText() or DEFAULT_NORMALIZE_PROFILE
         lang_hint = tab._lang_hint_from_profile(getattr(config, "normalize_profile", None))  # noqa: SLF001
         fetch_steps = [
             FetchEpisodeStep(ref_by_id[episode_id].episode_id, ref_by_id[episode_id].url)
