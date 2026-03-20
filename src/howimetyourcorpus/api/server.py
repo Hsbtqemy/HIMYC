@@ -195,6 +195,27 @@ def update_config(
 # ─── /series_index ────────────────────────────────────────────────────────────
 
 
+@app.get("/series_index", summary="Lire l'index série complet (avec URLs par épisode)")
+def get_series_index(store: ProjectStore = Depends(_get_store)) -> dict[str, Any]:
+    from howimetyourcorpus.core.models import SeriesIndex
+    index: SeriesIndex = store.load_series_index()
+    return {
+        "series_title": index.series_title,
+        "series_url":   index.series_url,
+        "episodes": [
+            {
+                "episode_id": ep.episode_id,
+                "season":     ep.season,
+                "episode":    ep.episode,
+                "title":      ep.title,
+                "url":        ep.url,
+                "source_id":  ep.source_id,
+            }
+            for ep in index.episodes
+        ],
+    }
+
+
 class _EpisodeRefBody(BaseModel):
     episode_id: str
     season:     int
@@ -340,6 +361,7 @@ def list_episodes(
                 "season": ep.season,
                 "episode": ep.episode,
                 "title": ep.title,
+                "url": ep.url or "",
                 "sources": sources,
             }
         )

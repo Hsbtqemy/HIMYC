@@ -91,6 +91,15 @@ def set_episode_prep_status(store: Any, episode_id: str, source_key: str, status
     normalized_status = (status or "").strip().lower()
     if not episode or not source:
         return
+    if normalized_status == "absent":
+        # "absent" = supprimer la clé du dict (source supprimée)
+        statuses = load_episode_prep_status(store, logger_obj=logging.getLogger("howimetyourcorpus.core.storage.project_store"))
+        if episode in statuses and source in statuses[episode]:
+            del statuses[episode][source]
+            if not statuses[episode]:
+                del statuses[episode]
+            save_episode_prep_status(store, statuses)
+        return
     if normalized_status not in store.PREP_STATUS_VALUES:
         raise ValueError(f"Statut de préparation invalide: {status!r}")
     statuses = load_episode_prep_status(store, logger_obj=logging.getLogger("howimetyourcorpus.core.storage.project_store"))

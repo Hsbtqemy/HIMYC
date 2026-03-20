@@ -72,9 +72,10 @@ class SubslikescriptAdapter:
         cache_dir: Path | None = None,
     ) -> SeriesIndex:
         """Récupère la page série puis parse pour produire SeriesIndex."""
-        from howimetyourcorpus.core.utils.http import get_html
+        from howimetyourcorpus.core.utils.http import BROWSER_HEADERS, get_html
         html = get_html(
             series_url,
+            extra_headers=BROWSER_HEADERS,
             user_agent=user_agent,
             min_interval_s=rate_limit_s,
             cache_dir=cache_dir,
@@ -155,9 +156,10 @@ class SubslikescriptAdapter:
         cache_dir: Path | None = None,
     ) -> str:
         """Récupère le HTML ; rate_limit_s et cache_dir passés à get_html."""
-        from howimetyourcorpus.core.utils.http import get_html
+        from howimetyourcorpus.core.utils.http import BROWSER_HEADERS, get_html
         return get_html(
             episode_url,
+            extra_headers=BROWSER_HEADERS,
             user_agent=user_agent,
             min_interval_s=rate_limit_s,
             cache_dir=cache_dir,

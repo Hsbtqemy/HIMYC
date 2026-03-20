@@ -14,6 +14,25 @@ logger = logging.getLogger(__name__)
 # Dernière requête (monotonic) pour rate limit global entre appels get_html
 _last_get_html_time: Optional[float] = None
 
+# En-têtes navigateur à utiliser pour les sites protégés par Cloudflare / anti-bot
+BROWSER_HEADERS: dict[str, str] = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+}
+
 
 def _cache_path(url: str, cache_dir: Path) -> Path:
     """Retourne le chemin du fichier cache pour une URL (hash SHA256)."""
@@ -32,6 +51,7 @@ def get_html(
     *,
     timeout_s: float = 30.0,
     user_agent: Optional[str] = None,
+    extra_headers: Optional[dict[str, str]] = None,
     retries: int = 3,
     backoff_s: float = 2.0,
     min_interval_s: Optional[float] = None,
@@ -70,7 +90,9 @@ def get_html(
             if age < cache_ttl_s:
                 return cache_file.read_text(encoding="utf-8")
 
-    headers = {}
+    headers: dict[str, str] = {}
+    if extra_headers:
+        headers.update(extra_headers)
     if user_agent:
         headers["User-Agent"] = user_agent
 
@@ -127,6 +149,7 @@ def get_json(
     *,
     timeout_s: float = 30.0,
     user_agent: Optional[str] = None,
+    extra_headers: Optional[dict[str, str]] = None,
     retries: int = 3,
     backoff_s: float = 2.0,
     min_interval_s: Optional[float] = None,
@@ -164,7 +187,9 @@ def get_json(
             if age < cache_ttl_s:
                 return json.loads(cache_file.read_text(encoding="utf-8"))
 
-    headers = {}
+    headers: dict[str, str] = {}
+    if extra_headers:
+        headers.update(extra_headers)
     if user_agent:
         headers["User-Agent"] = user_agent
 
