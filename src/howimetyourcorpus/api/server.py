@@ -1349,7 +1349,7 @@ def web_subslikescript_fetch_transcript(
 
 
 class _ExportBody(BaseModel):
-    scope: str = "corpus"          # "corpus" | "segments" | "jobs"
+    scope: str = "corpus"          # "corpus" | "segments" | "jobs" | "characters" | "assignments"
     fmt: str = "txt"               # "txt" | "csv" | "json" | "tsv" | "jsonl"
     use_clean: bool = True         # clean.txt si disponible, sinon raw.txt
 
@@ -1371,18 +1371,68 @@ def run_export(
 
     scope = body.scope
     fmt = body.fmt
-    if scope not in ("corpus", "segments", "jobs"):
+    if scope not in ("corpus", "segments", "jobs", "characters", "assignments"):
         raise HTTPException(422, detail={"error": "INVALID_SCOPE", "message": f"scope invalide: {scope}"})
     if fmt not in ("txt", "csv", "json", "tsv", "docx", "jsonl"):
         raise HTTPException(422, detail={"error": "INVALID_FORMAT", "message": f"format invalide: {fmt}"})
 
-    index = store.load_series_index()
-    if index is None or not index.episodes:
-        raise HTTPException(422, detail={"error": "NO_EPISODES", "message": "Aucun épisode dans le projet."})
-
     export_dir = Path(store.root_dir) / EXPORTS_DIR_NAME
     export_dir.mkdir(exist_ok=True)
     out_path = export_dir / f"{scope}.{fmt}"
+
+    # ── characters ────────────────────────────────────────────────────────────
+    if scope == "characters":
+        if fmt not in ("json", "csv"):
+            raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": "Personnages: formats supportés: json, csv."})
+        characters = store.load_character_names()
+        if fmt == "json":
+            out_path.write_text(_json.dumps({"characters": characters}, ensure_ascii=False, indent=2), encoding="utf-8")
+        else:
+            import csv as _csv
+            # Collect all lang keys present across characters
+            all_langs: list[str] = []
+            for c in characters:
+                for lang in (c.get("names_by_lang") or {}).keys():
+                    if lang not in all_langs:
+                        all_langs.append(lang)
+            all_langs.sort()
+            with out_path.open("w", encoding="utf-8", newline="") as f:
+                w = _csv.writer(f)
+                w.writerow(["id", "canonical"] + [f"name_{lg}" for lg in all_langs] + ["aliases"])
+                for c in characters:
+                    names = c.get("names_by_lang") or {}
+                    aliases = ";".join(c.get("aliases") or [])
+                    w.writerow([c.get("id", ""), c.get("canonical", "")] + [names.get(lg, "") for lg in all_langs] + [aliases])
+        return {"scope": scope, "fmt": fmt, "characters": len(characters), "path": str(out_path)}
+
+    # ── assignments ───────────────────────────────────────────────────────────
+    if scope == "assignments":
+        if fmt not in ("json", "csv"):
+            raise HTTPException(422, detail={"error": "UNSUPPORTED_FORMAT", "message": "Assignations: formats supportés: json, csv."})
+        assignments = store.load_character_assignments()
+        if fmt == "json":
+            out_path.write_text(_json.dumps({"assignments": assignments}, ensure_ascii=False, indent=2), encoding="utf-8")
+        else:
+            import csv as _csv
+            with out_path.open("w", encoding="utf-8", newline="") as f:
+                w = _csv.writer(f)
+                w.writerow(["character_id", "speaker_label", "episode_id", "segment_id", "cue_id"])
+                for a in assignments:
+                    # Supports both old (source_type/source_id) and new (segment_id/cue_id) formats
+                    seg_id = a.get("segment_id") or (a.get("source_id") if a.get("source_type") == "segment" else "")
+                    cue_id = a.get("cue_id") or (a.get("source_id") if a.get("source_type") == "cue" else "")
+                    w.writerow([
+                        a.get("character_id", ""),
+                        a.get("speaker_label", ""),
+                        a.get("episode_id", ""),
+                        seg_id or "",
+                        cue_id or "",
+                    ])
+        return {"scope": scope, "fmt": fmt, "assignments": len(assignments), "path": str(out_path)}
+
+    index = store.load_series_index()
+    if index is None or not index.episodes:
+        raise HTTPException(422, detail={"error": "NO_EPISODES", "message": "Aucun épisode dans le projet."})
 
     if scope == "corpus":
         pairs: list[tuple[EpisodeRef, str]] = []
