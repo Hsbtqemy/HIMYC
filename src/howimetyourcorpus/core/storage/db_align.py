@@ -574,12 +574,12 @@ def get_parallel_concordance(
     cues_by_lang: dict[str, dict[str, str]] = {"en": cue_en_by_id, "fr": cue_fr_by_id, "it": cue_it_by_id}
 
     pivot_links = [lnk for lnk in links if lnk.get("role") == "pivot"]
-    target_by_cue_en: dict[str, list[dict]] = {}
+    # Index target links by the pivot cue they're attached to (independent of pivot_lang)
+    target_by_cue_pivot: dict[str, list[dict]] = {}
     for lnk in links:
         if lnk.get("role") != "target" or not lnk.get("cue_id"):
             continue
-        cue_en = lnk["cue_id"]
-        target_by_cue_en.setdefault(cue_en, []).append(lnk)
+        target_by_cue_pivot.setdefault(lnk["cue_id"], []).append(lnk)
 
     result: list[dict] = []
     for pl in pivot_links:
@@ -587,33 +587,32 @@ def get_parallel_concordance(
         cue_id_pivot = pl.get("cue_id")
         text_seg = seg_by_id.get(seg_id, "")
         conf_pivot = pl.get("confidence")
-        # Texte pivot : selon pivot_lang du run (ex. FR si alignement segment↔FR direct)
+
+        # Texte et confiance par langue — initialisés vides
+        text_by_lang: dict[str, str] = {"en": "", "fr": "", "it": ""}
+        conf_by_lang: dict[str, float | None] = {"en": None, "fr": None, "it": None}
+
+        # Le pivot remplit sa propre langue
         pivot_cues = cues_by_lang.get(pivot_lang, {})
-        text_pivot = pivot_cues.get(cue_id_pivot or "", "")
-        text_en = text_pivot if pivot_lang == "en" else ""
-        text_fr = text_pivot if pivot_lang == "fr" else ""
-        text_it = text_pivot if pivot_lang == "it" else ""
-        conf_fr = None
-        conf_it = None
-        # Liens cible (cue pivot EN ↔ cue FR/IT) si pivot était EN
-        for tl in target_by_cue_en.get(cue_id_pivot or "", []):
-            lang = (tl.get("lang") or "").lower()
+        text_by_lang[pivot_lang] = pivot_cues.get(cue_id_pivot or "", "")
+
+        # Les liens cible remplissent les autres langues (quel que soit pivot_lang)
+        for tl in target_by_cue_pivot.get(cue_id_pivot or "", []):
+            tl_lang = (tl.get("lang") or "").lower()
             cid_t = tl.get("cue_id_target")
-            if lang == "fr" and cid_t:
-                text_fr = cue_fr_by_id.get(cid_t, "")
-                conf_fr = tl.get("confidence")
-            elif lang == "it" and cid_t:
-                text_it = cue_it_by_id.get(cid_t, "")
-                conf_it = tl.get("confidence")
+            if tl_lang in cues_by_lang and cid_t:
+                text_by_lang[tl_lang] = cues_by_lang[tl_lang].get(cid_t, "")
+                conf_by_lang[tl_lang] = tl.get("confidence")
+
         result.append({
             "segment_id": seg_id,
             "personnage": seg_speaker_by_id.get(seg_id, ""),
             "text_segment": text_seg,
-            "text_en": text_en,
+            "text_en": text_by_lang["en"],
             "confidence_pivot": conf_pivot,
-            "text_fr": text_fr,
-            "confidence_fr": conf_fr,
-            "text_it": text_it,
-            "confidence_it": conf_it,
+            "text_fr": text_by_lang["fr"],
+            "confidence_fr": conf_by_lang["fr"],
+            "text_it": text_by_lang["it"],
+            "confidence_it": conf_by_lang["it"],
         })
     return result

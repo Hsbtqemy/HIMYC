@@ -85,7 +85,7 @@ def _get_db_optional(path: Path = Depends(_require_project_path)) -> CorpusDB | 
     return CorpusDB(db_path)
 
 
-def _get_db(path: Path = Depends(_require_project_path)) -> CorpusDB | None:
+def _get_db(path: Path = Depends(_require_project_path)) -> CorpusDB:
     """Retourne CorpusDB — lève 503 si corpus.db absent (endpoints qui exigent la DB)."""
     db_path = path / "corpus.db"
     if not db_path.exists():
@@ -570,8 +570,6 @@ def get_alignment_run_stats(
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
     """Retourne nb_links, by_status (auto/accepted/rejected), avg_confidence, n_collisions."""
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     stats = db.get_align_stats_for_run(episode_id, run_id)
     collisions = db.get_collisions_for_run(episode_id, run_id)
     # Calcul couverture : % de liens non-rejetés et non-ignorés / total pivot
@@ -602,8 +600,6 @@ def get_alignment_run_links(
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
     """Liens enrichis avec texte (segment transcript + cue pivot + cue cible). Paginés."""
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     rows, total = db.get_audit_links(
         episode_id, run_id,
         status_filter=status,
@@ -631,8 +627,6 @@ def get_alignment_run_collisions(
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
     """Retourne les cues pivot avec plusieurs liens target dans le même lang (collisions)."""
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     collisions = db.get_collisions_for_run(episode_id, run_id)
     return {"episode_id": episode_id, "run_id": run_id, "collisions": collisions}
 
@@ -657,8 +651,6 @@ def patch_alignment_link(
     """Met à jour le statut et/ou la note d'un lien d'alignement.
     Au moins un des champs (status, note) doit être fourni.
     """
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     if body.status is None and body.note is None:
         raise HTTPException(422, detail={"error": "NOTHING_TO_UPDATE", "message": "Fournissez au moins status ou note."})
     result: dict[str, Any] = {"link_id": link_id}
@@ -707,8 +699,6 @@ def bulk_patch_alignment_links(
 
     En mode filtre, si aucun critère n'est fourni, tous les liens du run sont mis à jour.
     """
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     if body.new_status not in _VALID_LINK_STATUSES:
         raise HTTPException(422, detail={"error": "INVALID_STATUS", "message": f"new_status doit être parmi {sorted(_VALID_LINK_STATUSES)}."})
     if body.filter_status is not None and body.filter_status not in _VALID_LINK_STATUSES:
@@ -751,8 +741,6 @@ def get_subtitle_cues(
     - ``around_cue_id`` : ±``around_window`` cues voisins par numéro de séquence.
     - Sans filtre : liste paginée triée par n.
     """
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     rows, total = db.search_subtitle_cues(
         episode_id,
         lang,
@@ -786,8 +774,6 @@ def retarget_alignment_link(
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
     """Met à jour le cue_id_target d'un lien et passe son statut à 'accepted'."""
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     if not body.cue_id_target.strip():
         raise HTTPException(422, detail={"error": "INVALID_CUE_ID", "message": "cue_id_target est requis."})
     db.update_align_link_cues(link_id, cue_id_target=body.cue_id_target)
@@ -813,8 +799,8 @@ def get_alignment_concordance(
     segment transcript + cue pivot + cue(s) cible(s) alignées.
     Optionnel : filtre status (auto/accepted/rejected) + recherche texte q.
     """
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
+    run = db.get_align_run(run_id)
+    pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
     rows = db.get_parallel_concordance(episode_id, run_id, status_filter=status or None)
     # Filtre texte côté backend si fourni
     if q:
@@ -822,11 +808,9 @@ def get_alignment_concordance(
         rows = [
             r for r in rows
             if ql in (r.get("text_segment") or "").lower()
-            or ql in (r.get("text_en") or "").lower()
-            or ql in (r.get("text_fr") or "").lower()
-            or ql in (r.get("text_it") or "").lower()
+            or any(ql in (r.get(f"text_{lang}") or "").lower() for lang in ("en", "fr", "it"))
         ]
-    return {"episode_id": episode_id, "run_id": run_id, "total": len(rows), "rows": rows}
+    return {"episode_id": episode_id, "run_id": run_id, "pivot_lang": pivot_lang, "total": len(rows), "rows": rows}
 
 
 # ─── Segments longtext (MX-029) ──────────────────────────────────────────────
@@ -846,8 +830,6 @@ def get_episode_segments(
     Retourne les segments d'un épisode (kind=sentence|utterance).
     Filtre optionnel full-text q (FTS si DB dispo, sinon LIKE).
     """
-    if db is None:
-        raise HTTPException(503, detail={"error": "NO_DB", "message": "Base de données indisponible."})
     from howimetyourcorpus.core.storage import db_segments as _db_seg
     conn = db._conn()
     try:
@@ -1482,8 +1464,6 @@ def auto_assign_characters(
     characters = store.load_character_names()
     if not characters:
         raise HTTPException(422, detail={"error": "NO_CHARACTERS", "message": "Aucun personnage défini."})
-    if db is None:
-        raise HTTPException(503, detail={"error": "DB_UNAVAILABLE", "message": "Base de données non disponible."})
 
     # Build lowercase label → character_id lookup
     label_to_char: dict[str, str] = {}
@@ -1575,8 +1555,6 @@ def propagate_characters(
     - Réécrit les fichiers SRT dans le projet
     Retourne le nombre de segments et de cues mis à jour.
     """
-    if db is None:
-        raise HTTPException(503, detail={"error": "DB_UNAVAILABLE", "message": "Base de données non disponible."})
 
     run = db.get_align_run(body.run_id)
     if run is None or run.get("episode_id") != episode_id:
@@ -1600,8 +1578,6 @@ def list_all_alignment_runs(
     db: CorpusDB | None = Depends(_get_db),
 ) -> dict[str, Any]:
     """Retourne toutes les runs d'alignement pour tous les épisodes du projet."""
-    if db is None:
-        return {"runs": []}
     index = store.load_series_index()
     if index is None or not index.episodes:
         return {"runs": []}
@@ -1629,8 +1605,6 @@ def export_alignments(
     import csv as _csv
     import io as _io
 
-    if db is None:
-        raise HTTPException(503, detail={"error": "DB_UNAVAILABLE", "message": "Base de données non disponible."})
 
     rows = db.get_parallel_concordance(episode_id, run_id)
     if not rows:
@@ -1640,9 +1614,20 @@ def export_alignments(
     export_dir.mkdir(exist_ok=True)
     out_path = export_dir / f"alignments_{episode_id}_{run_id[:8]}.{fmt}"
 
+    run = db.get_align_run(run_id)
+    pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
+    # Determine present langs from data (pivot first, then others alphabetically)
+    lang_pool = ["en", "fr", "it"]
+    present_langs = [pivot_lang] + sorted(
+        lg for lg in lang_pool if lg != pivot_lang and any(r.get(f"text_{lg}") for r in rows)
+    )
+
     sep = "," if fmt == "csv" else "\t"
-    fieldnames = ["segment_id", "personnage", "text_segment", "text_en", "confidence_pivot",
-                  "text_fr", "confidence_fr", "text_it", "confidence_it"]
+    # Dynamic fieldnames: fixed prefix, then per-lang text+confidence columns
+    fieldnames = ["segment_id", "personnage", "text_segment"]
+    for lg in present_langs:
+        fieldnames.append(f"text_{lg}")
+        fieldnames.append("confidence_pivot" if lg == pivot_lang else f"confidence_{lg}")
     buf = _io.StringIO()
     writer = _csv.DictWriter(buf, fieldnames=fieldnames, delimiter=sep, extrasaction="ignore",
                               lineterminator="\n")
