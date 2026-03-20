@@ -439,7 +439,7 @@ def export_corpus_phrases_csv(
 # --- Phase 5 : concordancier parallèle et rapports ---
 
 PARALLEL_CONCORDANCE_COLUMNS = [
-    "segment_id", "personnage", "text_segment", "text_en", "confidence_pivot",
+    "segment_id", "speaker", "text_segment", "text_en", "confidence_pivot",
     "text_fr", "confidence_fr", "text_it", "confidence_it",
 ]
 
@@ -572,11 +572,11 @@ def export_align_report_html(
         t_en = str(r.get("text_en", ""))
         t_fr = str(r.get("text_fr", ""))
         t_it = str(r.get("text_it", ""))
-        personnage = str(r.get("personnage", ""))
+        speaker = str(r.get("speaker", ""))
         lines.append(
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
                 _escape(str(r.get("segment_id", ""))),
-                _escape(personnage),
+                _escape(speaker),
                 _escape((t_seg[:80] + "…") if len(t_seg) > 80 else t_seg),
                 _escape((t_en[:60] + "…") if len(t_en) > 60 else t_en),
                 _escape(str(r.get("confidence_pivot") if r.get("confidence_pivot") is not None else "")),

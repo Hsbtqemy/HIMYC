@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from howimetyourcorpus.core.constants import SUPPORTED_LANGUAGES
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -38,7 +40,7 @@ class SubtitleBatchImportDialog(QDialog):
         self.rows = rows  # (path, episode_id_guess, lang_guess)
         self.result: list[tuple[str, str, str]] = []  # (path, episode_id, lang) après validation
         self.profile_id_for_import: str | None = None  # §11 : profil à appliquer à l'import (si coché)
-        langs = languages if languages else ["en", "fr", "it"]
+        langs = languages if languages else list(SUPPORTED_LANGUAGES)
         layout = QVBoxLayout(self)
         profile_row = QHBoxLayout()
         self.apply_profile_on_import_cb = QCheckBox("Appliquer le profil à l'import")

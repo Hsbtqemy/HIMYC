@@ -6,6 +6,8 @@ import re
 import sqlite3
 from dataclasses import dataclass
 
+from howimetyourcorpus.core.constants import KWIC_CONTEXT_WINDOW, KWIC_ELLIPSIS
+
 
 @dataclass
 class KwicHit:
@@ -36,7 +38,7 @@ def query_kwic(
     term: str,
     season: int | None = None,
     episode: int | None = None,
-    window: int = 45,
+    window: int = KWIC_CONTEXT_WINDOW,
     limit: int = 200,
     case_sensitive: bool = False,
 ) -> list[KwicHit]:
@@ -94,9 +96,9 @@ def query_kwic(
             match = text[start:end]
             right = text[end : end + window]
             if len(left) < start - max(0, start - window):
-                left = "..." + left
+                left = KWIC_ELLIPSIS + left
             if len(right) < min(window, len(text) - end):
-                right = right + "..."
+                right = right + KWIC_ELLIPSIS
             hits.append(
                 KwicHit(
                     episode_id=episode_id,
@@ -119,7 +121,7 @@ def query_kwic_segments(
     kind: str | None = None,
     season: int | None = None,
     episode: int | None = None,
-    window: int = 45,
+    window: int = KWIC_CONTEXT_WINDOW,
     limit: int = 200,
     case_sensitive: bool = False,
 ) -> list[KwicHit]:
@@ -166,9 +168,9 @@ def query_kwic_segments(
             match = text[start:end]
             right = text[end : end + window]
             if len(left) < start - max(0, start - window):
-                left = "..." + left
+                left = KWIC_ELLIPSIS + left
             if len(right) < min(window, len(text) - end):
-                right = right + "..."
+                right = right + KWIC_ELLIPSIS
             hits.append(
                 KwicHit(
                     episode_id=episode_id,
@@ -194,7 +196,7 @@ def query_kwic_cues(
     lang: str | None = None,
     season: int | None = None,
     episode: int | None = None,
-    window: int = 45,
+    window: int = KWIC_CONTEXT_WINDOW,
     limit: int = 200,
     case_sensitive: bool = False,
 ) -> list[KwicHit]:
@@ -244,9 +246,9 @@ def query_kwic_cues(
             match = text[start:end]
             right = text[end : end + window]
             if len(left) < start - max(0, start - window):
-                left = "..." + left
+                left = KWIC_ELLIPSIS + left
             if len(right) < min(window, len(text) - end):
-                right = right + "..."
+                right = right + KWIC_ELLIPSIS
             hits.append(
                 KwicHit(
                     episode_id=episode_id,

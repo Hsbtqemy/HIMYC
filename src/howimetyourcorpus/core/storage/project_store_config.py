@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from howimetyourcorpus.core.constants import EPISODES_DIR_NAME
 from howimetyourcorpus.core.models import ProjectConfig
 
 
@@ -45,7 +46,7 @@ def init_project(config: ProjectConfig) -> None:
     root = Path(config.root_dir)
     root.mkdir(parents=True, exist_ok=True)
     (root / "runs").mkdir(exist_ok=True)
-    (root / "episodes").mkdir(exist_ok=True)
+    (root / EPISODES_DIR_NAME).mkdir(exist_ok=True)
     (root / ".cache").mkdir(exist_ok=True)  # Cache HTTP pour éviter requêtes répétées.
 
     data = {

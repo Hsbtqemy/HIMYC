@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-
+from howimetyourcorpus.core.constants import SUPPORTED_LANGUAGES
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -39,7 +39,7 @@ class OpenSubtitlesDownloadDialog(QDialog):
         self.episode_refs = episode_refs
         self.result: tuple[str, str, str, list[tuple[str, int, int]]] | None = None
 
-        langs = languages if languages else ["en", "fr", "it"]
+        langs = languages if languages else list(SUPPORTED_LANGUAGES)
         layout = QVBoxLayout(self)
 
         form = QFormLayout()

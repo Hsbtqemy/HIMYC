@@ -8,6 +8,7 @@ import logging
 import sqlite3
 
 from howimetyourcorpus.core.align import parse_run_segment_kind
+from howimetyourcorpus.core.constants import DEFAULT_PIVOT_LANG, SQLITE_BULK_CHUNK_SIZE, SUPPORTED_LANGUAGES
 from howimetyourcorpus.core.storage import db_segments
 from howimetyourcorpus.core.storage import db_subtitles
 
@@ -116,10 +117,9 @@ def bulk_set_align_status(
         if not link_ids:
             return 0
         total_updated = 0
-        # SQLite SQLITE_LIMIT_VARIABLE_NUMBER ≈ 999 — on chunk par 500 pour la marge
-        chunk_size = 500
-        for i in range(0, len(link_ids), chunk_size):
-            chunk = link_ids[i : i + chunk_size]
+        # SQLite SQLITE_LIMIT_VARIABLE_NUMBER ≈ 999 — on chunk par SQLITE_BULK_CHUNK_SIZE pour la marge
+        for i in range(0, len(link_ids), SQLITE_BULK_CHUNK_SIZE):
+            chunk = link_ids[i : i + SQLITE_BULK_CHUNK_SIZE]
             placeholders = ",".join("?" * len(chunk))
             cur = conn.execute(
                 f"UPDATE align_links SET status = ? WHERE link_id IN ({placeholders})",
@@ -551,27 +551,24 @@ def get_parallel_concordance(
     """
     links = query_alignment_for_episode(conn, episode_id, run_id=run_id, status_filter=status_filter)
     run = get_align_run(conn, run_id)
-    pivot_lang = (run.get("pivot_lang") or "en").strip().lower() if run else "en"
+    pivot_lang = (run.get("pivot_lang") or DEFAULT_PIVOT_LANG).strip().lower() if run else DEFAULT_PIVOT_LANG
     segment_kind, _ = parse_run_segment_kind(
         run.get("params_json") if run else None,
         run_id=run_id,
         logger_obj=logger,
     )
     segments = db_segments.get_segments_for_episode(conn, episode_id, kind=segment_kind)
-    cues_en = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "en")
-    cues_fr = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "fr")
-    cues_it = db_subtitles.get_cues_for_episode_lang(conn, episode_id, "it")
-
-    seg_by_id = {s["segment_id"]: (s.get("text") or "").strip() for s in segments}
-    seg_speaker_by_id = {s["segment_id"]: (s.get("speaker_explicit") or "").strip() for s in segments}
 
     def cue_text(c: dict) -> str:
         return (c.get("text_clean") or c.get("text_raw") or "").strip()
 
-    cue_en_by_id = {c["cue_id"]: cue_text(c) for c in cues_en}
-    cue_fr_by_id = {c["cue_id"]: cue_text(c) for c in cues_fr}
-    cue_it_by_id = {c["cue_id"]: cue_text(c) for c in cues_it}
-    cues_by_lang: dict[str, dict[str, str]] = {"en": cue_en_by_id, "fr": cue_fr_by_id, "it": cue_it_by_id}
+    cues_by_lang: dict[str, dict[str, str]] = {}
+    for _lang in SUPPORTED_LANGUAGES:
+        cues = db_subtitles.get_cues_for_episode_lang(conn, episode_id, _lang)
+        cues_by_lang[_lang] = {c["cue_id"]: cue_text(c) for c in cues}
+
+    seg_by_id = {s["segment_id"]: (s.get("text") or "").strip() for s in segments}
+    seg_speaker_by_id = {s["segment_id"]: (s.get("speaker_explicit") or "").strip() for s in segments}
 
     pivot_links = [lnk for lnk in links if lnk.get("role") == "pivot"]
     # Index target links by the pivot cue they're attached to (independent of pivot_lang)
@@ -588,9 +585,9 @@ def get_parallel_concordance(
         text_seg = seg_by_id.get(seg_id, "")
         conf_pivot = pl.get("confidence")
 
-        # Texte et confiance par langue — initialisés vides
-        text_by_lang: dict[str, str] = {"en": "", "fr": "", "it": ""}
-        conf_by_lang: dict[str, float | None] = {"en": None, "fr": None, "it": None}
+        # Texte et confiance par langue — initialisés vides (dynamique selon SUPPORTED_LANGUAGES)
+        text_by_lang: dict[str, str] = {lg: "" for lg in SUPPORTED_LANGUAGES}
+        conf_by_lang: dict[str, float | None] = {lg: None for lg in SUPPORTED_LANGUAGES}
 
         # Le pivot remplit sa propre langue
         pivot_cues = cues_by_lang.get(pivot_lang, {})
@@ -604,15 +601,34 @@ def get_parallel_concordance(
                 text_by_lang[tl_lang] = cues_by_lang[tl_lang].get(cid_t, "")
                 conf_by_lang[tl_lang] = tl.get("confidence")
 
-        result.append({
+        row: dict = {
             "segment_id": seg_id,
-            "personnage": seg_speaker_by_id.get(seg_id, ""),
+            "speaker": seg_speaker_by_id.get(seg_id, ""),
             "text_segment": text_seg,
-            "text_en": text_by_lang["en"],
             "confidence_pivot": conf_pivot,
-            "text_fr": text_by_lang["fr"],
-            "confidence_fr": conf_by_lang["fr"],
-            "text_it": text_by_lang["it"],
-            "confidence_it": conf_by_lang["it"],
-        })
+        }
+        for _lg in SUPPORTED_LANGUAGES:
+            row[f"text_{_lg}"] = text_by_lang[_lg]
+            row[f"confidence_{_lg}"] = conf_by_lang[_lg]
+        result.append(row)
     return result
+
+def get_link_positions(
+    conn: "sqlite3.Connection",
+    episode_id: str,
+    run_id: str,
+) -> list[dict]:
+    """Retourne (n, status) pour chaque lien pivot, trié par n — usage minimap."""
+    import sqlite3 as _sqlite3
+    conn.row_factory = _sqlite3.Row
+    rows = conn.execute(
+        """
+        SELECT s.n AS n, al.status AS status
+        FROM align_links al
+        JOIN segments s ON s.segment_id = al.segment_id
+        WHERE al.episode_id = ? AND al.align_run_id = ? AND al.role = 'pivot'
+        ORDER BY s.n
+        """,
+        (episode_id, run_id),
+    ).fetchall()
+    return [{"n": int(r["n"]), "status": r["status"]} for r in rows]

@@ -22,6 +22,7 @@ from howimetyourcorpus.app.tabs.preparer_persistence import PreparerPersistenceC
 from howimetyourcorpus.app.tabs.preparer_save import PreparerSaveController
 from howimetyourcorpus.app.tabs.preparer_state import PreparerStateController
 from howimetyourcorpus.app.tabs.preparer_ui import PreparerUiBuilder
+from howimetyourcorpus.core.constants import SUPPORTED_LANGUAGES
 from howimetyourcorpus.app.ui_utils import require_project, require_project_and_db
 from howimetyourcorpus.app.undo_commands import CallbackUndoCommand
 from howimetyourcorpus.core.preparer import (
@@ -142,7 +143,7 @@ class PreparerTabWidget(QWidget):
             or "transcript"
         )
         store = self._get_store()
-        langs_raw = store.load_project_languages() if store else ["en", "fr", "it"]
+        langs_raw = store.load_project_languages() if store else list(SUPPORTED_LANGUAGES)
         langs: list[str] = []
         seen: set[str] = set()
         for lang in langs_raw or []:
@@ -152,7 +153,7 @@ class PreparerTabWidget(QWidget):
             seen.add(key)
             langs.append(key)
         if not langs:
-            langs = ["en", "fr", "it"]
+            langs = list(SUPPORTED_LANGUAGES)
 
         self.prep_source_combo.blockSignals(True)
         self.prep_source_combo.clear()

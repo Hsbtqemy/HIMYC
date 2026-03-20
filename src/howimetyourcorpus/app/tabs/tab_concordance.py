@@ -31,6 +31,7 @@ from howimetyourcorpus.core.export_utils import (
 )
 from howimetyourcorpus.app.models_qt import KwicTableModel
 from howimetyourcorpus.app.ui_utils import require_db
+from howimetyourcorpus.core.constants import KWIC_CONTEXT_WINDOW, SUPPORTED_LANGUAGES
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ class ConcordanceTabWidget(QWidget):
         row.addWidget(QLabel("Langue:"))
         self.kwic_lang_combo = QComboBox()
         self.kwic_lang_combo.addItem("—", "")
-        for lang in ["en", "fr", "it"]:
+        for lang in SUPPORTED_LANGUAGES:
             self.kwic_lang_combo.addItem(lang, lang)
         row.addWidget(self.kwic_lang_combo)
         
@@ -264,12 +265,12 @@ class ConcordanceTabWidget(QWidget):
         # Récupérer TOUS les résultats (sans limite) pour pagination
         if scope == "segments":
             kind = self.kwic_kind_combo.currentData() or None
-            hits = db.query_kwic_segments(term, kind=kind, season=season, episode=episode, window=45, limit=10000)
+            hits = db.query_kwic_segments(term, kind=kind, season=season, episode=episode, window=KWIC_CONTEXT_WINDOW, limit=10000)
         elif scope == "cues":
             lang = self.kwic_lang_combo.currentData() or None
-            hits = db.query_kwic_cues(term, lang=lang, season=season, episode=episode, window=45, limit=10000)
+            hits = db.query_kwic_cues(term, lang=lang, season=season, episode=episode, window=KWIC_CONTEXT_WINDOW, limit=10000)
         else:
-            hits = db.query_kwic(term, season=season, episode=episode, window=45, limit=10000)
+            hits = db.query_kwic(term, season=season, episode=episode, window=KWIC_CONTEXT_WINDOW, limit=10000)
         
         # Pack Analyse C1: Filtrer avec regex/wildcard si activé
         if use_regex or use_wildcard:

@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
+from howimetyourcorpus.core.constants import KWIC_CONTEXT_WINDOW, SQLITE_CACHE_SIZE_KB, SQLITE_MMAP_SIZE
 from howimetyourcorpus.core.models import EpisodeRef, EpisodeStatus
 
 from howimetyourcorpus.core.storage import db_align
@@ -47,9 +48,9 @@ class CorpusDB:
         # Phase 6: Optimisations SQLite
         conn.execute("PRAGMA journal_mode = WAL")  # Write-Ahead Logging (lectures non-bloquantes)
         conn.execute("PRAGMA synchronous = NORMAL")  # Balance sécurité/performance
-        conn.execute("PRAGMA cache_size = -64000")  # Cache 64MB (négatif = KB)
+        conn.execute(f"PRAGMA cache_size = {SQLITE_CACHE_SIZE_KB}")  # Cache 64MB (négatif = KB)
         conn.execute("PRAGMA temp_store = MEMORY")  # Tables temporaires en RAM
-        conn.execute("PRAGMA mmap_size = 268435456")  # Memory-mapped I/O 256MB pour FTS5
+        conn.execute(f"PRAGMA mmap_size = {SQLITE_MMAP_SIZE}")  # Memory-mapped I/O 256MB pour FTS5
         return conn
     
     @contextmanager
@@ -244,7 +245,7 @@ class CorpusDB:
         term: str,
         season: int | None = None,
         episode: int | None = None,
-        window: int = 45,
+        window: int = KWIC_CONTEXT_WINDOW,
         limit: int = 200,
         case_sensitive: bool = False,
     ) -> list[KwicHit]:
@@ -333,7 +334,7 @@ class CorpusDB:
         kind: str | None = None,
         season: int | None = None,
         episode: int | None = None,
-        window: int = 45,
+        window: int = KWIC_CONTEXT_WINDOW,
         limit: int = 200,
         case_sensitive: bool = False,
     ) -> list[KwicHit]:
@@ -438,7 +439,7 @@ class CorpusDB:
         lang: str | None = None,
         season: int | None = None,
         episode: int | None = None,
-        window: int = 45,
+        window: int = KWIC_CONTEXT_WINDOW,
         limit: int = 200,
         case_sensitive: bool = False,
     ) -> list[KwicHit]:
@@ -621,6 +622,14 @@ class CorpusDB:
         conn = self._conn()
         try:
             return db_align.get_align_run(conn, run_id)
+        finally:
+            conn.close()
+
+    def get_link_positions(self, episode_id: str, run_id: str) -> list[dict]:
+        """Retourne (n, status) pour chaque lien pivot — usage minimap."""
+        conn = self._conn()
+        try:
+            return db_align.get_link_positions(conn, episode_id, run_id)
         finally:
             conn.close()
 

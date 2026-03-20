@@ -254,7 +254,7 @@ def align_grouping_to_parallel_rows(grouping: dict[str, Any]) -> list[dict[str, 
         rows.append(
             {
                 "segment_id": grp.get("group_id") or "",
-                "personnage": grp.get("speaker_label") or grp.get("character_id") or "",
+                "speaker": grp.get("speaker_label") or grp.get("character_id") or "",
                 "text_segment": grp.get("text_segment") or "",
                 "text_en": (texts.get("en") if isinstance(texts, dict) else "") or "",
                 "confidence_pivot": grp.get("confidence_pivot"),

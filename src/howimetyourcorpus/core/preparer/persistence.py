@@ -5,11 +5,13 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from howimetyourcorpus.core.constants import CLEAN_TEXT_FILENAME
+
 
 def capture_clean_storage_state(store: Any, episode_id: str) -> dict[str, Any]:
     """Capture l'état disque de clean.txt et transform_meta.json."""
     ep_dir = store._episode_dir(episode_id)  # noqa: SLF001 - sanitation centralisée côté store
-    clean_path = ep_dir / "clean.txt"
+    clean_path = ep_dir / CLEAN_TEXT_FILENAME
     meta_path = store.get_episode_transform_meta_path(episode_id)
     return {
         "clean_exists": clean_path.exists(),
@@ -23,7 +25,7 @@ def apply_clean_storage_state(store: Any, episode_id: str, state: dict[str, Any]
     """Restaure l'état disque de clean.txt et transform_meta.json."""
     ep_dir = store._episode_dir(episode_id)  # noqa: SLF001 - sanitation centralisée côté store
     ep_dir.mkdir(parents=True, exist_ok=True)
-    clean_path = ep_dir / "clean.txt"
+    clean_path = ep_dir / CLEAN_TEXT_FILENAME
     meta_path = store.get_episode_transform_meta_path(episode_id)
 
     if state.get("clean_exists"):

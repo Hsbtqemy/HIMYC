@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from howimetyourcorpus.core.constants import CORPUS_DB_FILENAME, SUPPORTED_LANGUAGES
 from howimetyourcorpus.core.models import ProjectConfig, SeriesIndex, TransformStats
 from howimetyourcorpus.core.normalize.profiles import NormalizationProfile
 from howimetyourcorpus.core.storage.align_grouping import (
@@ -309,7 +310,7 @@ class ProjectStore:
         _set_episode_segmentation_options(self, episode_id, source_key, options)
 
     LANGUAGES_JSON = "languages.json"
-    DEFAULT_LANGUAGES = ["en", "fr", "it"]
+    DEFAULT_LANGUAGES = list(SUPPORTED_LANGUAGES)
 
     def load_project_languages(self) -> list[str]:
         """Charge la liste des langues du projet (sous-titres, personnages, etc.)."""
@@ -369,7 +370,7 @@ class ProjectStore:
         return _get_episode_text_presence(self, logger_obj=logger)
 
     def get_db_path(self) -> Path:
-        return self.root_dir / "corpus.db"
+        return self.root_dir / CORPUS_DB_FILENAME
 
     def get_cache_dir(self) -> Path:
         """Retourne le répertoire cache HTTP (créé à l'init projet)."""

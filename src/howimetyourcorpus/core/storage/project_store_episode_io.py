@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from howimetyourcorpus.core.constants import CLEAN_TEXT_FILENAME, EPISODES_DIR_NAME, RAW_TEXT_FILENAME
 from howimetyourcorpus.core.models import TransformStats
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ def episode_dir(store: Any, episode_id: str) -> Path:
     )
     if not safe_id:
         safe_id = "_"
-    return Path(store.root_dir) / "episodes" / safe_id
+    return Path(store.root_dir) / EPISODES_DIR_NAME / safe_id
 
 
 def save_episode_html(store: Any, episode_id: str, html: str) -> None:
@@ -33,7 +34,7 @@ def save_episode_raw(store: Any, episode_id: str, raw_text: str, meta: dict[str,
     """Sauvegarde le texte brut extrait + métadonnées parse."""
     directory = episode_dir(store, episode_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "raw.txt").write_text(raw_text, encoding="utf-8")
+    (directory / RAW_TEXT_FILENAME).write_text(raw_text, encoding="utf-8")
     (directory / "parse_meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -50,7 +51,7 @@ def save_episode_clean(
     """Sauvegarde le texte normalisé + stats + debug."""
     directory = episode_dir(store, episode_id)
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "clean.txt").write_text(clean_text, encoding="utf-8")
+    (directory / CLEAN_TEXT_FILENAME).write_text(clean_text, encoding="utf-8")
     transform_meta = {
         "raw_lines": stats.raw_lines,
         "clean_lines": stats.clean_lines,
@@ -68,7 +69,7 @@ def save_episode_clean(
 def load_episode_text(store: Any, episode_id: str, kind: str = "raw") -> str:
     """Charge le texte d'un épisode (kind = 'raw' ou 'clean')."""
     directory = episode_dir(store, episode_id)
-    path = directory / "clean.txt" if kind == "clean" else directory / "raw.txt"
+    path = directory / CLEAN_TEXT_FILENAME if kind == "clean" else directory / RAW_TEXT_FILENAME
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8")
@@ -81,12 +82,12 @@ def has_episode_html(store: Any, episode_id: str) -> bool:
 
 def has_episode_raw(store: Any, episode_id: str) -> bool:
     """True si raw.txt existe."""
-    return (episode_dir(store, episode_id) / "raw.txt").exists()
+    return (episode_dir(store, episode_id) / RAW_TEXT_FILENAME).exists()
 
 
 def has_episode_clean(store: Any, episode_id: str) -> bool:
     """True si clean.txt existe."""
-    return (episode_dir(store, episode_id) / "clean.txt").exists()
+    return (episode_dir(store, episode_id) / CLEAN_TEXT_FILENAME).exists()
 
 
 def get_episode_text_presence(
@@ -101,7 +102,7 @@ def get_episode_text_presence(
     """
     raw_ids: set[str] = set()
     clean_ids: set[str] = set()
-    episodes_dir = Path(store.root_dir) / "episodes"
+    episodes_dir = Path(store.root_dir) / EPISODES_DIR_NAME
     if not episodes_dir.exists():
         return raw_ids, clean_ids
     try:
@@ -109,9 +110,9 @@ def get_episode_text_presence(
             if not ep_dir.is_dir():
                 continue
             episode_id = ep_dir.name
-            if (ep_dir / "raw.txt").exists():
+            if (ep_dir / RAW_TEXT_FILENAME).exists():
                 raw_ids.add(episode_id)
-            if (ep_dir / "clean.txt").exists():
+            if (ep_dir / CLEAN_TEXT_FILENAME).exists():
                 clean_ids.add(episode_id)
     except OSError as exc:
         logger_obj.warning("Impossible de scanner %s: %s", episodes_dir, exc)
